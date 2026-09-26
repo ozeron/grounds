@@ -1,0 +1,2 @@
+{"name": "bjson", "tags": ["bend", "json"], "stars": 0, "ok": true,
+ "nested": {"pi": 3.14159, "none": null, "emoji": "\ud83d\ude00"}}

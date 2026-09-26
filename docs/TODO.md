@@ -4,78 +4,84 @@ Built from [RFC 8259](rfc8259.txt) (JSON, STD 90). Section numbers point into it
 
 ## Value model (§3)
 - [x] `Json` type: null, bool, number, string, array, object
-- [ ] Decide number repr: F32 only, or keep the source text / split int vs float (§6)
-- [ ] Decide object repr: ordered `List<Field>` (current) vs `Map` (§4)
+- [x] Number repr: keep the source text; convert with `as_u32` / `as_f32` (§6)
+- [x] Object repr: ordered `List<Field>`, duplicates kept (§4)
 
 ## Parser
 ### Whitespace and top level (§2)
 - [x] Skip `ws` = space, tab, LF, CR — nothing else
 - [x] `JSON-text = ws value ws`; any scalar is valid at the top
 - [x] Reject trailing non-ws after the value
-- [ ] Optionally skip a leading UTF-8 BOM (§8.1, MAY)
+- [x] Skip a leading BOM (§8.1, MAY)
 
 ### Literals (§3)
 - [x] `true`, `false`, `null`, lowercase only
 - [x] Reject any other bare word (`True`, `NaN`, `undefined`)
 
 ### Objects (§4)
-- [ ] `{}` and `{ "k": v, ... }`
-- [ ] Keys must be strings
-- [ ] Reject trailing comma, missing colon, missing comma
-- [ ] Pick a duplicate-key policy: keep last, keep all, or error (SHOULD be unique)
+- [x] `{}` and `{ "k": v, ... }`
+- [x] Keys must be strings
+- [x] Reject trailing comma, missing colon, missing comma
+- [x] Duplicate keys: keep all in order; `get` returns the last
 
 ### Arrays (§5)
-- [ ] `[]` and `[v, ...]` with mixed element types
-- [ ] Reject trailing comma and missing comma
+- [x] `[]` and `[v, ...]` with mixed element types
+- [x] Reject trailing comma and missing comma
 
 ### Numbers (§6)
-- [ ] Optional `-`; no leading `+`
-- [ ] Int: `0` or `1-9` then digits; reject leading zeros (`01`)
-- [ ] Fraction: `.` plus 1+ digits (reject `1.`, `.5`)
-- [ ] Exponent: `e`/`E`, optional `+`/`-`, 1+ digits (reject `1e`)
-- [ ] Reject `Infinity`, `NaN`, hex
-- [ ] Document range/precision limits (§9 allows them); ints in ±(2^53-1) should round-trip
+- [x] Optional `-`; no leading `+`
+- [x] Int: `0` or `1-9` then digits; reject leading zeros (`01`)
+- [x] Fraction: `.` plus 1+ digits (reject `1.`, `.5`)
+- [x] Exponent: `e`/`E`, optional `+`/`-`, 1+ digits (reject `1e`)
+- [x] Reject `Infinity`, `NaN`, hex
+- [x] Limits (§9): none; the text is kept as is, so any size round-trips
 
 ### Strings (§7)
-- [ ] Delimited by `"`
-- [ ] Reject raw control chars U+0000–U+001F
-- [ ] Escapes: `\" \\ \/ \b \f \n \r \t`
-- [ ] `\uXXXX`, hex digits in either case
-- [ ] Combine surrogate pairs (`𝄞` → U+1D11E)
-- [ ] Pick a policy for lone surrogates like `\uDEAD` (§8.2): error or replace
-- [ ] Reject any other escape (`\x`, `\'`, `\0`)
+- [x] Delimited by `"`
+- [x] Reject raw control chars U+0000–U+001F
+- [x] Escapes: `\" \\ \/ \b \f \n \r \t`
+- [x] `\uXXXX`, hex digits in either case
+- [x] Combine surrogate pairs (`𝄞` → U+1D11E)
+- [x] Lone surrogates like `\uDEAD` (§8.2): error
+- [x] Reject any other escape (`\x`, `\'`, `\0`)
 
 ### Encoding (§8.1)
-- [ ] Input is UTF-8; decide what to do with invalid UTF-8
+- [x] Input is a Bend `String` (code points); `File.read` decodes UTF-8 before bjson sees it
 
 ### Errors and limits (§9)
 - [x] Error type with reason
-- [ ] Add position (offset or line:col) to errors
-- [ ] Max nesting depth (needs a `Nat` fuel arg for termination anyway)
-- [ ] Max string length / input size, if any
+- [x] Position: offset, line and column, in code points
+- [x] Max nesting depth: none needed; the stack is explicit, 100k levels tested
+- [x] Max string length / input size: none; 100k-char strings tested
 
 ## Serializer (§10)
-- [ ] Emit only valid JSON
-- [ ] Escape `"`, `\` and U+0000–U+001F; use short escapes where they exist
-- [ ] Never emit NaN/Infinity: error or `null`
-- [ ] Never emit a BOM
-- [ ] Compact output
-- [ ] Pretty output with configurable indent
+- [x] Emit only valid JSON
+- [x] Escape `"`, `\` and U+0000–U+001F; use short escapes where they exist
+- [x] Never emit NaN/Infinity: `num_f32` returns `None` for them
+- [x] Never emit a BOM
+- [x] Compact output
+- [x] Pretty output with configurable indent
 
 ## Equality (§8.3)
-- [ ] Compare keys after unescaping, code point by code point
+- [x] Keys are compared after unescaping, code point by code point
 
 ## API
 - [x] `parse(String) -> Result<Error, Json>`
-- [ ] `stringify(Json) -> String`, `pretty(Json, indent) -> String`
-- [ ] Accessors: `get(key)`, `at(index)`, `as_str`, `as_num`, `as_bool`, `is_null`
+- [x] `stringify(Json) -> String`, `pretty(Json, indent) -> String`
+- [x] Accessors: `get(key)`, `at(index)`, `as_str`, `as_f32`, `as_u32`, `as_bool`, `as_list`, `as_fields`, `is_null`
+- [x] `message(Error)` for people
+- [x] CLI: `main.bend`, builds to a native binary
 
 ## Laws (`LAWS.bend` / `PROOF.bend`)
-- [ ] `parse(stringify(j)) == Done{j}` — round-trip
-- [ ] `stringify` output always parses
-- [ ] `stringify` is deterministic for ordered objects
-- [ ] Parser terminates on every input (checked by Bend already)
+- [x] Literals round-trip; pretty equals compact on literals
+- [x] Lookups on empty or wrong-kind values give `None`
+- [x] Typed reads return what was stored
+- [x] Parser and printer terminate on every input (checked by Bend)
+- [ ] Prove `parse(stringify(j)) == Done{j}` for every `j` (tested, not proven; needs lemmas about the parser loop)
+- [ ] Prove `stringify` output always parses
 
 ## Tests
-- [ ] Port cases from `vendor/zig-std-json/JSONTestSuite_test.zig` (y_/n_/i_ cases)
-- [ ] Unit tests per grammar rule above
+- [x] JSONTestSuite: all 271 y_/n_ cases pass; 25 cases skipped because their bytes are not valid UTF-8
+- [x] Unit tests per grammar rule (`test.bend`)
+- [x] Stress: 100k escapes, items, digits and nesting levels (`stress.bend`)
+- [x] 1 MB round trip through the native CLI matches Python's `json`

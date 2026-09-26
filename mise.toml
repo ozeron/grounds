@@ -1,2 +1,7 @@
 [tools]
 "github:bendlang/bend" = "2.0.27"
+
+[env]
+# stops bend's daily version check and its "run bend update" line;
+# upgrade through mise instead
+BEND_NO_TELEMETRY = "1"
