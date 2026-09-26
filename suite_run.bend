@@ -2,11 +2,10 @@ import Base
 import ./bjson.bend as J
 import ./fast.bend as F
 
-# Y must parse, N must fail, I may do either
+# Y must parse, N must fail (scripts/gen_suite.py decides the i_ cases)
 type Want is Data:
   Y{}
   N{}
-  I{}
 
 # Bytes is input that is not UTF-8, which must fail as such
 type Case is Data:
@@ -29,10 +28,6 @@ def score(want: Want, got: Bool, name: String, t: Tally) -> Tally:
       Tally{(p + 1 : U32), f, a, b, xs}
     case N{} False{} Tally{p, f, a, b, xs}:
       Tally{(p + 1 : U32), f, a, b, xs}
-    case I{} True{} Tally{p, f, a, b, xs}:
-      Tally{p, f, (a + 1 : U32), b, xs}
-    case I{} False{} Tally{p, f, a, b, xs}:
-      Tally{p, f, a, (b + 1 : U32), xs}
     case _ _ Tally{p, f, a, b, xs}:
       Tally{p, (f + 1 : U32), a, b, name <> xs}
 
@@ -121,8 +116,7 @@ def report(t: Tally) -> IO(Unit):
   match t:
     case Tally{p, +f, a, b, xs}:
       do IO<Unit>:
-        IO.print("y/n cases: " ++ U32.show(p) ++ " passed, " ++ U32.show(f) ++ " failed")
-        IO.print("i cases:   " ++ U32.show(a) ++ " accepted, " ++ U32.show(b) ++ " rejected")
+        IO.print("cases: " ++ U32.show(p) ++ " passed, " ++ U32.show(f) ++ " failed")
         Bool.pick(IO(Unit), U32.is_eq(f, 0), IO.pure(Unit, Unit{}), failed(xs))
 
 def run(xs: List<&2, Case>) -> IO(Unit):

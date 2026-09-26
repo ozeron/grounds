@@ -15,6 +15,8 @@ bend main.bend -- file.json           # pretty-print, or report line:col of the 
 scripts/build.sh                      # native CLI with PGO: ./bjson [--compact] file.json
 ```
 
+`--max-bytes N` (provisional) refuses a file over N bytes before reading it.
+
 ## API
 
 Import it with `import ./bjson.bend as J`.
@@ -46,6 +48,7 @@ Provisional, until the API is settled:
 - Numbers keep their exact digits, so big and precise numbers round-trip exactly. Convert with `as_u32` or `as_f32`.
 - Objects keep every member in order, duplicates included. `get` returns the last one.
 - A lone surrogate like `"\uDEAD"` is an error.
+- Where JSONTestSuite leaves the answer to the parser (its `i_` cases), numbers of any size, deep nesting and a leading BOM parse; lone surrogate escapes and non-UTF-8 input fail. `scripts/gen_suite.py` holds the rules.
 - A leading byte order mark is skipped.
 - Input that is not UTF-8 is an error, reported where the bad bytes start. `bjson` checks this before parsing.
 - Offsets and columns count Unicode code points, not bytes.

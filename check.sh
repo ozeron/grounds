@@ -31,6 +31,12 @@ if bend main.bend -- examples/broken.json 2>/dev/null; then
   echo "broken.json should fail"; exit 1
 fi
 echo "broken.json rejected"
+size=$(wc -c < examples/sample.json | tr -d ' ')
+bend main.bend -- --max-bytes "$size" --compact examples/sample.json > /dev/null
+if bend main.bend -- --max-bytes "$((size - 1))" examples/sample.json 2>/dev/null; then
+  echo "--max-bytes should refuse a bigger file"; exit 1
+fi
+echo "--max-bytes $((size - 1)) refused a $size-byte file"
 
 step "integration: native CLI vs Python json (scripts/integration.py)"
 python3 scripts/integration.py

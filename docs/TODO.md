@@ -82,7 +82,7 @@ Built from [RFC 8259](rfc8259.txt) (JSON, STD 90). Section numbers point into it
 - [x] Prove `stringify` output always parses
 
 ## Tests
-- [x] JSONTestSuite: all 271 y_/n_ cases pass; the 25 cases whose bytes are not UTF-8 fail as `InvalidUtf8`
+- [x] JSONTestSuite: all 318 cases pass, i_ ones included, with the answers decided in `scripts/gen_suite.py`: any number parses, lone surrogate escapes and non-UTF-8 input fail
 - [x] Unit tests per grammar rule (`test.bend`)
 - [x] Stress: 100k escapes, items, digits and nesting levels (`stress.bend`)
 - [x] 1 MB round trip through the native CLI matches Python's `json`
