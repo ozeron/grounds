@@ -1,6 +1,7 @@
 # grounds: a monorepo of Bend packages
 projects:
   http: "http"
+  http1: "http1"
   io: "io"
   json: "json"
   utf8: "utf8"

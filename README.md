@@ -10,6 +10,7 @@ A monorepo of [Bend 2](https://github.com/bendlang/bend) packages, built with [m
 | [`utf8`](utf8/) | strict UTF-8 decoding of raw bytes |
 | [`io`](io/) | whole-file reads, as text or raw bytes |
 | [`wire`](wire/) | TCP on bytes: byte-exact send and receive |
+| [`http1`](http1/) | HTTP/1.1 on the wire: request parsing, response writing (RFC 9112) |
 | [`http`](http/) | HTTP messages: methods, status, headers, query, request, response (scaffold; HTTP/1.1, server, router and JSON next) |
 
 ```sh
