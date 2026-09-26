@@ -46,7 +46,8 @@ Built from [RFC 8259](rfc8259.txt) (JSON, STD 90). Section numbers point into it
 - [x] Reject any other escape (`\x`, `\'`, `\0`)
 
 ### Encoding (§8.1)
-- [x] Input is a Bend `String` (code points); `File.read` decodes UTF-8 before bjson sees it
+- [x] Reject input that is not UTF-8 (overlong forms, surrogates, past U+10FFFF, cut-off sequences) as `InvalidUtf8`, at the code point where the bad bytes start
+- [x] `parse_bytes` decodes bytes itself; `bjson` reads text through the runtime and re-reads the bytes only if the text has a U+FFFD
 
 ### Errors and limits (§9)
 - [x] Error type with reason
@@ -81,7 +82,7 @@ Built from [RFC 8259](rfc8259.txt) (JSON, STD 90). Section numbers point into it
 - [x] Prove `stringify` output always parses
 
 ## Tests
-- [x] JSONTestSuite: all 271 y_/n_ cases pass; 25 cases skipped because their bytes are not valid UTF-8
+- [x] JSONTestSuite: all 271 y_/n_ cases pass; the 25 cases whose bytes are not UTF-8 fail as `InvalidUtf8`
 - [x] Unit tests per grammar rule (`test.bend`)
 - [x] Stress: 100k escapes, items, digits and nesting levels (`stress.bend`)
 - [x] 1 MB round trip through the native CLI matches Python's `json`

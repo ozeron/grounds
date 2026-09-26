@@ -33,6 +33,34 @@ def read.size(m):
     t : File & Result<&1, &1, (U32 & String), String> <- File.read(f, (n + 1 : U32))
     read.text(t)
 
+law read.bytes:
+  for m: File & Result<&1, &1, (U32 & String), List<&2, U32>>
+  IO(List<&2, U32>)
+
+def read.bytes(m):
+  (f, r) = m
+  do IO<List<&2, U32>>:
+    bs : List<&2, U32> <- IO.pass(List<&2, U32>, r)
+    x : Unit <- File.close(f)
+    return bs
+
+law read.bytes.size:
+  for m: File & Result<&1, &1, (U32 & String), U32>
+  IO(List<&2, U32>)
+
+def read.bytes.size(m):
+  (f, r) = m
+  do IO<List<&2, U32>>:
+    n : U32 <- IO.pass(U32, r)
+    t : File & Result<&1, &1, (U32 & String), List<&2, U32>> <- File.read_bytes(f, (n + 1 : U32))
+    read.bytes(t)
+
+def read_bytes(path: String) -> IO(List<&2, U32>):
+  do IO<List<&2, U32>>:
+    f : File <- IO.try(File, File.open(path, "r"))
+    m : File & Result<&1, &1, (U32 & String), U32> <- File.size(f)
+    read.bytes.size(m)
+
 def read(path: String) -> IO(String):
   do IO<String>:
     f : File <- IO.try(File, File.open(path, "r"))
@@ -72,6 +100,17 @@ def out(o: F.Out) -> IO(Unit):
     case F.Err{r, at}:
       fail(r, at)
 
+# the runtime reads text as UTF-8 and turns each bad sequence into U+FFFD,
+# so only a text with one may be invalid
+def replaced(s: String) -> Bool:
+  match s:
+    case SNil{}:
+      False{}
+    case SCon{'\u{FFFD}', _}:
+      True{}
+    case SCon{_, t}:
+      replaced(t)
+
 def format(compact: Bool, text: String) -> F.Out:
   match compact:
     case True{}:
@@ -79,10 +118,37 @@ def format(compact: Bool, text: String) -> F.Out:
     case False{}:
       F.pretty(text)
 
+def bad_utf8(+at: U32, +before: String) -> IO(Unit):
+  do IO<Unit>:
+    args : List<String> <- IO.args()
+    IO.die(Unit, 1, path_of(args) ++ ":" ++ J.message(J.bad_utf8(at, before)))
+
+def decoded(compact: Bool, t: J.Text) -> IO(Unit):
+  match t:
+    case J.TOk{text}:
+      out(format(compact, text))
+    case J.TBad{at, before}:
+      bad_utf8(at, before)
+
+# the text had a U+FFFD: decode the bytes to tell a real one from a bad
+# sequence
+def recheck(compact: Bool) -> IO(Unit):
+  do IO<Unit>:
+    args : List<String> <- IO.args()
+    bytes : List<&2, U32> <- read_bytes(path_of(args))
+    decoded(compact, J.decode(bytes))
+
+def checked(compact: Bool, bad: Bool, text: String) -> IO(Unit):
+  match bad:
+    case False{}:
+      out(format(compact, text))
+    case True{}:
+      recheck(compact)
+
 def run(compact: Bool, path: String) -> IO(Unit):
   do IO<Unit>:
-    text : String <- read(path)
-    out(format(compact, text))
+    +text : String <- read(path)
+    checked(compact, replaced(text), text)
 
 def usage() -> IO(Unit):
   IO.die(Unit, 2, "usage: bjson [--compact] <file.json>")

@@ -8,8 +8,10 @@ type Want is Data:
   N{}
   I{}
 
+# Bytes is input that is not UTF-8, which must fail as such
 type Case is Data:
   Case{name: String, want: Want, input: String}
+  Bytes{name: String, input: List<&2, U32>}
 
 type Tally is Data:
   Tally{pass: U32, fail: U32, i_ok: U32, i_err: U32, failed: List<&2, String>}
@@ -87,12 +89,28 @@ def fast(ok: Bool, name: String, t: Tally) -> Tally:
     case False{} Tally{p, f, a, b, xs}:
       Tally{p, (f + 1 : U32), a, b, ("fast path differs: " ++ name) <> xs}
 
+def bad_utf8(r: Result<&2, &2, J.Error, J.Json>) -> Bool:
+  match r:
+    case Fail{J.Error{J.InvalidUtf8{}, _, _, _}}:
+      True{}
+    case _:
+      False{}
+
+def bytes(ok: Bool, name: String, t: Tally) -> Tally:
+  match ok t:
+    case True{} Tally{p, f, a, b, xs}:
+      Tally{(p + 1 : U32), f, a, b, xs}
+    case False{} Tally{p, f, a, b, xs}:
+      Tally{p, (f + 1 : U32), a, b, ("not rejected as invalid UTF-8: " ++ name) <> xs}
+
 def tally(xs: List<&2, Case>, t: Tally) -> Tally:
   match xs:
     case Nil{}:
       t
     case Con{Case{+name, want, +input}, rest}:
       tally(rest, fast(Bool.and(same(F.reformat(input), J.parse(input)), same_pretty(J.parse(input), input)), name, score(want, parsed(J.parse(input)), name, t)))
+    case Con{Bytes{name, input}, rest}:
+      tally(rest, bytes(bad_utf8(J.parse_bytes(input)), name, t))
 
 def failed(xs: List<&2, String>) -> IO(Unit):
   do IO<Unit>:

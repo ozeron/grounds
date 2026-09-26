@@ -33,12 +33,20 @@ Import it with `import ./bjson.bend as J`.
 
 A `Number` holds the sign, digits, fraction and exponent as written. An invalid number cannot be built.
 
+Provisional, until the API is settled:
+
+| Function | Does |
+|---|---|
+| `J.parse_bytes(bs)` | `parse` on raw bytes (`List<U32>`, 0..255); bytes that are not UTF-8 fail as `InvalidUtf8` |
+| `J.decode(bs)` | `TOk{text}`, or `TBad{at, before}`: where the first bad sequence starts |
+
 ## Behavior to know
 
 - Numbers keep their exact digits, so big and precise numbers round-trip exactly. Convert with `as_u32` or `as_f32`.
 - Objects keep every member in order, duplicates included. `get` returns the last one.
 - A lone surrogate like `"\uDEAD"` is an error.
 - A leading byte order mark is skipped.
+- Input that is not UTF-8 is an error, reported where the bad bytes start. `bjson` checks this before parsing.
 - Offsets and columns count Unicode code points, not bytes.
 - Parsing has no nesting limit: it uses an explicit stack, and 100k levels work.
 - Printing recurses on nesting. It handles about 5,000 levels; deeper values overflow the stack.

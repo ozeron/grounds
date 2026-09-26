@@ -33,38 +33,39 @@ def emit(compact: Bool, r: Result<&2, &2, J.Error, J.Json>) -> IO(Unit):
     case _ Fail{e}:
       fail(e)
 
-law read.text:
-  for m: File & Result<&1, &1, (U32 & String), String>
-  IO(String)
+law read.bytes:
+  for m: File & Result<&1, &1, (U32 & String), List<&2, U32>>
+  IO(List<&2, U32>)
 
-def read.text(m):
+def read.bytes(m):
   (f, r) = m
-  do IO<String>:
-    text : String <- IO.pass(String, r)
+  do IO<List<&2, U32>>:
+    bs : List<&2, U32> <- IO.pass(List<&2, U32>, r)
     x : Unit <- File.close(f)
-    return text
+    return bs
 
 law read.size:
   for m: File & Result<&1, &1, (U32 & String), U32>
-  IO(String)
+  IO(List<&2, U32>)
 
 def read.size(m):
   (f, r) = m
-  do IO<String>:
+  do IO<List<&2, U32>>:
     n : U32 <- IO.pass(U32, r)
-    t : File & Result<&1, &1, (U32 & String), String> <- File.read(f, (n + 1 : U32))
-    read.text(t)
+    t : File & Result<&1, &1, (U32 & String), List<&2, U32>> <- File.read_bytes(f, (n + 1 : U32))
+    read.bytes(t)
 
-def read(path: String) -> IO(String):
-  do IO<String>:
+# the bytes as they are: the proven path decodes UTF-8 itself
+def read(path: String) -> IO(List<&2, U32>):
+  do IO<List<&2, U32>>:
     f : File <- IO.try(File, File.open(path, "r"))
     m : File & Result<&1, &1, (U32 & String), U32> <- File.size(f)
     read.size(m)
 
 def run(compact: Bool, path: String) -> IO(Unit):
   do IO<Unit>:
-    text : String <- read(path)
-    emit(compact, J.parse(text))
+    bytes : List<&2, U32> <- read(path)
+    emit(compact, J.parse_bytes(bytes))
 
 def dispatch.flag(ok: Bool, path: String) -> IO(Unit):
   match ok:

@@ -4,6 +4,8 @@
   compact and pretty, and printing is a fixed point
 - invalid docs (fixtures + random mutations): both reject, with exit code 1
   and a path:line:col message
+- byte-mutated docs: where Python's UTF-8 decoder rejects the bytes, both
+  report invalid UTF-8 at the same line and column
 - bjson prints exactly what spec_cli.bend (the CLI on the proven parser)
   prints, errors included
 """
@@ -33,8 +35,12 @@ def build():
 
 
 def run(text, *flags, binary=BIN):
+    return run_bytes(text.encode("utf-8", "surrogatepass"), *flags, binary=binary)
+
+
+def run_bytes(raw, *flags, binary=BIN):
     path = tmp / "in.json"
-    path.write_bytes(text.encode("utf-8", "surrogatepass"))
+    path.write_bytes(raw)
     p = subprocess.run([str(binary), *flags, str(path)], capture_output=True)
     return p.returncode, p.stdout.decode("utf-8"), p.stderr.decode("utf-8")
 
@@ -116,6 +122,42 @@ MUTATIONS = [
 ]
 
 
+# bytes that are not UTF-8, or are only just
+BAD_BYTES = [b"\xff", b"\xfe", b"\x80", b"\xbf", b"\xc0\xaf", b"\xc1\xbf", b"\xe0\x80\xaf",
+             b"\xf0\x80\x80\xaf", b"\xed\xa0\x80", b"\xed\xbf\xbf", b"\xf4\x90\x80\x80",
+             b"\xf5\x80\x80\x80", b"\xe2\x82", b"\xf0\x9f\x98", b"\xc3", b"\xef\xbf\xbd",
+             b"\xf4\x8f\xbf\xbf", b"\xed\x9f\xbf", b"\xc2\x80"]
+
+
+def mutate_bytes(raw):
+    i = rng.randrange(len(raw) + 1)
+    k = rng.random()
+    if k < 0.6:
+        return raw[:i] + rng.choice(BAD_BYTES) + raw[i:]
+    if k < 0.8:
+        return raw[:i] + bytes([rng.randrange(128, 256)]) + raw[i:]
+    return raw[:i]  # may cut a multibyte char
+
+
+def check_bytes(name, raw):
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError as e:
+        counts["invalid"] += 1
+        before = raw[:e.start].decode("utf-8")
+        line = before.count("\n") + 1
+        col = len(before) - (before.rfind("\n") + 1) + 1
+        want = f"{tmp / 'in.json'}:{line}:{col}: invalid UTF-8"
+        for flags in [("--compact",), ()]:
+            got = run_bytes(raw, *flags)
+            if got[0] != 1 or got[2].strip() != want:
+                return fail(name, f"bad UTF-8 not reported as {want!r}: {got[2].strip()!r}", repr(raw))
+            if run_bytes(raw, *flags, binary=SPEC) != got:
+                return fail(name, "differs from the proven parser's CLI on bad UTF-8", repr(raw))
+        return
+    check(name, text)
+
+
 # Checks
 # ------
 
@@ -170,11 +212,14 @@ def main():
         check(f"random#{i}", text)
         mutated = rng.choice(MUTATIONS)(text, rng.randrange(len(text) + 1))
         check(f"mutated#{i}", mutated)
+    for i in range(N // 3):
+        raw = rand_text(rand_value()).encode("utf-8")
+        check_bytes(f"bytes#{i}", mutate_bytes(raw))
     # a big one
     big = json.dumps([rand_value() for _ in range(2000)])
     check("big", big)
 
-    total = len(fixtures) + 2 * N + 1
+    total = len(fixtures) + 2 * N + N // 3 + 1
     print(f"{total - len(failures)}/{total} passed (seed {SEED}; "
           f"{counts['valid']} valid, {counts['invalid']} invalid)")
     for f in failures:

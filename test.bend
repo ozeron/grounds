@@ -276,3 +276,29 @@ def bom_alone() -> {J.parse("\u{FEFF}") == err(J.UnexpectedEnd{}, 1, 1, 2) : R()
 
 def msg_char() -> {J.message(J.Error{J.UnexpectedChar{'\n'}, 4, 2, 1}) == "2:1: unexpected \"\\n\"" : String}:
   {==}
+
+# bytes (§8.1)
+
+def bytes_ok() -> {J.parse_bytes([34, 226, 130, 172, 34]) == ok(s("\u{20AC}")) : R()}:
+  {==}
+
+def bytes_four() -> {J.parse_bytes([34, 240, 159, 152, 128, 34]) == ok(s("\u{1F600}")) : R()}:
+  {==}
+
+def bytes_bad() -> {J.parse_bytes([91, 10, 34, 255, 34, 93]) == err(J.InvalidUtf8{}, 3, 2, 2) : R()}:
+  {==}
+
+def bytes_overlong() -> {J.parse_bytes([34, 192, 175, 34]) == err(J.InvalidUtf8{}, 1, 1, 2) : R()}:
+  {==}
+
+def bytes_surrogate() -> {J.parse_bytes([34, 237, 160, 128, 34]) == err(J.InvalidUtf8{}, 1, 1, 2) : R()}:
+  {==}
+
+def bytes_too_big() -> {J.parse_bytes([34, 244, 144, 128, 128, 34]) == err(J.InvalidUtf8{}, 1, 1, 2) : R()}:
+  {==}
+
+def bytes_cut() -> {J.parse_bytes([34, 226, 130]) == err(J.InvalidUtf8{}, 1, 1, 2) : R()}:
+  {==}
+
+def bytes_first() -> {J.parse_bytes([93, 255]) == err(J.InvalidUtf8{}, 1, 1, 2) : R()}:
+  {==}
