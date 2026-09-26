@@ -1119,12 +1119,61 @@ def show(j: Json, +more: Bool, +pretty: Bool, +unit: String, +d: Nat, out: Strin
         show(v, False{}, pretty, unit, 1n+d,
           colon(pretty, quote(k, br(pretty, unit, 1n+d, opener(more, '{', out))))))
 
+# show, one value at a time off an explicit stack, so nesting costs no
+# machine stack. Each item is a value still to print, with show's more and
+# depth. fuel only satisfies the termination check: it allows 2^32 - 1
+# values, and should it run out, show finishes the job, so the loop always
+# writes what show writes (proof/print.bend)
+type Item is Data:
+  Item{value: Json, more: Bool, depth: Nat}
+
+def show_all(items: List<&2, Item>, +pretty: Bool, +unit: String, out: String) -> String:
+  match items:
+    case Nil{}:
+      out
+    case Con{Item{j, more, d}, up}:
+      show_all(up, pretty, unit, show(j, more, pretty, unit, d, out))
+
+def print_loop(fuel: Nat, items: List<&2, Item>, +pretty: Bool, +unit: String, out: String) -> String:
+  match fuel items:
+    case _ Nil{}:
+      out
+    case 0n rest:
+      show_all(rest, pretty, unit, out)
+    case 1n+p Con{Item{JNull{}, _, _}, up}:
+      print_loop(p, up, pretty, unit, put("null", out))
+    case 1n+p Con{Item{JBool{True{}}, _, _}, up}:
+      print_loop(p, up, pretty, unit, put("true", out))
+    case 1n+p Con{Item{JBool{False{}}, _, _}, up}:
+      print_loop(p, up, pretty, unit, put("false", out))
+    case 1n+p Con{Item{JNum{n}, _, _}, up}:
+      print_loop(p, up, pretty, unit, num_out(n, out))
+    case 1n+p Con{Item{JStr{x}, _, _}, up}:
+      print_loop(p, up, pretty, unit, quote(x, out))
+    case 1n+p Con{Item{JArr{Nil{}}, True{}, +d}, up}:
+      print_loop(p, up, pretty, unit, SCon{']', br(pretty, unit, d, out)})
+    case 1n+p Con{Item{JArr{Nil{}}, False{}, _}, up}:
+      print_loop(p, up, pretty, unit, SCon{']', SCon{'[', out}})
+    case 1n+p Con{Item{JArr{Con{h, t}}, more, +d}, up}:
+      print_loop(p, Con{Item{h, False{}, 1n+d}, Con{Item{JArr{t}, True{}, d}, up}}, pretty, unit,
+        br(pretty, unit, 1n+d, opener(more, '[', out)))
+    case 1n+p Con{Item{JObj{Nil{}}, True{}, +d}, up}:
+      print_loop(p, up, pretty, unit, SCon{'}', br(pretty, unit, d, out)})
+    case 1n+p Con{Item{JObj{Nil{}}, False{}, _}, up}:
+      print_loop(p, up, pretty, unit, SCon{'}', SCon{'{', out}})
+    case 1n+p Con{Item{JObj{Con{Field{k, v}, t}}, more, +d}, up}:
+      print_loop(p, Con{Item{v, False{}, 1n+d}, Con{Item{JObj{t}, True{}, d}, up}}, pretty, unit,
+        colon(pretty, quote(k, br(pretty, unit, 1n+d, opener(more, '{', out)))))
+
+def print_fuel() -> Nat:
+  4294967295n
+
 def stringify(j: Json) -> String:
-  String.reverse(show(j, False{}, False{}, "", 0n, ""))
+  String.reverse(print_loop(print_fuel(), [Item{j, False{}, 0n}], False{}, "", ""))
 
 # unit is the indent of one level, e.g. "  "
 def pretty(j: Json, unit: String) -> String:
-  String.reverse(show(j, False{}, True{}, unit, 0n, ""))
+  String.reverse(print_loop(print_fuel(), [Item{j, False{}, 0n}], True{}, unit, ""))
 
 # Building
 # ========

@@ -2,7 +2,6 @@ import Base
 import ./bjson.bend as J
 
 # big inputs through parse and print: nothing here may overflow the stack
-# printing recurses on nesting, so deep values print up to about 5k levels
 
 def rep.go(n: Nat, +s: String, acc: String) -> String:
   match n:
@@ -28,10 +27,10 @@ def len(r: Result<&2, &2, J.Error, J.Json>) -> String:
     case Fail{J.Error{_, o, _, _}}:
       "error at " ++ U32.show(o)
 
-def pretty_deep(r: Result<&2, &2, J.Error, J.Json>) -> String:
+def pretty_deep(r: Result<&2, &2, J.Error, J.Json>, unit: String) -> String:
   match r:
     case Done{j}:
-      J.pretty(j, " ")
+      J.pretty(j, unit)
     case Fail{_}:
       ""
 
@@ -42,5 +41,7 @@ def main() -> IO(Unit):
     IO.print("object 20k fields:   " ++ len(J.parse("{" ++ rep(19999n, "\"k\": null, ") ++ "\"z\": 0}")))
     IO.print("number 100k digits:  " ++ len(J.parse(rep(100000n, "7"))))
     IO.print("parse 100k deep:     " ++ parsed(J.parse(rep(100000n, "[") ++ rep(100000n, "]"))))
-    IO.print("print 5k deep:       " ++ len(J.parse(rep(5000n, "[") ++ rep(5000n, "]"))))
-    IO.print("pretty 2k deep:      " ++ U32.show(U32.from_nat(String.length(pretty_deep(J.parse(rep(2000n, "[") ++ rep(2000n, "]")))))) ++ " chars")
+    IO.print("print 100k deep:     " ++ len(J.parse(rep(100000n, "[") ++ rep(100000n, "]"))))
+    IO.print("print 100k objects:  " ++ len(J.parse(rep(100000n, "{\"a\":") ++ "1" ++ rep(100000n, "}"))))
+    IO.print("pretty 100k deep:    " ++ U32.show(U32.from_nat(String.length(pretty_deep(J.parse(rep(100000n, "[") ++ rep(100000n, "]")), "")))) ++ " chars")
+    IO.print("pretty 2k deep:      " ++ U32.show(U32.from_nat(String.length(pretty_deep(J.parse(rep(2000n, "[") ++ rep(2000n, "]")), " ")))) ++ " chars")

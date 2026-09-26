@@ -49,7 +49,7 @@ Provisional, until the API is settled:
 - Input that is not UTF-8 is an error, reported where the bad bytes start. `bjson` checks this before parsing.
 - Offsets and columns count Unicode code points, not bytes.
 - Parsing has no nesting limit: it uses an explicit stack, and 100k levels work.
-- Printing recurses on nesting. It handles about 5,000 levels; deeper values overflow the stack.
+- Printing uses an explicit stack too: 100k levels print and pretty-print.
 
 ## Performance
 
@@ -66,7 +66,7 @@ Provisional, until the API is settled:
 
 `bjson` runs everything through `fast.bend`: one pass that checks the input and writes the output, compact or indented, without building a `Json` value. It answers exactly what the proven `J.parse`, `J.stringify` and `J.pretty` answer, errors included: `suite.bend` checks this on every JSONTestSuite case, and `scripts/integration.py` fuzzes `bjson` against `spec_cli.bend`, the same CLI on the proven parser.
 
-Neither `bjson` nor the proven library may share a String: one shared String makes the runtime count references on every String in the program, which halves the speed. `scripts/cold.py` fails the check if `main.bend` or `spec_cli.bend` does. So the proven parser's errors count the chars left instead of keeping the input, and its round trip takes 50 ms on canada and 9.8 ms on twitter.
+Neither `bjson` nor the proven library may share a String: one shared String makes the runtime count references on every String in the program, which halves the speed. `scripts/cold.py` fails the check if `main.bend` or `spec_cli.bend` does. So the proven parser's errors count the chars left instead of keeping the input, and its round trip, UTF-8 decoding included, takes 55 ms on canada and 13 ms on twitter.
 
 ## Files
 
@@ -93,7 +93,7 @@ These rules shaped the code:
 - No mutual recursion. The parser is one loop over an explicit stack of open containers.
 - Every loop must provably end. The parser's step count is bounded by the input length.
 - `Bool.pick` evaluates both branches. Keep recursive calls out of it, or they run anyway.
-- Deep non-tail recursion overflows the runtime stack, even when guarded by a constructor. Everything that walks input or output is tail-recursive, except printing's descent into nesting.
+- Deep non-tail recursion overflows the runtime stack, even when guarded by a constructor. Everything that walks input or output is tail-recursive. The printer walks an explicit stack, with fuel to pass the termination check.
 - A proof cannot see through a `match` on char literals when the char is unknown. So string chars go through one classifier, `class`, that the printer and the lexer share.
 - A value is shared when it is owned (returned, stored, or passed to a def that does either) and then used again. One shared value makes its type reference counted in the whole program, and every constructor of it slower. A `+x` whose earlier uses only read `x` is fine. `Bool.pick(a, b)` owns both, so it shares whatever they have in common.
 - A loop compiles to a tight C loop only if it calls nothing that compiles to a segment (IO, or a call into a slower def).

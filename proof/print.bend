@@ -243,10 +243,65 @@ def show(j, more, d, out, k):
             escape(key, SCon{'"', o3}, SCon{'"', SCon{':', k2}}),
             show.open(more, '{', out, S.str(key, SCon{':', k2})))))
 
+# the printing loop writes what show writes, whatever its fuel
+law loop:
+  for +f: Nat
+  for +items: List<&2, J.Item>
+  for +pretty: Bool
+  for +unit: String
+  for +out: String
+  {J.print_loop(f, items, pretty, unit, out) == J.show_all(items, pretty, unit, out) : String}
+
+def loop(f, items, pretty, unit, out):
+  match f:
+    case 0n:
+      match items:
+        case Nil{}:
+          {==}
+        case Con{_, _}:
+          {==}
+    case 1n+p:
+      match items:
+        case Nil{}:
+          {==}
+        case Con{J.Item{j, more, d}, up}:
+          match j:
+            case J.JNull{}:
+              loop(p, up, pretty, unit, J.put("null", out))
+            case J.JBool{True{}}:
+              loop(p, up, pretty, unit, J.put("true", out))
+            case J.JBool{False{}}:
+              loop(p, up, pretty, unit, J.put("false", out))
+            case J.JNum{n}:
+              loop(p, up, pretty, unit, J.num_out(n, out))
+            case J.JStr{x}:
+              loop(p, up, pretty, unit, J.quote(x, out))
+            case J.JArr{Nil{}}:
+              match more:
+                case True{}:
+                  loop(p, up, pretty, unit, SCon{']', J.br(pretty, unit, d, out)})
+                case False{}:
+                  loop(p, up, pretty, unit, SCon{']', SCon{'[', out}})
+            case J.JArr{Con{h, t}}:
+              loop(p, Con{J.Item{h, False{}, 1n+d}, Con{J.Item{J.JArr{t}, True{}, d}, up}}, pretty, unit,
+                J.br(pretty, unit, 1n+d, J.opener(more, '[', out)))
+            case J.JObj{Nil{}}:
+              match more:
+                case True{}:
+                  loop(p, up, pretty, unit, SCon{'}', J.br(pretty, unit, d, out)})
+                case False{}:
+                  loop(p, up, pretty, unit, SCon{'}', SCon{'{', out}})
+            case J.JObj{Con{J.Field{k, v}, t}}:
+              loop(p, Con{J.Item{v, False{}, 1n+d}, Con{J.Item{J.JObj{t}, True{}, d}, up}}, pretty, unit,
+                J.colon(pretty, J.quote(k, J.br(pretty, unit, 1n+d, J.opener(more, '{', out)))))
+
 # the printer writes S.text
 law print:
   for +j: J.Json
   {J.stringify(j) == S.text(j, False{}, "") : String}
 
 def print(j):
+  +items : List<&2, J.Item> = [J.Item{j, False{}, 0n}]
+  %Equal.sym(String, J.print_loop(J.print_fuel(), items, False{}, "", ""), J.show_all(items, False{}, "", ""),
+    loop(J.print_fuel(), items, False{}, "", "")) : {String.reverse(_) == S.text(j, False{}, "") : String}
   show(j, False{}, 0n, "", "")
