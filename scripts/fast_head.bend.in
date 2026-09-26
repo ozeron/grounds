@@ -3,8 +3,8 @@ import ./bjson.bend as J
 
 # reformat(s) is stringify(parse(s)) in one pass: it checks the input and
 # writes the compact text as it reads, without building the Json value.
-# Ok{text} when s is JSON; Err{reason, offset} when not, the same reason
-# and offset J.parse reports. suite.bend and scripts/integration.py check
+# Ok{text} when s is JSON; Err{reason, left} when not: the same reason
+# J.parse reports, and the count of chars left from where it went wrong. suite.bend and scripts/integration.py check
 # both against J.parse and J.stringify, which PROOF.bend proves.
 #
 # Only J's types and message text are used here: calling J.parse would
@@ -166,14 +166,22 @@ def str_out(k: J.Class, c: Char, out: String) -> String:
     case J.KPlain{}:
       SCon{c, out}
 
-def str_ea(k: J.Class, +at: U32, +ea: U32) -> U32:
+def str_bk(k: J.Class) -> U32:
   match k:
     case J.KBack{}:
-      at
+      1
     case J.KCtrl{}:
-      at
+      1
     case _:
-      ea
+      0
+
+# past a high surrogate, a char other than a backslash
+def hi_reason(ctrl: Bool) -> J.Reason:
+  match ctrl:
+    case True{}:
+      J.ControlChar{}
+    case False{}:
+      J.LoneSurrogate{}
 
 def letter_mode(c: Char) -> Mode:
   match c:
@@ -332,10 +340,10 @@ def dec(d: Nat) -> Nat:
 # what reformat answers
 type Out is Data:
   Ok{text: String}
-  Err{reason: J.Reason, at: U32}
+  Err{reason: J.Reason, left: U32}
 
 # the end of the input
-def finish(mode: Mode, stack: List<&2, Box>, out: String, +at: U32) -> Out:
+def finish(mode: Mode, stack: List<&2, Box>, out: String) -> Out:
   match mode stack:
     case VAfter{} Nil{}:
       Ok{String.reverse(out)}
@@ -348,13 +356,13 @@ def finish(mode: Mode, stack: List<&2, Box>, out: String, +at: U32) -> Out:
     case NExp{} Nil{}:
       Ok{String.reverse(out)}
     case NMin{} _:
-      Err{J.InvalidNumber{}, at}
+      Err{J.InvalidNumber{}, 0}
     case NDot{} _:
-      Err{J.InvalidNumber{}, at}
+      Err{J.InvalidNumber{}, 0}
     case NE{} _:
-      Err{J.InvalidNumber{}, at}
+      Err{J.InvalidNumber{}, 0}
     case NESign{} _:
-      Err{J.InvalidNumber{}, at}
+      Err{J.InvalidNumber{}, 0}
     case _ _:
-      Err{J.UnexpectedEnd{}, at}
+      Err{J.UnexpectedEnd{}, 0}
 

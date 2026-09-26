@@ -727,9 +727,14 @@ def skip_bom(s: String) -> String:
     case rest:
       rest
 
+# where the loop ends on s: Fin, or Bad with the chars left from where s
+# stops being JSON (internal; fast.bend answers the same)
+def parse_state(+s: String) -> St:
+  loop(1n+String.length(s), Run{skip_bom(s), Nil{}, MValue{}})
+
 # RFC 8259 §2: JSON-text = ws value ws
 def parse(+s: String) -> Result<&2, &2, Error, Json>:
-  finish(lines(s, 0, []), loop(1n+String.length(s), Run{skip_bom(s), Nil{}, MValue{}}))
+  finish(lines(s, 0, []), parse_state(s))
 
 # Bytes (RFC 8259 §8.1)
 # =====================

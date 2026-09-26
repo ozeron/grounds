@@ -205,26 +205,27 @@ def read(path: String, limit: Maybe<&2, U32>) -> IO(String):
 
 # an error: the file is read again for its line and column, and the path
 # asked for again, since keeping either would share a String
-def fail.at(r: J.Reason, +at: U32, text: String, path: String) -> IO(Unit):
-  IO.die(Unit, 1, path ++ ":" ++ J.message(J.position(r, at, text)))
+# left counts the chars from the error to the end
+def fail.at(r: J.Reason, +left: U32, +text: String, path: String) -> IO(Unit):
+  IO.die(Unit, 1, path ++ ":" ++ J.message(J.position(r, (J.size(text, 0) - left : U32), text)))
 
-def fail.again(r: J.Reason, +at: U32, text: String) -> IO(Unit):
+def fail.again(r: J.Reason, +left: U32, text: String) -> IO(Unit):
   do IO<Unit>:
     args : List<String> <- IO.args()
-    fail.at(r, at, text, path_of(args))
+    fail.at(r, left, text, path_of(args))
 
-def fail(r: J.Reason, +at: U32) -> IO(Unit):
+def fail(r: J.Reason, +left: U32) -> IO(Unit):
   do IO<Unit>:
     args : List<String> <- IO.args()
     text : String <- read(path_of(args), None{})
-    fail.again(r, at, text)
+    fail.again(r, left, text)
 
 def out(o: F.Out) -> IO(Unit):
   match o:
     case F.Ok{text}:
       IO.print(text)
-    case F.Err{r, at}:
-      fail(r, at)
+    case F.Err{r, left}:
+      fail(r, left)
 
 # the runtime reads text as UTF-8 and turns each bad sequence into U+FFFD,
 # so only a text with one may be invalid

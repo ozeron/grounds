@@ -46,17 +46,16 @@ def eq(a: String, b: String) -> Bool:
 
 # the fast path must give J.parse's answer: the same text when valid, the
 # same reason and offset when not
-def same.err(r: J.Reason, +at: U32, e: J.Error) -> Bool:
-  match e:
-    case J.Error{r2, at2, _, _}:
-      Bool.and(String.eq(J.reason(r), J.reason(r2)), U32.is_eq(at, at2))
+def same.err(r: J.Reason, +left: U32, r2: J.Reason, +left2: U32) -> Bool:
+  Bool.and(String.eq(J.reason(r), J.reason(r2)), U32.is_eq(left, left2))
 
-def same(a: F.Out, b: Result<&2, &2, J.Error, J.Json>) -> Bool:
+# the fast path ends where the proven loop does
+def same(a: F.Out, b: J.St) -> Bool:
   match a b:
-    case F.Ok{x} Done{j}:
+    case F.Ok{x} J.Fin{j}:
       eq(x, J.stringify(j))
-    case F.Err{r, at} Fail{e}:
-      same.err(r, at, e)
+    case F.Err{r, left} J.Bad{r2, left2}:
+      same.err(r, left, r2, left2)
     case _ _:
       False{}
 
@@ -103,7 +102,7 @@ def tally(xs: List<&2, Case>, t: Tally) -> Tally:
     case Nil{}:
       t
     case Con{Case{+name, want, +input}, rest}:
-      tally(rest, fast(Bool.and(same(F.reformat(input), J.parse(input)), same_pretty(J.parse(input), input)), name, score(want, parsed(J.parse(input)), name, t)))
+      tally(rest, fast(Bool.and(same(F.reformat(input), J.parse_state(input)), same_pretty(J.parse(input), input)), name, score(want, parsed(J.parse(input)), name, t)))
     case Con{Bytes{name, input}, rest}:
       tally(rest, bytes(bad_utf8(J.parse_bytes(input)), name, t))
 
