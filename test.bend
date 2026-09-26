@@ -12,8 +12,9 @@ def ok(j: J.Json) -> Result<&2, &2, J.Error, J.Json>:
 def err(r: J.Reason, offset: U32, line: U32, col: U32) -> Result<&2, &2, J.Error, J.Json>:
   Fail{J.Error{r, offset, line, col}}
 
+# a number from its text; null if the text is not a number
 def n(s: String) -> J.Json:
-  J.JNum{s}
+  J.num_u32.go(J.num(s))
 
 def s(x: String) -> J.Json:
   J.JStr{x}
@@ -231,7 +232,10 @@ def rt_pretty() -> {J.parse(J.pretty(J.JObj{[J.Field{"a", J.JArr{[n("1"), J.JObj
 
 # building and reading
 
-def num_valid() -> {J.num("-0.5e1") == Some{n("-0.5e1")} : Maybe<&2, J.Json>}:
+def num_valid() -> {J.num("-0.5e1") == Some{J.JNum{J.Number{True{}, J.IZero{}, J.FSome{J.D5{}, []}, J.ESome{False{}, J.NoSign{}, J.D1{}, []}}}} : Maybe<&2, J.Json>}:
+  {==}
+
+def num_text() -> {J.stringify(n("-12.50E+003")) == "-12.50E+003" : String}:
   {==}
 
 def num_invalid() -> {J.num("01") == None{} : Maybe<&2, J.Json>}:

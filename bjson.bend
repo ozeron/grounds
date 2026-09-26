@@ -6,13 +6,61 @@ import Base
 type Json is Data:
   JNull{}
   JBool{value: Bool}
-  JNum{text: String}
+  JNum{value: Number}
   JStr{value: String}
   JArr{items: List<&2, Json>}
   JObj{fields: List<&2, Field>}
 
 type Field is Data:
   Field{key: String, value: Json}
+
+# a JSON number exactly as written (RFC 8259 §6): -12.50e+3 is
+# Number{True{}, INon{L1, [D2]}, FSome{D5, [D0]}, ESome{False{}, Plus{}, D3, []}}
+# any value of this type prints as a valid number
+
+type Digit is Data:
+  D0{}
+  D1{}
+  D2{}
+  D3{}
+  D4{}
+  D5{}
+  D6{}
+  D7{}
+  D8{}
+  D9{}
+
+# a leading digit: never 0
+type Lead is Data:
+  L1{}
+  L2{}
+  L3{}
+  L4{}
+  L5{}
+  L6{}
+  L7{}
+  L8{}
+  L9{}
+
+type Int is Data:
+  IZero{}
+  INon{lead: Lead, rest: List<&2, Digit>}
+
+type Frac is Data:
+  FNone{}
+  FSome{first: Digit, rest: List<&2, Digit>}
+
+type Sign is Data:
+  NoSign{}
+  Plus{}
+  Minus{}
+
+type Exp is Data:
+  ENone{}
+  ESome{upper: Bool, sign: Sign, first: Digit, rest: List<&2, Digit>}
+
+type Number is Data:
+  Number{neg: Bool, int: Int, frac: Frac, exp: Exp}
 
 type Reason is Data:
   UnexpectedEnd{}
@@ -32,7 +80,7 @@ type Error is Data:
 # Lexing
 # ======
 
-# a lexed token and the input after it, or why and where lexing stopped
+# a lexed string and the input after it, or why and where lexing stopped
 type Lex is Data:
   LOk{text: String, rest: String}
   LBad{reason: Reason, rest: String}
@@ -67,10 +115,40 @@ def expect(word: String, s: String) -> Lex:
 # Strings (RFC 8259 §7)
 # ---------------------
 
-# chars so far (reversed) and a pending high surrogate (0 if none)
-type SSt is Data:
-  SGo{acc: String, hi: U32}
-  SStop{reason: Reason, rest: String}
+# how a char inside a string is treated; the printer and the lexer both
+# decide through this one function, which is what lets PROOF.bend show
+# that they agree
+type Class is Data:
+  KCtrl{}
+  KQuote{}
+  KBack{}
+  KPlain{}
+
+def zeros(n: Nat, w: Word(n)) -> Bool:
+  match n:
+    case 0n:
+      True{}
+    case 1n+p:
+      match w:
+        case WCon{b, t}:
+          Bool.and(Bool.not(b), zeros(p, t))
+
+# U+0000 to U+001F: every bit above the low five is clear
+def is_ctrl(c: Char) -> Bool:
+  match c:
+    case Chr{U32{WCon{_, WCon{_, WCon{_, WCon{_, WCon{_, high}}}}}}}:
+      zeros(27n, high)
+
+def class.go(ctrl: Bool, +x: U32) -> Class:
+  match ctrl:
+    case True{}:
+      KCtrl{}
+    case False{}:
+      Bool.pick(Class, U32.is_eq(x, 34), KQuote{},
+        Bool.pick(Class, U32.is_eq(x, 92), KBack{}, KPlain{}))
+
+def class(+c: Char) -> Class:
+  class.go(is_ctrl(c), Char.to_u32(c))
 
 type Surr is Data:
   NotSurr{}
@@ -88,46 +166,60 @@ def hex_digit(c: Char) -> Maybe<&2, U32>:
         Bool.pick(Maybe<&2, U32>, in_range(x, 97, 102), Some{U32.sub(x, 87)},
           Bool.pick(Maybe<&2, U32>, in_range(x, 65, 70), Some{U32.sub(x, 55)}, None{})))
 
-def hex4(a: Char, b: Char, c: Char, d: Char) -> Maybe<&2, U32>:
-  do Maybe<&2, U32>:
-    x : U32 <- hex_digit(a)
-    y : U32 <- hex_digit(b)
-    z : U32 <- hex_digit(c)
-    w : U32 <- hex_digit(d)
-    return (x * 4096 + y * 256 + z * 16 + w : U32)
-
-def push(acc: String, x: U32) -> SSt:
-  SGo{SCon{Chr{x}, acc}, 0}
+# inside a string: chars so far (reversed), a pending high surrogate (0 if
+# none), and for an escape the input at its backslash
+type SSt is Data:
+  SGo{acc: String, hi: U32}
+  SEsc{acc: String, hi: U32, at: String}
+  SHex{acc: String, hi: U32, left: Nat, code: U32, at: String}
+  SStop{reason: Reason, rest: String}
+  SDone{value: String, rest: String}
 
 def pair(+hi: U32, +lo: U32) -> U32:
   (65536 + (hi - 55296) * 1024 + (lo - 56320) : U32)
 
-def on_code(pending: Bool, k: Surr, acc: String, +hi: U32, +x: U32, here: String) -> SSt:
+def push(acc: String, x: U32) -> SSt:
+  SGo{SCon{Chr{x}, acc}, 0}
+
+def on_code(pending: Bool, k: Surr, acc: String, +hi: U32, +x: U32, at: String) -> SSt:
   match pending k:
     case False{} NotSurr{}:
       push(acc, x)
     case False{} High{}:
       SGo{acc, x}
     case False{} Low{}:
-      SStop{LoneSurrogate{}, here}
+      SStop{LoneSurrogate{}, at}
     case True{} Low{}:
       push(acc, pair(hi, x))
     case True{} _:
-      SStop{LoneSurrogate{}, here}
+      SStop{LoneSurrogate{}, at}
 
-def on_u(acc: String, +hi: U32, code: Maybe<&2, U32>, here: String) -> SSt:
-  match code:
-    case None{}:
-      SStop{InvalidUnicode{}, here}
-    case Some{+x}:
-      on_code(U32.is_ne(hi, 0), surr(x), acc, hi, x, here)
+def code(acc: String, +hi: U32, +x: U32, at: String) -> SSt:
+  on_code(U32.is_ne(hi, 0), surr(x), acc, hi, x, at)
+
+# a char taken as is, raw or after a backslash
+def keep.go(pending: Bool, acc: String, c: Char, at: String) -> SSt:
+  match pending:
+    case True{}:
+      SStop{LoneSurrogate{}, at}
+    case False{}:
+      SGo{SCon{c, acc}, 0}
+
+def keep(acc: String, +hi: U32, c: Char, at: String) -> SSt:
+  keep.go(U32.is_ne(hi, 0), acc, c, at)
+
+def close.go(pending: Bool, acc: String, +rest: String) -> SSt:
+  match pending:
+    case True{}:
+      SStop{LoneSurrogate{}, SCon{'"', rest}}
+    case False{}:
+      SDone{String.reverse(acc), rest}
+
+def close(acc: String, +hi: U32, rest: String) -> SSt:
+  close.go(U32.is_ne(hi, 0), acc, rest)
 
 def unescape(e: Char) -> Maybe<&2, U32>:
   match e:
-    case '"':
-      Some{34}
-    case '\\':
-      Some{92}
     case '/':
       Some{47}
     case 'b':
@@ -143,89 +235,112 @@ def unescape(e: Char) -> Maybe<&2, U32>:
     case _:
       None{}
 
-def on_esc.go(pending: Bool, code: Maybe<&2, U32>, acc: String, here: String) -> SSt:
-  match pending code:
-    case True{} _:
-      SStop{LoneSurrogate{}, here}
-    case False{} None{}:
-      SStop{InvalidEscape{}, here}
-    case False{} Some{x}:
-      push(acc, x)
+def letter.go(m: Maybe<&2, U32>, acc: String, +hi: U32, at: String) -> SSt:
+  match m:
+    case Some{x}:
+      code(acc, hi, x, at)
+    case None{}:
+      SStop{InvalidEscape{}, at}
 
-def on_esc(acc: String, +hi: U32, e: Char, here: String) -> SSt:
-  on_esc.go(U32.is_ne(hi, 0), unescape(e), acc, here)
+# the letter after a backslash
+def letter(+c: Char, acc: String, +hi: U32, at: String) -> SSt:
+  match c:
+    case 'u':
+      SHex{acc, hi, 4n, 0, at}
+    case other:
+      letter.go(unescape(other), acc, hi, at)
 
-def on_char.go(pending: Bool, ctrl: Bool, acc: String, c: Char, here: String) -> SSt:
-  match pending ctrl:
-    case True{} _:
-      SStop{LoneSurrogate{}, here}
-    case False{} True{}:
-      SStop{ControlChar{}, here}
-    case False{} False{}:
-      SGo{SCon{c, acc}, 0}
+def s_go(k: Class, +c: Char, acc: String, +hi: U32, +t: String) -> SSt:
+  match k:
+    case KQuote{}:
+      close(acc, hi, t)
+    case KBack{}:
+      SEsc{acc, hi, SCon{c, t}}
+    case KCtrl{}:
+      SStop{ControlChar{}, SCon{c, t}}
+    case KPlain{}:
+      keep(acc, hi, c, SCon{c, t})
 
-def on_char(acc: String, +hi: U32, +c: Char, here: String) -> SSt:
-  on_char.go(U32.is_ne(hi, 0), U32.is_lt(Char.to_u32(c), 32), acc, c, here)
+def s_esc(k: Class, +c: Char, acc: String, +hi: U32, at: String) -> SSt:
+  match k:
+    case KQuote{}:
+      keep(acc, hi, c, at)
+    case KBack{}:
+      keep(acc, hi, c, at)
+    case KCtrl{}:
+      SStop{InvalidEscape{}, at}
+    case KPlain{}:
+      letter(c, acc, hi, at)
 
-def str_close.go(done: Bool, acc: String, +rest: String) -> Lex:
-  match done:
-    case True{}:
-      LOk{String.reverse(acc), rest}
-    case False{}:
-      LBad{LoneSurrogate{}, SCon{'"', rest}}
+def s_hex.go(left: Nat, d: Maybe<&2, U32>, acc: String, +hi: U32, +x: U32, at: String) -> SSt:
+  match left d:
+    case _ None{}:
+      SStop{InvalidUnicode{}, at}
+    case 0n Some{_}:
+      SStop{Internal{}, at}
+    case 1n Some{v}:
+      code(acc, hi, (x * 16 + v : U32), at)
+    case 2n+p Some{v}:
+      SHex{acc, hi, 1n+p, (x * 16 + v : U32), at}
 
-def str_close(acc: String, +hi: U32, rest: String) -> Lex:
-  str_close.go(U32.is_eq(hi, 0), acc, rest)
+# one char of a string body
+def s_step(st: SSt, +c: Char, +t: String) -> SSt:
+  match st:
+    case SGo{acc, hi}:
+      s_go(class(c), c, acc, hi, t)
+    case SEsc{acc, hi, at}:
+      s_esc(class(c), c, acc, hi, at)
+    case SHex{acc, hi, left, x, at}:
+      s_hex.go(left, hex_digit(c), acc, hi, x, at)
+    case done:
+      done
 
 # the body of a string, after its opening quote
 def lex_str(s: String, st: SSt) -> Lex:
   match s st:
     case _ SStop{r, rest}:
       LBad{r, rest}
-    case SNil{} SGo{_, _}:
+    case _ SDone{v, rest}:
+      LOk{v, rest}
+    case SNil{} _:
       LBad{UnexpectedEnd{}, SNil{}}
-    case SCon{'"', t} SGo{acc, hi}:
-      str_close(acc, hi, t)
-    case SCon{'\\', SCon{'u', SCon{+a, SCon{+b, SCon{+c, SCon{+d, +t}}}}}} SGo{acc, hi}:
-      here : String = SCon{'\\', SCon{'u', SCon{a, SCon{b, SCon{c, SCon{d, t}}}}}}
-      lex_str(t, on_u(acc, hi, hex4(a, b, c, d), here))
-    case SCon{'\\', SCon{+e, +t}} SGo{acc, hi}:
-      lex_str(t, on_esc(acc, hi, e, SCon{'\\', SCon{e, t}}))
-    case SCon{'\\', SNil{}} SGo{_, _}:
-      LBad{UnexpectedEnd{}, SNil{}}
-    case SCon{+c, +t} SGo{acc, hi}:
-      lex_str(t, on_char(acc, hi, c, SCon{c, t}))
+    case SCon{+c, +t} going:
+      lex_str(t, s_step(going, c, t))
 
 # Numbers (RFC 8259 §6)
 # ---------------------
 
-# states of: [ minus ] int [ frac ] [ exp ]
-type NSt is Data:
-  NStart{}
-  NMinus{}
-  NZero{}
-  NInt{}
-  NDot{}
-  NFrac{}
-  NE{}
-  NESign{}
-  NExp{}
-  NStop{}
-  NHalt{last: NSt, rest: String}
-
-type CClass is Data:
-  CZero{}
-  CDigit{}
+# what a char can be inside a number
+type NC is Data:
+  CDig{d: Digit}
   CMinus{}
   CPlus{}
   CDot{}
-  CE{}
+  CExpE{upper: Bool}
   COther{}
 
-def cclass(c: Char) -> CClass:
+def nclass(c: Char) -> NC:
   match c:
     case '0':
-      CZero{}
+      CDig{D0{}}
+    case '1':
+      CDig{D1{}}
+    case '2':
+      CDig{D2{}}
+    case '3':
+      CDig{D3{}}
+    case '4':
+      CDig{D4{}}
+    case '5':
+      CDig{D5{}}
+    case '6':
+      CDig{D6{}}
+    case '7':
+      CDig{D7{}}
+    case '8':
+      CDig{D8{}}
+    case '9':
+      CDig{D9{}}
     case '-':
       CMinus{}
     case '+':
@@ -233,62 +348,86 @@ def cclass(c: Char) -> CClass:
     case '.':
       CDot{}
     case 'e':
-      CE{}
+      CExpE{False{}}
     case 'E':
-      CE{}
-    case +d:
-      Bool.pick(CClass, Char.is_digit(d), CDigit{}, COther{})
+      CExpE{True{}}
+    case _:
+      COther{}
 
-def num_next(st: NSt, k: CClass) -> NSt:
+# states of [ minus ] int [ frac ] [ exp ]; digit lists are reversed
+type NSt is Data:
+  NStart{}
+  NMin{}
+  NZero{neg: Bool}
+  NInt{neg: Bool, lead: Lead, ds: List<&2, Digit>}
+  NDot{neg: Bool, int: Int}
+  NFrac{neg: Bool, int: Int, first: Digit, ds: List<&2, Digit>}
+  NE{neg: Bool, int: Int, frac: Frac, upper: Bool}
+  NESign{neg: Bool, int: Int, frac: Frac, upper: Bool, sign: Sign}
+  NExp{neg: Bool, int: Int, frac: Frac, upper: Bool, sign: Sign, first: Digit, ds: List<&2, Digit>}
+  NStop{}
+  NHalt{last: NSt, rest: String}
+
+def rev(ds: List<&2, Digit>) -> List<&2, Digit>:
+  List.reverse(&2, Digit, ds)
+
+def first_digit(neg: Bool, d: Digit) -> NSt:
+  match d:
+    case D0{}:
+      NZero{neg}
+    case D1{}:
+      NInt{neg, L1{}, []}
+    case D2{}:
+      NInt{neg, L2{}, []}
+    case D3{}:
+      NInt{neg, L3{}, []}
+    case D4{}:
+      NInt{neg, L4{}, []}
+    case D5{}:
+      NInt{neg, L5{}, []}
+    case D6{}:
+      NInt{neg, L6{}, []}
+    case D7{}:
+      NInt{neg, L7{}, []}
+    case D8{}:
+      NInt{neg, L8{}, []}
+    case D9{}:
+      NInt{neg, L9{}, []}
+
+def num_next(st: NSt, k: NC) -> NSt:
   match st k:
     case NStart{} CMinus{}:
-      NMinus{}
-    case NStart{} CZero{}:
-      NZero{}
-    case NStart{} CDigit{}:
-      NInt{}
-    case NMinus{} CZero{}:
-      NZero{}
-    case NMinus{} CDigit{}:
-      NInt{}
-    case NZero{} CDot{}:
-      NDot{}
-    case NZero{} CE{}:
-      NE{}
-    case NInt{} CZero{}:
-      NInt{}
-    case NInt{} CDigit{}:
-      NInt{}
-    case NInt{} CDot{}:
-      NDot{}
-    case NInt{} CE{}:
-      NE{}
-    case NDot{} CZero{}:
-      NFrac{}
-    case NDot{} CDigit{}:
-      NFrac{}
-    case NFrac{} CZero{}:
-      NFrac{}
-    case NFrac{} CDigit{}:
-      NFrac{}
-    case NFrac{} CE{}:
-      NE{}
-    case NE{} CPlus{}:
-      NESign{}
-    case NE{} CMinus{}:
-      NESign{}
-    case NE{} CZero{}:
-      NExp{}
-    case NE{} CDigit{}:
-      NExp{}
-    case NESign{} CZero{}:
-      NExp{}
-    case NESign{} CDigit{}:
-      NExp{}
-    case NExp{} CZero{}:
-      NExp{}
-    case NExp{} CDigit{}:
-      NExp{}
+      NMin{}
+    case NStart{} CDig{d}:
+      first_digit(False{}, d)
+    case NMin{} CDig{d}:
+      first_digit(True{}, d)
+    case NZero{neg} CDot{}:
+      NDot{neg, IZero{}}
+    case NZero{neg} CExpE{u}:
+      NE{neg, IZero{}, FNone{}, u}
+    case NInt{neg, l, ds} CDig{d}:
+      NInt{neg, l, Con{d, ds}}
+    case NInt{neg, l, ds} CDot{}:
+      NDot{neg, INon{l, rev(ds)}}
+    case NInt{neg, l, ds} CExpE{u}:
+      NE{neg, INon{l, rev(ds)}, FNone{}, u}
+    case NDot{neg, i} CDig{d}:
+      NFrac{neg, i, d, []}
+    case NFrac{neg, i, f, ds} CDig{d}:
+      NFrac{neg, i, f, Con{d, ds}}
+    case NFrac{neg, i, f, ds} CExpE{u}:
+      NE{neg, i, FSome{f, rev(ds)}, u}
+    case NE{neg, i, fr, u} CPlus{}:
+      NESign{neg, i, fr, u, Plus{}}
+    case NE{neg, i, fr, u} CMinus{}:
+      NESign{neg, i, fr, u, Minus{}}
+    case NE{neg, i, fr, u} CDig{d}:
+      NExp{neg, i, fr, u, NoSign{}, d, []}
+    case NESign{neg, i, fr, u, sg} CDig{d}:
+      NExp{neg, i, fr, u, sg, d, []}
+    case NExp{neg, i, fr, u, sg, f, ds} CDig{d}:
+      NExp{neg, i, fr, u, sg, f, Con{d, ds}}
     case _ _:
       NStop{}
 
@@ -299,35 +438,28 @@ def is_stop(st: NSt) -> Bool:
     case _:
       False{}
 
-def accepts(st: NSt) -> Bool:
-  match st:
-    case NZero{}:
-      True{}
-    case NInt{}:
-      True{}
-    case NFrac{}:
-      True{}
-    case NExp{}:
-      True{}
-    case _:
-      False{}
-
-def num_end.go(ok: Bool, acc: String, rest: String) -> Lex:
-  match ok:
-    case True{}:
-      LOk{acc, rest}
-    case False{}:
-      LBad{InvalidNumber{}, rest}
+# a lexed number and the input after it
+type NLex is Data:
+  NOk{value: Number, rest: String}
+  NBad{reason: Reason, rest: String}
 
 # a char that starts no value at all is reported as itself
-def num_end(st: NSt, acc: String, rest: String) -> Lex:
+def num_end(st: NSt, rest: String) -> NLex:
   match st rest:
+    case NZero{neg} _:
+      NOk{Number{neg, IZero{}, FNone{}, ENone{}}, rest}
+    case NInt{neg, l, ds} _:
+      NOk{Number{neg, INon{l, rev(ds)}, FNone{}, ENone{}}, rest}
+    case NFrac{neg, i, f, ds} _:
+      NOk{Number{neg, i, FSome{f, rev(ds)}, ENone{}}, rest}
+    case NExp{neg, i, fr, u, sg, f, ds} _:
+      NOk{Number{neg, i, fr, ESome{u, sg, f, rev(ds)}}, rest}
     case NStart{} SNil{}:
-      LBad{UnexpectedEnd{}, SNil{}}
+      NBad{UnexpectedEnd{}, SNil{}}
     case NStart{} SCon{+c, t}:
-      LBad{UnexpectedChar{c}, SCon{c, t}}
-    case +other rest:
-      num_end.go(accepts(other), acc, rest)
+      NBad{UnexpectedChar{c}, SCon{c, t}}
+    case _ _:
+      NBad{InvalidNumber{}, rest}
 
 def halt(stop: Bool, last: NSt, next: NSt, +here: String) -> NSt:
   match stop:
@@ -336,17 +468,15 @@ def halt(stop: Bool, last: NSt, next: NSt, +here: String) -> NSt:
     case False{}:
       next
 
-# the chars of a number, reversed, and the input after it
-def lex_num(s: String, +st: NSt, +acc: String) -> Lex:
+def lex_num(s: String, +st: NSt) -> NLex:
   match s st:
     case _ NHalt{last, rest}:
-      num_end(last, acc, rest)
+      num_end(last, rest)
     case SNil{} _:
-      num_end(st, acc, SNil{})
+      num_end(st, SNil{})
     case SCon{+c, +t} _:
-      +n = num_next(st, cclass(c))
-      +stop = is_stop(n)
-      lex_num(t, halt(stop, st, n, SCon{c, t}), Bool.pick(String, stop, acc, SCon{c, acc}))
+      +n = num_next(st, nclass(c))
+      lex_num(t, halt(is_stop(n), st, n, SCon{c, t}))
 
 # Parsing
 # =======
@@ -404,11 +534,15 @@ def token(~mk: String -> Json, l: Lex, stack: List<&2, Frame>) -> St:
     case LBad{r, rest}:
       Bad{r, rest}
 
+def number(l: NLex, stack: List<&2, Frame>) -> St:
+  match l:
+    case NOk{n, rest}:
+      emit(JNum{n}, rest, stack)
+    case NBad{r, rest}:
+      Bad{r, rest}
+
 def mk_str(s: String) -> Json:
   JStr{s}
-
-def mk_num(s: String) -> Json:
-  JNum{String.reverse(s)}
 
 def mk_true(s: String) -> Json:
   JBool{True{}}
@@ -434,7 +568,7 @@ def value(s: String, stack: List<&2, Frame>) -> St:
     case SCon{'n', t}:
       token(~mk_null, expect("ull", t), stack)
     case other:
-      token(~mk_num, lex_num(other, NStart{}, ""), stack)
+      number(lex_num(other, NStart{}), stack)
 
 def key(l: Lex, stack: List<&2, Frame>) -> St:
   match l stack:
@@ -512,12 +646,10 @@ def dispatch(mode: Mode, s: String, stack: List<&2, Frame>) -> St:
 # every step eats a token, so the input's length bounds the steps
 def loop(fuel: Nat, st: St) -> St:
   match fuel st:
-    case 0n Run{_, _, _}:
-      Bad{Internal{}, SNil{}}
     case 1n+p Run{s, stack, mode}:
       loop(p, dispatch(mode, skip_ws(s), stack))
-    case _ done:
-      done
+    case _ other:
+      other
 
 type Loc is Data:
   Loc{line: U32, column: U32}
@@ -564,41 +696,195 @@ def parse(+s: String) -> Result<&2, &2, Error, Json>:
 # Printing (RFC 8259 §7, §10)
 # ===========================
 
+# forward text: each function writes its part in front of k
+
+def digit_char(d: Digit) -> Char:
+  match d:
+    case D0{}:
+      '0'
+    case D1{}:
+      '1'
+    case D2{}:
+      '2'
+    case D3{}:
+      '3'
+    case D4{}:
+      '4'
+    case D5{}:
+      '5'
+    case D6{}:
+      '6'
+    case D7{}:
+      '7'
+    case D8{}:
+      '8'
+    case D9{}:
+      '9'
+
+def lead_char(l: Lead) -> Char:
+  match l:
+    case L1{}:
+      '1'
+    case L2{}:
+      '2'
+    case L3{}:
+      '3'
+    case L4{}:
+      '4'
+    case L5{}:
+      '5'
+    case L6{}:
+      '6'
+    case L7{}:
+      '7'
+    case L8{}:
+      '8'
+    case L9{}:
+      '9'
+
+def digits_k(ds: List<&2, Digit>, k: String) -> String:
+  match ds:
+    case Nil{}:
+      k
+    case Con{d, t}:
+      SCon{digit_char(d), digits_k(t, k)}
+
+def int_k(i: Int, k: String) -> String:
+  match i:
+    case IZero{}:
+      SCon{'0', k}
+    case INon{l, ds}:
+      SCon{lead_char(l), digits_k(ds, k)}
+
+def frac_k(f: Frac, k: String) -> String:
+  match f:
+    case FNone{}:
+      k
+    case FSome{d, ds}:
+      SCon{'.', SCon{digit_char(d), digits_k(ds, k)}}
+
+def sign_k(s: Sign, k: String) -> String:
+  match s:
+    case NoSign{}:
+      k
+    case Plus{}:
+      SCon{'+', k}
+    case Minus{}:
+      SCon{'-', k}
+
+def exp_k(e: Exp, k: String) -> String:
+  match e:
+    case ENone{}:
+      k
+    case ESome{u, s, d, ds}:
+      SCon{Bool.pick(Char, u, 'E', 'e'), sign_k(s, SCon{digit_char(d), digits_k(ds, k)})}
+
+def neg_k(neg: Bool, k: String) -> String:
+  match neg:
+    case True{}:
+      SCon{'-', k}
+    case False{}:
+      k
+
+def num_k(n: Number, k: String) -> String:
+  match n:
+    case Number{neg, i, f, e}:
+      neg_k(neg, int_k(i, frac_k(f, exp_k(e, k))))
+
+# the same text, pushed onto a reversed output: a tail call per digit
+def digits_out(ds: List<&2, Digit>, out: String) -> String:
+  match ds:
+    case Nil{}:
+      out
+    case Con{d, t}:
+      digits_out(t, SCon{digit_char(d), out})
+
+def int_out(i: Int, out: String) -> String:
+  match i:
+    case IZero{}:
+      SCon{'0', out}
+    case INon{l, ds}:
+      digits_out(ds, SCon{lead_char(l), out})
+
+def frac_out(f: Frac, out: String) -> String:
+  match f:
+    case FNone{}:
+      out
+    case FSome{d, ds}:
+      digits_out(ds, SCon{digit_char(d), SCon{'.', out}})
+
+def sign_out(s: Sign, out: String) -> String:
+  match s:
+    case NoSign{}:
+      out
+    case Plus{}:
+      SCon{'+', out}
+    case Minus{}:
+      SCon{'-', out}
+
+def exp_out(e: Exp, out: String) -> String:
+  match e:
+    case ENone{}:
+      out
+    case ESome{u, s, d, ds}:
+      digits_out(ds, SCon{digit_char(d), sign_out(s, SCon{Bool.pick(Char, u, 'E', 'e'), out})})
+
+def neg_out(neg: Bool, out: String) -> String:
+  match neg:
+    case True{}:
+      SCon{'-', out}
+    case False{}:
+      out
+
+def num_out(n: Number, out: String) -> String:
+  match n:
+    case Number{neg, i, f, e}:
+      exp_out(e, frac_out(f, int_out(i, neg_out(neg, out))))
+
+def num_text(n: Number) -> String:
+  String.reverse(num_out(n, ""))
+
 def hex_char(+x: U32) -> Char:
   Chr{Bool.pick(U32, U32.is_lt(x, 10), (x + 48 : U32), (x + 87 : U32))}
 
-# \u00XX for a control char
-def u_esc(+x: U32) -> String:
-  "\\u00" ++ SCon{hex_char(U32.div(x, 16)), SCon{hex_char(U32.mod(x, 16)), SNil{}}}
+# the escape of a control char
+def ctrl_text(+c: Char) -> String:
+  match c:
+    case '\u{8}':
+      "\\b"
+    case '\u{C}':
+      "\\f"
+    case '\n':
+      "\\n"
+    case '\r':
+      "\\r"
+    case '\t':
+      "\\t"
+    case other:
+      +x = Char.to_u32(other)
+      "\\u00" ++ SCon{hex_char(U32.div(x, 16)), SCon{hex_char(U32.mod(x, 16)), SNil{}}}
 
 # output is built reversed: put pushes a chunk onto it
 def put(chunk: String, out: String) -> String:
   String.reverse.go(chunk, out)
 
-def esc_other(+c: Char, +out: String) -> String:
-  +x = Char.to_u32(c)
-  Bool.pick(String, U32.is_lt(x, 32), put(u_esc(x), out), SCon{c, out})
+def esc_char(k: Class, +c: Char, out: String) -> String:
+  match k:
+    case KQuote{}:
+      SCon{c, SCon{'\\', out}}
+    case KBack{}:
+      SCon{c, SCon{'\\', out}}
+    case KCtrl{}:
+      put(ctrl_text(c), out)
+    case KPlain{}:
+      SCon{c, out}
 
 def escape(s: String, out: String) -> String:
   match s:
     case SNil{}:
       out
-    case SCon{'"', t}:
-      escape(t, put("\\\"", out))
-    case SCon{'\\', t}:
-      escape(t, put("\\\\", out))
-    case SCon{'\n', t}:
-      escape(t, put("\\n", out))
-    case SCon{'\r', t}:
-      escape(t, put("\\r", out))
-    case SCon{'\t', t}:
-      escape(t, put("\\t", out))
-    case SCon{'\u{8}', t}:
-      escape(t, put("\\b", out))
-    case SCon{'\u{C}', t}:
-      escape(t, put("\\f", out))
-    case SCon{c, t}:
-      escape(t, esc_other(c, out))
+    case SCon{+c, t}:
+      escape(t, esc_char(class(c), c, out))
 
 def quote(s: String, out: String) -> String:
   SCon{'"', escape(s, SCon{'"', out})}
@@ -618,104 +904,84 @@ def br(pretty: Bool, +unit: String, n: Nat, out: String) -> String:
     case False{}:
       out
 
-def colon(+pretty: Bool) -> String:
-  Bool.pick(String, pretty, ": ", ":")
+def colon(pretty: Bool, out: String) -> String:
+  match pretty:
+    case True{}:
+      SCon{' ', SCon{':', out}}
+    case False{}:
+      SCon{':', out}
 
-# printing is a flat task loop, so deep nesting needs no stack
-type Task is Data:
-  TVal{j: Json, depth: Nat}
-  TItems{items: List<&2, Json>, depth: Nat}
-  TFields{fields: List<&2, Field>, depth: Nat}
+def opener(more: Bool, c: Char, out: String) -> String:
+  match more:
+    case True{}:
+      SCon{',', out}
+    case False{}:
+      SCon{c, out}
 
-type PSt is Data:
-  PRun{todo: List<&2, Task>, out: String, pretty: Bool, unit: String}
-  PDone{out: String}
-
-def pstep.val(j: Json, +d: Nat, todo: List<&2, Task>, out: String, +pretty: Bool, +unit: String) -> PSt:
+# more: j is the tail of a container that already printed its first item;
+# items are tail calls, so only nesting grows the stack
+def show(j: Json, +more: Bool, +pretty: Bool, +unit: String, +d: Nat, out: String) -> String:
   match j:
     case JNull{}:
-      PRun{todo, put("null", out), pretty, unit}
+      put("null", out)
     case JBool{True{}}:
-      PRun{todo, put("true", out), pretty, unit}
+      put("true", out)
     case JBool{False{}}:
-      PRun{todo, put("false", out), pretty, unit}
-    case JNum{text}:
-      PRun{todo, put(text, out), pretty, unit}
+      put("false", out)
+    case JNum{n}:
+      num_out(n, out)
     case JStr{s}:
-      PRun{todo, quote(s, out), pretty, unit}
+      quote(s, out)
     case JArr{Nil{}}:
-      PRun{todo, put("[]", out), pretty, unit}
+      match more:
+        case True{}:
+          SCon{']', br(pretty, unit, d, out)}
+        case False{}:
+          SCon{']', SCon{'[', out}}
     case JArr{Con{h, t}}:
-      +o = br(pretty, unit, 1n+d, put("[", out))
-      PRun{TVal{h, 1n+d} <> TItems{t, d} <> todo, o, pretty, unit}
+      show(JArr{t}, True{}, pretty, unit, d,
+        show(h, False{}, pretty, unit, 1n+d, br(pretty, unit, 1n+d, opener(more, '[', out))))
     case JObj{Nil{}}:
-      PRun{todo, put("{}", out), pretty, unit}
+      match more:
+        case True{}:
+          SCon{'}', br(pretty, unit, d, out)}
+        case False{}:
+          SCon{'}', SCon{'{', out}}
     case JObj{Con{Field{k, v}, t}}:
-      +o = put(colon(pretty), quote(k, br(pretty, unit, 1n+d, put("{", out))))
-      PRun{TVal{v, 1n+d} <> TFields{t, d} <> todo, o, pretty, unit}
-
-def pstep(st: PSt) -> PSt:
-  match st:
-    case PDone{o}:
-      PDone{o}
-    case PRun{Nil{}, out, _, _}:
-      PDone{out}
-    case PRun{Con{TVal{j, d}, todo}, out, +pretty, +unit}:
-      pstep.val(j, d, todo, out, pretty, unit)
-    case PRun{Con{TItems{Nil{}, +d}, todo}, out, +pretty, +unit}:
-      PRun{todo, put("]", br(pretty, unit, d, out)), pretty, unit}
-    case PRun{Con{TItems{Con{h, t}, +d}, todo}, out, +pretty, +unit}:
-      +o = br(pretty, unit, 1n+d, put(",", out))
-      PRun{TVal{h, 1n+d} <> TItems{t, d} <> todo, o, pretty, unit}
-    case PRun{Con{TFields{Nil{}, +d}, todo}, out, +pretty, +unit}:
-      PRun{todo, put("}", br(pretty, unit, d, out)), pretty, unit}
-    case PRun{Con{TFields{Con{Field{k, v}, t}, +d}, todo}, out, +pretty, +unit}:
-      +o = put(colon(pretty), quote(k, br(pretty, unit, 1n+d, put(",", out))))
-      PRun{TVal{v, 1n+d} <> TFields{t, d} <> todo, o, pretty, unit}
-
-# up to 2^k steps on k frames of stack: each level runs the one below twice
-def drive(+k: Nat, st: PSt) -> PSt:
-  match k st:
-    case _ PDone{o}:
-      PDone{o}
-    case 0n run:
-      pstep(run)
-    case 1n+p run:
-      drive(p, drive(p, run))
-
-def output(st: PSt) -> String:
-  match st:
-    case PDone{out}:
-      String.reverse(out)
-    case PRun{_, out, _, _}:
-      String.reverse(out)
-
-def show(j: Json, pretty: Bool, unit: String) -> String:
-  output(drive(64n, PRun{[TVal{j, 0n}], "", pretty, unit}))
+      show(JObj{t}, True{}, pretty, unit, d,
+        show(v, False{}, pretty, unit, 1n+d,
+          colon(pretty, quote(k, br(pretty, unit, 1n+d, opener(more, '{', out))))))
 
 def stringify(j: Json) -> String:
-  show(j, False{}, "")
+  String.reverse(show(j, False{}, False{}, "", 0n, ""))
 
 # unit is the indent of one level, e.g. "  "
 def pretty(j: Json, unit: String) -> String:
-  show(j, True{}, unit)
+  String.reverse(show(j, False{}, True{}, unit, 0n, ""))
 
 # Building
 # ========
 
-def num.go(l: Lex) -> Maybe<&2, Json>:
+def num.go(l: NLex) -> Maybe<&2, Json>:
   match l:
-    case LOk{text, SNil{}}:
-      Some{mk_num(text)}
+    case NOk{n, SNil{}}:
+      Some{JNum{n}}
     case _:
       None{}
 
 # a number from its text, if the text is a JSON number
 def num(s: String) -> Maybe<&2, Json>:
-  num.go(lex_num(s, NStart{}, ""))
+  num.go(lex_num(s, NStart{}))
+
+def num_u32.go(m: Maybe<&2, Json>) -> Json:
+  match m:
+    case Some{j}:
+      j
+    case None{}:
+      JNull{}
 
 def num_u32(x: U32) -> Json:
-  JNum{U32.show(x)}
+  num_u32.go(num(U32.show(x)))
 
 # None for inf and nan
 def num_f32(x: F32) -> Maybe<&2, Json>:
@@ -747,16 +1013,16 @@ def as_str(j: Json) -> Maybe<&2, String>:
 
 def as_f32(j: Json) -> Maybe<&2, F32>:
   match j:
-    case JNum{text}:
-      F32.read(text)
+    case JNum{n}:
+      F32.read(num_text(n))
     case _:
       None{}
 
 # None unless the number is a whole number in U32 range
 def as_u32(j: Json) -> Maybe<&2, U32>:
   match j:
-    case JNum{text}:
-      U32.read(text)
+    case JNum{n}:
+      U32.read(num_text(n))
     case _:
       None{}
 
