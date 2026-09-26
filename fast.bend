@@ -59,6 +59,7 @@ type Mode is Data:
   BCtrl{}
   BUni{}
   BLone{}
+  BEsc{}
 
 # Strings
 # -------
@@ -139,6 +140,98 @@ def close_mode(key: Bool) -> Mode:
       VColon{}
     case False{}:
       VAfter{}
+
+# A char in a string, and the char after a backslash, go by J.class, as the
+# proven lexer's do: a proof can then take each class as one case, where a
+# case per char literal would leave it stuck on a char it does not know
+def str_mode(k: J.Class, key: Bool) -> Mode:
+  match k:
+    case J.KQuote{}:
+      close_mode(key)
+    case J.KBack{}:
+      SEsc{}
+    case J.KCtrl{}:
+      BCtrl{}
+    case J.KPlain{}:
+      SStr{}
+
+def str_out(k: J.Class, c: Char, out: String) -> String:
+  match k:
+    case J.KQuote{}:
+      SCon{'"', out}
+    case J.KBack{}:
+      out
+    case J.KCtrl{}:
+      out
+    case J.KPlain{}:
+      SCon{c, out}
+
+def str_ea(k: J.Class, +at: U32, +ea: U32) -> U32:
+  match k:
+    case J.KBack{}:
+      at
+    case J.KCtrl{}:
+      at
+    case _:
+      ea
+
+def letter_mode(c: Char) -> Mode:
+  match c:
+    case '/':
+      SStr{}
+    case 'b':
+      SStr{}
+    case 'f':
+      SStr{}
+    case 'n':
+      SStr{}
+    case 'r':
+      SStr{}
+    case 't':
+      SStr{}
+    case 'u':
+      SU4{}
+    case _:
+      BEsc{}
+
+def letter_out(c: Char, out: String) -> String:
+  match c:
+    case '/':
+      SCon{'/', out}
+    case 'b':
+      SCon{'b', SCon{'\\', out}}
+    case 'f':
+      SCon{'f', SCon{'\\', out}}
+    case 'n':
+      SCon{'n', SCon{'\\', out}}
+    case 'r':
+      SCon{'r', SCon{'\\', out}}
+    case 't':
+      SCon{'t', SCon{'\\', out}}
+    case _:
+      out
+
+def esc_mode(k: J.Class, c: Char) -> Mode:
+  match k:
+    case J.KQuote{}:
+      SStr{}
+    case J.KBack{}:
+      SStr{}
+    case J.KCtrl{}:
+      BEsc{}
+    case J.KPlain{}:
+      letter_mode(c)
+
+def esc_out(k: J.Class, +c: Char, out: String) -> String:
+  match k:
+    case J.KQuote{}:
+      SCon{c, SCon{'\\', out}}
+    case J.KBack{}:
+      SCon{c, SCon{'\\', out}}
+    case J.KCtrl{}:
+      out
+    case J.KPlain{}:
+      letter_out(c, out)
 
 # a \\u escape's last hex digit completes the code. With hi (a pending
 # high surrogate, or 0) the code decides the mode, the output and the new
@@ -282,37 +375,18 @@ def gc(fuel: String, mode: Mode, s: String, stack: List<&2, Box>, out: String, +
       Err{J.InvalidUnicode{}, ea}
     case _ BLone{} _ _:
       Err{J.LoneSurrogate{}, ea}
+    case _ BEsc{} _ _:
+      Err{J.InvalidEscape{}, ea}
     case _ m SNil{} stk:
       finish(m, stk, out, at)
     case SNil{} _ _ _:
       Err{J.Internal{}, at}
-    case SCon{_, f} SStr{} SCon{'"', t} stk:
-      gc(f, close_mode(key), t, stk, SCon{'"', out}, 0, 0, key, (at + 1 : U32), ea)
-    case SCon{_, f} SStr{} SCon{'\\', t} stk:
-      gc(f, SEsc{}, t, stk, out, 0, 0, key, (at + 1 : U32), at)
     case SCon{_, f} SStr{} SCon{+c, t} stk:
-      +cc = ctrl(c)
-      gc(f, Bool.pick(Mode, cc, BCtrl{}, SStr{}), t, stk, SCon{c, out}, 0, 0, key, (at + 1 : U32), Bool.pick(U32, cc, at, ea))
-    case SCon{_, f} SEsc{} SCon{'"', t} stk:
-      gc(f, SStr{}, t, stk, SCon{'"', SCon{'\\', out}}, 0, 0, key, (at + 1 : U32), ea)
-    case SCon{_, f} SEsc{} SCon{'\\', t} stk:
-      gc(f, SStr{}, t, stk, SCon{'\\', SCon{'\\', out}}, 0, 0, key, (at + 1 : U32), ea)
-    case SCon{_, f} SEsc{} SCon{'/', t} stk:
-      gc(f, SStr{}, t, stk, SCon{'/', out}, 0, 0, key, (at + 1 : U32), ea)
-    case SCon{_, f} SEsc{} SCon{'b', t} stk:
-      gc(f, SStr{}, t, stk, SCon{'b', SCon{'\\', out}}, 0, 0, key, (at + 1 : U32), ea)
-    case SCon{_, f} SEsc{} SCon{'f', t} stk:
-      gc(f, SStr{}, t, stk, SCon{'f', SCon{'\\', out}}, 0, 0, key, (at + 1 : U32), ea)
-    case SCon{_, f} SEsc{} SCon{'n', t} stk:
-      gc(f, SStr{}, t, stk, SCon{'n', SCon{'\\', out}}, 0, 0, key, (at + 1 : U32), ea)
-    case SCon{_, f} SEsc{} SCon{'r', t} stk:
-      gc(f, SStr{}, t, stk, SCon{'r', SCon{'\\', out}}, 0, 0, key, (at + 1 : U32), ea)
-    case SCon{_, f} SEsc{} SCon{'t', t} stk:
-      gc(f, SStr{}, t, stk, SCon{'t', SCon{'\\', out}}, 0, 0, key, (at + 1 : U32), ea)
-    case SCon{_, f} SEsc{} SCon{'u', t} stk:
-      gc(f, SU4{}, t, stk, out, hi, 0, key, (at + 1 : U32), ea)
-    case SCon{_, f} SEsc{} _ _:
-      Err{J.InvalidEscape{}, ea}
+      +k = J.class(c)
+      gc(f, str_mode(k, key), t, stk, str_out(k, c, out), 0, 0, key, (at + 1 : U32), str_ea(k, at, ea))
+    case SCon{_, f} SEsc{} SCon{+c, t} stk:
+      +k = J.class(c)
+      gc(f, esc_mode(k, c), t, stk, esc_out(k, c, out), hi, 0, key, (at + 1 : U32), ea)
     case SCon{_, f} SU4{} SCon{+c, t} stk:
       gc(f, hex_mode(hex_digit(c), SU3{}), t, stk, out, hi, hex_add(hex_digit(c), code), key, (at + 1 : U32), ea)
     case SCon{_, f} SU3{} SCon{+c, t} stk:
@@ -924,37 +998,18 @@ def gp(fuel: String, mode: Mode, s: String, stack: List<&2, Box>, out: String, +
       Err{J.InvalidUnicode{}, ea}
     case _ BLone{} _ _:
       Err{J.LoneSurrogate{}, ea}
+    case _ BEsc{} _ _:
+      Err{J.InvalidEscape{}, ea}
     case _ m SNil{} stk:
       finish(m, stk, out, at)
     case SNil{} _ _ _:
       Err{J.Internal{}, at}
-    case SCon{_, f} SStr{} SCon{'"', t} stk:
-      gp(f, close_mode(key), t, stk, SCon{'"', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} SStr{} SCon{'\\', t} stk:
-      gp(f, SEsc{}, t, stk, out, 0, 0, key, (at + 1 : U32), at, d)
     case SCon{_, f} SStr{} SCon{+c, t} stk:
-      +cc = ctrl(c)
-      gp(f, Bool.pick(Mode, cc, BCtrl{}, SStr{}), t, stk, SCon{c, out}, 0, 0, key, (at + 1 : U32), Bool.pick(U32, cc, at, ea), d)
-    case SCon{_, f} SEsc{} SCon{'"', t} stk:
-      gp(f, SStr{}, t, stk, SCon{'"', SCon{'\\', out}}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} SEsc{} SCon{'\\', t} stk:
-      gp(f, SStr{}, t, stk, SCon{'\\', SCon{'\\', out}}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} SEsc{} SCon{'/', t} stk:
-      gp(f, SStr{}, t, stk, SCon{'/', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} SEsc{} SCon{'b', t} stk:
-      gp(f, SStr{}, t, stk, SCon{'b', SCon{'\\', out}}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} SEsc{} SCon{'f', t} stk:
-      gp(f, SStr{}, t, stk, SCon{'f', SCon{'\\', out}}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} SEsc{} SCon{'n', t} stk:
-      gp(f, SStr{}, t, stk, SCon{'n', SCon{'\\', out}}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} SEsc{} SCon{'r', t} stk:
-      gp(f, SStr{}, t, stk, SCon{'r', SCon{'\\', out}}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} SEsc{} SCon{'t', t} stk:
-      gp(f, SStr{}, t, stk, SCon{'t', SCon{'\\', out}}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} SEsc{} SCon{'u', t} stk:
-      gp(f, SU4{}, t, stk, out, hi, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} SEsc{} _ _:
-      Err{J.InvalidEscape{}, ea}
+      +k = J.class(c)
+      gp(f, str_mode(k, key), t, stk, str_out(k, c, out), 0, 0, key, (at + 1 : U32), str_ea(k, at, ea), d)
+    case SCon{_, f} SEsc{} SCon{+c, t} stk:
+      +k = J.class(c)
+      gp(f, esc_mode(k, c), t, stk, esc_out(k, c, out), hi, 0, key, (at + 1 : U32), ea, d)
     case SCon{_, f} SU4{} SCon{+c, t} stk:
       gp(f, hex_mode(hex_digit(c), SU3{}), t, stk, out, hi, hex_add(hex_digit(c), code), key, (at + 1 : U32), ea, d)
     case SCon{_, f} SU3{} SCon{+c, t} stk:

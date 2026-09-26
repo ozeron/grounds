@@ -45,18 +45,14 @@ BS = "\\\\"  # a backslash, as it reads inside a Bend char literal
 def build():
     global rows
     rows = []
-    # Strings: the hot path. Plain chars are the last case
-    row("SStr{}", ch('"'), "stk", go("close_mode(key)", out="SCon{'\"', out}"))
-    row("SStr{}", ch(BS), "stk", go("SEsc{}", ea="at"))
+    # strings, the hot path: every char goes by J.class (see str_mode)
     row("SStr{}", "SCon{+c, t}", "stk",
-        "+cc = ctrl(c)\n      "
-        + go("Bool.pick(Mode, cc, BCtrl{}, SStr{})", out="SCon{c, out}", ea="Bool.pick(U32, cc, at, ea)"))
+        "+k = J.class(c)\n      "
+        + go("str_mode(k, key)", out="str_out(k, c, out)", ea="str_ea(k, at, ea)"))
+    row("SEsc{}", "SCon{+c, t}", "stk",
+        "+k = J.class(c)\n      " + go("esc_mode(k, c)", out="esc_out(k, c, out)", hi="hi"))
     ESC = [('"', "SCon{'\"', SCon{'" + BS + "', out}}"), (BS, "SCon{'" + BS + "', SCon{'" + BS + "', out}}"),
            ("/", "SCon{'/', out}")] + [(c, f"SCon{{'{c}', SCon{{'{BS}', out}}}}") for c in "bfnrt"]
-    for c, out in ESC:
-        row("SEsc{}", ch(c), "stk", go("SStr{}", out=out))
-    row("SEsc{}", ch("u"), "stk", go("SU4{}", hi="hi"))
-    row("SEsc{}", "_", "_", err("J.InvalidEscape{}", "ea"))
     # \u digits: the code builds up; a non-hex char is BUni, reported at the backslash
     for frm, to in [("SU4", "SU3"), ("SU3", "SU2"), ("SU2", "SU1")]:
         row(frm + "{}", "SCon{+c, t}", "stk",
@@ -176,6 +172,8 @@ def {name}(fuel: String, mode: Mode, s: String, stack: List<&2, Box>, out: Strin
       Err{{J.InvalidUnicode{{}}, ea}}
     case _ BLone{{}} _ _:
       Err{{J.LoneSurrogate{{}}, ea}}
+    case _ BEsc{{}} _ _:
+      Err{{J.InvalidEscape{{}}, ea}}
     case _ m SNil{{}} stk:
       {fin}
     case SNil{{}} _ _ _:

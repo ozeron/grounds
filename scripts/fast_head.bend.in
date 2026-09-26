@@ -59,6 +59,7 @@ type Mode is Data:
   BCtrl{}
   BUni{}
   BLone{}
+  BEsc{}
 
 # Strings
 # -------
@@ -139,6 +140,98 @@ def close_mode(key: Bool) -> Mode:
       VColon{}
     case False{}:
       VAfter{}
+
+# A char in a string, and the char after a backslash, go by J.class, as the
+# proven lexer's do: a proof can then take each class as one case, where a
+# case per char literal would leave it stuck on a char it does not know
+def str_mode(k: J.Class, key: Bool) -> Mode:
+  match k:
+    case J.KQuote{}:
+      close_mode(key)
+    case J.KBack{}:
+      SEsc{}
+    case J.KCtrl{}:
+      BCtrl{}
+    case J.KPlain{}:
+      SStr{}
+
+def str_out(k: J.Class, c: Char, out: String) -> String:
+  match k:
+    case J.KQuote{}:
+      SCon{'"', out}
+    case J.KBack{}:
+      out
+    case J.KCtrl{}:
+      out
+    case J.KPlain{}:
+      SCon{c, out}
+
+def str_ea(k: J.Class, +at: U32, +ea: U32) -> U32:
+  match k:
+    case J.KBack{}:
+      at
+    case J.KCtrl{}:
+      at
+    case _:
+      ea
+
+def letter_mode(c: Char) -> Mode:
+  match c:
+    case '/':
+      SStr{}
+    case 'b':
+      SStr{}
+    case 'f':
+      SStr{}
+    case 'n':
+      SStr{}
+    case 'r':
+      SStr{}
+    case 't':
+      SStr{}
+    case 'u':
+      SU4{}
+    case _:
+      BEsc{}
+
+def letter_out(c: Char, out: String) -> String:
+  match c:
+    case '/':
+      SCon{'/', out}
+    case 'b':
+      SCon{'b', SCon{'\\', out}}
+    case 'f':
+      SCon{'f', SCon{'\\', out}}
+    case 'n':
+      SCon{'n', SCon{'\\', out}}
+    case 'r':
+      SCon{'r', SCon{'\\', out}}
+    case 't':
+      SCon{'t', SCon{'\\', out}}
+    case _:
+      out
+
+def esc_mode(k: J.Class, c: Char) -> Mode:
+  match k:
+    case J.KQuote{}:
+      SStr{}
+    case J.KBack{}:
+      SStr{}
+    case J.KCtrl{}:
+      BEsc{}
+    case J.KPlain{}:
+      letter_mode(c)
+
+def esc_out(k: J.Class, +c: Char, out: String) -> String:
+  match k:
+    case J.KQuote{}:
+      SCon{c, SCon{'\\', out}}
+    case J.KBack{}:
+      SCon{c, SCon{'\\', out}}
+    case J.KCtrl{}:
+      out
+    case J.KPlain{}:
+      letter_out(c, out)
 
 # a \\u escape's last hex digit completes the code. With hi (a pending
 # high surrogate, or 0) the code decides the mode, the output and the new
