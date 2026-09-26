@@ -10,9 +10,11 @@ for f in canada citm_catalog twitter; do
 done
 echo '{}' > bench/data/empty.json
 bend main.bend -o bjson >/dev/null
+bend min.bend -o bjson-min >/dev/null
 (cd bench/gort && go build -o ../gort-bin .)
 for f in empty canada citm_catalog twitter; do
   hyperfine -N --warmup 2 --min-runs 10 --export-json bench/results/$f.json \
+    -n bjson-min "./bjson-min bench/data/$f.json" \
     -n bjson "./bjson --compact bench/data/$f.json" \
     -n python "python3 bench/rt.py bench/data/$f.json" \
     -n node "node bench/rt.js bench/data/$f.json" \

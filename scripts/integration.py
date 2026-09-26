@@ -16,6 +16,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 BIN = ROOT / "bjson"
+MIN = ROOT / "bjson-min"
 SEED = int(os.environ.get("SEED", "1"))
 N = int(os.environ.get("N", "300"))
 rng = random.Random(SEED)
@@ -26,12 +27,13 @@ counts = {"valid": 0, "invalid": 0}
 
 def build():
     subprocess.run(["bend", "main.bend", "-o", str(BIN)], cwd=ROOT, check=True)
+    subprocess.run(["bend", "min.bend", "-o", str(MIN)], cwd=ROOT, check=True)
 
 
-def run(text, *flags):
+def run(text, *flags, binary=BIN):
     path = tmp / "in.json"
     path.write_bytes(text.encode("utf-8", "surrogatepass"))
-    p = subprocess.run([str(BIN), *flags, str(path)], capture_output=True)
+    p = subprocess.run([str(binary), *flags, str(path)], capture_output=True)
     return p.returncode, p.stdout.decode("utf-8"), p.stderr.decode("utf-8")
 
 
@@ -130,12 +132,19 @@ def check_valid(name, text):
         code2, out2, _ = run(out, *flags)
         if code2 != 0 or out2 != out:
             return fail(name, "printing is not a fixed point", text)
+        if flags == ("--compact",):
+            code3, out3, _ = run(text, binary=MIN)
+            if code3 != 0 or out3 != out:
+                return fail(name, f"bjson-min differs from bjson --compact: {out3[:120]!r}", text)
 
 
 def check_invalid(name, text):
     code, out, err = run(text)
     if code != 1:
         return fail(name, f"accepted invalid input (exit {code}): {out[:80]!r}", text)
+    code_min, out_min, _ = run(text, binary=MIN)
+    if code_min != 1:
+        return fail(name, f"bjson-min accepted invalid input (exit {code_min}): {out_min[:80]!r}", text)
     if not err.startswith(str(tmp / "in.json") + ":") or err.count(":") < 3:
         return fail(name, f"bad error message: {err.strip()!r}", text)
 

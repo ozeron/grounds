@@ -1,5 +1,6 @@
 import Base
 import ./bjson.bend as J
+import ./fast.bend as F
 
 # bjson [--compact] <file.json>
 # pretty-prints the file, or reports where it stops being JSON
@@ -16,37 +17,61 @@ def emit(compact: Bool, r: Result<&2, &2, J.Error, J.Json>, path: String) -> IO(
     case _ Fail{e}:
       IO.die(Unit, 1, path ++ ":" ++ J.message(e))
 
-law read_go:
-  for compact: Bool
-  for +path: String
+law read.text:
   for m: File & Result<&1, &1, (U32 & String), String>
-  IO(Unit)
+  IO(String)
 
-def read_go(compact, path, m):
+def read.text(m):
   (f, r) = m
-  do IO<Unit>:
+  do IO<String>:
     text : String <- IO.pass(String, r)
     x : Unit <- File.close(f)
-    emit(compact, J.parse(text), path)
+    return text
 
-law size_go:
-  for compact: Bool
-  for +path: String
+law read.size:
   for m: File & Result<&1, &1, (U32 & String), U32>
-  IO(Unit)
+  IO(String)
 
-def size_go(compact, path, m):
+def read.size(m):
   (f, r) = m
-  do IO<Unit>:
+  do IO<String>:
     n : U32 <- IO.pass(U32, r)
-    m2 : File & Result<&1, &1, (U32 & String), String> <- File.read(f, (n + 1 : U32))
-    read_go(compact, path, m2)
+    t : File & Result<&1, &1, (U32 & String), String> <- File.read(f, (n + 1 : U32))
+    read.text(t)
 
-def run(compact: Bool, +path: String) -> IO(Unit):
-  do IO<Unit>:
+def read(path: String) -> IO(String):
+  do IO<String>:
     f : File <- IO.try(File, File.open(path, "r"))
     m : File & Result<&1, &1, (U32 & String), U32> <- File.size(f)
-    size_go(compact, path, m)
+    read.size(m)
+
+# the proven parser: slower, and it says where and why input is wrong
+def slow(compact: Bool, +path: String) -> IO(Unit):
+  do IO<Unit>:
+    text : String <- read(path)
+    emit(compact, J.parse(text), path)
+
+# compact output takes the one-pass path. If it finds the input invalid,
+# the file is read again for the proven parser to report the error:
+# keeping the text around for that would slow the fast path down.
+def fast_out(m: Maybe<&2, String>, +path: String) -> IO(Unit):
+  match m:
+    case Some{out}:
+      IO.print(out)
+    case None{}:
+      slow(True{}, path)
+
+def fast(+path: String) -> IO(Unit):
+  do IO<Unit>:
+    text : String <- read(path)
+    fast_out(F.reformat(text), path)
+
+def run(compact: Bool, +path: String) -> IO(Unit):
+  match compact:
+    case True{}:
+      fast(path)
+    case False{}:
+      slow(False{}, path)
 
 def dispatch(args: List<String>) -> IO(Unit):
   match args:

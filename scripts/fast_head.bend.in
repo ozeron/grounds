@@ -1,0 +1,231 @@
+import Base
+
+# reformat(s) is stringify(parse(s)) in one pass: it checks the input and
+# writes the compact text as it reads, without building the Json value.
+# Some{text} when s is JSON, None when it is not (J.parse then says why).
+# The suite and scripts/integration.py check it against J.parse and
+# J.stringify, which PROOF.bend proves round-trip.
+
+# output is built reversed and turned around once at the end
+
+type Box is Data:
+  BArr{}
+  BObj{}
+
+# what may come next; strings and numbers are read a char at a time.
+# Every mode is a plain tag: a case that looks two chars ahead makes the
+# compiler test the next char for every char, which halves the speed
+type Mode is Data:
+  VTop{}
+  VFirst{}
+  VItem{}
+  VObjFirst{}
+  VKey{}
+  VColon{}
+  VObjVal{}
+  VAfter{}
+  SStr{}
+  SEsc{}
+  SU4{}
+  SU3{}
+  SU2{}
+  SU1{}
+  SHi{}
+  SHiU{}
+  NMin{}
+  NZero{}
+  NInt{}
+  NDot{}
+  NFrac{}
+  NE{}
+  NESign{}
+  NExp{}
+  T1{}
+  T2{}
+  T3{}
+  F1{}
+  F2{}
+  F3{}
+  F4{}
+  U1{}
+  U2{}
+  U3{}
+  Bad{}
+
+# Strings
+# -------
+
+# copies of bjson.bend's helpers: importing that file would link the
+# proven parser, whose shared Strings make every String here counted
+
+def in_range(+x: U32, lo: U32, hi: U32) -> Bool:
+  Bool.and(U32.is_ge(x, lo), U32.is_le(x, hi))
+
+def hex_digit(c: Char) -> Maybe<&2, U32>:
+  match c:
+    case Chr{+x}:
+      Bool.pick(Maybe<&2, U32>, in_range(x, 48, 57), Some{U32.sub(x, 48)},
+        Bool.pick(Maybe<&2, U32>, in_range(x, 97, 102), Some{U32.sub(x, 87)},
+          Bool.pick(Maybe<&2, U32>, in_range(x, 65, 70), Some{U32.sub(x, 55)}, None{})))
+
+type Surr is Data:
+  NotSurr{}
+  High{}
+  Low{}
+
+def surr(+x: U32) -> Surr:
+  Bool.pick(Surr, in_range(x, 55296, 56319), High{},
+    Bool.pick(Surr, in_range(x, 56320, 57343), Low{}, NotSurr{}))
+
+def pair(+hi: U32, +lo: U32) -> U32:
+  (65536 + (hi - 55296) * 1024 + (lo - 56320) : U32)
+
+def pending(+hi: U32) -> Bool:
+  U32.is_ne(hi, 0)
+
+def ctrl(c: Char) -> Bool:
+  U32.is_lt(Char.to_u32(c), 32)
+
+def hex4(a: Char, b: Char, c: Char, d: Char) -> Maybe<&2, U32>:
+  do Maybe<&2, U32>:
+    w : U32 <- hex_digit(a)
+    x : U32 <- hex_digit(b)
+    y : U32 <- hex_digit(c)
+    z : U32 <- hex_digit(d)
+    return (w * 4096 + x * 256 + y * 16 + z : U32)
+
+# how the printer writes a decoded char (J.esc_char on J.class), spelled
+# with plain conses and arithmetic: a call into the printer here would
+# make the loop below a slow segment instead of a tight C loop
+def hex_char(+x: U32) -> Char:
+  Chr{Bool.pick(U32, U32.is_lt(x, 10), (x + 48 : U32), (x + 87 : U32))}
+
+# the escape text, reversed; out is not shared, which keeps String flat
+def ctrl_chunk(+x: U32) -> String:
+  Bool.pick(String, U32.is_eq(x, 8), "b\\",
+    Bool.pick(String, U32.is_eq(x, 12), "f\\",
+      Bool.pick(String, U32.is_eq(x, 10), "n\\",
+        Bool.pick(String, U32.is_eq(x, 13), "r\\",
+          Bool.pick(String, U32.is_eq(x, 9), "t\\",
+            SCon{hex_char(U32.mod(x, 16)), SCon{hex_char(U32.div(x, 16)), "00u\\"}})))))
+
+def chunk(+x: U32) -> String:
+  Bool.pick(String, U32.is_lt(x, 32), ctrl_chunk(x),
+    Bool.pick(String, U32.is_eq(x, 34), "\"\\",
+      Bool.pick(String, U32.is_eq(x, 92), "\\\\", SCon{Chr{x}, ""})))
+
+def onto(chunk: String, out: String) -> String:
+  match chunk:
+    case SNil{}:
+      out
+    case SCon{c, t}:
+      onto(t, SCon{c, out})
+
+def emit_code(+x: U32, out: String) -> String:
+  onto(String.reverse(chunk(x)), out)
+
+# after a \u escape: its output, the pending high surrogate, and whether
+# it was wrong
+type U is Data:
+  U{out: String, hi: U32, bad: Bool}
+
+def u_out(u: U) -> String:
+  match u:
+    case U{o, _, _}:
+      o
+
+def u_hi(u: U) -> U32:
+  match u:
+    case U{_, h, _}:
+      h
+
+def u_bad(u: U) -> Bool:
+  match u:
+    case U{_, _, b}:
+      b
+
+# a low surrogate: with its high half it makes one char; alone it is an
+# error, and nothing is built (the pair of nothing is not a char)
+def low(pend: Bool, +hi: U32, +x: U32, out: String) -> U:
+  match pend:
+    case True{}:
+      U{emit_code(pair(hi, x), out), 0, False{}}
+    case False{}:
+      U{out, 0, True{}}
+
+def u_code.go(k: Surr, +hi: U32, +x: U32, out: String) -> U:
+  match k:
+    case NotSurr{}:
+      U{emit_code(x, out), 0, pending(hi)}
+    case High{}:
+      U{out, x, pending(hi)}
+    case Low{}:
+      low(pending(hi), hi, x, out)
+
+def u_code(m: Maybe<&2, U32>, +hi: U32, out: String) -> U:
+  match m:
+    case None{}:
+      U{out, 0, True{}}
+    case Some{+x}:
+      u_code.go(surr(x), hi, x, out)
+
+# where a string ends: a value, or a key before its colon
+def close_mode(key: Bool) -> Mode:
+  match key:
+    case True{}:
+      VColon{}
+    case False{}:
+      VAfter{}
+
+# the mode after a \u escape: back in the string, or waiting for the low
+# half of a surrogate pair
+def u_mode.go(none: Bool) -> Mode:
+  match none:
+    case True{}:
+      SStr{}
+    case False{}:
+      SHi{}
+
+def u_mode(+hi: U32) -> Mode:
+  u_mode.go(U32.is_eq(hi, 0))
+
+# a hex digit of a \u escape: the next mode, or Bad
+def hex_mode(d: Maybe<&2, U32>, next: Mode) -> Mode:
+  match d:
+    case Some{_}:
+      next
+    case None{}:
+      Bad{}
+
+def hex_add(d: Maybe<&2, U32>, +code: U32) -> U32:
+  match d:
+    case Some{v}:
+      (code * 16 + v : U32)
+    case None{}:
+      0
+
+# the fourth hex digit: the code is complete
+def u_last.go(d: Maybe<&2, U32>, +code: U32, +hi: U32, out: String) -> U:
+  match d:
+    case Some{v}:
+      u_code(Some{(code * 16 + v : U32)}, hi, out)
+    case None{}:
+      U{out, 0, True{}}
+
+def finish(mode: Mode, stack: List<&2, Box>, out: String, bad: Bool) -> Maybe<&2, String>:
+  match mode stack bad:
+    case _ _ True{}:
+      None{}
+    case VAfter{} Nil{} False{}:
+      Some{String.reverse(out)}
+    case NZero{} Nil{} False{}:
+      Some{String.reverse(out)}
+    case NInt{} Nil{} False{}:
+      Some{String.reverse(out)}
+    case NFrac{} Nil{} False{}:
+      Some{String.reverse(out)}
+    case NExp{} Nil{} False{}:
+      Some{String.reverse(out)}
+    case _ _ _:
+      None{}
+

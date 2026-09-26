@@ -11,8 +11,9 @@ bend test.bend
 step "laws (PROOF.bend)"
 bend PROOF.bend
 
-step "JSONTestSuite (suite.bend)"
+step "JSONTestSuite, and fast.bend against the proven parser (suite.bend)"
 python3 scripts/gen_suite.py
+python3 scripts/gen_fast.py
 bend suite.bend
 
 step "stress (stress.bend)"
