@@ -24,3 +24,6 @@ if bend main.bend -- examples/broken.json 2>/dev/null; then
   echo "broken.json should fail"; exit 1
 fi
 echo "broken.json rejected"
+
+step "integration: native CLI vs Python json (scripts/integration.py)"
+python3 scripts/integration.py
