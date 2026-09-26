@@ -23,4 +23,4 @@ tasks:
       - "*.bend"
       - "scripts/**/*"
     outputs:
-      - "bjson"
+      - "grounds-json"

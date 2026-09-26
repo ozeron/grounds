@@ -1,25 +1,25 @@
-# grounds-json (bjson)
+# grounds-json
 
 The `json` package of [grounds](../README.md): a JSON parser and printer for [Bend 2](https://github.com/bendlang/bend), per [RFC 8259](docs/rfc8259.txt).
 
 Proven for every value `j` (`LAWS.bend`, checked by `bend PROOF.bend`):
 
 - `parse(stringify(j)) == Done{j}`
-- `reformat(stringify(j)) == Ok{stringify(j)}`: the one-pass loop `bjson` runs reads printed JSON back unchanged
+- `reformat(stringify(j)) == Ok{stringify(j)}`: the one-pass loop `grounds-json` runs reads printed JSON back unchanged
 - `parse(pretty(j, "  ")) == Done{j}`: indented output reads back too (`proof/layout.bend`, for any indent of spaces and tabs)
 
 ```sh
 mise install                          # installs the pinned bend (run anywhere in the repo)
 moon run json:check                   # every test, law and conformance case; or ./check.sh here
 bend main.bend -- file.json           # pretty-print, or report line:col of the error
-scripts/build.sh                      # native CLI with PGO: ./bjson [--compact] file.json
+scripts/build.sh                      # native CLI with PGO: ./grounds-json [--compact] file.json
 ```
 
 `--max-bytes N` (provisional) refuses a file over N bytes before reading it.
 
 ## API
 
-Import it with `import ./bjson.bend as J`.
+Import it with `import ./json.bend as J`.
 
 | Function | Does |
 |---|---|
@@ -50,7 +50,7 @@ Provisional, until the API is settled:
 - A lone surrogate like `"\uDEAD"` is an error.
 - Where JSONTestSuite leaves the answer to the parser (its `i_` cases), numbers of any size, deep nesting and a leading BOM parse; lone surrogate escapes and non-UTF-8 input fail. `scripts/gen_suite.py` holds the rules.
 - A leading byte order mark is skipped.
-- Input that is not UTF-8 is an error, reported where the bad bytes start. `bjson` checks this before parsing.
+- Input that is not UTF-8 is an error, reported where the bad bytes start. `grounds-json` checks this before parsing.
 - Offsets and columns count Unicode code points, not bytes.
 - Parsing has no nesting limit: it uses an explicit stack, and 100k levels work.
 - Printing uses an explicit stack too: 100k levels print and pretty-print.
@@ -61,7 +61,7 @@ Provisional, until the API is settled:
 
 | tool | canada 2.3 MB | citm_catalog 1.7 MB | twitter 0.6 MB |
 |---|---|---|---|
-| `bjson --compact` | 37 ms | 17 ms | 8.2 ms |
+| `grounds-json --compact` | 37 ms | 17 ms | 8.2 ms |
 | Go `encoding/json` | 28 ms | 15 ms | 8.1 ms |
 | Bun | 20 ms | 16 ms | 15 ms |
 | Node | 31 ms | 22 ms | 20 ms |
@@ -72,23 +72,23 @@ Provisional, until the API is settled:
 
 | tool | time | peak memory |
 |---|---|---|
-| `bjson --compact` | 1.4 s | 2.9 GB |
-| `bjson` (pretty) | 2.1 s | 4.6 GB |
-| `spec-bjson --compact` (proven path) | 2.0 s | 3.0 GB |
+| `grounds-json --compact` | 1.4 s | 2.9 GB |
+| `grounds-json` (pretty) | 2.1 s | 4.6 GB |
+| `spec-grounds-json --compact` (proven path) | 2.0 s | 3.0 GB |
 | Go `encoding/json` | 1.0 s | 0.7 GB |
 | jq | 1.7 s | 1.0 GB |
 
 Memory is the cost of Bend strings: a cons cell per char, for the input and the output both, about 29 bytes per input byte. Use `--max-bytes` to cap it.
 
-`bjson` runs everything through `fast.bend`: one pass that checks the input and writes the output, compact or indented, without building a `Json` value. It answers exactly what the proven `J.parse`, `J.stringify` and `J.pretty` answer, errors included: `suite.bend` checks this on every JSONTestSuite case, and `scripts/integration.py` fuzzes `bjson` against `spec_cli.bend`, the same CLI on the proven parser.
+`grounds-json` runs everything through `fast.bend`: one pass that checks the input and writes the output, compact or indented, without building a `Json` value. It answers exactly what the proven `J.parse`, `J.stringify` and `J.pretty` answer, errors included: `suite.bend` checks this on every JSONTestSuite case, and `scripts/integration.py` fuzzes `grounds-json` against `spec_cli.bend`, the same CLI on the proven parser.
 
-Neither `bjson` nor the proven library may share a String: one shared String makes the runtime count references on every String in the program, which halves the speed. `scripts/cold.py` fails the check if `main.bend` or `spec_cli.bend` does. So the proven parser's errors count the chars left instead of keeping the input, and its round trip, UTF-8 decoding included, takes 55 ms on canada and 13 ms on twitter.
+Neither `grounds-json` nor the proven library may share a String: one shared String makes the runtime count references on every String in the program, which halves the speed. `scripts/cold.py` fails the check if `main.bend` or `spec_cli.bend` does. So the proven parser's errors count the chars left instead of keeping the input, and its round trip, UTF-8 decoding included, takes 55 ms on canada and 13 ms on twitter.
 
 ## Files
 
 | File | Holds |
 |---|---|
-| `bjson.bend` | the library |
+| `json.bend` | the library |
 | `../utf8`, `../io` | UTF-8 decoding and file reads, shared with other grounds packages |
 | `test.bend` | unit tests; each is a proof that checks at compile time |
 | `LAWS.bend`, `PROOF.bend` | laws the library keeps, and their proofs |

@@ -1,5 +1,5 @@
 import Base
-import ../bjson.bend as J
+import ../json.bend as J
 import ./spec.bend as S
 import ./arith.bend as A
 import ./strings.bend as Str

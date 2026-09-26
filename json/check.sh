@@ -15,7 +15,7 @@ python3 scripts/gen_fast.py
 python3 scripts/gen_fast_proof.py
 python3 scripts/gen_layout_proof.py
 
-step "no reference-counted types in bjson or the proven path (scripts/cold.py)"
+step "no reference-counted types in grounds-json or the proven path (scripts/cold.py)"
 python3 scripts/cold.py main.bend spec_cli.bend
 
 step "unit tests (test.bend)"
@@ -32,15 +32,15 @@ step "stress (stress.bend)"
 native stress
 
 step "CLI (main.bend)"
-bend main.bend -o "$tmp/bjson" > /dev/null
-"$tmp/bjson" --compact examples/sample.json
-if "$tmp/bjson" examples/broken.json 2>/dev/null; then
+bend main.bend -o "$tmp/grounds-json" > /dev/null
+"$tmp/grounds-json" --compact examples/sample.json
+if "$tmp/grounds-json" examples/broken.json 2>/dev/null; then
   echo "broken.json should fail"; exit 1
 fi
 echo "broken.json rejected"
 size=$(wc -c < examples/sample.json | tr -d ' ')
-"$tmp/bjson" --max-bytes "$size" --compact examples/sample.json > /dev/null
-if "$tmp/bjson" --max-bytes "$((size - 1))" examples/sample.json 2>/dev/null; then
+"$tmp/grounds-json" --max-bytes "$size" --compact examples/sample.json > /dev/null
+if "$tmp/grounds-json" --max-bytes "$((size - 1))" examples/sample.json 2>/dev/null; then
   echo "--max-bytes should refuse a bigger file"; exit 1
 fi
 echo "--max-bytes $((size - 1)) refused a $size-byte file"

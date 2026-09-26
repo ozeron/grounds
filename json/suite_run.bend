@@ -1,5 +1,5 @@
 import Base
-import ./bjson.bend as J
+import ./json.bend as J
 import ./fast.bend as F
 
 # Y must parse, N must fail (scripts/gen_suite.py decides the i_ cases)

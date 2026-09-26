@@ -1,10 +1,10 @@
 import Base
-import ./bjson.bend as J
+import ./json.bend as J
 import ./fast.bend as F
 import ../utf8/utf8.bend as U
 import ../io/io.bend as Io
 
-# bjson [--compact] [--max-bytes N] <file.json>
+# grounds-json [--compact] [--max-bytes N] <file.json>
 # pretty-prints the file, or reports where it stops being JSON. With
 # --max-bytes (provisional), a bigger file is refused before it is read.
 #
@@ -218,7 +218,7 @@ def run(compact: Bool, limit: Maybe<&2, U32>, path: String) -> IO(Unit):
     checked(compact, replaced(text), text)
 
 def usage() -> IO(Unit):
-  IO.die(Unit, 2, "usage: bjson [--compact] [--max-bytes N] <file.json>")
+  IO.die(Unit, 2, "usage: grounds-json [--compact] [--max-bytes N] <file.json>")
 
 def dispatch(o: Opts) -> IO(Unit):
   match o:

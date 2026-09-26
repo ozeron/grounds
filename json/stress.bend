@@ -1,5 +1,5 @@
 import Base
-import ./bjson.bend as J
+import ./json.bend as J
 
 # big inputs through parse and print: nothing here may overflow the stack
 

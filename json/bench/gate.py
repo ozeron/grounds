@@ -1,8 +1,8 @@
-"""Fail if bjson is more than LIMIT times Go's time on a benchmark file."""
+"""Fail if grounds-json is more than LIMIT times Go's time on a benchmark file."""
 import json
 import sys
 
-TOOL = sys.argv[1] if len(sys.argv) > 1 else "bjson"
+TOOL = sys.argv[1] if len(sys.argv) > 1 else "grounds-json"
 LIMIT = 1.5
 bad = False
 for f in ["canada", "citm_catalog", "twitter"]:

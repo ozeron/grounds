@@ -1,7 +1,7 @@
 {
   "results": [
     {
-      "command": "bjson",
+      "command": "grounds-json",
       "mean": 0.001733615572695036,
       "stddev": 0.00040710885288569213,
       "median": 0.0016200835000000002,

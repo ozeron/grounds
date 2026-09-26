@@ -17,7 +17,7 @@ SPECIAL = {
 WANT = {"ok": "Y", "err": "N"}
 
 
-# JSONTestSuite leaves i_ cases to the parser; bjson's answers:
+# JSONTestSuite leaves i_ cases to the parser; grounds-json's answers:
 # - numbers of any size or exponent parse: they keep their exact digits
 # - a lone or out-of-order UTF-16 surrogate escape fails (LoneSurrogate)
 # - input that is not UTF-8 fails (InvalidUtf8), UTF-16 included

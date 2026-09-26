@@ -1,15 +1,15 @@
 import Base
-import ./bjson.bend as J
+import ./json.bend as J
 import ../io/io.bend as Io
 
 # the reference CLI for tests: everything through the proven J.parse,
-# J.stringify and J.pretty. scripts/integration.py checks that bjson
+# J.stringify and J.pretty. scripts/integration.py checks that grounds-json
 # prints exactly what this prints, errors included
 
 def usage() -> IO(Unit):
-  IO.die(Unit, 2, "usage: bjson [--compact] <file.json>")
+  IO.die(Unit, 2, "usage: grounds-json [--compact] <file.json>")
 
-# the path of `bjson [--compact] <path>`, asked for again on an error,
+# the path of `grounds-json [--compact] <path>`, asked for again on an error,
 # since keeping it would share a String
 def path_of(args: List<String>) -> String:
   match args:

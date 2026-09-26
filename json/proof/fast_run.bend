@@ -1,5 +1,5 @@
 import Base
-import ../bjson.bend as J
+import ../json.bend as J
 import ../fast.bend as F
 import ./spec.bend as S
 import ./fast_text.bend as T

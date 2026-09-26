@@ -1,5 +1,5 @@
 import Base
-import ./bjson.bend as J
+import ./json.bend as J
 
 # reformat(s) is stringify(parse(s)) in one pass: it checks the input and
 # writes the compact text as it reads, without building the Json value.
@@ -64,7 +64,7 @@ type Mode is Data:
 # Strings
 # -------
 
-# copies of bjson.bend's helpers: importing that file would link the
+# copies of json.bend's helpers: importing that file would link the
 # proven parser, whose shared Strings make every String here counted
 
 def in_range(+x: U32, lo: U32, hi: U32) -> Bool:

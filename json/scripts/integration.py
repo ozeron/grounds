@@ -1,4 +1,4 @@
-"""Integration tests: build the bjson CLI and check it against Python's json.
+"""Integration tests: build the grounds-json CLI and check it against Python's json.
 
 - valid docs (fixtures + random): output parses in Python to the same value,
   compact and pretty, and printing is a fixed point
@@ -8,7 +8,7 @@
   report invalid UTF-8 at the same line and column
 - examples/regress/: inputs that once failed, checked as bytes on every run;
   FAIL_DIR=dir saves this run's failing inputs there, to add to it
-- bjson prints exactly what spec_cli.bend (the CLI on the proven parser)
+- grounds-json prints exactly what spec_cli.bend (the CLI on the proven parser)
   prints, errors included
 """
 import json
@@ -21,12 +21,12 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-BIN = ROOT / "bjson"
-SPEC = ROOT / "spec-bjson"
+BIN = ROOT / "grounds-json"
+SPEC = ROOT / "spec-grounds-json"
 SEED = int(os.environ.get("SEED", "1"))
 N = int(os.environ.get("N", "300"))
 rng = random.Random(SEED)
-tmp = Path(tempfile.mkdtemp(prefix="bjson-it-"))
+tmp = Path(tempfile.mkdtemp(prefix="grounds-json-it-"))
 failures = []
 counts = {"valid": 0, "invalid": 0}
 
@@ -49,7 +49,7 @@ def run_bytes(raw, *flags, binary=BIN):
 
 def strict_loads(text):
     """Python's json, minus its extensions: NaN/Infinity and lone surrogates.
-    A leading BOM is skipped, as RFC 8259 §8.1 allows and bjson does."""
+    A leading BOM is skipped, as RFC 8259 §8.1 allows and grounds-json does."""
     def no_const(name):
         raise ValueError(name)
     v = json.loads(text.removeprefix("\ufeff"), parse_constant=no_const)
@@ -185,7 +185,7 @@ def check_valid(name, text):
         if code2 != 0 or out2 != out:
             return fail(name, "printing is not a fixed point", text)
         if run(text, *flags, binary=SPEC) != (code, out, err):
-            return fail(name, f"bjson {' '.join(flags)} differs from the proven parser's CLI", text)
+            return fail(name, f"grounds-json {' '.join(flags)} differs from the proven parser's CLI", text)
 
 
 def check_invalid(name, text):

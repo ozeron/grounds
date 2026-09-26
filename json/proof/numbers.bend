@@ -1,5 +1,5 @@
 import Base
-import ../bjson.bend as J
+import ../json.bend as J
 
 # Lexing J.num_k(n, r) gives back n, when r starts with a char no number
 # continues with (as the printer's ',', ']', '}' or the end all do).

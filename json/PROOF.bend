@@ -1,6 +1,6 @@
 import Base
 import ./LAWS.bend as Laws
-import ./bjson.bend as J
+import ./json.bend as J
 import ./proof/parse.bend as RoundTrip
 import ./proof/fast_run.bend as FastRoundTrip
 import ./proof/layout.bend as Layout

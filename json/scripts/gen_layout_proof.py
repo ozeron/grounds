@@ -341,7 +341,7 @@ law("obj_t.1", OT + [PK, f"ih1: @s: Nat -> {goal('S.sp(p)', 'v', 'False{}', '1n+
     G_OT, OTA + ["pk", "ih1", "ih2"], f"  (+x, ex) = pk\n  obj_t.2(" + ", ".join(OTA) + f", x, ex, ih1({S3_T}), ih2)")
 
 HEAD = '''import Base
-import ../bjson.bend as J
+import ../json.bend as J
 import ./spec.bend as S
 import ./arith.bend as A
 import ./strings.bend as Str
@@ -617,7 +617,7 @@ def parse_pretty(j, cs):
   %Equal.sym(String, J.skip_bom(t), t, bom(j, True{}, S.wstr(cs))) : {J.finish(J.lines(t, 0, []), J.loop(1n+A.len(t), J.Run{_, [], J.MValue{}})) == Done{j} : PA.RJ()}
   parse.go(j, True{}, cs, run(j, False{}, "", s => {==}, Unit{}, True{}, cs, 0n, J.MValue{}, [], "", 1n, Unit{}, Unit{}))
 
-# what bjson writes
+# what grounds-json writes
 law pretty_round_trip:
   for +j: J.Json
   {J.parse(J.pretty(j, "  ")) == Done{j} : PA.RJ()}

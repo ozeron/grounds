@@ -1,5 +1,5 @@
 import Base
-import ../bjson.bend as J
+import ../json.bend as J
 import ./spec.bend as S
 
 # Nat and length facts for the parser's fuel.

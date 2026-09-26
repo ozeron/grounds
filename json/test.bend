@@ -1,5 +1,5 @@
 import Base
-import ./bjson.bend as J
+import ./json.bend as J
 
 # each def is a test: it checks only if both sides compute to the same value
 

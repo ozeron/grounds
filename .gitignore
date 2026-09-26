@@ -3,10 +3,10 @@
 !/json/bench/rt.js
 *.gpu
 /json/dist
-/json/bjson
+/json/grounds-json
 /json/bench/data/
 /json/bench/gort-bin
-/json/spec-bjson
+/json/spec-grounds-json
 
 /json/fails/
 

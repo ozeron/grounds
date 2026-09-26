@@ -1,5 +1,5 @@
 import Base
-import ../bjson.bend as J
+import ../json.bend as J
 import ./spec.bend as S
 
 # S.text(j, more, k) is S.text(j, more, "") with k after it, and pushing

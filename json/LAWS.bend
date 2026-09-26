@@ -1,21 +1,21 @@
 import Base
-import ./bjson.bend as J
+import ./json.bend as J
 import ./fast.bend as F
 
-# Laws bjson must keep. `bend PROOF.bend` fails while any is open or false.
+# Laws grounds-json must keep. `bend PROOF.bend` fails while any is open or false.
 
 # parsing what the printer wrote gives back the same value, for every value
 law round_trip:
   for j: J.Json
   {J.parse(J.stringify(j)) == Done{j} : Result<&2, &2, J.Error, J.Json>}
 
-# the one-pass reformatter, which bjson runs, reads printed JSON back to
+# the one-pass reformatter, which grounds-json runs, reads printed JSON back to
 # the same text
 law fast_round_trip:
   for j: J.Json
   {F.reformat(J.stringify(j)) == F.Ok{J.stringify(j)} : F.Out}
 
-# the same for the indented text bjson prints by default
+# the same for the indented text grounds-json prints by default
 law pretty_round_trip:
   for j: J.Json
   {J.parse(J.pretty(j, "  ")) == Done{j} : Result<&2, &2, J.Error, J.Json>}

@@ -1,5 +1,5 @@
 import Base
-import ../bjson.bend as J
+import ../json.bend as J
 
 # What the printer writes, said simply: each function writes its part in
 # front of the text k. Only proofs use these.

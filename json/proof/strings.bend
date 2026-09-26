@@ -1,5 +1,5 @@
 import Base
-import ../bjson.bend as J
+import ../json.bend as J
 import ./spec.bend as S
 
 # Lexing S.esc(s) gives back s: the printer and the lexer both decide

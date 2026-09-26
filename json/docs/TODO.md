@@ -1,4 +1,4 @@
-# bjson TODO
+# grounds-json TODO
 
 Built from [RFC 8259](rfc8259.txt) (JSON, STD 90). Section numbers point into it.
 
@@ -47,7 +47,7 @@ Built from [RFC 8259](rfc8259.txt) (JSON, STD 90). Section numbers point into it
 
 ### Encoding (§8.1)
 - [x] Reject input that is not UTF-8 (overlong forms, surrogates, past U+10FFFF, cut-off sequences) as `InvalidUtf8`, at the code point where the bad bytes start
-- [x] `parse_bytes` decodes bytes itself; `bjson` reads text through the runtime and re-reads the bytes only if the text has a U+FFFD
+- [x] `parse_bytes` decodes bytes itself; `grounds-json` reads text through the runtime and re-reads the bytes only if the text has a U+FFFD
 
 ### Errors and limits (§9)
 - [x] Error type with reason
@@ -111,9 +111,9 @@ The blocker for an any-input proof: both loops match char literals (`'['`, `'0'`
 
 ## Next: stream the input in chunks (measured, `bench/spike/`)
 
-The fast loop pauses at each chunk's end and resumes on the next; the CLI writes each chunk's output. Measured (PGO, Apple Silicon), against today's bjson and Go:
+The fast loop pauses at each chunk's end and resumes on the next; the CLI writes each chunk's output. Measured (PGO, Apple Silicon), against today's grounds-json and Go:
 
-| | chunked | bjson now | Go |
+| | chunked | grounds-json now | Go |
 |---|---|---|---|
 | canada | 34.9 ms | 38.7 ms | 27.3 ms |
 | citm_catalog | 15.7 ms | 18.4 ms | 14.2 ms |
