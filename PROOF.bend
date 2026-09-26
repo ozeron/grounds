@@ -2,9 +2,13 @@ import Base
 import ./LAWS.bend as Laws
 import ./bjson.bend as J
 import ./proof/parse.bend as RoundTrip
+import ./proof/fast_run.bend as FastRoundTrip
 
 def Laws.round_trip(j):
   RoundTrip.round_trip(j)
+
+def Laws.fast_round_trip(j):
+  FastRoundTrip.fast_round_trip(j)
 
 def Laws.always_parses(j):
   %Equal.sym(Result<&2, &2, J.Error, J.Json>, J.parse(J.stringify(j)), Done{j}, RoundTrip.round_trip(j)) : {J.is_ok(_) == True{} : Bool}

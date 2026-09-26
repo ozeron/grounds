@@ -5,6 +5,9 @@ cd "$(dirname "$0")"
 
 step() { printf '\n== %s\n' "$1"; }
 
+python3 scripts/gen_fast.py
+python3 scripts/gen_fast_proof.py
+
 step "no reference-counted types in bjson (scripts/cold.py)"
 python3 scripts/cold.py main.bend
 
@@ -16,7 +19,6 @@ bend PROOF.bend
 
 step "JSONTestSuite, and fast.bend against the proven parser (suite.bend)"
 python3 scripts/gen_suite.py
-python3 scripts/gen_fast.py
 bend suite.bend
 
 step "stress (stress.bend)"
