@@ -54,11 +54,11 @@ def slow(compact: Bool, +path: String) -> IO(Unit):
 # compact output takes the one-pass path. If it finds the input invalid,
 # the file is read again for the proven parser to report the error:
 # keeping the text around for that would slow the fast path down.
-def fast_out(m: Maybe<&2, String>, +path: String) -> IO(Unit):
+def fast_out(m: F.Out, +path: String) -> IO(Unit):
   match m:
-    case Some{out}:
+    case F.Ok{out}:
       IO.print(out)
-    case None{}:
+    case F.Err{_, _}:
       slow(True{}, path)
 
 def fast(+path: String) -> IO(Unit):

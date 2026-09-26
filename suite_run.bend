@@ -34,19 +34,19 @@ def score(want: Want, got: Bool, name: String, t: Tally) -> Tally:
     case _ _ Tally{p, f, a, b, xs}:
       Tally{p, (f + 1 : U32), a, b, name <> xs}
 
-def spec(r: Result<&2, &2, J.Error, J.Json>) -> Maybe<&2, String>:
-  match r:
-    case Done{j}:
-      Some{J.stringify(j)}
-    case Fail{_}:
-      None{}
+# the fast path must give J.parse's answer: the same text when valid, the
+# same reason and offset when not
+def same.err(r: J.Reason, +at: U32, e: J.Error) -> Bool:
+  match e:
+    case J.Error{r2, at2, _, _}:
+      Bool.and(String.eq(J.reason(r), J.reason(r2)), U32.is_eq(at, at2))
 
-def same(a: Maybe<&2, String>, b: Maybe<&2, String>) -> Bool:
+def same(a: F.Out, b: Result<&2, &2, J.Error, J.Json>) -> Bool:
   match a b:
-    case None{} None{}:
-      True{}
-    case Some{x} Some{y}:
-      String.eq(x, y)
+    case F.Ok{x} Done{j}:
+      String.eq(x, J.stringify(j))
+    case F.Err{r, at} Fail{e}:
+      same.err(r, at, e)
     case _ _:
       False{}
 
@@ -63,7 +63,7 @@ def tally(xs: List<&2, Case>, t: Tally) -> Tally:
     case Nil{}:
       t
     case Con{Case{+name, want, +input}, rest}:
-      tally(rest, fast(same(F.reformat(input), spec(J.parse(input))), name, score(want, parsed(J.parse(input)), name, t)))
+      tally(rest, fast(same(F.reformat(input), J.parse(input)), name, score(want, parsed(J.parse(input)), name, t)))
 
 def failed(xs: List<&2, String>) -> IO(Unit):
   do IO<Unit>:

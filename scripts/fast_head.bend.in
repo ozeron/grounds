@@ -1,10 +1,15 @@
 import Base
+import ./bjson.bend as J
 
 # reformat(s) is stringify(parse(s)) in one pass: it checks the input and
 # writes the compact text as it reads, without building the Json value.
-# Some{text} when s is JSON, None when it is not (J.parse then says why).
-# The suite and scripts/integration.py check it against J.parse and
-# J.stringify, which PROOF.bend proves round-trip.
+# Ok{text} when s is JSON; Err{reason, offset} when not, the same reason
+# and offset J.parse reports. suite.bend and scripts/integration.py check
+# both against J.parse and J.stringify, which PROOF.bend proves.
+#
+# Only J's types and message text are used here: calling J.parse would
+# link code that shares Strings, which makes every String in the program
+# reference counted (scripts/cold.py checks this stays so).
 
 # output is built reversed and turned around once at the end
 
@@ -16,6 +21,7 @@ type Box is Data:
 # Every mode is a plain tag: a case that looks two chars ahead makes the
 # compiler test the next char for every char, which halves the speed
 type Mode is Data:
+  VStart{}
   VTop{}
   VFirst{}
   VItem{}
@@ -50,7 +56,9 @@ type Mode is Data:
   U1{}
   U2{}
   U3{}
-  Bad{}
+  BCtrl{}
+  BUni{}
+  BLone{}
 
 # Strings
 # -------
@@ -124,51 +132,6 @@ def onto(chunk: String, out: String) -> String:
 def emit_code(+x: U32, out: String) -> String:
   onto(String.reverse(chunk(x)), out)
 
-# after a \u escape: its output, the pending high surrogate, and whether
-# it was wrong
-type U is Data:
-  U{out: String, hi: U32, bad: Bool}
-
-def u_out(u: U) -> String:
-  match u:
-    case U{o, _, _}:
-      o
-
-def u_hi(u: U) -> U32:
-  match u:
-    case U{_, h, _}:
-      h
-
-def u_bad(u: U) -> Bool:
-  match u:
-    case U{_, _, b}:
-      b
-
-# a low surrogate: with its high half it makes one char; alone it is an
-# error, and nothing is built (the pair of nothing is not a char)
-def low(pend: Bool, +hi: U32, +x: U32, out: String) -> U:
-  match pend:
-    case True{}:
-      U{emit_code(pair(hi, x), out), 0, False{}}
-    case False{}:
-      U{out, 0, True{}}
-
-def u_code.go(k: Surr, +hi: U32, +x: U32, out: String) -> U:
-  match k:
-    case NotSurr{}:
-      U{emit_code(x, out), 0, pending(hi)}
-    case High{}:
-      U{out, x, pending(hi)}
-    case Low{}:
-      low(pending(hi), hi, x, out)
-
-def u_code(m: Maybe<&2, U32>, +hi: U32, out: String) -> U:
-  match m:
-    case None{}:
-      U{out, 0, True{}}
-    case Some{+x}:
-      u_code.go(surr(x), hi, x, out)
-
 # where a string ends: a value, or a key before its colon
 def close_mode(key: Bool) -> Mode:
   match key:
@@ -177,25 +140,75 @@ def close_mode(key: Bool) -> Mode:
     case False{}:
       VAfter{}
 
-# the mode after a \u escape: back in the string, or waiting for the low
-# half of a surrogate pair
-def u_mode.go(none: Bool) -> Mode:
-  match none:
-    case True{}:
+# a \\u escape's last hex digit completes the code. With hi (a pending
+# high surrogate, or 0) the code decides the mode, the output and the new
+# hi; a wrong one goes to BUni (bad hex) or BLone (unpaired surrogate)
+def code_of.go(d: Maybe<&2, U32>, +code: U32) -> Maybe<&2, U32>:
+  match d:
+    case Some{v}:
+      Some{(code * 16 + v : U32)}
+    case None{}:
+      None{}
+
+def code_of(c: Char, +code: U32) -> Maybe<&2, U32>:
+  code_of.go(hex_digit(c), code)
+
+def u_mode.k(k: Surr, pend: Bool) -> Mode:
+  match k pend:
+    case NotSurr{} False{}:
       SStr{}
-    case False{}:
+    case High{} False{}:
       SHi{}
+    case Low{} True{}:
+      SStr{}
+    case _ _:
+      BLone{}
 
-def u_mode(+hi: U32) -> Mode:
-  u_mode.go(U32.is_eq(hi, 0))
+def u_mode(m: Maybe<&2, U32>, +hi: U32) -> Mode:
+  match m:
+    case None{}:
+      BUni{}
+    case Some{+x}:
+      u_mode.k(surr(x), pending(hi))
 
-# a hex digit of a \u escape: the next mode, or Bad
+# only the two good cases build a char: the pair of nothing is not one
+def u_out.k(k: Surr, pend: Bool, +hi: U32, +x: U32, out: String) -> String:
+  match k pend:
+    case NotSurr{} False{}:
+      emit_code(x, out)
+    case Low{} True{}:
+      emit_code(pair(hi, x), out)
+    case _ _:
+      out
+
+def u_out(m: Maybe<&2, U32>, +hi: U32, out: String) -> String:
+  match m:
+    case None{}:
+      out
+    case Some{+x}:
+      u_out.k(surr(x), pending(hi), hi, x, out)
+
+def u_hi.k(k: Surr, pend: Bool, +x: U32) -> U32:
+  match k pend:
+    case High{} False{}:
+      x
+    case _ _:
+      0
+
+def u_hi(m: Maybe<&2, U32>, +hi: U32) -> U32:
+  match m:
+    case None{}:
+      0
+    case Some{+x}:
+      u_hi.k(surr(x), pending(hi), x)
+
+# a hex digit before the last: the next mode, or BUni
 def hex_mode(d: Maybe<&2, U32>, next: Mode) -> Mode:
   match d:
     case Some{_}:
       next
     case None{}:
-      Bad{}
+      BUni{}
 
 def hex_add(d: Maybe<&2, U32>, +code: U32) -> U32:
   match d:
@@ -204,28 +217,32 @@ def hex_add(d: Maybe<&2, U32>, +code: U32) -> U32:
     case None{}:
       0
 
-# the fourth hex digit: the code is complete
-def u_last.go(d: Maybe<&2, U32>, +code: U32, +hi: U32, out: String) -> U:
-  match d:
-    case Some{v}:
-      u_code(Some{(code * 16 + v : U32)}, hi, out)
-    case None{}:
-      U{out, 0, True{}}
+# what reformat answers
+type Out is Data:
+  Ok{text: String}
+  Err{reason: J.Reason, at: U32}
 
-def finish(mode: Mode, stack: List<&2, Box>, out: String, bad: Bool) -> Maybe<&2, String>:
-  match mode stack bad:
-    case _ _ True{}:
-      None{}
-    case VAfter{} Nil{} False{}:
-      Some{String.reverse(out)}
-    case NZero{} Nil{} False{}:
-      Some{String.reverse(out)}
-    case NInt{} Nil{} False{}:
-      Some{String.reverse(out)}
-    case NFrac{} Nil{} False{}:
-      Some{String.reverse(out)}
-    case NExp{} Nil{} False{}:
-      Some{String.reverse(out)}
-    case _ _ _:
-      None{}
+# the end of the input
+def finish(mode: Mode, stack: List<&2, Box>, out: String, +at: U32) -> Out:
+  match mode stack:
+    case VAfter{} Nil{}:
+      Ok{String.reverse(out)}
+    case NZero{} Nil{}:
+      Ok{String.reverse(out)}
+    case NInt{} Nil{}:
+      Ok{String.reverse(out)}
+    case NFrac{} Nil{}:
+      Ok{String.reverse(out)}
+    case NExp{} Nil{}:
+      Ok{String.reverse(out)}
+    case NMin{} _:
+      Err{J.InvalidNumber{}, at}
+    case NDot{} _:
+      Err{J.InvalidNumber{}, at}
+    case NE{} _:
+      Err{J.InvalidNumber{}, at}
+    case NESign{} _:
+      Err{J.InvalidNumber{}, at}
+    case _ _:
+      Err{J.UnexpectedEnd{}, at}
 

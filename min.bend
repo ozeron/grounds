@@ -44,11 +44,11 @@ def complain(args: List<String>) -> IO(Unit):
 
 # the path is not kept for the error: sharing any String here would make
 # every String counted, so the error asks for the arguments again
-def out(m: Maybe<&2, String>) -> IO(Unit):
+def out(m: F.Out) -> IO(Unit):
   match m:
-    case Some{text}:
+    case F.Ok{text}:
       IO.print(text)
-    case None{}:
+    case F.Err{_, _}:
       do IO<Unit>:
         args : List<String> <- IO.args()
         complain(args)
