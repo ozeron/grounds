@@ -4,8 +4,8 @@ The `json` package of [grounds](../README.md): a JSON parser and printer for [Be
 
 Proven for every value `j` (`LAWS.bend`, checked by `bend PROOF.bend`):
 
-- `parse(stringify(j)) == Done{j}`
-- `reformat(stringify(j)) == Ok{stringify(j)}`: the one-pass loop `grounds-json` runs reads printed JSON back unchanged
+- `parse(encode(j)) == Done{j}`
+- `reformat(encode(j)) == Ok{encode(j)}`: the one-pass loop `grounds-json` runs reads printed JSON back unchanged
 - `parse(pretty(j, "  ")) == Done{j}`: indented output reads back too (`proof/layout.bend`, for any indent of spaces and tabs)
 
 ```sh
@@ -24,24 +24,32 @@ Import it with `import ./json.bend as J`.
 | Function | Does |
 |---|---|
 | `J.parse(s)` | `Done{json}` or `Fail{J.Error{reason, offset, line, column}}` |
-| `J.stringify(j)` | compact text |
+| `J.parse_bytes(bs)` | `parse` on raw bytes (`List<U32>`, 0..255); bytes that are not UTF-8 fail as `InvalidUtf8` |
+| `J.encode(j)` | compact text |
 | `J.pretty(j, "  ")` | indented text; the argument is one level of indent |
 | `J.message(e)` | `"3:5: unexpected \",\""` |
-| `J.get(j, key)`, `J.at(j, n)` | object lookup, array index; `Maybe` |
-| `J.as_bool`, `as_str`, `as_u32`, `as_f32`, `as_list`, `as_fields` | typed reads; `None` on the wrong kind |
-| `J.num(text)`, `num_u32(x)`, `num_f32(x)` | build numbers; `num` and `num_f32` give `None` for text that is not a JSON number (e.g. `inf`) |
-| `J.num_text(n)` | a number's text |
 
-`Json` is `JNull`, `JBool`, `JNum{Number}`, `JStr`, `JArr{List<Json>}`, `JObj{List<Field>}`.
-
-A `Number` holds the sign, digits, fraction and exponent as written. An invalid number cannot be built.
-
-Provisional, until the API is settled:
+Reads (level A of [docs/API.md](docs/API.md)) give `Done{value}` or `Fail{access}`:
 
 | Function | Does |
 |---|---|
-| `J.parse_bytes(bs)` | `parse` on raw bytes (`List<U32>`, 0..255); bytes that are not UTF-8 fail as `InvalidUtf8` |
-| `J.decode(bs)` | `TOk{text}`, or `TBad{at, before}`: where the first bad sequence starts |
+| `J.get(j, key)` | the value of a key; the last one wins on duplicates |
+| `J.index(j, i)` | the item at index `i` (`U32`) |
+| `J.string(j)`, `J.bool(j)` | the string, the bool |
+| `J.u32(j)` | a whole number from 0 to 2^32 − 1; anything else is `OutOfRange` |
+| `J.f32(j)` | the nearest F32; past 2^24 not every whole number has one |
+| `J.number(j)` | the number exactly as written, for what `u32` and `f32` cannot hold |
+| `J.array(j)`, `J.object(j)` | the items, the fields, in order |
+| `J.is_null(j)` | `Bool` |
+| `J.message_access(a)` | `"$.user.tags[0]: expected string, found number"` |
+
+`Access` is `Missing{path}` (no such key, or an index past the end), `Expected{path, want, got}` (another kind of value) or `OutOfRange{path}`. A path is a list of `Name{key}` and `Index{i}` steps; kinds are `KNull`, `KBool`, `KNumber`, `KString`, `KArray`, `KObject`. `LAWS.bend` proves each read: it gives back what was stored, fails as `Expected` exactly on other kinds, and `get` finds a key with the last duplicate winning.
+
+Build values with `JNull`, `JBool`, `JNum{Number}`, `JStr`, `JArr{List<Json>}`, `JObj{List<Field>}`, and numbers with `J.num(text)`, `num_u32(x)`, `num_f32(x)` (`num` and `num_f32` give `None` for text that is not a JSON number, e.g. `inf`); `J.num_text(n)` is a number's text.
+
+A `Number` holds the sign, digits, fraction and exponent as written. An invalid number cannot be built.
+
+`examples/access.bend` reads a nested field by chaining reads; paths (level B) will do that in one call.
 
 ## Behavior to know
 
@@ -80,7 +88,7 @@ Provisional, until the API is settled:
 
 Memory is the cost of Bend strings: a cons cell per char, for the input and the output both, about 29 bytes per input byte. Use `--max-bytes` to cap it.
 
-`grounds-json` runs everything through `fast.bend`: one pass that checks the input and writes the output, compact or indented, without building a `Json` value. It answers exactly what the proven `J.parse`, `J.stringify` and `J.pretty` answer, errors included: `suite.bend` checks this on every JSONTestSuite case, and `scripts/integration.py` fuzzes `grounds-json` against `spec_cli.bend`, the same CLI on the proven parser.
+`grounds-json` runs everything through `fast.bend`: one pass that checks the input and writes the output, compact or indented, without building a `Json` value. It answers exactly what the proven `J.parse`, `J.encode` and `J.pretty` answer, errors included: `suite.bend` checks this on every JSONTestSuite case, and `scripts/integration.py` fuzzes `grounds-json` against `spec_cli.bend`, the same CLI on the proven parser.
 
 Neither `grounds-json` nor the proven library may share a String: one shared String makes the runtime count references on every String in the program, which halves the speed. `scripts/cold.py` fails the check if `main.bend` or `spec_cli.bend` does. So the proven parser's errors count the chars left instead of keeping the input, and its round trip, UTF-8 decoding included, takes 55 ms on canada and 13 ms on twitter.
 

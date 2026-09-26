@@ -3,7 +3,7 @@ import ./json.bend as J
 import ../io/io.bend as Io
 
 # the reference CLI for tests: everything through the proven J.parse,
-# J.stringify and J.pretty. scripts/integration.py checks that grounds-json
+# J.encode and J.pretty. scripts/integration.py checks that grounds-json
 # prints exactly what this prints, errors included
 
 def usage() -> IO(Unit):
@@ -28,7 +28,7 @@ def fail(e: J.Error) -> IO(Unit):
 def emit(compact: Bool, r: Result<&2, &2, J.Error, J.Json>) -> IO(Unit):
   match compact r:
     case True{} Done{j}:
-      IO.print(J.stringify(j))
+      IO.print(J.encode(j))
     case False{} Done{j}:
       IO.print(J.pretty(j, "  "))
     case _ Fail{e}:

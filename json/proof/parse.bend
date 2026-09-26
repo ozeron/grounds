@@ -126,7 +126,7 @@ law num_dispatch.go:
   for +stk: List<&2, J.Frame>
   for +m: J.Mode
   for vm: ValMode(m)
-  {J.dispatch(m, J.skip_ws(J.num_k(J.Number{neg, i, f, e}, r)), stk) == J.number(J.lex_num(J.num_k(J.Number{neg, i, f, e}, r), J.NStart{}), stk) : J.St}
+  {J.dispatch(m, J.skip_ws(J.num_k(J.Number{neg, i, f, e}, r)), stk) == J.num_token(J.lex_num(J.num_k(J.Number{neg, i, f, e}, r), J.NStart{}), stk) : J.St}
 
 def num_dispatch.go(neg, i, f, e, r, stk, m, vm):
   match neg i m:
@@ -190,7 +190,7 @@ law num_dispatch:
   for +stk: List<&2, J.Frame>
   for +m: J.Mode
   for vm: ValMode(m)
-  {J.dispatch(m, J.skip_ws(J.num_k(n, r)), stk) == J.number(J.lex_num(J.num_k(n, r), J.NStart{}), stk) : J.St}
+  {J.dispatch(m, J.skip_ws(J.num_k(n, r)), stk) == J.num_token(J.lex_num(J.num_k(n, r), J.NStart{}), stk) : J.St}
 
 def num_dispatch(n, r, stk, m, vm):
   match n:
@@ -399,14 +399,14 @@ def g_num.w(n, slack, m, vm, stk, r, dl, w):
     step(slack, J.num_k(n, r), A.add(x, A.len(r)), stk, m, ex),
     Equal.trans(J.St,
       J.loop(A.add(slack, A.add(x, A.len(r))), J.dispatch(m, J.skip_ws(J.num_k(n, r)), stk)),
-      J.loop(A.add(slack, A.add(x, A.len(r))), J.number(J.lex_num(J.num_k(n, r), J.NStart{}), stk)),
+      J.loop(A.add(slack, A.add(x, A.len(r))), J.num_token(J.lex_num(J.num_k(n, r), J.NStart{}), stk)),
       J.loop(A.add(A.add(slack, x), A.len(r)), J.emit(J.JNum{n}, r, stk)),
-      Equal.cong(J.St, J.St, y => J.loop(A.add(slack, A.add(x, A.len(r))), y), J.dispatch(m, J.skip_ws(J.num_k(n, r)), stk), J.number(J.lex_num(J.num_k(n, r), J.NStart{}), stk), num_dispatch(n, r, stk, m, vm)),
+      Equal.cong(J.St, J.St, y => J.loop(A.add(slack, A.add(x, A.len(r))), y), J.dispatch(m, J.skip_ws(J.num_k(n, r)), stk), J.num_token(J.lex_num(J.num_k(n, r), J.NStart{}), stk), num_dispatch(n, r, stk, m, vm)),
       Equal.trans(J.St,
-        J.loop(A.add(slack, A.add(x, A.len(r))), J.number(J.lex_num(J.num_k(n, r), J.NStart{}), stk)),
+        J.loop(A.add(slack, A.add(x, A.len(r))), J.num_token(J.lex_num(J.num_k(n, r), J.NStart{}), stk)),
         J.loop(A.add(slack, A.add(x, A.len(r))), J.emit(J.JNum{n}, r, stk)),
         J.loop(A.add(A.add(slack, x), A.len(r)), J.emit(J.JNum{n}, r, stk)),
-        Equal.cong(J.NLex, J.St, y => J.loop(A.add(slack, A.add(x, A.len(r))), J.number(y, stk)), J.lex_num(J.num_k(n, r), J.NStart{}), J.NOk{n, r}, Num.number(n, r, dl)),
+        Equal.cong(J.NLex, J.St, y => J.loop(A.add(slack, A.add(x, A.len(r))), J.num_token(y, stk)), J.lex_num(J.num_k(n, r), J.NStart{}), J.NOk{n, r}, Num.number(n, r, dl)),
         regroup(slack, x, A.len(r), J.emit(J.JNum{n}, r, stk))))))
 
 law g_num:
@@ -1155,10 +1155,10 @@ def round_trip.go(j, g):
 # parsing what the printer wrote gives back the value, for every value
 law round_trip:
   for +j: J.Json
-  {J.parse(J.stringify(j)) == Done{j} : RJ()}
+  {J.parse(J.encode(j)) == Done{j} : RJ()}
 
 def round_trip(j):
   +t : String = S.text(j, False{}, "")
-  %Equal.sym(String, J.stringify(j), t, P.print(j)) : {J.parse(_) == Done{j} : RJ()}
+  %Equal.sym(String, J.encode(j), t, P.print(j)) : {J.parse(_) == Done{j} : RJ()}
   %Equal.sym(String, J.skip_bom(t), t, bom(j)) : {J.finish(J.lines(t, 0, []), J.loop(1n+A.len(t), J.Run{_, [], J.MValue{}})) == Done{j} : RJ()}
   round_trip.go(j, run(j, False{}, J.MValue{}, [], "", 1n, Unit{}, Unit{}))

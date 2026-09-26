@@ -16,7 +16,7 @@ python3 scripts/gen_fast_proof.py
 python3 scripts/gen_layout_proof.py
 
 step "no reference-counted types in grounds-json or the proven path (scripts/cold.py)"
-python3 scripts/cold.py main.bend spec_cli.bend
+python3 scripts/cold.py main.bend spec_cli.bend examples/access.bend
 
 step "unit tests (test.bend)"
 bend test.bend

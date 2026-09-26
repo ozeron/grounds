@@ -299,7 +299,7 @@ def loop(f, items, pretty, unit, out):
 # the printer writes S.text
 law print:
   for +j: J.Json
-  {J.stringify(j) == S.text(j, False{}, "") : String}
+  {J.encode(j) == S.text(j, False{}, "") : String}
 
 def print(j):
   +items : List<&2, J.Item> = [J.Item{j, False{}, 0n}]

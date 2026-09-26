@@ -402,14 +402,14 @@ def g_num.w(n, pre, wp, slack, p, cs, d, m, vm, stk, r, dl, w):
     adv(slack, pre, J.num_k(n, r), A.add(x, A.len(r)), stk, m, ex, wp(J.num_k(n, r))),
     Equal.trans(J.St,
       J.loop(A.add(A.add(slack, A.len(pre)), A.add(x, A.len(r))), J.dispatch(m, J.skip_ws(J.num_k(n, r)), stk)),
-      J.loop(A.add(A.add(slack, A.len(pre)), A.add(x, A.len(r))), J.number(J.lex_num(J.num_k(n, r), J.NStart{}), stk)),
+      J.loop(A.add(A.add(slack, A.len(pre)), A.add(x, A.len(r))), J.num_token(J.lex_num(J.num_k(n, r), J.NStart{}), stk)),
       J.loop(A.add(A.add(A.add(slack, A.len(pre)), x), A.len(r)), J.emit(J.JNum{n}, r, stk)),
-      Equal.cong(J.St, J.St, y => J.loop(A.add(A.add(slack, A.len(pre)), A.add(x, A.len(r))), y), J.dispatch(m, J.skip_ws(J.num_k(n, r)), stk), J.number(J.lex_num(J.num_k(n, r), J.NStart{}), stk), PA.num_dispatch(n, r, stk, m, vm)),
+      Equal.cong(J.St, J.St, y => J.loop(A.add(A.add(slack, A.len(pre)), A.add(x, A.len(r))), y), J.dispatch(m, J.skip_ws(J.num_k(n, r)), stk), J.num_token(J.lex_num(J.num_k(n, r), J.NStart{}), stk), PA.num_dispatch(n, r, stk, m, vm)),
       Equal.trans(J.St,
-        J.loop(A.add(A.add(slack, A.len(pre)), A.add(x, A.len(r))), J.number(J.lex_num(J.num_k(n, r), J.NStart{}), stk)),
+        J.loop(A.add(A.add(slack, A.len(pre)), A.add(x, A.len(r))), J.num_token(J.lex_num(J.num_k(n, r), J.NStart{}), stk)),
         J.loop(A.add(A.add(slack, A.len(pre)), A.add(x, A.len(r))), J.emit(J.JNum{n}, r, stk)),
         J.loop(A.add(A.add(A.add(slack, A.len(pre)), x), A.len(r)), J.emit(J.JNum{n}, r, stk)),
-        Equal.cong(J.NLex, J.St, y => J.loop(A.add(A.add(slack, A.len(pre)), A.add(x, A.len(r))), J.number(y, stk)), J.lex_num(J.num_k(n, r), J.NStart{}), J.NOk{n, r}, Num.number(n, r, dl)),
+        Equal.cong(J.NLex, J.St, y => J.loop(A.add(A.add(slack, A.len(pre)), A.add(x, A.len(r))), J.num_token(y, stk)), J.lex_num(J.num_k(n, r), J.NStart{}), J.NOk{n, r}, Num.number(n, r, dl)),
         PA.regroup(A.add(slack, A.len(pre)), x, A.len(r), J.emit(J.JNum{n}, r, stk))))))
 
 law g_num:

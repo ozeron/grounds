@@ -121,13 +121,13 @@ N = "J.num_k(n, r)"
 em = "J.emit(J.JNum{n}, r, stk)"
 ts = [loop(add("slack", ln(f"pre ++ {N}")), run(f"pre ++ {N}", "stk", "m")),
       loop(add(SW, add("x", ln("r"))), f"J.dispatch(m, J.skip_ws({N}), stk)"),
-      loop(add(SW, add("x", ln("r"))), f"J.number(J.lex_num({N}, J.NStart{{}}), stk)"),
+      loop(add(SW, add("x", ln("r"))), f"J.num_token(J.lex_num({N}, J.NStart{{}}), stk)"),
       loop(add(SW, add("x", ln("r"))), em),
       loop(add(add(SW, "x"), ln("r")), em)]
 ps = [f"adv(slack, pre, {N}, {add('x', ln('r'))}, stk, m, ex, wp({N}))",
       f"Equal.cong(J.St, J.St, y => {loop(add(SW, add('x', ln('r'))), 'y')}, J.dispatch(m, J.skip_ws({N}), stk), "
-      f"J.number(J.lex_num({N}, J.NStart{{}}), stk), PA.num_dispatch(n, r, stk, m, vm))",
-      f"Equal.cong(J.NLex, J.St, y => {loop(add(SW, add('x', ln('r'))), 'J.number(y, stk)')}, "
+      f"J.num_token(J.lex_num({N}, J.NStart{{}}), stk), PA.num_dispatch(n, r, stk, m, vm))",
+      f"Equal.cong(J.NLex, J.St, y => {loop(add(SW, add('x', ln('r'))), 'J.num_token(y, stk)')}, "
       f"J.lex_num({N}, J.NStart{{}}), J.NOk{{n, r}}, Num.number(n, r, dl))",
       f"PA.regroup({SW}, x, {ln('r')}, {em})"]
 law("g_num.w", ["+n: J.Number"] + W_PARAMS + ["dl: Num.Delim(r)", f"w: A.Pre1({N}, r)"],

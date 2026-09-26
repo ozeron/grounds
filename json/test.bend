@@ -210,10 +210,10 @@ def err_line_col() -> {J.parse("[\n  1,\n  x\n]") == err(J.UnexpectedChar{'x'}, 
 
 # printing (§10)
 
-def show_compact() -> {J.stringify(J.JObj{[J.Field{"a", J.JArr{[n("1"), J.JNull{}]}}, J.Field{"b", J.JObj{[]}}]}) == "{\"a\":[1,null],\"b\":{}}" : String}:
+def show_compact() -> {J.encode(J.JObj{[J.Field{"a", J.JArr{[n("1"), J.JNull{}]}}, J.Field{"b", J.JObj{[]}}]}) == "{\"a\":[1,null],\"b\":{}}" : String}:
   {==}
 
-def show_escapes() -> {J.stringify(s("\"\\/\u{8}\u{C}\n\r\t\u{1}\u{1F}é")) == "\"\\\"\\\\/\\b\\f\\n\\r\\t\\u0001\\u001fé\"" : String}:
+def show_escapes() -> {J.encode(s("\"\\/\u{8}\u{C}\n\r\t\u{1}\u{1F}é")) == "\"\\\"\\\\/\\b\\f\\n\\r\\t\\u0001\\u001fé\"" : String}:
   {==}
 
 def show_pretty() -> {J.pretty(J.JObj{[J.Field{"a", J.JArr{[n("1"), J.JArr{[]}]}}]}, "  ") == "{\n  \"a\": [\n    1,\n    []\n  ]\n}" : String}:
@@ -224,7 +224,7 @@ def show_scalar() -> {J.pretty(J.JBool{False{}}, "  ") == "false" : String}:
 
 # round trips
 
-def rt_doc() -> {J.parse(J.stringify(J.JArr{[s("a\"\n\u{1}😀"), J.JObj{[J.Field{"k", n("-1.5e3")}]}, J.JNull{}]})) == ok(J.JArr{[s("a\"\n\u{1}😀"), J.JObj{[J.Field{"k", n("-1.5e3")}]}, J.JNull{}]}) : R()}:
+def rt_doc() -> {J.parse(J.encode(J.JArr{[s("a\"\n\u{1}😀"), J.JObj{[J.Field{"k", n("-1.5e3")}]}, J.JNull{}]})) == ok(J.JArr{[s("a\"\n\u{1}😀"), J.JObj{[J.Field{"k", n("-1.5e3")}]}, J.JNull{}]}) : R()}:
   {==}
 
 def rt_pretty() -> {J.parse(J.pretty(J.JObj{[J.Field{"a", J.JArr{[n("1"), J.JObj{[]}]}}]}, "\t")) == ok(J.JObj{[J.Field{"a", J.JArr{[n("1"), J.JObj{[]}]}}]}) : R()}:
@@ -235,7 +235,7 @@ def rt_pretty() -> {J.parse(J.pretty(J.JObj{[J.Field{"a", J.JArr{[n("1"), J.JObj
 def num_valid() -> {J.num("-0.5e1") == Some{J.JNum{J.Number{True{}, J.IZero{}, J.FSome{J.D5{}, []}, J.ESome{False{}, J.NoSign{}, J.D1{}, []}}}} : Maybe<&2, J.Json>}:
   {==}
 
-def num_text() -> {J.stringify(n("-12.50E+003")) == "-12.50E+003" : String}:
+def num_text() -> {J.encode(n("-12.50E+003")) == "-12.50E+003" : String}:
   {==}
 
 def num_invalid() -> {J.num("01") == None{} : Maybe<&2, J.Json>}:
@@ -244,28 +244,67 @@ def num_invalid() -> {J.num("01") == None{} : Maybe<&2, J.Json>}:
 def num_u32() -> {J.num_u32(1234) == n("1234") : J.Json}:
   {==}
 
-def get_last_wins() -> {J.get(J.JObj{[J.Field{"a", n("1")}, J.Field{"b", n("2")}, J.Field{"a", n("3")}]}, "a") == Some{n("3")} : Maybe<&2, J.Json>}:
+def A(-T: Data) -> Type:
+  Result<&2, &2, J.Access, T>
+
+def obj3() -> J.Json:
+  J.JObj{[J.Field{"a", n("1")}, J.Field{"b", n("2")}, J.Field{"a", n("3")}]}
+
+def get_last_wins() -> {J.get(obj3(), "a") == Done{n("3")} : A(J.Json)}:
   {==}
 
-def get_missing() -> {J.get(J.JObj{[J.Field{"a", n("1")}]}, "z") == None{} : Maybe<&2, J.Json>}:
+def get_middle() -> {J.get(obj3(), "b") == Done{n("2")} : A(J.Json)}:
   {==}
 
-def get_not_obj() -> {J.get(J.JNull{}, "a") == None{} : Maybe<&2, J.Json>}:
+def get_missing() -> {J.get(obj3(), "z") == Fail{J.Missing{[J.Name{"z"}]}} : A(J.Json)}:
   {==}
 
-def at_index() -> {J.at(J.JArr{[n("1"), n("2")]}, 1n) == Some{n("2")} : Maybe<&2, J.Json>}:
+def get_not_obj() -> {J.get(J.JNull{}, "a") == Fail{J.Expected{[], J.KObject{}, J.KNull{}}} : A(J.Json)}:
   {==}
 
-def at_out() -> {J.at(J.JArr{[n("1")]}, 1n) == None{} : Maybe<&2, J.Json>}:
+def index_ok() -> {J.index(J.JArr{[n("1"), n("2")]}, 1) == Done{n("2")} : A(J.Json)}:
   {==}
 
-def as_u32_ok() -> {J.as_u32(n("42")) == Some{42} : Maybe<&2, U32>}:
+def index_out() -> {J.index(J.JArr{[n("1")]}, 1) == Fail{J.Missing{[J.Index{1}]}} : A(J.Json)}:
   {==}
 
-def as_str_ok() -> {J.as_str(s("x")) == Some{"x"} : Maybe<&2, String>}:
+def index_not_arr() -> {J.index(s("x"), 0) == Fail{J.Expected{[], J.KArray{}, J.KString{}}} : A(J.Json)}:
   {==}
 
-def as_bool_no() -> {J.as_bool(J.JNull{}) == None{} : Maybe<&2, Bool>}:
+def u32_ok() -> {J.u32(n("42")) == Done{42} : A(U32)}:
+  {==}
+
+def u32_negative() -> {J.u32(n("-1")) == Fail{J.OutOfRange{[]}} : A(U32)}:
+  {==}
+
+def u32_fraction() -> {J.u32(n("1.5")) == Fail{J.OutOfRange{[]}} : A(U32)}:
+  {==}
+
+def u32_too_big() -> {J.u32(n("4294967296")) == Fail{J.OutOfRange{[]}} : A(U32)}:
+  {==}
+
+def u32_not_num() -> {J.u32(s("1")) == Fail{J.Expected{[], J.KNumber{}, J.KString{}}} : A(U32)}:
+  {==}
+
+def string_ok() -> {J.string(s("x")) == Done{"x"} : A(String)}:
+  {==}
+
+def bool_no() -> {J.bool(J.JNull{}) == Fail{J.Expected{[], J.KBool{}, J.KNull{}}} : A(Bool)}:
+  {==}
+
+def array_ok() -> {J.array(J.JArr{[J.JNull{}]}) == Done{[J.JNull{}]} : A(List<&2, J.Json>)}:
+  {==}
+
+def is_null_yes() -> {J.is_null(J.JNull{}) == True{} : Bool}:
+  {==}
+
+def msg_expected() -> {J.message_access(J.Expected{[J.Name{"user"}, J.Name{"tags"}, J.Index{0}], J.KString{}, J.KNumber{}}) == "$.user.tags[0]: expected string, found number" : String}:
+  {==}
+
+def msg_missing() -> {J.message_access(J.Missing{[J.Name{"a"}]}) == "$.a: missing" : String}:
+  {==}
+
+def msg_root() -> {J.message_access(J.OutOfRange{[]}) == "$: number out of range" : String}:
   {==}
 
 def bom_skipped() -> {J.parse("\u{FEFF}[]") == ok(J.JArr{[]}) : R()}:

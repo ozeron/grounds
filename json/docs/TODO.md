@@ -68,7 +68,7 @@ Built from [RFC 8259](rfc8259.txt) (JSON, STD 90). Section numbers point into it
 
 ## API
 - [x] `parse(String) -> Result<Error, Json>`
-- [x] `stringify(Json) -> String`, `pretty(Json, indent) -> String`
+- [x] `encode(Json) -> String`, `pretty(Json, indent) -> String`
 - [x] Accessors: `get(key)`, `at(index)`, `as_str`, `as_f32`, `as_u32`, `as_bool`, `as_list`, `as_fields`, `is_null`
 - [x] `message(Error)` for people
 - [x] CLI: `main.bend`, builds to a native binary
@@ -78,8 +78,8 @@ Built from [RFC 8259](rfc8259.txt) (JSON, STD 90). Section numbers point into it
 - [x] Lookups on empty or wrong-kind values give `None`
 - [x] Typed reads return what was stored
 - [x] Parser and printer terminate on every input (checked by Bend)
-- [x] Prove `parse(stringify(j)) == Done{j}` for every `j` (`proof/`)
-- [x] Prove `stringify` output always parses
+- [x] Prove `parse(encode(j)) == Done{j}` for every `j` (`proof/`)
+- [x] Prove `encode` output always parses
 
 ## Tests
 - [x] JSONTestSuite: all 318 cases pass, i_ ones included, with the answers decided in `scripts/gen_suite.py`: any number parses, lone surrogate escapes and non-UTF-8 input fail
@@ -90,7 +90,7 @@ Built from [RFC 8259](rfc8259.txt) (JSON, STD 90). Section numbers point into it
 
 ## Next: prove the fast path equals the proven parser on every input
 
-Goal: `F.reformat(s)` ends where `J.parse_state(s)` does, for every `s`: `Ok{stringify(v)}` on `Fin{v}`, `Err{r, left}` on `Bad{r, left}`. Then prove `parse` accepts exactly the RFC 8259 grammar, numbers first. Mutation-test each proof.
+Goal: `F.reformat(s)` ends where `J.parse_state(s)` does, for every `s`: `Ok{encode(v)}` on `Fin{v}`, `Err{r, left}` on `Bad{r, left}`. Then prove `parse` accepts exactly the RFC 8259 grammar, numbers first. Mutation-test each proof.
 
 Started on branch `m5-fast-left` (not green):
 - [x] Fast-path errors count the chars left (`Err{reason, left}`), as J's do, so the two compare without U32 arithmetic

@@ -547,7 +547,7 @@ def token(~mk: String -> Json, l: Lex, stack: List<&2, Frame>) -> St:
     case LBad{r, left}:
       Bad{r, left}
 
-def number(l: NLex, stack: List<&2, Frame>) -> St:
+def num_token(l: NLex, stack: List<&2, Frame>) -> St:
   match l:
     case NOk{n, rest}:
       emit(JNum{n}, rest, stack)
@@ -581,7 +581,7 @@ def value(s: String, stack: List<&2, Frame>) -> St:
     case SCon{'n', t}:
       token(~mk_null, expect("ull", t), stack)
     case other:
-      number(lex_num(other, NStart{}), stack)
+      num_token(lex_num(other, NStart{}), stack)
 
 def key(l: Lex, stack: List<&2, Frame>) -> St:
   match l stack:
@@ -1066,7 +1066,7 @@ def print_loop(fuel: Nat, items: List<&2, Item>, +pretty: Bool, +unit: String, o
 def print_fuel() -> Nat:
   4294967295n
 
-def stringify(j: Json) -> String:
+def encode(j: Json) -> String:
   String.reverse(print_loop(print_fuel(), [Item{j, False{}, 0n}], False{}, "", ""))
 
 # unit is the indent of one level, e.g. "  "
@@ -1118,80 +1118,205 @@ def is_null(j: Json) -> Bool:
     case _:
       False{}
 
-def as_bool(j: Json) -> Maybe<&2, Bool>:
-  match j:
-    case JBool{b}:
-      Some{b}
-    case _:
-      None{}
+# Access (level A of docs/API.md)
+# ------
 
-def as_str(j: Json) -> Maybe<&2, String>:
+type JKind is Data:
+  KNull{}
+  KBool{}
+  KNumber{}
+  KString{}
+  KArray{}
+  KObject{}
+
+# a step into a value: an object's key or an array's index
+type Step is Data:
+  Name{key: String}
+  Index{i: U32}
+
+# why a read failed, and where: the path from the root, first step first
+type Access is Data:
+  Missing{path: List<&2, Step>}
+  Expected{path: List<&2, Step>, want: JKind, got: JKind}
+  OutOfRange{path: List<&2, Step>}
+
+def kind(j: Json) -> JKind:
+  match j:
+    case JNull{}:
+      KNull{}
+    case JBool{_}:
+      KBool{}
+    case JNum{_}:
+      KNumber{}
+    case JStr{_}:
+      KString{}
+    case JArr{_}:
+      KArray{}
+    case JObj{_}:
+      KObject{}
+
+def expected(want: JKind, j: Json) -> Access:
+  Expected{[], want, kind(j)}
+
+def string(j: Json) -> Result<&2, &2, Access, String>:
   match j:
     case JStr{s}:
-      Some{s}
-    case _:
-      None{}
+      Done{s}
+    case other:
+      Fail{expected(KString{}, other)}
 
-def as_f32(j: Json) -> Maybe<&2, F32>:
+def bool(j: Json) -> Result<&2, &2, Access, Bool>:
+  match j:
+    case JBool{b}:
+      Done{b}
+    case other:
+      Fail{expected(KBool{}, other)}
+
+# the number exactly as written, for what u32 and f32 cannot hold
+def number(j: Json) -> Result<&2, &2, Access, Number>:
   match j:
     case JNum{n}:
-      F32.read(num_text(n))
-    case _:
-      None{}
+      Done{n}
+    case other:
+      Fail{expected(KNumber{}, other)}
 
-# None unless the number is a whole number in U32 range
-def as_u32(j: Json) -> Maybe<&2, U32>:
+# the items, in order
+def array(j: Json) -> Result<&2, &2, Access, List<&2, Json>>:
+  match j:
+    case JArr{xs}:
+      Done{xs}
+    case other:
+      Fail{expected(KArray{}, other)}
+
+# the fields, in order, duplicates kept
+def object(j: Json) -> Result<&2, &2, Access, List<&2, Field>>:
+  match j:
+    case JObj{fs}:
+      Done{fs}
+    case other:
+      Fail{expected(KObject{}, other)}
+
+def in_range.go(m: Maybe<&2, U32>) -> Result<&2, &2, Access, U32>:
+  match m:
+    case Some{x}:
+      Done{x}
+    case None{}:
+      Fail{OutOfRange{[]}}
+
+# a whole number from 0 to 2^32 - 1
+def u32(j: Json) -> Result<&2, &2, Access, U32>:
   match j:
     case JNum{n}:
-      U32.read(num_text(n))
-    case _:
-      None{}
+      in_range.go(U32.read(num_text(n)))
+    case other:
+      Fail{expected(KNumber{}, other)}
 
-def as_list(j: Json) -> Maybe<&2, List<&2, Json>>:
+def f32.go(m: Maybe<&2, F32>) -> Result<&2, &2, Access, F32>:
+  match m:
+    case Some{x}:
+      Done{x}
+    case None{}:
+      Fail{OutOfRange{[]}}
+
+# the nearest F32: past 2^24 not every whole number has one
+def f32(j: Json) -> Result<&2, &2, Access, F32>:
   match j:
-    case JArr{items}:
-      Some{items}
-    case _:
-      None{}
+    case JNum{n}:
+      f32.go(F32.read(num_text(n)))
+    case other:
+      Fail{expected(KNumber{}, other)}
 
-def as_fields(j: Json) -> Maybe<&2, List<&2, Field>>:
-  match j:
-    case JObj{fields}:
-      Some{fields}
-    case _:
-      None{}
-
-def at.go(xs: List<&2, Json>, n: Nat) -> Maybe<&2, Json>:
+def index.go(xs: List<&2, Json>, n: Nat, +i: U32) -> Result<&2, &2, Access, Json>:
   match xs n:
     case Con{h, _} 0n:
-      Some{h}
+      Done{h}
     case Con{_, t} 1n+p:
-      at.go(t, p)
+      index.go(t, p, i)
     case Nil{} _:
-      None{}
+      Fail{Missing{[Index{i}]}}
 
-# the item at index n of an array
-def at(j: Json, n: Nat) -> Maybe<&2, Json>:
+# the item at index i of an array
+def index(j: Json, +i: U32) -> Result<&2, &2, Access, Json>:
   match j:
-    case JArr{items}:
-      at.go(items, n)
-    case _:
-      None{}
+    case JArr{xs}:
+      index.go(xs, U32.to_nat(i), i)
+    case other:
+      Fail{expected(KArray{}, other)}
 
-def get.go(fields: List<&2, Field>, +k: String, found: Maybe<&2, Json>) -> Maybe<&2, Json>:
-  match fields:
+# whether two strings are equal, by reading them only: String.eq hands its
+# strings back, which would share them
+def same(a: String, b: String, ok: Bool) -> Bool:
+  match a b:
+    case SNil{} SNil{}:
+      ok
+    case SCon{x, at} SCon{y, bt}:
+      same(at, bt, Bool.and(ok, Char.is_eq(x, y)))
+    case _ _:
+      False{}
+
+def get.keep(hit: Bool, v: Json, found: Maybe<&2, Json>) -> Maybe<&2, Json>:
+  match hit:
+    case True{}:
+      Some{v}
+    case False{}:
+      found
+
+# the last field named k: a later duplicate overrides, so every field is read
+def get.go(fs: List<&2, Field>, +k: String, found: Maybe<&2, Json>) -> Maybe<&2, Json>:
+  match fs:
     case Nil{}:
       found
-    case Con{Field{+fk, v}, t}:
-      get.go(t, k, Bool.pick(Maybe<&2, Json>, String.eq(fk, k), Some{v}, found))
+    case Con{Field{fk, v}, t}:
+      get.go(t, k, get.keep(same(fk, k, True{}), v, found))
+
+def get.fin(m: Maybe<&2, Json>, k: String) -> Result<&2, &2, Access, Json>:
+  match m:
+    case Some{v}:
+      Done{v}
+    case None{}:
+      Fail{Missing{[Name{k}]}}
 
 # the value of key k in an object; the last one wins on duplicates
-def get(j: Json, k: String) -> Maybe<&2, Json>:
+def get(j: Json, +k: String) -> Result<&2, &2, Access, Json>:
   match j:
-    case JObj{fields}:
-      get.go(fields, k, None{})
-    case _:
-      None{}
+    case JObj{fs}:
+      get.fin(get.go(fs, k, None{}), k)
+    case other:
+      Fail{expected(KObject{}, other)}
+
+def kind_name(k: JKind) -> String:
+  match k:
+    case KNull{}:
+      "null"
+    case KBool{}:
+      "bool"
+    case KNumber{}:
+      "number"
+    case KString{}:
+      "string"
+    case KArray{}:
+      "array"
+    case KObject{}:
+      "object"
+
+def path_text(p: List<&2, Step>, out: String) -> String:
+  match p:
+    case Nil{}:
+      String.reverse(out)
+    case Con{Name{k}, t}:
+      path_text(t, String.reverse.go(k, SCon{'.', out}))
+    case Con{Index{i}, t}:
+      path_text(t, SCon{']', String.reverse.go(U32.show(i), SCon{'[', out})})
+
+# e.g. "$.user.tags[0]: expected string, found number"
+def message_access(a: Access) -> String:
+  match a:
+    case Missing{p}:
+      path_text(p, "$") ++ ": missing"
+    case Expected{p, want, got}:
+      path_text(p, "$") ++ ": expected " ++ kind_name(want) ++ ", found " ++ kind_name(got)
+    case OutOfRange{p}:
+      path_text(p, "$") ++ ": number out of range"
 
 # Errors
 # ======

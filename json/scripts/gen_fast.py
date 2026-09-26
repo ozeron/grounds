@@ -199,7 +199,7 @@ def start.c(+t: String) -> Out:
 def start.p(+t: String) -> Out:
   gp(t, VStart{{}}, t, [], "", 0, 0, False{{}}, 0, 0, 0n)
 
-# compact text, as J.stringify writes it
+# compact text, as J.encode writes it
 def reformat(s: String) -> Out:
   start.c(s)
 

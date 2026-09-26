@@ -472,11 +472,11 @@ def round_trip.go(t, g):
 # the fast loop reads what the printer writes back to the same text
 law fast_round_trip:
   for +j: J.Json
-  {{F.reformat(J.stringify(j)) == F.Ok{{J.stringify(j)}} : F.Out}}
+  {{F.reformat(J.encode(j)) == F.Ok{{J.encode(j)}} : F.Out}}
 
 def fast_round_trip(j):
   +t : String = S.text(j, False{{}}, "")
-  %Equal.sym(String, J.stringify(j), t, P.print(j)) : {{F.reformat(_) == F.Ok{{_}} : F.Out}}
+  %Equal.sym(String, J.encode(j), t, P.print(j)) : {{F.reformat(_) == F.Ok{{_}} : F.Out}}
   round_trip.go(t, run(j, False{{}}, F.VStart{{}}, [], "", "", False{{}}, 0, 0, Unit{{}}))
 '''
     text = OUT.read_text()

@@ -54,7 +54,7 @@ def same.err(r: J.Reason, +at: U32, e: J.Error) -> Bool:
 def same(a: F.Out, b: Result<&2, &2, J.Error, J.Json>) -> Bool:
   match a b:
     case F.Ok{x} Done{j}:
-      eq(x, J.stringify(j))
+      eq(x, J.encode(j))
     case F.Err{r, at} Fail{e}:
       same.err(r, at, e)
     case _ _:
@@ -76,7 +76,7 @@ def same_pretty(r: Result<&2, &2, J.Error, J.Json>, input: String) -> Bool:
     case Fail{_}:
       True{}
 
-# the fast path must agree with the proven parse and stringify
+# the fast path must agree with the proven parse and encode
 def fast(ok: Bool, name: String, t: Tally) -> Tally:
   match ok t:
     case True{} _:

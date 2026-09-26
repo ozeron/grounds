@@ -23,7 +23,7 @@ def parsed(r: Result<&2, &2, J.Error, J.Json>) -> String:
 def len(r: Result<&2, &2, J.Error, J.Json>) -> String:
   match r:
     case Done{j}:
-      "ok, " ++ U32.show(U32.from_nat(String.length(J.stringify(j)))) ++ " chars printed"
+      "ok, " ++ U32.show(U32.from_nat(String.length(J.encode(j)))) ++ " chars printed"
     case Fail{J.Error{_, o, _, _}}:
       "error at " ++ U32.show(o)
 
