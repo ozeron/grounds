@@ -108,3 +108,21 @@ The blocker for an any-input proof: both loops match char literals (`'['`, `'0'`
 ## CI
 - [x] One Linux job: `check.sh`, the bench gate, a nightly fuzz that saves failing inputs for `examples/regress/`; verified with `act`
 - [ ] macOS: building the fast loop takes about 9 GB, over a macOS runner's 7 GB; cut the build's memory first
+
+## Next: stream the input in chunks (measured, `bench/spike/`)
+
+The fast loop pauses at each chunk's end and resumes on the next; the CLI writes each chunk's output. Measured (PGO, Apple Silicon), against today's bjson and Go:
+
+| | chunked | bjson now | Go |
+|---|---|---|---|
+| canada | 34.9 ms | 38.7 ms | 27.3 ms |
+| citm_catalog | 15.7 ms | 18.4 ms | 14.2 ms |
+| twitter | 7.9 ms | 8.7 ms | 7.6 ms |
+| 100 MB | 1.24 s, 39 MB | 1.32 s, 2.9 GB | 1.0 s, 0.7 GB |
+
+Base's `Array` is a tree (each read rebuilds a path), so a packed byte buffer would be slower than lists: chunking, not packing, is what cuts memory.
+
+- [ ] `grounds-io`: a C effect that reads up to n bytes and backs off to a UTF-8 boundary (`lseek` back the cut-off tail), so no char is split across chunks
+- [ ] `fast.bend`: the end-of-input row returns the paused state; `reformat(s)` finishes it; update `fast_round_trip` by that one step
+- [ ] CLI: the chunk driver (`bench/spike/chunkfmt.bend`); bad UTF-8 checked per chunk
+- [ ] Keep it cold: pass a chunk twice as the fuel and input, never rebuild it from shared parts
