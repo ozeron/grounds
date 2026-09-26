@@ -1,9 +1,15 @@
 *.c
 *.js
-!bench/rt.js
+!/json/bench/rt.js
 *.gpu
-/dist
-/bjson
-/bench/data/
-/bench/gort-bin
-/spec-bjson
+/json/dist
+/json/bjson
+/json/bench/data/
+/json/bench/gort-bin
+/json/spec-bjson
+
+/json/fails/
+
+# moon
+.moon/cache
+.moon/docker

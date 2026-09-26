@@ -1,0 +1,23 @@
+# grounds-json: the JSON library (to be published as grounds-json)
+language: "bend"
+
+tasks:
+  check:
+    command: "./check.sh"
+    options:
+      cache: false
+  bench:
+    command: "bench/run.sh"
+    options:
+      cache: false
+  bench-big:
+    command: "bench/big.sh"
+    options:
+      cache: false
+  build:
+    command: "scripts/build.sh"
+    inputs:
+      - "*.bend"
+      - "scripts/**/*"
+    outputs:
+      - "bjson"

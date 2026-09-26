@@ -1,115 +1,15 @@
-# bjson
+# grounds
 
-JSON parser and printer for [Bend 2](https://github.com/bendlang/bend), per [RFC 8259](docs/rfc8259.txt).
+A monorepo of [Bend 2](https://github.com/bendlang/bend) packages, built with [moon](https://moonrepo.dev).
 
-Proven for every value `j` (`LAWS.bend`, checked by `bend PROOF.bend`):
-
-- `parse(stringify(j)) == Done{j}`
-- `reformat(stringify(j)) == Ok{stringify(j)}`: the one-pass loop `bjson` runs reads printed JSON back unchanged
-- `parse(pretty(j, "  ")) == Done{j}`: indented output reads back too (`proof/layout.bend`, for any indent of spaces and tabs)
+| Package | Does |
+|---|---|
+| [`json`](json/) | JSON parser and printer, proven to round-trip; to be published as `grounds-json` |
 
 ```sh
-mise install                          # installs the pinned bend
-./check.sh                            # every test, law and conformance case
-bend main.bend -- file.json           # pretty-print, or report line:col of the error
-scripts/build.sh                      # native CLI with PGO: ./bjson [--compact] file.json
+mise install              # the pinned bend and moon
+moon run json:check       # every test, law and conformance case of json
+moon run json:bench       # json against Go, jq, Python, Node and Bun
 ```
 
-`--max-bytes N` (provisional) refuses a file over N bytes before reading it.
-
-## API
-
-Import it with `import ./bjson.bend as J`.
-
-| Function | Does |
-|---|---|
-| `J.parse(s)` | `Done{json}` or `Fail{J.Error{reason, offset, line, column}}` |
-| `J.stringify(j)` | compact text |
-| `J.pretty(j, "  ")` | indented text; the argument is one level of indent |
-| `J.message(e)` | `"3:5: unexpected \",\""` |
-| `J.get(j, key)`, `J.at(j, n)` | object lookup, array index; `Maybe` |
-| `J.as_bool`, `as_str`, `as_u32`, `as_f32`, `as_list`, `as_fields` | typed reads; `None` on the wrong kind |
-| `J.num(text)`, `num_u32(x)`, `num_f32(x)` | build numbers; `num` and `num_f32` give `None` for text that is not a JSON number (e.g. `inf`) |
-| `J.num_text(n)` | a number's text |
-
-`Json` is `JNull`, `JBool`, `JNum{Number}`, `JStr`, `JArr{List<Json>}`, `JObj{List<Field>}`.
-
-A `Number` holds the sign, digits, fraction and exponent as written. An invalid number cannot be built.
-
-Provisional, until the API is settled:
-
-| Function | Does |
-|---|---|
-| `J.parse_bytes(bs)` | `parse` on raw bytes (`List<U32>`, 0..255); bytes that are not UTF-8 fail as `InvalidUtf8` |
-| `J.decode(bs)` | `TOk{text}`, or `TBad{at, before}`: where the first bad sequence starts |
-
-## Behavior to know
-
-- Numbers keep their exact digits, so big and precise numbers round-trip exactly. Convert with `as_u32` or `as_f32`.
-- Objects keep every member in order, duplicates included. `get` returns the last one.
-- A lone surrogate like `"\uDEAD"` is an error.
-- Where JSONTestSuite leaves the answer to the parser (its `i_` cases), numbers of any size, deep nesting and a leading BOM parse; lone surrogate escapes and non-UTF-8 input fail. `scripts/gen_suite.py` holds the rules.
-- A leading byte order mark is skipped.
-- Input that is not UTF-8 is an error, reported where the bad bytes start. `bjson` checks this before parsing.
-- Offsets and columns count Unicode code points, not bytes.
-- Parsing has no nesting limit: it uses an explicit stack, and 100k levels work.
-- Printing uses an explicit stack too: 100k levels print and pretty-print.
-
-## Performance
-
-`bench/run.sh` times a full round trip (read, parse, print compact) on the [nativejson-benchmark](https://github.com/miloyip/nativejson-benchmark) files, and fails if canada takes over 1.5x Go. Apple Silicon, mean of 10+ runs, startup included.
-
-| tool | canada 2.3 MB | citm_catalog 1.7 MB | twitter 0.6 MB |
-|---|---|---|---|
-| `bjson --compact` | 37 ms | 17 ms | 8.2 ms |
-| Go `encoding/json` | 28 ms | 15 ms | 8.1 ms |
-| Bun | 20 ms | 16 ms | 15 ms |
-| Node | 31 ms | 22 ms | 20 ms |
-| jq | 42 ms | 29 ms | 18 ms |
-| Python `json` | 59 ms | 22 ms | 19 ms |
-
-`bench/big.sh` does the same on a 100 MB file (the three files, repeated):
-
-| tool | time | peak memory |
-|---|---|---|
-| `bjson --compact` | 1.4 s | 2.9 GB |
-| `bjson` (pretty) | 2.1 s | 4.6 GB |
-| `spec-bjson --compact` (proven path) | 2.0 s | 3.0 GB |
-| Go `encoding/json` | 1.0 s | 0.7 GB |
-| jq | 1.7 s | 1.0 GB |
-
-Memory is the cost of Bend strings: a cons cell per char, for the input and the output both, about 29 bytes per input byte. Use `--max-bytes` to cap it.
-
-`bjson` runs everything through `fast.bend`: one pass that checks the input and writes the output, compact or indented, without building a `Json` value. It answers exactly what the proven `J.parse`, `J.stringify` and `J.pretty` answer, errors included: `suite.bend` checks this on every JSONTestSuite case, and `scripts/integration.py` fuzzes `bjson` against `spec_cli.bend`, the same CLI on the proven parser.
-
-Neither `bjson` nor the proven library may share a String: one shared String makes the runtime count references on every String in the program, which halves the speed. `scripts/cold.py` fails the check if `main.bend` or `spec_cli.bend` does. So the proven parser's errors count the chars left instead of keeping the input, and its round trip, UTF-8 decoding included, takes 55 ms on canada and 13 ms on twitter.
-
-## Files
-
-| File | Holds |
-|---|---|
-| `bjson.bend` | the library |
-| `test.bend` | unit tests; each is a proof that checks at compile time |
-| `LAWS.bend`, `PROOF.bend` | laws the library keeps, and their proofs |
-| `proof/` | the round-trip proofs: `print` (printer = spec), `strings`, `numbers`, `parse` (the loop); `fast_text`, `fast`, `fast_run` for `fast.bend` (the tail of `fast_run` is generated by `scripts/gen_fast_proof.py`); `layout`, generated by `scripts/gen_layout_proof.py`, for indented text |
-| `suite.bend` | [JSONTestSuite](https://github.com/nst/JSONTestSuite) cases, generated by `scripts/gen_suite.py`; run by `suite_run.bend` |
-| `stress.bend` | 100k-sized inputs |
-| `scripts/integration.py` | builds the CLI and fuzzes it against Python's `json`; `SEED=` and `N=` set the run |
-| `main.bend` | the CLI, on `fast.bend` |
-| `fast.bend` | the one-pass reformatter; generated by `scripts/gen_fast.py` from `scripts/fast_head.bend.in` |
-| `spec_cli.bend` | the same CLI on the proven parser, for tests |
-| `scripts/cold.py` | fails if a program makes any type reference counted |
-| `docs/TODO.md` | the RFC as a checklist |
-| `vendor/` | serde_json and Zig std.json, for reference |
-
-## Bend notes
-
-These rules shaped the code:
-
-- No mutual recursion. The parser is one loop over an explicit stack of open containers.
-- Every loop must provably end. The parser's step count is bounded by the input length.
-- `Bool.pick` evaluates both branches. Keep recursive calls out of it, or they run anyway.
-- Deep non-tail recursion overflows the runtime stack, even when guarded by a constructor. Everything that walks input or output is tail-recursive. The printer walks an explicit stack, with fuel to pass the termination check.
-- A proof cannot see through a `match` on char literals when the char is unknown. So string chars go through one classifier, `class`, that the printer and the lexer share.
-- A value is shared when it is owned (returned, stored, or passed to a def that does either) and then used again. One shared value makes its type reference counted in the whole program, and every constructor of it slower. A `+x` whose earlier uses only read `x` is fine. `Bool.pick(a, b)` owns both, so it shares whatever they have in common.
-- A loop compiles to a tight C loop only if it calls nothing that compiles to a segment (IO, or a call into a slower def).
+Each package is a moon project (`<package>/moon.yml`); `.moon/workspace.yml` lists them.

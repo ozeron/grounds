@@ -1,0 +1,7 @@
+# grounds: a monorepo of Bend packages
+projects:
+  json: "json"
+
+vcs:
+  defaultBranch: "main"
+  provider: "github"

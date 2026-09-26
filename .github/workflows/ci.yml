@@ -18,14 +18,16 @@ jobs:
         with:
           go-version: stable
       - run: sudo apt-get update && sudo apt-get install -y hyperfine clang llvm
-      - run: ./check.sh
+      - run: moon run json:check
       - run: QUICK=1 bench/run.sh
-      # nightly: a long fuzz; failing inputs go to examples/regress/
+        working-directory: json
+      # nightly: a long fuzz; failing inputs go to json/examples/regress/
       - if: github.event_name == 'schedule'
         run: SEED=${{ github.run_number }} N=30000 FAIL_DIR=fails python3 scripts/integration.py
+        working-directory: json
       - if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: fuzz-failures
-          path: fails/
+          path: json/fails/
           if-no-files-found: ignore
