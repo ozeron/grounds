@@ -206,8 +206,11 @@ def read(path: String, limit: Maybe<&2, U32>) -> IO(String):
 # an error: the file is read again for its line and column, and the path
 # asked for again, since keeping either would share a String
 # left counts the chars from the error to the end
+def fail.pos(r: J.Reason, +size: U32, +left: U32, text: String, path: String) -> IO(Unit):
+  IO.die(Unit, 1, path ++ ":" ++ J.message(J.position(r, (size - left : U32), text)))
+
 def fail.at(r: J.Reason, +left: U32, +text: String, path: String) -> IO(Unit):
-  IO.die(Unit, 1, path ++ ":" ++ J.message(J.position(r, (J.size(text, 0) - left : U32), text)))
+  fail.pos(r, J.size(text, 0), left, text, path)
 
 def fail.again(r: J.Reason, +left: U32, text: String) -> IO(Unit):
   do IO<Unit>:

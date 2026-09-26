@@ -734,7 +734,7 @@ def parse_state(+s: String) -> St:
 
 # RFC 8259 §2: JSON-text = ws value ws
 def parse(+s: String) -> Result<&2, &2, Error, Json>:
-  finish(lines(s, 0, []), parse_state(s))
+  finish(lines(s, 0, []), loop(1n+String.length(s), Run{skip_bom(s), Nil{}, MValue{}}))
 
 # Bytes (RFC 8259 §8.1)
 # =====================
