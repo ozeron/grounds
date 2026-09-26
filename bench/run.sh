@@ -23,3 +23,4 @@ for f in empty canada citm_catalog twitter; do
     -n go "bench/gort-bin bench/data/$f.json" >/dev/null
 done
 python3 bench/report.py
+python3 bench/gate.py bjson-min
