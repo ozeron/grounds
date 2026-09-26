@@ -21,27 +21,6 @@ def absurd(A, e):
   %e : Pick(_, A, Unit)
   Unit{}
 
-# only zero words pass J.zeros
-law zeros_eq:
-  for +n: Nat
-  for +w: Word(n)
-  for e: {J.zeros(n, w) == True{} : Bool}
-  {w == Word.zero(n) : Word(n)}
-
-def zeros_eq(n, w, e):
-  match n:
-    case 0n:
-      match w:
-        case WNil{}:
-          {==}
-    case 1n+p:
-      match w:
-        case WCon{True{}, t}:
-          absurd({WCon{True{}, t} == Word.zero(1n+p) : Word(1n+p)}, e)
-        case WCon{False{}, t}:
-          %zeros_eq(p, t, e) : {WCon{False{}, t} == WCon{False{}, _} : Word(1n+p)}
-          {==}
-
 law efq:
   for -A: Type
   for x: Empty
@@ -149,42 +128,243 @@ def ctrl_bits(b0, b1, b2, b3, b4, acc, r):
     case True{} True{} True{} True{} True{}:
       {==}
 
-law ctrl.z.bad:
-  for +high: Word(27n)
-  for +x: U32
-  for ez: {False{} == J.zeros(27n, high) : Bool}
-  for e: {J.KCtrl{} == J.class.go(J.zeros(27n, high), x) : J.Class}
+# Word.cmp against zero is never LT, and is EQ only for zero
+
+def NotLT(t: Cmp) -> Type:
+  match t:
+    case LT{}:
+      Empty
+    case _:
+      Unit
+
+def NotEq(t: Cmp) -> Type:
+  match t:
+    case EQ{}:
+      Empty
+    case _:
+      Unit
+
+def TrueE(b: Bool) -> Type:
+  match b:
+    case True{}:
+      Empty
+    case False{}:
+      Unit
+
+law nlt_fin:
+  for +b: Bool
+  for +t: Cmp
+  for h: NotLT(t)
+  NotLT(Word.cmp.fin(b, False{}, t))
+
+def nlt_fin(b, t, h):
+  match b t:
+    case _ LT{}:
+      match h:
+    case True{} EQ{}:
+      Unit{}
+    case False{} EQ{}:
+      Unit{}
+    case _ GT{}:
+      Unit{}
+
+law nlt_zero:
+  for +n: Nat
+  for +w: Word(n)
+  NotLT(Word.cmp(n, w, Word.zero(n)))
+
+def nlt_zero(n, w):
+  match n:
+    case 0n:
+      Unit{}
+    case 1n+p:
+      match w:
+        case WCon{b, t}:
+          nlt_fin(b, Word.cmp(p, t, Word.zero(p)), nlt_zero(p, t))
+
+law nlt_is_lt:
+  for +t: Cmp
+  for h: NotLT(t)
+  {Cmp.is_lt(t) == False{} : Bool}
+
+def nlt_is_lt(t, h):
+  match t:
+    case LT{}:
+      match h:
+    case EQ{}:
+      {==}
+    case GT{}:
+      {==}
+
+law lt_absurd:
+  for +n: Nat
+  for +w: Word(n)
+  for es: {LT{} == Word.cmp(n, w, Word.zero(n)) : Cmp}
   Empty
 
-def ctrl.z.bad(high, x, ez, e):
-  %Equal.sym(J.Class, J.KCtrl{}, J.class.go(J.zeros(27n, high), x), e) : NotCtrl(_)
+def lt_absurd(n, w, es):
+  %Equal.sym(Cmp, LT{}, Word.cmp(n, w, Word.zero(n)), es) : NotLT(_)
+  nlt_zero(n, w)
+
+law eq_zero.ne:
+  for +p: Nat
+  for +b: Bool
+  for +t: Word(p)
+  for +s: Cmp
+  for es: {s == Word.cmp(p, t, Word.zero(p)) : Cmp}
+  for e: {EQ{} == Word.cmp.fin(b, False{}, Word.cmp(p, t, Word.zero(p))) : Cmp}
+  for h: NotEq(Word.cmp.fin(b, False{}, s))
+  Empty
+
+def eq_zero.ne(p, b, t, s, es, e, h):
+  %Equal.sym(Cmp, EQ{}, Word.cmp.fin(b, False{}, Word.cmp(p, t, Word.zero(p))), e) : NotEq(_)
+  %es : NotEq(Word.cmp.fin(b, False{}, _))
+  h
+
+law eq_zero.go:
+  for +p: Nat
+  for +b: Bool
+  for +t: Word(p)
+  for +s: Cmp
+  for es: {s == Word.cmp(p, t, Word.zero(p)) : Cmp}
+  for e: {EQ{} == Word.cmp.fin(b, False{}, Word.cmp(p, t, Word.zero(p))) : Cmp}
+  for ih: @x: {EQ{} == Word.cmp(p, t, Word.zero(p)) : Cmp} -> {t == Word.zero(p) : Word(p)}
+  {WCon{b, t} == WCon{False{}, Word.zero(p)} : Word(1n+p)}
+
+def eq_zero.go(p, b, t, s, es, e, ih):
+  match b s:
+    case _ LT{}:
+      efq({WCon{b, t} == WCon{False{}, Word.zero(p)} : Word(1n+p)}, lt_absurd(p, t, es))
+    case _ GT{}:
+      efq({WCon{b, t} == WCon{False{}, Word.zero(p)} : Word(1n+p)}, eq_zero.ne(p, b, t, GT{}, es, e, Unit{}))
+    case True{} EQ{}:
+      efq({WCon{True{}, t} == WCon{False{}, Word.zero(p)} : Word(1n+p)}, eq_zero.ne(p, True{}, t, EQ{}, es, e, Unit{}))
+    case False{} EQ{}:
+      %ih(es) : {WCon{False{}, t} == WCon{False{}, _} : Word(1n+p)}
+      {==}
+
+law eq_zero:
+  for +n: Nat
+  for +w: Word(n)
+  for e: {EQ{} == Word.cmp(n, w, Word.zero(n)) : Cmp}
+  {w == Word.zero(n) : Word(n)}
+
+def eq_zero(n, w, e):
+  match n:
+    case 0n:
+      match w:
+        case WNil{}:
+          {==}
+    case 1n+p:
+      match w:
+        case WCon{b, t}:
+          eq_zero.go(p, b, t, Word.cmp(p, t, Word.zero(p)), {==}, e, x => eq_zero(p, t, x))
+
+# a control char's code is below 32: bit 5 and up are clear
+law ctrl.bad:
+  for +x: U32
+  for +z: Bool
+  for ez: {False{} == z : Bool}
+  for e: {J.KCtrl{} == J.class.go(z, x) : J.Class}
+  Empty
+
+def ctrl.bad(x, z, ez, e):
+  %Equal.sym(J.Class, J.KCtrl{}, J.class.go(z, x), e) : NotCtrl(_)
   %ez : NotCtrl(J.class.go(_, x))
   not_ctrl(U32.is_eq(x, 34), U32.is_eq(x, 92))
 
-law ctrl.z:
+
+law ctrl.b.gt:
   for +b0: Bool
   for +b1: Bool
   for +b2: Bool
   for +b3: Bool
   for +b4: Bool
-  for +high: Word(27n)
-  for +z: Bool
-  for ez: {z == J.zeros(27n, high) : Bool}
-  for e: {J.KCtrl{} == J.class(Chr{U32{WCon{b0, WCon{b1, WCon{b2, WCon{b3, WCon{b4, high}}}}}}}) : J.Class}
+  for +b5: Bool
+  for +rest: Word(26n)
+  for es: {GT{} == Word.cmp(26n, rest, Word.zero(26n)) : Cmp}
+  for ez: {True{} == Cmp.is_lt(Word.cmp.fin(b0, False{}, Word.cmp.fin(b1, False{}, Word.cmp.fin(b2, False{}, Word.cmp.fin(b3, False{}, Word.cmp.fin(b4, False{}, Word.cmp.fin(b5, True{}, Word.cmp(26n, rest, Word.zero(26n))))))))) : Bool}
+  Empty
+
+def ctrl.b.gt(b0, b1, b2, b3, b4, b5, rest, es, ez):
+  %Equal.sym(Bool, True{}, Cmp.is_lt(Word.cmp.fin(b0, False{}, Word.cmp.fin(b1, False{}, Word.cmp.fin(b2, False{}, Word.cmp.fin(b3, False{}, Word.cmp.fin(b4, False{}, Word.cmp.fin(b5, True{}, Word.cmp(26n, rest, Word.zero(26n))))))))), ez) : TrueE(_)
+  %es : TrueE(Cmp.is_lt(Word.cmp.fin(b0, False{}, Word.cmp.fin(b1, False{}, Word.cmp.fin(b2, False{}, Word.cmp.fin(b3, False{}, Word.cmp.fin(b4, False{}, Word.cmp.fin(b5, True{}, _))))))))
+  Unit{}
+
+law ctrl.b.hi:
+  for +b0: Bool
+  for +b1: Bool
+  for +b2: Bool
+  for +b3: Bool
+  for +b4: Bool
+  for +rest: Word(26n)
+  for es: {EQ{} == Word.cmp(26n, rest, Word.zero(26n)) : Cmp}
+  for ez: {True{} == Cmp.is_lt(Word.cmp.fin(b0, False{}, Word.cmp.fin(b1, False{}, Word.cmp.fin(b2, False{}, Word.cmp.fin(b3, False{}, Word.cmp.fin(b4, False{}, Word.cmp.fin(True{}, True{}, Word.cmp(26n, rest, Word.zero(26n))))))))) : Bool}
+  Empty
+
+def ctrl.b.hi(b0, b1, b2, b3, b4, rest, es, ez):
+  +t4 : Cmp = Word.cmp.fin(True{}, True{}, EQ{})
+  +t3 : Cmp = Word.cmp.fin(b4, False{}, t4)
+  +t2 : Cmp = Word.cmp.fin(b3, False{}, t3)
+  +t1 : Cmp = Word.cmp.fin(b2, False{}, t2)
+  +t0 : Cmp = Word.cmp.fin(b1, False{}, t1)
+  +t : Cmp = Word.cmp.fin(b0, False{}, t0)
+  h : NotLT(t) = nlt_fin(b0, t0, nlt_fin(b1, t1, nlt_fin(b2, t2, nlt_fin(b3, t3, nlt_fin(b4, t4, Unit{})))))
+  %Equal.sym(Bool, True{}, Cmp.is_lt(Word.cmp.fin(b0, False{}, Word.cmp.fin(b1, False{}, Word.cmp.fin(b2, False{}, Word.cmp.fin(b3, False{}, Word.cmp.fin(b4, False{}, Word.cmp.fin(True{}, True{}, Word.cmp(26n, rest, Word.zero(26n))))))))), ez) : TrueE(_)
+  %es : TrueE(Cmp.is_lt(Word.cmp.fin(b0, False{}, Word.cmp.fin(b1, False{}, Word.cmp.fin(b2, False{}, Word.cmp.fin(b3, False{}, Word.cmp.fin(b4, False{}, Word.cmp.fin(True{}, True{}, _))))))))
+  %Equal.sym(Bool, Cmp.is_lt(t), False{}, nlt_is_lt(t, h)) : TrueE(_)
+  Unit{}
+
+law ctrl.b:
+  for +b0: Bool
+  for +b1: Bool
+  for +b2: Bool
+  for +b3: Bool
+  for +b4: Bool
+  for +b5: Bool
+  for +rest: Word(26n)
+  for +s: Cmp
+  for es: {s == Word.cmp(26n, rest, Word.zero(26n)) : Cmp}
+  for ez: {True{} == Cmp.is_lt(Word.cmp.fin(b0, False{}, Word.cmp.fin(b1, False{}, Word.cmp.fin(b2, False{}, Word.cmp.fin(b3, False{}, Word.cmp.fin(b4, False{}, Word.cmp.fin(b5, True{}, Word.cmp(26n, rest, Word.zero(26n))))))))) : Bool}
   for +acc: String
   for +r: String
-  {J.lex_str(J.ctrl_text(Chr{U32{WCon{b0, WCon{b1, WCon{b2, WCon{b3, WCon{b4, high}}}}}}}) ++ r, J.SGo{acc, 0}) == J.lex_str(r, J.SGo{SCon{Chr{U32{WCon{b0, WCon{b1, WCon{b2, WCon{b3, WCon{b4, high}}}}}}}, acc}, 0}) : J.Lex}
+  {J.lex_str(J.ctrl_text(Chr{U32{WCon{b0, WCon{b1, WCon{b2, WCon{b3, WCon{b4, WCon{b5, rest}}}}}}}}) ++ r, J.SGo{acc, 0}) == J.lex_str(r, J.SGo{SCon{Chr{U32{WCon{b0, WCon{b1, WCon{b2, WCon{b3, WCon{b4, WCon{b5, rest}}}}}}}}, acc}, 0}) : J.Lex}
 
-def ctrl.z(b0, b1, b2, b3, b4, high, z, ez, e, acc, r):
+def ctrl.b(b0, b1, b2, b3, b4, b5, rest, s, es, ez, acc, r):
+  match b5 s:
+    case _ LT{}:
+      efq({J.lex_str(J.ctrl_text(Chr{U32{WCon{b0, WCon{b1, WCon{b2, WCon{b3, WCon{b4, WCon{b5, rest}}}}}}}}) ++ r, J.SGo{acc, 0}) == J.lex_str(r, J.SGo{SCon{Chr{U32{WCon{b0, WCon{b1, WCon{b2, WCon{b3, WCon{b4, WCon{b5, rest}}}}}}}}, acc}, 0}) : J.Lex}, lt_absurd(26n, rest, es))
+    case _ GT{}:
+      bad : Empty = ctrl.b.gt(b0, b1, b2, b3, b4, b5, rest, es, ez)
+      efq({J.lex_str(J.ctrl_text(Chr{U32{WCon{b0, WCon{b1, WCon{b2, WCon{b3, WCon{b4, WCon{b5, rest}}}}}}}}) ++ r, J.SGo{acc, 0}) == J.lex_str(r, J.SGo{SCon{Chr{U32{WCon{b0, WCon{b1, WCon{b2, WCon{b3, WCon{b4, WCon{b5, rest}}}}}}}}, acc}, 0}) : J.Lex}, bad)
+    case True{} EQ{}:
+      bad : Empty = ctrl.b.hi(b0, b1, b2, b3, b4, rest, es, ez)
+      efq({J.lex_str(J.ctrl_text(Chr{U32{WCon{b0, WCon{b1, WCon{b2, WCon{b3, WCon{b4, WCon{True{}, rest}}}}}}}}) ++ r, J.SGo{acc, 0}) == J.lex_str(r, J.SGo{SCon{Chr{U32{WCon{b0, WCon{b1, WCon{b2, WCon{b3, WCon{b4, WCon{True{}, rest}}}}}}}}, acc}, 0}) : J.Lex}, bad)
+    case False{} EQ{}:
+      %Equal.sym(Word(26n), rest, Word.zero(26n), eq_zero(26n, rest, es)) : {J.lex_str(J.ctrl_text(Chr{U32{WCon{b0, WCon{b1, WCon{b2, WCon{b3, WCon{b4, WCon{False{}, _}}}}}}}}) ++ r, J.SGo{acc, 0}) == J.lex_str(r, J.SGo{SCon{Chr{U32{WCon{b0, WCon{b1, WCon{b2, WCon{b3, WCon{b4, WCon{False{}, _}}}}}}}}, acc}, 0}) : J.Lex}
+      ctrl_bits(b0, b1, b2, b3, b4, acc, r)
+
+law ctrl.a:
+  for +b0: Bool
+  for +b1: Bool
+  for +b2: Bool
+  for +b3: Bool
+  for +b4: Bool
+  for +b5: Bool
+  for +rest: Word(26n)
+  for +z: Bool
+  for ez: {z == U32.is_lt(Char.to_u32(Chr{U32{WCon{b0, WCon{b1, WCon{b2, WCon{b3, WCon{b4, WCon{b5, rest}}}}}}}}), 32) : Bool}
+  for e: {J.KCtrl{} == J.class(Chr{U32{WCon{b0, WCon{b1, WCon{b2, WCon{b3, WCon{b4, WCon{b5, rest}}}}}}}}) : J.Class}
+  for +acc: String
+  for +r: String
+  {J.lex_str(J.ctrl_text(Chr{U32{WCon{b0, WCon{b1, WCon{b2, WCon{b3, WCon{b4, WCon{b5, rest}}}}}}}}) ++ r, J.SGo{acc, 0}) == J.lex_str(r, J.SGo{SCon{Chr{U32{WCon{b0, WCon{b1, WCon{b2, WCon{b3, WCon{b4, WCon{b5, rest}}}}}}}}, acc}, 0}) : J.Lex}
+
+def ctrl.a(b0, b1, b2, b3, b4, b5, rest, z, ez, e, acc, r):
   match z:
     case True{}:
-      +hz : {high == Word.zero(27n) : Word(27n)} = zeros_eq(27n, high, Equal.sym(Bool, True{}, J.zeros(27n, high), ez))
-      %Equal.sym(Word(27n), high, Word.zero(27n), hz) : {J.lex_str(J.ctrl_text(Chr{U32{WCon{b0, WCon{b1, WCon{b2, WCon{b3, WCon{b4, _}}}}}}}) ++ r, J.SGo{acc, 0}) == J.lex_str(r, J.SGo{SCon{Chr{U32{WCon{b0, WCon{b1, WCon{b2, WCon{b3, WCon{b4, _}}}}}}}, acc}, 0}) : J.Lex}
-      ctrl_bits(b0, b1, b2, b3, b4, acc, r)
+      ctrl.b(b0, b1, b2, b3, b4, b5, rest, Word.cmp(26n, rest, Word.zero(26n)), {==}, ez, acc, r)
     case False{}:
-      efq({J.lex_str(J.ctrl_text(Chr{U32{WCon{b0, WCon{b1, WCon{b2, WCon{b3, WCon{b4, high}}}}}}}) ++ r, J.SGo{acc, 0}) == J.lex_str(r, J.SGo{SCon{Chr{U32{WCon{b0, WCon{b1, WCon{b2, WCon{b3, WCon{b4, high}}}}}}}, acc}, 0}) : J.Lex},
-        ctrl.z.bad(high, Char.to_u32(Chr{U32{WCon{b0, WCon{b1, WCon{b2, WCon{b3, WCon{b4, high}}}}}}}), ez, e))
-
+      efq({J.lex_str(J.ctrl_text(Chr{U32{WCon{b0, WCon{b1, WCon{b2, WCon{b3, WCon{b4, WCon{b5, rest}}}}}}}}) ++ r, J.SGo{acc, 0}) == J.lex_str(r, J.SGo{SCon{Chr{U32{WCon{b0, WCon{b1, WCon{b2, WCon{b3, WCon{b4, WCon{b5, rest}}}}}}}}, acc}, 0}) : J.Lex}, ctrl.bad(Char.to_u32(Chr{U32{WCon{b0, WCon{b1, WCon{b2, WCon{b3, WCon{b4, WCon{b5, rest}}}}}}}}), U32.is_lt(Char.to_u32(Chr{U32{WCon{b0, WCon{b1, WCon{b2, WCon{b3, WCon{b4, WCon{b5, rest}}}}}}}}), 32), ez, e))
 
 law ctrl:
   for +c: Char
@@ -195,8 +375,8 @@ law ctrl:
 
 def ctrl(c, e, acc, r):
   match c:
-    case Chr{U32{WCon{b0, WCon{b1, WCon{b2, WCon{b3, WCon{b4, high}}}}}}}:
-      ctrl.z(b0, b1, b2, b3, b4, high, J.zeros(27n, high), {==}, e, acc, r)
+    case Chr{U32{WCon{b0, WCon{b1, WCon{b2, WCon{b3, WCon{b4, WCon{b5, rest}}}}}}}}:
+      ctrl.a(b0, b1, b2, b3, b4, b5, rest, U32.is_lt(Char.to_u32(Chr{U32{WCon{b0, WCon{b1, WCon{b2, WCon{b3, WCon{b4, WCon{b5, rest}}}}}}}}), 32), {==}, e, acc, r)
 
 # one printed char lexes back to itself, whatever its class
 law char.go:

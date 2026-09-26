@@ -124,21 +124,6 @@ type Class is Data:
   KBack{}
   KPlain{}
 
-def zeros(n: Nat, w: Word(n)) -> Bool:
-  match n:
-    case 0n:
-      True{}
-    case 1n+p:
-      match w:
-        case WCon{b, t}:
-          Bool.and(Bool.not(b), zeros(p, t))
-
-# U+0000 to U+001F: every bit above the low five is clear
-def is_ctrl(c: Char) -> Bool:
-  match c:
-    case Chr{U32{WCon{_, WCon{_, WCon{_, WCon{_, WCon{_, high}}}}}}}:
-      zeros(27n, high)
-
 def class.go(ctrl: Bool, +x: U32) -> Class:
   match ctrl:
     case True{}:
@@ -147,8 +132,10 @@ def class.go(ctrl: Bool, +x: U32) -> Class:
       Bool.pick(Class, U32.is_eq(x, 34), KQuote{},
         Bool.pick(Class, U32.is_eq(x, 92), KBack{}, KPlain{}))
 
+# U+0000 to U+001F are control chars
 def class(+c: Char) -> Class:
-  class.go(is_ctrl(c), Char.to_u32(c))
+  +x = Char.to_u32(c)
+  class.go(U32.is_lt(x, 32), x)
 
 type Surr is Data:
   NotSurr{}

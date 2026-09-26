@@ -3,3 +3,5 @@
 *.gpu
 /dist
 /bjson
+/bench/data/
+/bench/gort-bin

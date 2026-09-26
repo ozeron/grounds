@@ -40,6 +40,21 @@ A `Number` holds the sign, digits, fraction and exponent as written. An invalid 
 - Parsing has no nesting limit: it uses an explicit stack, and 100k levels work.
 - Printing recurses on nesting. It handles about 5,000 levels; deeper values overflow the stack.
 
+## Performance
+
+`bench/run.sh` times a full round trip (read, parse, print compact) on the [nativejson-benchmark](https://github.com/miloyip/nativejson-benchmark) files. Apple Silicon, native `bjson` build; MB/s excludes each tool's startup.
+
+| tool | canada 2.3 MB | citm_catalog 1.7 MB | twitter 0.6 MB |
+|---|---|---|---|
+| bjson | 175 ms, 13 MB/s | 57 ms, 31 MB/s | 26 ms, 26 MB/s |
+| Python `json` | 57 ms, 52 MB/s | 21 ms, 231 MB/s | 18 ms, 142 MB/s |
+| Node | 61 ms, 51 MB/s | 21 ms, 360 MB/s | 20 ms, 179 MB/s |
+| Bun | 19 ms, 304 MB/s | 16 ms, 438 MB/s | 14 ms, 347 MB/s |
+| jq | 40 ms, 60 MB/s | 28 ms, 70 MB/s | 17 ms, 45 MB/s |
+| Go `encoding/json` | 27 ms, 89 MB/s | 14 ms, 138 MB/s | 8 ms, 107 MB/s |
+
+bjson is 3–15x slower than these. Strings are cons lists of chars, and every number digit is a list cell. Number-heavy input (canada) is the slowest.
+
 ## Files
 
 | File | Holds |
