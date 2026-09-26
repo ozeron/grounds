@@ -3,19 +3,13 @@ import ./bjson.bend as J
 import ./fast.bend as F
 
 # bjson [--compact] <file.json>
-# pretty-prints the file, or reports where it stops being JSON
-
-def usage() -> IO(Unit):
-  IO.die(Unit, 2, "usage: bjson [--compact] <file.json>")
-
-def emit(compact: Bool, r: Result<&2, &2, J.Error, J.Json>, path: String) -> IO(Unit):
-  match compact r:
-    case True{} Done{j}:
-      IO.print(J.stringify(j))
-    case False{} Done{j}:
-      IO.print(J.pretty(j, "  "))
-    case _ Fail{e}:
-      IO.die(Unit, 1, path ++ ":" ++ J.message(e))
+# pretty-prints the file, or reports where it stops being JSON.
+#
+# Everything goes through fast.bend's one-pass loop, which gives J.parse's
+# exact answers (suite.bend and scripts/integration.py check this against
+# spec_cli.bend, the same CLI on the proven parser). No String may be
+# shared here: one shared String makes the runtime count references on
+# every String in the program, and scripts/cold.py fails the build.
 
 law read.text:
   for m: File & Result<&1, &1, (U32 & String), String>
@@ -45,40 +39,67 @@ def read(path: String) -> IO(String):
     m : File & Result<&1, &1, (U32 & String), U32> <- File.size(f)
     read.size(m)
 
-# the proven parser: slower, and it says where and why input is wrong
-def slow(compact: Bool, +path: String) -> IO(Unit):
+# the path of `bjson [--compact] <path>`
+def path_of(args: List<String>) -> String:
+  match args:
+    case Con{path, Nil{}}:
+      path
+    case Con{_, Con{path, Nil{}}}:
+      path
+    case _:
+      ""
+
+# an error: the file is read again for its line and column, and the path
+# asked for again, since keeping either would share a String
+def fail.at(r: J.Reason, +at: U32, text: String, path: String) -> IO(Unit):
+  IO.die(Unit, 1, path ++ ":" ++ J.message(J.position(r, at, text)))
+
+def fail.again(r: J.Reason, +at: U32, text: String) -> IO(Unit):
   do IO<Unit>:
-    text : String <- read(path)
-    emit(compact, J.parse(text), path)
+    args : List<String> <- IO.args()
+    fail.at(r, at, text, path_of(args))
 
-# compact output takes the one-pass path. If it finds the input invalid,
-# the file is read again for the proven parser to report the error:
-# keeping the text around for that would slow the fast path down.
-def fast_out(m: F.Out, +path: String) -> IO(Unit):
-  match m:
-    case F.Ok{out}:
-      IO.print(out)
-    case F.Err{_, _}:
-      slow(True{}, path)
-
-def fast(+path: String) -> IO(Unit):
+def fail(r: J.Reason, +at: U32) -> IO(Unit):
   do IO<Unit>:
-    text : String <- read(path)
-    fast_out(F.reformat(text), path)
+    args : List<String> <- IO.args()
+    text : String <- read(path_of(args))
+    fail.again(r, at, text)
 
-def run(compact: Bool, +path: String) -> IO(Unit):
+def out(o: F.Out) -> IO(Unit):
+  match o:
+    case F.Ok{text}:
+      IO.print(text)
+    case F.Err{r, at}:
+      fail(r, at)
+
+def format(compact: Bool, text: String) -> F.Out:
   match compact:
     case True{}:
-      fast(path)
+      F.reformat(text)
     case False{}:
-      slow(False{}, path)
+      F.pretty(text)
+
+def run(compact: Bool, path: String) -> IO(Unit):
+  do IO<Unit>:
+    text : String <- read(path)
+    out(format(compact, text))
+
+def usage() -> IO(Unit):
+  IO.die(Unit, 2, "usage: bjson [--compact] <file.json>")
+
+def dispatch.flag(ok: Bool, path: String) -> IO(Unit):
+  match ok:
+    case True{}:
+      run(True{}, path)
+    case False{}:
+      usage()
 
 def dispatch(args: List<String>) -> IO(Unit):
   match args:
     case Con{path, Nil{}}:
       run(False{}, path)
-    case Con{+flag, Con{+path, Nil{}}}:
-      Bool.pick(IO(Unit), String.eq(flag, "--compact"), run(True{}, path), usage())
+    case Con{flag, Con{path, Nil{}}}:
+      dispatch.flag(String.eq(flag, "--compact"), path)
     case _:
       usage()
 

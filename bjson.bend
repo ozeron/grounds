@@ -1084,6 +1084,15 @@ def reason(r: Reason) -> String:
     case Internal{}:
       "internal parser error"
 
+# the error at an offset of s, with its line and column
+def position.go(r: Reason, +offset: U32, l: Loc) -> Error:
+  match l:
+    case Loc{line, col}:
+      Error{r, offset, line, col}
+
+def position(r: Reason, +offset: U32, s: String) -> Error:
+  position.go(r, offset, locate(U32.to_nat(offset), s, 1, 1))
+
 # e.g. "3:5: unexpected ','"
 def message(e: Error) -> String:
   match e:

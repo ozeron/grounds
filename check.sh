@@ -5,8 +5,8 @@ cd "$(dirname "$0")"
 
 step() { printf '\n== %s\n' "$1"; }
 
-step "no reference-counted types in the fast binary (scripts/cold.py)"
-python3 scripts/cold.py min.bend
+step "no reference-counted types in bjson (scripts/cold.py)"
+python3 scripts/cold.py main.bend
 
 step "unit tests (test.bend)"
 bend test.bend

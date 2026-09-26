@@ -217,6 +217,25 @@ def hex_add(d: Maybe<&2, U32>, +code: U32) -> U32:
     case None{}:
       0
 
+# Pretty output (the same text as J.pretty(j, "  ")): a line break and
+# two spaces per level. Tail calls only, so the loop stays a C loop
+def spaces(n: Nat, out: String) -> String:
+  match n:
+    case 0n:
+      out
+    case 1n+p:
+      spaces(p, SCon{' ', SCon{' ', out}})
+
+def nl(d: Nat, out: String) -> String:
+  spaces(d, SCon{'\n', out})
+
+def dec(d: Nat) -> Nat:
+  match d:
+    case 0n:
+      0n
+    case 1n+p:
+      p
+
 # what reformat answers
 type Out is Data:
   Ok{text: String}

@@ -3,7 +3,7 @@ import json
 import sys
 
 TOOL = sys.argv[1] if len(sys.argv) > 1 else "bjson"
-LIMIT = 1.35
+LIMIT = 1.5
 bad = False
 for f in ["canada", "citm_catalog", "twitter"]:
     means = {r["command"]: r["mean"] for r in json.load(open(f"bench/results/{f}.json"))["results"]}

@@ -34,6 +34,19 @@ def score(want: Want, got: Bool, name: String, t: Tally) -> Tally:
     case _ _ Tally{p, f, a, b, xs}:
       Tally{p, (f + 1 : U32), a, b, name <> xs}
 
+# String.eq is not a tail call; long pretty texts overflow it
+def eq.go(a: String, b: String, ok: Bool) -> Bool:
+  match a b:
+    case SNil{} SNil{}:
+      ok
+    case SCon{x, at} SCon{y, bt}:
+      eq.go(at, bt, Bool.and(ok, Char.is_eq(x, y)))
+    case _ _:
+      False{}
+
+def eq(a: String, b: String) -> Bool:
+  eq.go(a, b, True{})
+
 # the fast path must give J.parse's answer: the same text when valid, the
 # same reason and offset when not
 def same.err(r: J.Reason, +at: U32, e: J.Error) -> Bool:
@@ -44,11 +57,27 @@ def same.err(r: J.Reason, +at: U32, e: J.Error) -> Bool:
 def same(a: F.Out, b: Result<&2, &2, J.Error, J.Json>) -> Bool:
   match a b:
     case F.Ok{x} Done{j}:
-      String.eq(x, J.stringify(j))
+      eq(x, J.stringify(j))
     case F.Err{r, at} Fail{e}:
       same.err(r, at, e)
     case _ _:
       False{}
+
+def same_pretty.go(a: F.Out, j: J.Json) -> Bool:
+  match a:
+    case F.Ok{x}:
+      eq(x, J.pretty(j, "  "))
+    case F.Err{_, _}:
+      False{}
+
+# pretty text only for valid input: indenting 100k open brackets that
+# never close would print a quadratic amount before the error
+def same_pretty(r: Result<&2, &2, J.Error, J.Json>, input: String) -> Bool:
+  match r:
+    case Done{j}:
+      same_pretty.go(F.pretty(input), j)
+    case Fail{_}:
+      True{}
 
 # the fast path must agree with the proven parse and stringify
 def fast(ok: Bool, name: String, t: Tally) -> Tally:
@@ -63,7 +92,7 @@ def tally(xs: List<&2, Case>, t: Tally) -> Tally:
     case Nil{}:
       t
     case Con{Case{+name, want, +input}, rest}:
-      tally(rest, fast(same(F.reformat(input), J.parse(input)), name, score(want, parsed(J.parse(input)), name, t)))
+      tally(rest, fast(Bool.and(same(F.reformat(input), J.parse(input)), same_pretty(J.parse(input), input)), name, score(want, parsed(J.parse(input)), name, t)))
 
 def failed(xs: List<&2, String>) -> IO(Unit):
   do IO<Unit>:
