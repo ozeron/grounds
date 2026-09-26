@@ -60,7 +60,7 @@ def fin_zero(neg, r, dl):
     case SNil{}:
       {==}
     case SCon{c, t}:
-      %Equal.sym(J.NC, J.nclass(c), J.COther{}, dl) : {J.lex_num(t, J.halt(J.is_stop(J.num_next(J.NZero{neg}, _)), J.NZero{neg}, J.num_next(J.NZero{neg}, _), SCon{c, t})) == J.num_end(J.NZero{neg}, SCon{c, t}) : J.NLex}
+      %Equal.sym(J.NC, J.nclass(c), J.COther{}, dl) : {J.lex_num(t, J.num_step(J.NZero{neg}, _, c, t)) == J.num_end(J.NZero{neg}, SCon{c, t}) : J.NLex}
       halt_end(J.NZero{neg}, SCon{c, t}, t)
 
 # a number ends at a delimiter
@@ -77,7 +77,7 @@ def fin_int(neg, l, acc, r, dl):
     case SNil{}:
       {==}
     case SCon{c, t}:
-      %Equal.sym(J.NC, J.nclass(c), J.COther{}, dl) : {J.lex_num(t, J.halt(J.is_stop(J.num_next(J.NInt{neg, l, acc}, _)), J.NInt{neg, l, acc}, J.num_next(J.NInt{neg, l, acc}, _), SCon{c, t})) == J.num_end(J.NInt{neg, l, acc}, SCon{c, t}) : J.NLex}
+      %Equal.sym(J.NC, J.nclass(c), J.COther{}, dl) : {J.lex_num(t, J.num_step(J.NInt{neg, l, acc}, _, c, t)) == J.num_end(J.NInt{neg, l, acc}, SCon{c, t}) : J.NLex}
       halt_end(J.NInt{neg, l, acc}, SCon{c, t}, t)
 
 # a number ends at a delimiter
@@ -95,7 +95,7 @@ def fin_frac(neg, i, f, acc, r, dl):
     case SNil{}:
       {==}
     case SCon{c, t}:
-      %Equal.sym(J.NC, J.nclass(c), J.COther{}, dl) : {J.lex_num(t, J.halt(J.is_stop(J.num_next(J.NFrac{neg, i, f, acc}, _)), J.NFrac{neg, i, f, acc}, J.num_next(J.NFrac{neg, i, f, acc}, _), SCon{c, t})) == J.num_end(J.NFrac{neg, i, f, acc}, SCon{c, t}) : J.NLex}
+      %Equal.sym(J.NC, J.nclass(c), J.COther{}, dl) : {J.lex_num(t, J.num_step(J.NFrac{neg, i, f, acc}, _, c, t)) == J.num_end(J.NFrac{neg, i, f, acc}, SCon{c, t}) : J.NLex}
       halt_end(J.NFrac{neg, i, f, acc}, SCon{c, t}, t)
 
 # a number ends at a delimiter
@@ -116,7 +116,7 @@ def fin_exp(neg, i, fr, u, sg, f, acc, r, dl):
     case SNil{}:
       {==}
     case SCon{c, t}:
-      %Equal.sym(J.NC, J.nclass(c), J.COther{}, dl) : {J.lex_num(t, J.halt(J.is_stop(J.num_next(J.NExp{neg, i, fr, u, sg, f, acc}, _)), J.NExp{neg, i, fr, u, sg, f, acc}, J.num_next(J.NExp{neg, i, fr, u, sg, f, acc}, _), SCon{c, t})) == J.num_end(J.NExp{neg, i, fr, u, sg, f, acc}, SCon{c, t}) : J.NLex}
+      %Equal.sym(J.NC, J.nclass(c), J.COther{}, dl) : {J.lex_num(t, J.num_step(J.NExp{neg, i, fr, u, sg, f, acc}, _, c, t)) == J.num_end(J.NExp{neg, i, fr, u, sg, f, acc}, SCon{c, t}) : J.NLex}
       halt_end(J.NExp{neg, i, fr, u, sg, f, acc}, SCon{c, t}, t)
 
 # a run of digits is pushed, reversed, onto the state's list

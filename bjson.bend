@@ -237,6 +237,14 @@ def letter(+c: Char, acc: String, +hi: U32, at: String) -> SSt:
     case other:
       letter.go(unescape(other), acc, hi, at)
 
+# a raw char: the input at it is built only for the error
+def plain.go(pending: Bool, acc: String, +c: Char, t: String) -> SSt:
+  match pending:
+    case True{}:
+      SStop{LoneSurrogate{}, SCon{c, t}}
+    case False{}:
+      SGo{SCon{c, acc}, 0}
+
 def s_go(k: Class, +c: Char, acc: String, +hi: U32, +t: String) -> SSt:
   match k:
     case KQuote{}:
@@ -246,7 +254,7 @@ def s_go(k: Class, +c: Char, acc: String, +hi: U32, +t: String) -> SSt:
     case KCtrl{}:
       SStop{ControlChar{}, SCon{c, t}}
     case KPlain{}:
-      keep(acc, hi, c, SCon{c, t})
+      plain.go(U32.is_ne(hi, 0), acc, c, t)
 
 def s_esc(k: Class, +c: Char, acc: String, +hi: U32, at: String) -> SSt:
   match k:
@@ -352,7 +360,6 @@ type NSt is Data:
   NE{neg: Bool, int: Int, frac: Frac, upper: Bool}
   NESign{neg: Bool, int: Int, frac: Frac, upper: Bool, sign: Sign}
   NExp{neg: Bool, int: Int, frac: Frac, upper: Bool, sign: Sign, first: Digit, ds: List<&2, Digit>}
-  NStop{}
   NHalt{last: NSt, rest: String}
 
 def rev(ds: List<&2, Digit>) -> List<&2, Digit>:
@@ -381,7 +388,9 @@ def first_digit(neg: Bool, d: Digit) -> NSt:
     case D9{}:
       NInt{neg, L9{}, []}
 
-def num_next(st: NSt, k: NC) -> NSt:
+# one char of a number; a char the number cannot take ends it, and the
+# lexer resumes from here
+def num_step(st: NSt, k: NC, c: Char, t: String) -> NSt:
   match st k:
     case NStart{} CMinus{}:
       NMin{}
@@ -415,15 +424,8 @@ def num_next(st: NSt, k: NC) -> NSt:
       NExp{neg, i, fr, u, sg, d, []}
     case NExp{neg, i, fr, u, sg, f, ds} CDig{d}:
       NExp{neg, i, fr, u, sg, f, Con{d, ds}}
-    case _ _:
-      NStop{}
-
-def is_stop(st: NSt) -> Bool:
-  match st:
-    case NStop{}:
-      True{}
-    case _:
-      False{}
+    case last _:
+      NHalt{last, SCon{c, t}}
 
 # a lexed number and the input after it
 type NLex is Data:
@@ -448,22 +450,14 @@ def num_end(st: NSt, rest: String) -> NLex:
     case _ _:
       NBad{InvalidNumber{}, rest}
 
-def halt(stop: Bool, last: NSt, next: NSt, +here: String) -> NSt:
-  match stop:
-    case True{}:
-      NHalt{last, here}
-    case False{}:
-      next
-
-def lex_num(s: String, +st: NSt) -> NLex:
+def lex_num(s: String, st: NSt) -> NLex:
   match s st:
     case _ NHalt{last, rest}:
       num_end(last, rest)
-    case SNil{} _:
-      num_end(st, SNil{})
-    case SCon{+c, +t} _:
-      +n = num_next(st, nclass(c))
-      lex_num(t, halt(is_stop(n), st, n, SCon{c, t}))
+    case SNil{} last:
+      num_end(last, SNil{})
+    case SCon{+c, +t} going:
+      lex_num(t, num_step(going, nclass(c), c, t))
 
 # Parsing
 # =======

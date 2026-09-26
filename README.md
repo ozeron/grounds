@@ -46,14 +46,14 @@ A `Number` holds the sign, digits, fraction and exponent as written. An invalid 
 
 | tool | canada 2.3 MB | citm_catalog 1.7 MB | twitter 0.6 MB |
 |---|---|---|---|
-| bjson | 175 ms, 13 MB/s | 57 ms, 31 MB/s | 26 ms, 26 MB/s |
-| Python `json` | 57 ms, 52 MB/s | 21 ms, 231 MB/s | 18 ms, 142 MB/s |
-| Node | 61 ms, 51 MB/s | 21 ms, 360 MB/s | 20 ms, 179 MB/s |
-| Bun | 19 ms, 304 MB/s | 16 ms, 438 MB/s | 14 ms, 347 MB/s |
-| jq | 40 ms, 60 MB/s | 28 ms, 70 MB/s | 17 ms, 45 MB/s |
-| Go `encoding/json` | 27 ms, 89 MB/s | 14 ms, 138 MB/s | 8 ms, 107 MB/s |
+| bjson | 105 ms, 22 MB/s | 52 ms, 35 MB/s | 25 ms, 27 MB/s |
+| Python `json` | 59 ms, 51 MB/s | 22 ms, 235 MB/s | 19 ms, 147 MB/s |
+| Node | 31 ms, 155 MB/s | 22 ms, 318 MB/s | 20 ms, 202 MB/s |
+| Bun | 20 ms, 308 MB/s | 16 ms, 488 MB/s | 14 ms, 501 MB/s |
+| jq | 42 ms, 57 MB/s | 28 ms, 68 MB/s | 18 ms, 42 MB/s |
+| Go `encoding/json` | 28 ms, 87 MB/s | 14 ms, 137 MB/s | 8 ms, 101 MB/s |
 
-bjson is 3–15x slower than these. Strings are cons lists of chars, and every number digit is a list cell. Number-heavy input (canada) is the slowest.
+bjson is 2–15x slower than these. Strings are cons lists of chars and each digit is a list cell; reading and decoding the file alone takes about 23 ms of canada's 105.
 
 ## Files
 
