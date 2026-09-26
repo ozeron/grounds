@@ -1,0 +1,8 @@
+# grounds-io: whole-file reads, as text or raw bytes
+language: "bend"
+
+tasks:
+  check:
+    command: "bend io.bend --check-only"
+    inputs:
+      - "*.bend"

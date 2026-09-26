@@ -1,5 +1,8 @@
 # grounds-json: the JSON library (to be published as grounds-json)
 language: "bend"
+dependsOn:
+  - "io"
+  - "utf8"
 
 tasks:
   check:

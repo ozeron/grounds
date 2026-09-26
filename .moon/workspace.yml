@@ -1,6 +1,8 @@
 # grounds: a monorepo of Bend packages
 projects:
+  io: "io"
   json: "json"
+  utf8: "utf8"
 
 vcs:
   defaultBranch: "main"

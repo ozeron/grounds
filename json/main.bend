@@ -1,6 +1,8 @@
 import Base
 import ./bjson.bend as J
 import ./fast.bend as F
+import ../utf8/utf8.bend as U
+import ../io/io.bend as Io
 
 # bjson [--compact] [--max-bytes N] <file.json>
 # pretty-prints the file, or reports where it stops being JSON. With
@@ -121,24 +123,6 @@ def path.go(o: Opts) -> String:
 def path_of(args: List<String>) -> String:
   path.go(parse_args(args))
 
-law read.text:
-  for m: File & Result<&1, &1, (U32 & String), String>
-  IO(String)
-
-def read.text(m):
-  (f, r) = m
-  do IO<String>:
-    text : String <- IO.pass(String, r)
-    x : Unit <- File.close(f)
-    return text
-
-def over(limit: Maybe<&2, U32>, +n: U32) -> Bool:
-  match limit:
-    case None{}:
-      False{}
-    case Some{x}:
-      U32.is_gt(n, x)
-
 def too_big(+n: U32, limit: Maybe<&2, U32>) -> String:
   match limit:
     case Some{x}:
@@ -146,62 +130,19 @@ def too_big(+n: U32, limit: Maybe<&2, U32>) -> String:
     case None{}:
       ""
 
-def read.check(big: Bool, f: File, +n: U32, limit: Maybe<&2, U32>) -> IO(String):
-  match big:
-    case True{}:
+def got(r: Io.Read, limit: Maybe<&2, U32>) -> IO(String):
+  match r:
+    case Io.Got{text}:
+      IO.pure(String, text)
+    case Io.TooBig{n}:
       do IO<String>:
-        x : Unit <- File.close(f)
         args : List<String> <- IO.args()
         IO.die(String, 1, path_of(args) ++ too_big(n, limit))
-    case False{}:
-      do IO<String>:
-        t : File & Result<&1, &1, (U32 & String), String> <- File.read(f, (n + 1 : U32))
-        read.text(t)
 
-law read.size:
-  for m: File & Result<&1, &1, (U32 & String), U32>
-  for +limit: Maybe<&2, U32>
-  IO(String)
-
-def read.size(m, limit):
-  (f, r) = m
+def read(path: String, +limit: Maybe<&2, U32>) -> IO(String):
   do IO<String>:
-    +n : U32 <- IO.pass(U32, r)
-    read.check(over(limit, n), f, n, limit)
-
-law read.bytes:
-  for m: File & Result<&1, &1, (U32 & String), List<&2, U32>>
-  IO(List<&2, U32>)
-
-def read.bytes(m):
-  (f, r) = m
-  do IO<List<&2, U32>>:
-    bs : List<&2, U32> <- IO.pass(List<&2, U32>, r)
-    x : Unit <- File.close(f)
-    return bs
-
-law read.bytes.size:
-  for m: File & Result<&1, &1, (U32 & String), U32>
-  IO(List<&2, U32>)
-
-def read.bytes.size(m):
-  (f, r) = m
-  do IO<List<&2, U32>>:
-    n : U32 <- IO.pass(U32, r)
-    t : File & Result<&1, &1, (U32 & String), List<&2, U32>> <- File.read_bytes(f, (n + 1 : U32))
-    read.bytes(t)
-
-def read_bytes(path: String) -> IO(List<&2, U32>):
-  do IO<List<&2, U32>>:
-    f : File <- IO.try(File, File.open(path, "r"))
-    m : File & Result<&1, &1, (U32 & String), U32> <- File.size(f)
-    read.bytes.size(m)
-
-def read(path: String, limit: Maybe<&2, U32>) -> IO(String):
-  do IO<String>:
-    f : File <- IO.try(File, File.open(path, "r"))
-    m : File & Result<&1, &1, (U32 & String), U32> <- File.size(f)
-    read.size(m, limit)
+    r : Io.Read <- Io.read_text(path, limit)
+    got(r, limit)
 
 # an error: the file is read again for its line and column, and the path
 # asked for again, since keeping either would share a String
@@ -249,11 +190,11 @@ def bad_utf8(+at: U32, +before: String) -> IO(Unit):
     args : List<String> <- IO.args()
     IO.die(Unit, 1, path_of(args) ++ ":" ++ J.message(J.bad_utf8(at, before)))
 
-def decoded(compact: Bool, t: J.Text) -> IO(Unit):
+def decoded(compact: Bool, t: U.Text) -> IO(Unit):
   match t:
-    case J.TOk{text}:
+    case U.TOk{text}:
       out(format(compact, text))
-    case J.TBad{at, before}:
+    case U.TBad{at, before}:
       bad_utf8(at, before)
 
 # the text had a U+FFFD: decode the bytes to tell a real one from a bad
@@ -261,8 +202,8 @@ def decoded(compact: Bool, t: J.Text) -> IO(Unit):
 def recheck(compact: Bool) -> IO(Unit):
   do IO<Unit>:
     args : List<String> <- IO.args()
-    bytes : List<&2, U32> <- read_bytes(path_of(args))
-    decoded(compact, J.decode(bytes))
+    bytes : List<&2, U32> <- Io.read_bytes(path_of(args))
+    decoded(compact, U.decode(bytes))
 
 def checked(compact: Bool, bad: Bool, text: String) -> IO(Unit):
   match bad:

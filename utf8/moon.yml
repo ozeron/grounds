@@ -1,0 +1,8 @@
+# grounds-utf8: strict UTF-8 decoding of raw bytes
+language: "bend"
+
+tasks:
+  check:
+    command: "bend test.bend"
+    inputs:
+      - "*.bend"
