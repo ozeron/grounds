@@ -7,7 +7,7 @@ Specs in this folder: [RFC 9110](rfc9110.txt) (HTTP semantics), [RFC 9112](rfc91
 1. [x] **wire**: byte-exact TCP (`../wire`), after `bend-kit-wire`. Base's `TCP.send` and `TCP.recv` take and give `String`, decoded as UTF-8, which is not binary-safe. `bend-kit-wire` on BendHub (`0x096635686408886b7d907f16c4550317`) has byte-exact TCP, UDP and TLS; reuse or learn from it.
 2. [x] **http**: methods, status, headers, query, request and response (this package, scaffolded).
 3. [x] **http1** (`../http1`): request heads and Content-Length bodies parsed, responses written, malformed input refused (RFC 9112). [ ] Chunked coding (§7), trailers.
-4. [ ] **http_server**: accept loop, `serve(handler, config)`, limits in `Config` (head bytes, body bytes, requests per connection).
+4. [x] **http_server** (`../http_server`): accept loop, a spawned computation per connection, keep-alive and pipelining, `serve(handler, config)` with head, body and request limits. [ ] Idle and request timeouts, graceful shutdown.
 5. [ ] **http_json**: `decode(req, decoder)` (checks Content-Type, the body limit, parse and decode errors, as `DecodeError{UnsupportedContentType, BodyTooLarge, InvalidJson, InvalidValue}`) and `response(status, encode, value)`.
 6. [ ] **http_router**: pure matching of method and path to a route value and params: `Router.get(r, "/users/:id", GetUser)`, `Router.match(routes, req) -> Match{route, params} | NotFound | MethodNotAllowed`.
 7. [ ] **http_middleware**: `BodyLimit`, `RequestId`, `Logger`, `Timeout`, `Cors`, `Recover`; later compression, rate limits, auth, forwarded headers.

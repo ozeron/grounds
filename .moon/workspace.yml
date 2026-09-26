@@ -2,6 +2,7 @@
 projects:
   http: "http"
   http1: "http1"
+  http_server: "http_server"
   io: "io"
   json: "json"
   utf8: "utf8"

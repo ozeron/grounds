@@ -46,6 +46,9 @@ def content_too_large() -> Status:
 def unsupported_media_type() -> Status:
   Status{415}
 
+def header_fields_too_large() -> Status:
+  Status{431}
+
 def internal_error() -> Status:
   Status{500}
 
@@ -54,6 +57,9 @@ def not_implemented() -> Status:
 
 def service_unavailable() -> Status:
   Status{503}
+
+def version_not_supported() -> Status:
+  Status{505}
 
 def code(s: Status) -> U32:
   match s:
@@ -91,11 +97,15 @@ def reason(s: Status) -> String:
       "Content Too Large"
     case Status{415}:
       "Unsupported Media Type"
+    case Status{431}:
+      "Request Header Fields Too Large"
     case Status{500}:
       "Internal Server Error"
     case Status{501}:
       "Not Implemented"
     case Status{503}:
       "Service Unavailable"
+    case Status{505}:
+      "HTTP Version Not Supported"
     case _:
       ""

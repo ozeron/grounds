@@ -1,6 +1,6 @@
 # grounds-http
 
-HTTP messages for [Bend 2](https://github.com/bendlang/bend), per [RFC 9110](docs/rfc9110.txt): methods, status codes, headers, query strings, requests and responses. Scaffold: the message types work and are tested; the wire format, the server, routing and JSON come next, as separate packages ([docs/TODO.md](docs/TODO.md)).
+HTTP messages for [Bend 2](https://github.com/bendlang/bend), per [RFC 9110](docs/rfc9110.txt): methods, status codes, headers, query strings, requests and responses. The message types are used by `grounds-http1` (the wire format) and `grounds-http-server` (`serve`); routing and JSON come next, as separate packages ([docs/TODO.md](docs/TODO.md)).
 
 ```python
 import ../http/request.bend as Req

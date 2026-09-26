@@ -27,11 +27,11 @@ type Err is Data:
 def status(e: Err) -> S.Status:
   match e:
     case BadVersion{}:
-      S.Status{505}
+      S.version_not_supported()
     case Unsupported{}:
       S.not_implemented()
     case HeadTooLarge{}:
-      S.Status{431}
+      S.header_fields_too_large()
     case BodyTooLarge{}:
       S.content_too_large()
     case _:
