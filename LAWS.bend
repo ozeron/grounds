@@ -3,6 +3,16 @@ import ./bjson.bend as J
 
 # Laws bjson must keep. `bend PROOF.bend` fails while any is open or false.
 
+# parsing what the printer wrote gives back the same value, for every value
+law round_trip:
+  for j: J.Json
+  {J.parse(J.stringify(j)) == Done{j} : Result<&2, &2, J.Error, J.Json>}
+
+# so the printer never writes invalid JSON
+law always_parses:
+  for j: J.Json
+  {J.is_ok(J.parse(J.stringify(j))) == True{} : Bool}
+
 # every literal survives a print and a parse
 law bool_round_trip:
   for b: Bool

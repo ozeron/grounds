@@ -4,7 +4,7 @@ Built from [RFC 8259](rfc8259.txt) (JSON, STD 90). Section numbers point into it
 
 ## Value model (§3)
 - [x] `Json` type: null, bool, number, string, array, object
-- [x] Number repr: keep the source text; convert with `as_u32` / `as_f32` (§6)
+- [x] Number repr: a typed `Number` with the exact digits; convert with `as_u32` / `as_f32` (§6)
 - [x] Object repr: ordered `List<Field>`, duplicates kept (§4)
 
 ## Parser
@@ -51,7 +51,7 @@ Built from [RFC 8259](rfc8259.txt) (JSON, STD 90). Section numbers point into it
 ### Errors and limits (§9)
 - [x] Error type with reason
 - [x] Position: offset, line and column, in code points
-- [x] Max nesting depth: none needed; the stack is explicit, 100k levels tested
+- [x] Max nesting depth: none for parsing (explicit stack, 100k levels tested); printing handles about 5,000
 - [x] Max string length / input size: none; 100k-char strings tested
 
 ## Serializer (§10)
@@ -77,11 +77,12 @@ Built from [RFC 8259](rfc8259.txt) (JSON, STD 90). Section numbers point into it
 - [x] Lookups on empty or wrong-kind values give `None`
 - [x] Typed reads return what was stored
 - [x] Parser and printer terminate on every input (checked by Bend)
-- [ ] Prove `parse(stringify(j)) == Done{j}` for every `j` (tested, not proven; needs lemmas about the parser loop)
-- [ ] Prove `stringify` output always parses
+- [x] Prove `parse(stringify(j)) == Done{j}` for every `j` (`proof/`)
+- [x] Prove `stringify` output always parses
 
 ## Tests
 - [x] JSONTestSuite: all 271 y_/n_ cases pass; 25 cases skipped because their bytes are not valid UTF-8
 - [x] Unit tests per grammar rule (`test.bend`)
 - [x] Stress: 100k escapes, items, digits and nesting levels (`stress.bend`)
 - [x] 1 MB round trip through the native CLI matches Python's `json`
+- [x] Integration: the native CLI fuzzed against Python's `json` (`scripts/integration.py`)

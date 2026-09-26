@@ -990,6 +990,13 @@ def num_f32(x: F32) -> Maybe<&2, Json>:
 # Reading
 # =======
 
+def is_ok(r: Result<&2, &2, Error, Json>) -> Bool:
+  match r:
+    case Done{_}:
+      True{}
+    case Fail{_}:
+      False{}
+
 def is_null(j: Json) -> Bool:
   match j:
     case JNull{}:
