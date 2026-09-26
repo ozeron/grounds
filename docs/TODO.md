@@ -9,14 +9,14 @@ Built from [RFC 8259](rfc8259.txt) (JSON, STD 90). Section numbers point into it
 
 ## Parser
 ### Whitespace and top level (§2)
-- [ ] Skip `ws` = space, tab, LF, CR — nothing else
-- [ ] `JSON-text = ws value ws`; any scalar is valid at the top
-- [ ] Reject trailing non-ws after the value
+- [x] Skip `ws` = space, tab, LF, CR — nothing else
+- [x] `JSON-text = ws value ws`; any scalar is valid at the top
+- [x] Reject trailing non-ws after the value
 - [ ] Optionally skip a leading UTF-8 BOM (§8.1, MAY)
 
 ### Literals (§3)
-- [ ] `true`, `false`, `null`, lowercase only
-- [ ] Reject any other bare word (`True`, `NaN`, `undefined`)
+- [x] `true`, `false`, `null`, lowercase only
+- [x] Reject any other bare word (`True`, `NaN`, `undefined`)
 
 ### Objects (§4)
 - [ ] `{}` and `{ "k": v, ... }`
@@ -49,7 +49,8 @@ Built from [RFC 8259](rfc8259.txt) (JSON, STD 90). Section numbers point into it
 - [ ] Input is UTF-8; decide what to do with invalid UTF-8
 
 ### Errors and limits (§9)
-- [ ] Error type with position (offset or line:col) and reason
+- [x] Error type with reason
+- [ ] Add position (offset or line:col) to errors
 - [ ] Max nesting depth (needs a `Nat` fuel arg for termination anyway)
 - [ ] Max string length / input size, if any
 
@@ -65,7 +66,7 @@ Built from [RFC 8259](rfc8259.txt) (JSON, STD 90). Section numbers point into it
 - [ ] Compare keys after unescaping, code point by code point
 
 ## API
-- [ ] `parse(String) -> Result<Error, Json>`
+- [x] `parse(String) -> Result<Error, Json>`
 - [ ] `stringify(Json) -> String`, `pretty(Json, indent) -> String`
 - [ ] Accessors: `get(key)`, `at(index)`, `as_str`, `as_num`, `as_bool`, `is_null`
 
