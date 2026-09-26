@@ -9,6 +9,7 @@ A monorepo of [Bend 2](https://github.com/bendlang/bend) packages, built with [m
 | [`json`](json/) | JSON parser and printer, proven to round-trip; to be published as `grounds-json` |
 | [`utf8`](utf8/) | strict UTF-8 decoding of raw bytes |
 | [`io`](io/) | whole-file reads, as text or raw bytes |
+| [`wire`](wire/) | TCP on bytes: byte-exact send and receive |
 | [`http`](http/) | HTTP messages: methods, status, headers, query, request, response (scaffold; HTTP/1.1, server, router and JSON next) |
 
 ```sh

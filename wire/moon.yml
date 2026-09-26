@@ -1,0 +1,9 @@
+# grounds-wire: TCP on bytes
+language: "bend"
+
+tasks:
+  check:
+    command: "./check.sh"
+    inputs:
+      - "*.bend"
+      - "effs/*"

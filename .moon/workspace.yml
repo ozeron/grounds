@@ -4,6 +4,7 @@ projects:
   io: "io"
   json: "json"
   utf8: "utf8"
+  wire: "wire"
 
 vcs:
   defaultBranch: "main"

@@ -4,7 +4,7 @@ Specs in this folder: [RFC 9110](rfc9110.txt) (HTTP semantics), [RFC 9112](rfc91
 
 ## Packages, in build order
 
-1. [ ] **wire**: byte-exact TCP. Base's `TCP.send` and `TCP.recv` take and give `String`, decoded as UTF-8, which is not binary-safe. `bend-kit-wire` on BendHub (`0x096635686408886b7d907f16c4550317`) has byte-exact TCP, UDP and TLS; reuse or learn from it.
+1. [x] **wire**: byte-exact TCP (`../wire`), after `bend-kit-wire`. Base's `TCP.send` and `TCP.recv` take and give `String`, decoded as UTF-8, which is not binary-safe. `bend-kit-wire` on BendHub (`0x096635686408886b7d907f16c4550317`) has byte-exact TCP, UDP and TLS; reuse or learn from it.
 2. [x] **http**: methods, status, headers, query, request and response (this package, scaffolded).
 3. [ ] **http1**: request parsing, response writing, framing, chunked coding, connection lifecycle (RFC 9112).
 4. [ ] **http_server**: accept loop, `serve(handler, config)`, limits in `Config` (head bytes, body bytes, requests per connection).
