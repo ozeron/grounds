@@ -126,3 +126,8 @@ Base's `Array` is a tree (each read rebuilds a path), so a packed byte buffer wo
 - [ ] `fast.bend`: the end-of-input row returns the paused state; `reformat(s)` finishes it; update `fast_round_trip` by that one step
 - [ ] CLI: the chunk driver (`bench/spike/chunkfmt.bend`); bad UTF-8 checked per chunk
 - [ ] Keep it cold: pass a chunk twice as the fuel and input, never rebuild it from shared parts
+
+## Upstream: report to Bend
+
+- [ ] Base's `Nat.min`, `Nat.max` and `Nat.mul` (large first argument) recurse one step at a time, while `Nat.add`, `Nat.sub` and `Nat.cmp` run natively. `Nat.min(4294967295n, x)` overflows the machine stack. `json.bend` works around it (`nat_min` via `Nat.is_le`; `Nat.mul(10n, acc)` with the small factor first); other Bend code will hit it.
+- [ ] The checker evaluates Nats one by one, so a `test.bend` case on a large number (e.g. `u32("1e999999999999999999")`) runs for minutes; such cases live in `reads_check.bend`, run natively.
