@@ -17,7 +17,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: stable
-      - run: sudo apt-get update && sudo apt-get install -y hyperfine
+      - run: sudo apt-get update && sudo apt-get install -y hyperfine clang llvm
       - run: ./check.sh
       - run: QUICK=1 bench/run.sh
       # nightly: a long fuzz; failing inputs go to examples/regress/
