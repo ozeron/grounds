@@ -80,10 +80,21 @@ type Error is Data:
 # Lexing
 # ======
 
-# a lexed string and the input after it, or why and where lexing stopped
+# a lexed string and the input after it, or why lexing stopped and how
+# many chars were left from where it went wrong. Errors count, not keep
+# the input: keeping a String that is still being read shares it, and
+# sharing any String counts references on every String in the program
 type Lex is Data:
   LOk{text: String, rest: String}
-  LBad{reason: Reason, rest: String}
+  LBad{reason: Reason, left: U32}
+
+# the length of s, plus n
+def size(s: String, +n: U32) -> U32:
+  match s:
+    case SNil{}:
+      n
+    case SCon{_, t}:
+      size(t, (n + 1 : U32))
 
 def in_range(+x: U32, lo: U32, hi: U32) -> Bool:
   Bool.and(U32.is_ge(x, lo), U32.is_le(x, hi))
@@ -102,15 +113,29 @@ def skip_ws(s: String) -> String:
     case rest:
       rest
 
-# a fixed word at the head of the input
-def expect(word: String, s: String) -> Lex:
+# whether the next chars of the word and the input agree
+def heads_eq(word: String, s: String) -> Bool:
   match word s:
-    case SNil{} rest:
+    case SCon{w, _} SCon{c, _}:
+      Char.is_eq(w, c)
+    case _ _:
+      True{}
+
+# a fixed word at the head of the input; same is heads_eq(word, s), tested
+# before, since picking between both results would share the input
+def expect.go(+word: String, +s: String, same: Bool) -> Lex:
+  match word s same:
+    case SNil{} rest _:
       LOk{"", rest}
-    case SCon{_, _} SNil{}:
-      LBad{UnexpectedEnd{}, SNil{}}
-    case SCon{+w, wt} SCon{+c, +st}:
-      Bool.pick(Lex, Char.is_eq(w, c), expect(wt, st), LBad{UnexpectedChar{c}, SCon{c, st}})
+    case SCon{_, _} SNil{} _:
+      LBad{UnexpectedEnd{}, 0}
+    case SCon{_, wt} SCon{_, st} True{}:
+      expect.go(wt, st, heads_eq(wt, st))
+    case SCon{_, _} SCon{c, st} False{}:
+      LBad{UnexpectedChar{c}, size(st, 1)}
+
+def expect(+word: String, +s: String) -> Lex:
+  expect.go(word, s, heads_eq(word, s))
 
 # Strings (RFC 8259 §7)
 # ---------------------
@@ -153,14 +178,16 @@ def hex_digit(c: Char) -> Maybe<&2, U32>:
         Bool.pick(Maybe<&2, U32>, in_range(x, 97, 102), Some{U32.sub(x, 87)},
           Bool.pick(Maybe<&2, U32>, in_range(x, 65, 70), Some{U32.sub(x, 55)}, None{})))
 
-# inside a string: chars so far (reversed), a pending high surrogate (0 if
-# none), and for an escape the input at its backslash
+# inside a string: chars so far (reversed) and a pending high surrogate
+# (0 if none). back counts the chars of an escape read before this one;
+# SStop's back counts from where it went wrong through this char, and the
+# lexer reads the input left once it has taken this char
 type SSt is Data:
   SGo{acc: String, hi: U32}
-  SEsc{acc: String, hi: U32, at: String}
-  SHex{acc: String, hi: U32, left: Nat, code: U32, at: String}
-  SStop{reason: Reason, rest: String}
-  SDone{value: String, rest: String}
+  SEsc{acc: String, hi: U32}
+  SHex{acc: String, hi: U32, left: Nat, code: U32, back: U32}
+  SStop{reason: Reason, back: U32}
+  SDone{value: String}
 
 def pair(+hi: U32, +lo: U32) -> U32:
   (65536 + (hi - 55296) * 1024 + (lo - 56320) : U32)
@@ -168,42 +195,42 @@ def pair(+hi: U32, +lo: U32) -> U32:
 def push(acc: String, x: U32) -> SSt:
   SGo{SCon{Chr{x}, acc}, 0}
 
-def on_code(pending: Bool, k: Surr, acc: String, +hi: U32, +x: U32, at: String) -> SSt:
+def on_code(pending: Bool, k: Surr, acc: String, +hi: U32, +x: U32, back: U32) -> SSt:
   match pending k:
     case False{} NotSurr{}:
       push(acc, x)
     case False{} High{}:
       SGo{acc, x}
     case False{} Low{}:
-      SStop{LoneSurrogate{}, at}
+      SStop{LoneSurrogate{}, back}
     case True{} Low{}:
       push(acc, pair(hi, x))
     case True{} _:
-      SStop{LoneSurrogate{}, at}
+      SStop{LoneSurrogate{}, back}
 
-def code(acc: String, +hi: U32, +x: U32, at: String) -> SSt:
-  on_code(U32.is_ne(hi, 0), surr(x), acc, hi, x, at)
+def code(acc: String, +hi: U32, +x: U32, back: U32) -> SSt:
+  on_code(U32.is_ne(hi, 0), surr(x), acc, hi, x, back)
 
-# a char taken as is, raw or after a backslash
-def keep.go(pending: Bool, acc: String, c: Char, at: String) -> SSt:
+# a char taken as is after a backslash
+def keep.go(pending: Bool, acc: String, c: Char) -> SSt:
   match pending:
     case True{}:
-      SStop{LoneSurrogate{}, at}
+      SStop{LoneSurrogate{}, 2}
     case False{}:
       SGo{SCon{c, acc}, 0}
 
-def keep(acc: String, +hi: U32, c: Char, at: String) -> SSt:
-  keep.go(U32.is_ne(hi, 0), acc, c, at)
+def keep(acc: String, +hi: U32, c: Char) -> SSt:
+  keep.go(U32.is_ne(hi, 0), acc, c)
 
-def close.go(pending: Bool, acc: String, +rest: String) -> SSt:
+def close.go(pending: Bool, acc: String) -> SSt:
   match pending:
     case True{}:
-      SStop{LoneSurrogate{}, SCon{'"', rest}}
+      SStop{LoneSurrogate{}, 1}
     case False{}:
-      SDone{String.reverse(acc), rest}
+      SDone{String.reverse(acc)}
 
-def close(acc: String, +hi: U32, rest: String) -> SSt:
-  close.go(U32.is_ne(hi, 0), acc, rest)
+def close(acc: String, +hi: U32) -> SSt:
+  close.go(U32.is_ne(hi, 0), acc)
 
 def unescape(e: Char) -> Maybe<&2, U32>:
   match e:
@@ -222,85 +249,86 @@ def unescape(e: Char) -> Maybe<&2, U32>:
     case _:
       None{}
 
-def letter.go(m: Maybe<&2, U32>, acc: String, +hi: U32, at: String) -> SSt:
+def letter.go(m: Maybe<&2, U32>, acc: String, +hi: U32) -> SSt:
   match m:
     case Some{x}:
-      code(acc, hi, x, at)
+      code(acc, hi, x, 2)
     case None{}:
-      SStop{InvalidEscape{}, at}
+      SStop{InvalidEscape{}, 2}
 
 # the letter after a backslash
-def letter(+c: Char, acc: String, +hi: U32, at: String) -> SSt:
+def letter(+c: Char, acc: String, +hi: U32) -> SSt:
   match c:
     case 'u':
-      SHex{acc, hi, 4n, 0, at}
+      SHex{acc, hi, 4n, 0, 2}
     case other:
-      letter.go(unescape(other), acc, hi, at)
+      letter.go(unescape(other), acc, hi)
 
-# a raw char: the input at it is built only for the error
-def plain.go(pending: Bool, acc: String, +c: Char, t: String) -> SSt:
+def plain.go(pending: Bool, acc: String, +c: Char) -> SSt:
   match pending:
     case True{}:
-      SStop{LoneSurrogate{}, SCon{c, t}}
+      SStop{LoneSurrogate{}, 1}
     case False{}:
       SGo{SCon{c, acc}, 0}
 
-def s_go(k: Class, +c: Char, acc: String, +hi: U32, +t: String) -> SSt:
+def s_go(k: Class, +c: Char, acc: String, +hi: U32) -> SSt:
   match k:
     case KQuote{}:
-      close(acc, hi, t)
+      close(acc, hi)
     case KBack{}:
-      SEsc{acc, hi, SCon{c, t}}
+      SEsc{acc, hi}
     case KCtrl{}:
-      SStop{ControlChar{}, SCon{c, t}}
+      SStop{ControlChar{}, 1}
     case KPlain{}:
-      plain.go(U32.is_ne(hi, 0), acc, c, t)
+      plain.go(U32.is_ne(hi, 0), acc, c)
 
-def s_esc(k: Class, +c: Char, acc: String, +hi: U32, at: String) -> SSt:
+def s_esc(k: Class, +c: Char, acc: String, +hi: U32) -> SSt:
   match k:
     case KQuote{}:
-      keep(acc, hi, c, at)
+      keep(acc, hi, c)
     case KBack{}:
-      keep(acc, hi, c, at)
+      keep(acc, hi, c)
     case KCtrl{}:
-      SStop{InvalidEscape{}, at}
+      SStop{InvalidEscape{}, 2}
     case KPlain{}:
-      letter(c, acc, hi, at)
+      letter(c, acc, hi)
 
-def s_hex.go(left: Nat, d: Maybe<&2, U32>, acc: String, +hi: U32, +x: U32, at: String) -> SSt:
+def s_hex.go(left: Nat, d: Maybe<&2, U32>, acc: String, +hi: U32, +x: U32, back: U32) -> SSt:
   match left d:
     case _ None{}:
-      SStop{InvalidUnicode{}, at}
+      SStop{InvalidUnicode{}, (back + 1 : U32)}
     case 0n Some{_}:
-      SStop{Internal{}, at}
+      SStop{Internal{}, 1}
     case 1n Some{v}:
-      code(acc, hi, (x * 16 + v : U32), at)
+      code(acc, hi, (x * 16 + v : U32), (back + 1 : U32))
     case 2n+p Some{v}:
-      SHex{acc, hi, 1n+p, (x * 16 + v : U32), at}
+      SHex{acc, hi, 1n+p, (x * 16 + v : U32), (back + 1 : U32)}
 
 # one char of a string body
-def s_step(st: SSt, +c: Char, +t: String) -> SSt:
+def s_step(st: SSt, +c: Char) -> SSt:
   match st:
     case SGo{acc, hi}:
-      s_go(class(c), c, acc, hi, t)
-    case SEsc{acc, hi, at}:
-      s_esc(class(c), c, acc, hi, at)
-    case SHex{acc, hi, left, x, at}:
-      s_hex.go(left, hex_digit(c), acc, hi, x, at)
+      s_go(class(c), c, acc, hi)
+    case SEsc{acc, hi}:
+      s_esc(class(c), c, acc, hi)
+    case SHex{acc, hi, left, x, back}:
+      s_hex.go(left, hex_digit(c), acc, hi, x, back)
     case done:
       done
 
-# the body of a string, after its opening quote
+# the body of a string, after its opening quote. A step never sees the
+# input after its char: the closing quote and errors take effect one call
+# later, where that input is the one being read
 def lex_str(s: String, st: SSt) -> Lex:
   match s st:
-    case _ SStop{r, rest}:
-      LBad{r, rest}
-    case _ SDone{v, rest}:
-      LOk{v, rest}
+    case _ SStop{r, back}:
+      LBad{r, size(s, back)}
+    case _ SDone{v}:
+      LOk{v, s}
     case SNil{} _:
-      LBad{UnexpectedEnd{}, SNil{}}
-    case SCon{+c, +t} going:
-      lex_str(t, s_step(going, c, t))
+      LBad{UnexpectedEnd{}, 0}
+    case SCon{+c, t} going:
+      lex_str(t, s_step(going, c))
 
 # Numbers (RFC 8259 §6)
 # ---------------------
@@ -360,7 +388,7 @@ type NSt is Data:
   NE{neg: Bool, int: Int, frac: Frac, upper: Bool}
   NESign{neg: Bool, int: Int, frac: Frac, upper: Bool, sign: Sign}
   NExp{neg: Bool, int: Int, frac: Frac, upper: Bool, sign: Sign, first: Digit, ds: List<&2, Digit>}
-  NHalt{last: NSt, rest: String}
+  NHalt{last: NSt, next: Char}
 
 def rev(ds: List<&2, Digit>) -> List<&2, Digit>:
   List.reverse(&2, Digit, ds)
@@ -389,8 +417,8 @@ def first_digit(neg: Bool, d: Digit) -> NSt:
       NInt{neg, L9{}, []}
 
 # one char of a number; a char the number cannot take ends it, and the
-# lexer resumes from here
-def num_step(st: NSt, k: NC, c: Char, t: String) -> NSt:
+# lexer resumes from it
+def num_step(st: NSt, k: NC, c: Char) -> NSt:
   match st k:
     case NStart{} CMinus{}:
       NMin{}
@@ -425,12 +453,12 @@ def num_step(st: NSt, k: NC, c: Char, t: String) -> NSt:
     case NExp{neg, i, fr, u, sg, f, ds} CDig{d}:
       NExp{neg, i, fr, u, sg, f, Con{d, ds}}
     case last _:
-      NHalt{last, SCon{c, t}}
+      NHalt{last, c}
 
 # a lexed number and the input after it
 type NLex is Data:
   NOk{value: Number, rest: String}
-  NBad{reason: Reason, rest: String}
+  NBad{reason: Reason, left: U32}
 
 # a char that starts no value at all is reported as itself
 def num_end(st: NSt, rest: String) -> NLex:
@@ -444,20 +472,22 @@ def num_end(st: NSt, rest: String) -> NLex:
     case NExp{neg, i, fr, u, sg, f, ds} _:
       NOk{Number{neg, i, fr, ESome{u, sg, f, rev(ds)}}, rest}
     case NStart{} SNil{}:
-      NBad{UnexpectedEnd{}, SNil{}}
-    case NStart{} SCon{+c, t}:
-      NBad{UnexpectedChar{c}, SCon{c, t}}
+      NBad{UnexpectedEnd{}, 0}
+    case NStart{} SCon{c, t}:
+      NBad{UnexpectedChar{c}, size(t, 1)}
     case _ _:
-      NBad{InvalidNumber{}, rest}
+      NBad{InvalidNumber{}, size(rest, 0)}
 
+# a step never sees the input after its char, so where the number ends
+# takes effect one call later
 def lex_num(s: String, st: NSt) -> NLex:
   match s st:
-    case _ NHalt{last, rest}:
-      num_end(last, rest)
+    case _ NHalt{last, c}:
+      num_end(last, SCon{c, s})
     case SNil{} last:
       num_end(last, SNil{})
-    case SCon{+c, +t} going:
-      lex_num(t, num_step(going, nclass(c), c, t))
+    case SCon{+c, t} going:
+      lex_num(t, num_step(going, nclass(c), c))
 
 # Parsing
 # =======
@@ -482,21 +512,21 @@ type Mode is Data:
 type St is Data:
   Run{s: String, stack: List<&2, Frame>, mode: Mode}
   Fin{value: Json}
-  Bad{reason: Reason, rest: String}
+  Bad{reason: Reason, left: U32}
 
 def unexpected(s: String) -> St:
   match s:
     case SNil{}:
-      Bad{UnexpectedEnd{}, SNil{}}
-    case SCon{+c, t}:
-      Bad{UnexpectedChar{c}, SCon{c, t}}
+      Bad{UnexpectedEnd{}, 0}
+    case SCon{c, t}:
+      Bad{UnexpectedChar{c}, size(t, 1)}
 
 def end(value: Json, rest: String) -> St:
   match rest:
     case SNil{}:
       Fin{value}
     case SCon{c, t}:
-      Bad{TrailingInput{}, SCon{c, t}}
+      Bad{TrailingInput{}, size(t, 1)}
 
 # a finished value goes into the container above it
 def emit(v: Json, s: String, stack: List<&2, Frame>) -> St:
@@ -512,15 +542,15 @@ def token(~mk: String -> Json, l: Lex, stack: List<&2, Frame>) -> St:
   match l:
     case LOk{text, rest}:
       emit(mk(text), rest, stack)
-    case LBad{r, rest}:
-      Bad{r, rest}
+    case LBad{r, left}:
+      Bad{r, left}
 
 def number(l: NLex, stack: List<&2, Frame>) -> St:
   match l:
     case NOk{n, rest}:
       emit(JNum{n}, rest, stack)
-    case NBad{r, rest}:
-      Bad{r, rest}
+    case NBad{r, left}:
+      Bad{r, left}
 
 def mk_str(s: String) -> Json:
   JStr{s}
@@ -556,32 +586,32 @@ def key(l: Lex, stack: List<&2, Frame>) -> St:
     case LOk{k, rest} Con{FObj{fields, _}, up}:
       Run{rest, Con{FObj{fields, k}, up}, MColon{}}
     case LOk{_, rest} _:
-      Bad{Internal{}, rest}
-    case LBad{r, rest} _:
-      Bad{r, rest}
+      Bad{Internal{}, size(rest, 0)}
+    case LBad{r, left} _:
+      Bad{r, left}
 
-def close_arr(+t: String, stack: List<&2, Frame>) -> St:
+def close_arr(t: String, stack: List<&2, Frame>) -> St:
   match stack:
     case Con{FArr{items}, up}:
       emit(JArr{List.reverse(&2, Json, items)}, t, up)
     case _:
-      Bad{UnexpectedChar{']'}, SCon{']', t}}
+      Bad{UnexpectedChar{']'}, size(t, 1)}
 
-def close_obj(+t: String, stack: List<&2, Frame>) -> St:
+def close_obj(t: String, stack: List<&2, Frame>) -> St:
   match stack:
     case Con{FObj{fields, _}, up}:
       emit(JObj{List.reverse(&2, Field, fields)}, t, up)
     case _:
-      Bad{UnexpectedChar{'}'}, SCon{'}', t}}
+      Bad{UnexpectedChar{'}'}, size(t, 1)}
 
-def comma(+t: String, stack: List<&2, Frame>) -> St:
+def comma(t: String, stack: List<&2, Frame>) -> St:
   match stack:
     case Con{FArr{items}, up}:
       Run{t, Con{FArr{items}, up}, MValue{}}
     case Con{FObj{fields, k}, up}:
       Run{t, Con{FObj{fields, k}, up}, MKey{}}
     case Nil{}:
-      Bad{UnexpectedChar{','}, SCon{',', t}}
+      Bad{UnexpectedChar{','}, size(t, 1)}
 
 def dispatch(mode: Mode, s: String, stack: List<&2, Frame>) -> St:
   match mode:
@@ -644,23 +674,49 @@ def locate(n: Nat, s: String, +line: U32, +col: U32) -> Loc:
     case _ _:
       Loc{line, col}
 
-def error.at(r: Reason, +n: Nat, l: Loc) -> Error:
+def position.go(r: Reason, +offset: U32, l: Loc) -> Error:
   match l:
     case Loc{line, col}:
-      Error{r, U32.from_nat(n), line, col}
+      Error{r, offset, line, col}
 
-def error(+input: String, r: Reason, rest: String) -> Error:
-  +n = Nat.sub(String.length(input), String.length(rest))
-  error.at(r, n, locate(n, input, 1, 1))
+# what an error needs to know of the input, which is gone by then: its
+# size, and where its line breaks are (last first)
+type Lines is Data:
+  Lines{size: U32, breaks: List<&2, U32>}
 
-def finish(+input: String, st: St) -> Result<&2, &2, Error, Json>:
+def lines(s: String, +at: U32, bs: List<&2, U32>) -> Lines:
+  match s:
+    case SNil{}:
+      Lines{at, bs}
+    case SCon{'\n', t}:
+      lines(t, (at + 1 : U32), Con{at, bs})
+    case SCon{_, t}:
+      lines(t, (at + 1 : U32), bs)
+
+# the line and column of offset at: one line per break before it, and the
+# column counts from the last of them (m is one past it, 0 if none)
+def line_col(bs: List<&2, U32>, +at: U32, +line: U32, +m: U32) -> Loc:
+  match bs:
+    case Nil{}:
+      Loc{line, (at + 1 - m : U32)}
+    case Con{+b, t}:
+      +hit = Bool.to_u32(U32.is_lt(b, at))
+      line_col(t, at, (line + hit : U32), U32.max(m, (hit * (b + 1) : U32)))
+
+def error(ls: Lines, r: Reason, left: U32) -> Error:
+  match ls:
+    case Lines{+n, bs}:
+      +at = (n - left : U32)
+      position.go(r, at, line_col(bs, at, 1, 0))
+
+def finish(ls: Lines, st: St) -> Result<&2, &2, Error, Json>:
   match st:
     case Fin{v}:
       Done{v}
-    case Bad{r, rest}:
-      Fail{error(input, r, rest)}
+    case Bad{r, left}:
+      Fail{error(ls, r, left)}
     case Run{_, _, _}:
-      Fail{error(input, Internal{}, SNil{})}
+      Fail{error(ls, Internal{}, 0)}
 
 # RFC 8259 §8.1: a parser MAY skip a leading byte order mark
 def skip_bom(s: String) -> String:
@@ -672,7 +728,7 @@ def skip_bom(s: String) -> String:
 
 # RFC 8259 §2: JSON-text = ws value ws
 def parse(+s: String) -> Result<&2, &2, Error, Json>:
-  finish(s, loop(1n+String.length(s), Run{skip_bom(s), Nil{}, MValue{}}))
+  finish(lines(s, 0, []), loop(1n+String.length(s), Run{skip_bom(s), Nil{}, MValue{}}))
 
 # Printing (RFC 8259 §7, §10)
 # ===========================
@@ -870,12 +926,21 @@ def escape(s: String, out: String) -> String:
 def quote(s: String, out: String) -> String:
   SCon{'"', escape(s, SCon{'"', out})}
 
+# put, for a chunk used again: it pushes new chars, so the chunk is only
+# read and never shared (sharing any String counts references on all)
+def put_copy(chunk: String, out: String) -> String:
+  match chunk:
+    case SNil{}:
+      out
+    case SCon{Chr{x}, t}:
+      put_copy(t, SCon{Chr{x}, out})
+
 def indent(n: Nat, +unit: String, out: String) -> String:
   match n:
     case 0n:
       out
     case 1n+p:
-      indent(p, unit, put(unit, out))
+      indent(p, unit, put_copy(unit, out))
 
 # a line break then the indent of depth n; nothing when compact
 def br(pretty: Bool, +unit: String, n: Nat, out: String) -> String:
@@ -1085,11 +1150,6 @@ def reason(r: Reason) -> String:
       "internal parser error"
 
 # the error at an offset of s, with its line and column
-def position.go(r: Reason, +offset: U32, l: Loc) -> Error:
-  match l:
-    case Loc{line, col}:
-      Error{r, offset, line, col}
-
 def position(r: Reason, +offset: U32, s: String) -> Error:
   position.go(r, offset, locate(U32.to_nat(offset), s, 1, 1))
 

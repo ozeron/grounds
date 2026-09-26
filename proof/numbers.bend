@@ -37,11 +37,11 @@ def rev_rev(a):
 # after a halt, the lexer reports what it had
 law halt_end:
   for +st: J.NSt
-  for +here: String
+  for +c: Char
   for +t: String
-  {J.lex_num(t, J.NHalt{st, here}) == J.num_end(st, here) : J.NLex}
+  {J.lex_num(t, J.NHalt{st, c}) == J.num_end(st, SCon{c, t}) : J.NLex}
 
-def halt_end(st, here, t):
+def halt_end(st, c, t):
   match t:
     case SNil{}:
       {==}
@@ -60,8 +60,8 @@ def fin_zero(neg, r, dl):
     case SNil{}:
       {==}
     case SCon{c, t}:
-      %Equal.sym(J.NC, J.nclass(c), J.COther{}, dl) : {J.lex_num(t, J.num_step(J.NZero{neg}, _, c, t)) == J.num_end(J.NZero{neg}, SCon{c, t}) : J.NLex}
-      halt_end(J.NZero{neg}, SCon{c, t}, t)
+      %Equal.sym(J.NC, J.nclass(c), J.COther{}, dl) : {J.lex_num(t, J.num_step(J.NZero{neg}, _, c)) == J.num_end(J.NZero{neg}, SCon{c, t}) : J.NLex}
+      halt_end(J.NZero{neg}, c, t)
 
 # a number ends at a delimiter
 law fin_int:
@@ -77,8 +77,8 @@ def fin_int(neg, l, acc, r, dl):
     case SNil{}:
       {==}
     case SCon{c, t}:
-      %Equal.sym(J.NC, J.nclass(c), J.COther{}, dl) : {J.lex_num(t, J.num_step(J.NInt{neg, l, acc}, _, c, t)) == J.num_end(J.NInt{neg, l, acc}, SCon{c, t}) : J.NLex}
-      halt_end(J.NInt{neg, l, acc}, SCon{c, t}, t)
+      %Equal.sym(J.NC, J.nclass(c), J.COther{}, dl) : {J.lex_num(t, J.num_step(J.NInt{neg, l, acc}, _, c)) == J.num_end(J.NInt{neg, l, acc}, SCon{c, t}) : J.NLex}
+      halt_end(J.NInt{neg, l, acc}, c, t)
 
 # a number ends at a delimiter
 law fin_frac:
@@ -95,8 +95,8 @@ def fin_frac(neg, i, f, acc, r, dl):
     case SNil{}:
       {==}
     case SCon{c, t}:
-      %Equal.sym(J.NC, J.nclass(c), J.COther{}, dl) : {J.lex_num(t, J.num_step(J.NFrac{neg, i, f, acc}, _, c, t)) == J.num_end(J.NFrac{neg, i, f, acc}, SCon{c, t}) : J.NLex}
-      halt_end(J.NFrac{neg, i, f, acc}, SCon{c, t}, t)
+      %Equal.sym(J.NC, J.nclass(c), J.COther{}, dl) : {J.lex_num(t, J.num_step(J.NFrac{neg, i, f, acc}, _, c)) == J.num_end(J.NFrac{neg, i, f, acc}, SCon{c, t}) : J.NLex}
+      halt_end(J.NFrac{neg, i, f, acc}, c, t)
 
 # a number ends at a delimiter
 law fin_exp:
@@ -116,8 +116,8 @@ def fin_exp(neg, i, fr, u, sg, f, acc, r, dl):
     case SNil{}:
       {==}
     case SCon{c, t}:
-      %Equal.sym(J.NC, J.nclass(c), J.COther{}, dl) : {J.lex_num(t, J.num_step(J.NExp{neg, i, fr, u, sg, f, acc}, _, c, t)) == J.num_end(J.NExp{neg, i, fr, u, sg, f, acc}, SCon{c, t}) : J.NLex}
-      halt_end(J.NExp{neg, i, fr, u, sg, f, acc}, SCon{c, t}, t)
+      %Equal.sym(J.NC, J.nclass(c), J.COther{}, dl) : {J.lex_num(t, J.num_step(J.NExp{neg, i, fr, u, sg, f, acc}, _, c)) == J.num_end(J.NExp{neg, i, fr, u, sg, f, acc}, SCon{c, t}) : J.NLex}
+      halt_end(J.NExp{neg, i, fr, u, sg, f, acc}, c, t)
 
 # a run of digits is pushed, reversed, onto the state's list
 law run_int:

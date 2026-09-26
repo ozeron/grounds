@@ -8,8 +8,8 @@ step() { printf '\n== %s\n' "$1"; }
 python3 scripts/gen_fast.py
 python3 scripts/gen_fast_proof.py
 
-step "no reference-counted types in bjson (scripts/cold.py)"
-python3 scripts/cold.py main.bend
+step "no reference-counted types in bjson or the proven path (scripts/cold.py)"
+python3 scripts/cold.py main.bend spec_cli.bend
 
 step "unit tests (test.bend)"
 bend test.bend

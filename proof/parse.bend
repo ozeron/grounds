@@ -50,7 +50,7 @@ def result(more: Bool, j: J.Json, stk: List<&2, J.Frame>, r: String) -> J.St:
         case J.JObj{t} Con{J.FObj{acc, _}, up}:
           J.emit(J.JObj{rlf(acc, t)}, r, up)
         case _ _:
-          J.Bad{J.Internal{}, r}
+          J.Bad{J.Internal{}, 0}
 
 def Goal(j: J.Json, more: Bool, m: J.Mode, stk: List<&2, J.Frame>, r: String, slack: Nat) -> Type:
   &w: Nat -> {J.loop(A.add(slack, A.len(S.text(j, more, r))), J.Run{S.text(j, more, r), stk, m}) == J.loop(A.add(w, A.len(r)), result(more, j, stk, r)) : J.St}
@@ -1141,12 +1141,12 @@ def RJ() -> Type:
 law round_trip.go:
   for +j: J.Json
   for g: Goal(j, False{}, J.MValue{}, [], "", 1n)
-  {J.finish(S.text(j, False{}, ""), J.loop(1n+A.len(S.text(j, False{}, "")), J.Run{S.text(j, False{}, ""), [], J.MValue{}})) == Done{j} : RJ()}
+  {J.finish(J.lines(S.text(j, False{}, ""), 0, []), J.loop(1n+A.len(S.text(j, False{}, "")), J.Run{S.text(j, False{}, ""), [], J.MValue{}})) == Done{j} : RJ()}
 
 def round_trip.go(j, g):
   (+w, p) = g
   +t : String = S.text(j, False{}, "")
-  Equal.cong(J.St, RJ(), x => J.finish(t, x),
+  Equal.cong(J.St, RJ(), x => J.finish(J.lines(t, 0, []), x),
     J.loop(1n+A.len(t), J.Run{t, [], J.MValue{}}), J.Fin{j},
     Equal.trans(J.St, J.loop(1n+A.len(t), J.Run{t, [], J.MValue{}}), J.loop(A.add(w, 0n), J.Fin{j}), J.Fin{j},
       p,
@@ -1160,5 +1160,5 @@ law round_trip:
 def round_trip(j):
   +t : String = S.text(j, False{}, "")
   %Equal.sym(String, J.stringify(j), t, P.print(j)) : {J.parse(_) == Done{j} : RJ()}
-  %Equal.sym(String, J.skip_bom(t), t, bom(j)) : {J.finish(t, J.loop(1n+A.len(t), J.Run{_, [], J.MValue{}})) == Done{j} : RJ()}
+  %Equal.sym(String, J.skip_bom(t), t, bom(j)) : {J.finish(J.lines(t, 0, []), J.loop(1n+A.len(t), J.Run{_, [], J.MValue{}})) == Done{j} : RJ()}
   round_trip.go(j, run(j, False{}, J.MValue{}, [], "", 1n, Unit{}, Unit{}))

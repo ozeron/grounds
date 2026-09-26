@@ -390,13 +390,13 @@ law char.go:
 def char.go(c, cl, e, acc, r):
   match cl:
     case J.KPlain{}:
-      %e : {J.lex_str(r, J.s_go(_, c, acc, 0, r)) == J.lex_str(r, J.SGo{SCon{c, acc}, 0}) : J.Lex}
+      %e : {J.lex_str(r, J.s_go(_, c, acc, 0)) == J.lex_str(r, J.SGo{SCon{c, acc}, 0}) : J.Lex}
       {==}
     case J.KQuote{}:
-      %e : {J.lex_str(r, J.s_esc(_, c, acc, 0, SCon{'\\', SCon{c, r}})) == J.lex_str(r, J.SGo{SCon{c, acc}, 0}) : J.Lex}
+      %e : {J.lex_str(r, J.s_esc(_, c, acc, 0)) == J.lex_str(r, J.SGo{SCon{c, acc}, 0}) : J.Lex}
       {==}
     case J.KBack{}:
-      %e : {J.lex_str(r, J.s_esc(_, c, acc, 0, SCon{'\\', SCon{c, r}})) == J.lex_str(r, J.SGo{SCon{c, acc}, 0}) : J.Lex}
+      %e : {J.lex_str(r, J.s_esc(_, c, acc, 0)) == J.lex_str(r, J.SGo{SCon{c, acc}, 0}) : J.Lex}
       {==}
     case J.KCtrl{}:
       ctrl(c, e, acc, r)

@@ -8,14 +8,30 @@ import ./bjson.bend as J
 def usage() -> IO(Unit):
   IO.die(Unit, 2, "usage: bjson [--compact] <file.json>")
 
-def emit(compact: Bool, r: Result<&2, &2, J.Error, J.Json>, path: String) -> IO(Unit):
+# the path of `bjson [--compact] <path>`, asked for again on an error,
+# since keeping it would share a String
+def path_of(args: List<String>) -> String:
+  match args:
+    case Con{path, Nil{}}:
+      path
+    case Con{_, Con{path, Nil{}}}:
+      path
+    case _:
+      ""
+
+def fail(e: J.Error) -> IO(Unit):
+  do IO<Unit>:
+    args : List<String> <- IO.args()
+    IO.die(Unit, 1, path_of(args) ++ ":" ++ J.message(e))
+
+def emit(compact: Bool, r: Result<&2, &2, J.Error, J.Json>) -> IO(Unit):
   match compact r:
     case True{} Done{j}:
       IO.print(J.stringify(j))
     case False{} Done{j}:
       IO.print(J.pretty(j, "  "))
     case _ Fail{e}:
-      IO.die(Unit, 1, path ++ ":" ++ J.message(e))
+      fail(e)
 
 law read.text:
   for m: File & Result<&1, &1, (U32 & String), String>
@@ -45,21 +61,24 @@ def read(path: String) -> IO(String):
     m : File & Result<&1, &1, (U32 & String), U32> <- File.size(f)
     read.size(m)
 
-# the proven parser: slower, and it says where and why input is wrong
-def slow(compact: Bool, +path: String) -> IO(Unit):
+def run(compact: Bool, path: String) -> IO(Unit):
   do IO<Unit>:
     text : String <- read(path)
-    emit(compact, J.parse(text), path)
+    emit(compact, J.parse(text))
 
-def run(compact: Bool, +path: String) -> IO(Unit):
-  slow(compact, path)
+def dispatch.flag(ok: Bool, path: String) -> IO(Unit):
+  match ok:
+    case True{}:
+      run(True{}, path)
+    case False{}:
+      usage()
 
 def dispatch(args: List<String>) -> IO(Unit):
   match args:
     case Con{path, Nil{}}:
       run(False{}, path)
-    case Con{+flag, Con{+path, Nil{}}}:
-      Bool.pick(IO(Unit), String.eq(flag, "--compact"), run(True{}, path), usage())
+    case Con{flag, Con{path, Nil{}}}:
+      dispatch.flag(String.eq(flag, "--compact"), path)
     case _:
       usage()
 
