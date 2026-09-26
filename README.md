@@ -68,6 +68,18 @@ Provisional, until the API is settled:
 | jq | 42 ms | 29 ms | 18 ms |
 | Python `json` | 59 ms | 22 ms | 19 ms |
 
+`bench/big.sh` does the same on a 100 MB file (the three files, repeated):
+
+| tool | time | peak memory |
+|---|---|---|
+| `bjson --compact` | 1.4 s | 2.9 GB |
+| `bjson` (pretty) | 2.1 s | 4.6 GB |
+| `spec-bjson --compact` (proven path) | 2.0 s | 3.0 GB |
+| Go `encoding/json` | 1.0 s | 0.7 GB |
+| jq | 1.7 s | 1.0 GB |
+
+Memory is the cost of Bend strings: a cons cell per char, for the input and the output both, about 29 bytes per input byte. Use `--max-bytes` to cap it.
+
 `bjson` runs everything through `fast.bend`: one pass that checks the input and writes the output, compact or indented, without building a `Json` value. It answers exactly what the proven `J.parse`, `J.stringify` and `J.pretty` answer, errors included: `suite.bend` checks this on every JSONTestSuite case, and `scripts/integration.py` fuzzes `bjson` against `spec_cli.bend`, the same CLI on the proven parser.
 
 Neither `bjson` nor the proven library may share a String: one shared String makes the runtime count references on every String in the program, which halves the speed. `scripts/cold.py` fails the check if `main.bend` or `spec_cli.bend` does. So the proven parser's errors count the chars left instead of keeping the input, and its round trip, UTF-8 decoding included, takes 55 ms on canada and 13 ms on twitter.
