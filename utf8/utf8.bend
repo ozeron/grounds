@@ -112,3 +112,39 @@ def back_line(before: String, +line: U32) -> U32:
     case SNil{}:
       line
 
+
+# Encoding
+# --------
+
+# the six bits a continuation byte carries, from bit n up
+def six(+x: U32, n: Nat) -> U32:
+  (128 + ((x >> n : U32) .&. 63 : U32) : U32)
+
+def top(+x: U32, n: Nat, +mark: U32) -> U32:
+  (mark + (x >> n : U32) : U32)
+
+def enc.width(one: Bool, two: Bool, three: Bool, +x: U32, out: List<&2, U32>) -> List<&2, U32>:
+  match one two three:
+    case True{} _ _:
+      Con{x, out}
+    case False{} True{} _:
+      Con{six(x, 0n), Con{top(x, 6n, 192), out}}
+    case False{} False{} True{}:
+      Con{six(x, 0n), Con{six(x, 6n), Con{top(x, 12n, 224), out}}}
+    case False{} False{} False{}:
+      Con{six(x, 0n), Con{six(x, 6n), Con{six(x, 12n), Con{top(x, 18n, 240), out}}}}
+
+# a code point's bytes, pushed onto a reversed list
+def enc.push(+x: U32, out: List<&2, U32>) -> List<&2, U32>:
+  enc.width(U32.is_lt(x, 128), U32.is_lt(x, 2048), U32.is_lt(x, 65536), x, out)
+
+def enc.go(s: String, out: List<&2, U32>) -> List<&2, U32>:
+  match s:
+    case SNil{}:
+      List.reverse(&2, U32, out)
+    case SCon{Chr{+x}, t}:
+      enc.go(t, enc.push(x, out))
+
+# the UTF-8 bytes of a text
+def encode(s: String) -> List<&2, U32>:
+  enc.go(s, [])

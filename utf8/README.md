@@ -7,6 +7,7 @@ import ../utf8/utf8.bend as U
 
 U.decode([226, 130, 172])   # TOk{"€"}
 U.decode([97, 255])         # TBad{1, "a"}: the bad sequence starts at char 1
+U.encode("€")               # [226, 130, 172]
 ```
 
 - Rejects overlong forms, surrogates (U+D800–U+DFFF), code points past U+10FFFF and cut-off sequences: everything the runtime's text reader turns into U+FFFD.
