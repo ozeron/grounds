@@ -15,6 +15,11 @@ law fast_round_trip:
   for j: J.Json
   {F.reformat(J.stringify(j)) == F.Ok{J.stringify(j)} : F.Out}
 
+# the same for the indented text bjson prints by default
+law pretty_round_trip:
+  for j: J.Json
+  {J.parse(J.pretty(j, "  ")) == Done{j} : Result<&2, &2, J.Error, J.Json>}
+
 # so the printer never writes invalid JSON
 law always_parses:
   for j: J.Json

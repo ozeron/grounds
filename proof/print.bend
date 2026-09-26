@@ -1,6 +1,7 @@
 import Base
 import ../bjson.bend as J
 import ./spec.bend as S
+import ./fast_text.bend as T
 
 # The printer builds its output reversed, one tail call at a time. These
 # lemmas show that reversing it gives S.text: the plain forward text.
@@ -305,3 +306,154 @@ def print(j):
   %Equal.sym(String, J.print_loop(J.print_fuel(), items, False{}, "", ""), J.show_all(items, False{}, "", ""),
     loop(J.print_fuel(), items, False{}, "", "")) : {String.reverse(_) == S.text(j, False{}, "") : String}
   show(j, False{}, 0n, "", "")
+
+# Laid out
+# --------
+
+# a chunk pushed as copies lands in front, like rr
+law copy:
+  for +u: String
+  for +out: String
+  for +k: String
+  {rev(J.put_copy(u, out), k) == rev(out, u ++ k) : String}
+
+def copy(u, out, k):
+  match u:
+    case SNil{}:
+      {==}
+    case SCon{c, t}:
+      match c:
+        case Chr{x}:
+          copy(t, SCon{Chr{x}, out}, k)
+
+law indent:
+  for +n: Nat
+  for +u: String
+  for +out: String
+  for +k: String
+  {rev(J.indent(n, u, out), k) == rev(out, S.ind(n, u) ++ k) : String}
+
+def indent(n, u, out, k):
+  match n:
+    case 0n:
+      {==}
+    case 1n+p:
+      Equal.trans(String, rev(J.indent(p, u, J.put_copy(u, out)), k), rev(J.put_copy(u, out), S.ind(p, u) ++ k),
+        rev(out, S.ind(1n+p, u) ++ k),
+        indent(p, u, J.put_copy(u, out), k),
+        Equal.trans(String, rev(J.put_copy(u, out), S.ind(p, u) ++ k), rev(out, u ++ (S.ind(p, u) ++ k)),
+          rev(out, (u ++ S.ind(p, u)) ++ k),
+          copy(u, out, S.ind(p, u) ++ k),
+          Equal.cong(String, String, x => rev(out, x), u ++ (S.ind(p, u) ++ k), (u ++ S.ind(p, u)) ++ k,
+            Equal.sym(String, (u ++ S.ind(p, u)) ++ k, u ++ (S.ind(p, u) ++ k), T.app_assoc(u, S.ind(p, u), k)))))
+
+law br:
+  for +p: Bool
+  for +u: String
+  for +n: Nat
+  for +out: String
+  for +k: String
+  {rev(J.br(p, u, n, out), k) == rev(out, S.bw(p, u, n) ++ k) : String}
+
+def br(p, u, n, out, k):
+  match p:
+    case True{}:
+      indent(n, u, SCon{'\n', out}, k)
+    case False{}:
+      {==}
+
+law colon:
+  for +p: Bool
+  for +out: String
+  for +k: String
+  {rev(J.colon(p, out), k) == rev(out, SCon{':', S.sp(p) ++ k}) : String}
+
+def colon(p, out, k):
+  match p:
+    case True{}:
+      {==}
+    case False{}:
+      {==}
+
+law show_lay:
+  for +j: J.Json
+  for +more: Bool
+  for +p: Bool
+  for +u: String
+  for +d: Nat
+  for +out: String
+  for +k: String
+  {rev(J.show(j, more, p, u, d, out), k) == rev(out, S.lay(j, more, p, u, d, k)) : String}
+
+def show_lay(j, more, p, u, d, out, k):
+  match j:
+    case J.JNull{}:
+      rr("null", out, k)
+    case J.JBool{True{}}:
+      rr("true", out, k)
+    case J.JBool{False{}}:
+      rr("false", out, k)
+    case J.JNum{n}:
+      num(n, out, k)
+    case J.JStr{s}:
+      escape(s, SCon{'"', out}, SCon{'"', k})
+    case J.JArr{Nil{}}:
+      match more:
+        case True{}:
+          br(p, u, d, out, SCon{']', k})
+        case False{}:
+          {==}
+    case J.JArr{Con{h, t}}:
+      +o3 : String = J.opener(more, '[', out)
+      +o2 : String = J.br(p, u, 1n+d, o3)
+      +o1 : String = J.show(h, False{}, p, u, 1n+d, o2)
+      +k1 : String = S.lay(J.JArr{t}, True{}, p, u, d, k)
+      +k2 : String = S.lay(h, False{}, p, u, 1n+d, k1)
+      Equal.trans(String, rev(J.show(J.JArr{t}, True{}, p, u, d, o1), k), rev(o1, k1),
+        rev(out, S.lay(J.JArr{Con{h, t}}, more, p, u, d, k)),
+        show_lay(J.JArr{t}, True{}, p, u, d, o1, k),
+        Equal.trans(String, rev(o1, k1), rev(o2, k2), rev(out, S.lay(J.JArr{Con{h, t}}, more, p, u, d, k)),
+          show_lay(h, False{}, p, u, 1n+d, o2, k1),
+          Equal.trans(String, rev(o2, k2), rev(o3, S.bw(p, u, 1n+d) ++ k2), rev(out, S.lay(J.JArr{Con{h, t}}, more, p, u, d, k)),
+            br(p, u, 1n+d, o3, k2),
+            show.open(more, '[', out, S.bw(p, u, 1n+d) ++ k2))))
+    case J.JObj{Nil{}}:
+      match more:
+        case True{}:
+          br(p, u, d, out, SCon{'}', k})
+        case False{}:
+          {==}
+    case J.JObj{Con{J.Field{key, v}, t}}:
+      +o4 : String = J.opener(more, '{', out)
+      +o3 : String = J.br(p, u, 1n+d, o4)
+      +o2 : String = J.colon(p, J.quote(key, o3))
+      +o1 : String = J.show(v, False{}, p, u, 1n+d, o2)
+      +k1 : String = S.lay(J.JObj{t}, True{}, p, u, d, k)
+      +k2 : String = S.lay(v, False{}, p, u, 1n+d, k1)
+      +y : String = SCon{':', S.sp(p) ++ k2}
+      Equal.trans(String, rev(J.show(J.JObj{t}, True{}, p, u, d, o1), k), rev(o1, k1),
+        rev(out, S.lay(J.JObj{Con{J.Field{key, v}, t}}, more, p, u, d, k)),
+        show_lay(J.JObj{t}, True{}, p, u, d, o1, k),
+        Equal.trans(String, rev(o1, k1), rev(o2, k2), rev(out, S.lay(J.JObj{Con{J.Field{key, v}, t}}, more, p, u, d, k)),
+          show_lay(v, False{}, p, u, 1n+d, o2, k1),
+          Equal.trans(String, rev(o2, k2), rev(J.quote(key, o3), y), rev(out, S.lay(J.JObj{Con{J.Field{key, v}, t}}, more, p, u, d, k)),
+            colon(p, J.quote(key, o3), k2),
+            Equal.trans(String, rev(J.quote(key, o3), y), rev(SCon{'"', o3}, S.esc(key, SCon{'"', y})),
+              rev(out, S.lay(J.JObj{Con{J.Field{key, v}, t}}, more, p, u, d, k)),
+              escape(key, SCon{'"', o3}, SCon{'"', y}),
+              Equal.trans(String, rev(o3, S.str(key, y)), rev(o4, S.bw(p, u, 1n+d) ++ S.str(key, y)),
+                rev(out, S.lay(J.JObj{Con{J.Field{key, v}, t}}, more, p, u, d, k)),
+                br(p, u, 1n+d, o4, S.str(key, y)),
+                show.open(more, '{', out, S.bw(p, u, 1n+d) ++ S.str(key, y)))))))
+
+# the pretty printer writes S.lay
+law pretty:
+  for +j: J.Json
+  for +u: String
+  {J.pretty(j, u) == S.lay(j, False{}, True{}, u, 0n, "") : String}
+
+def pretty(j, u):
+  +items : List<&2, J.Item> = [J.Item{j, False{}, 0n}]
+  %Equal.sym(String, J.print_loop(J.print_fuel(), items, True{}, u, ""), J.show_all(items, True{}, u, ""),
+    loop(J.print_fuel(), items, True{}, u, "")) : {String.reverse(_) == S.lay(j, False{}, True{}, u, 0n, "") : String}
+  show_lay(j, False{}, True{}, u, 0n, "", "")
