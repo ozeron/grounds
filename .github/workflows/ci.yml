@@ -7,52 +7,25 @@ on:
     - cron: "17 3 * * *"
   workflow_dispatch:
 
+# Linux only: building the fast loop takes about 9 GB, over a macOS runner's 7
 jobs:
-  check:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v2
-      - run: ./check.sh
-
-  bench:
-    needs: check
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
+  ci:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v2
       - uses: actions/setup-go@v5
         with:
           go-version: stable
-      - if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y hyperfine
-      - if: runner.os == 'macOS'
-        run: brew install hyperfine
+      - run: sudo apt-get update && sudo apt-get install -y hyperfine
+      - run: ./check.sh
       - run: QUICK=1 bench/run.sh
-
-  # nightly: a long fuzz of bjson against spec_cli and Python; failing
-  # inputs are uploaded, to be added to examples/regress/
-  fuzz:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v2
-      - run: SEED=${{ github.run_number }} N=30000 FAIL_DIR=fails python3 scripts/integration.py
+      # nightly: a long fuzz; failing inputs go to examples/regress/
+      - if: github.event_name == 'schedule'
+        run: SEED=${{ github.run_number }} N=30000 FAIL_DIR=fails python3 scripts/integration.py
       - if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: fuzz-failures-${{ matrix.os }}
+          name: fuzz-failures
           path: fails/
+          if-no-files-found: ignore

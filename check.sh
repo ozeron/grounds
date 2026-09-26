@@ -5,6 +5,12 @@ cd "$(dirname "$0")"
 
 step() { printf '\n== %s\n' "$1"; }
 
+# programs run as native binaries: `bend x.bend` interprets, and the suite
+# takes 7 GB that way against 40 MB built
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+native() { name=$1; shift; bend "$name.bend" -o "$tmp/$name" > /dev/null && "$tmp/$name" "$@"; }
+
 python3 scripts/gen_fast.py
 python3 scripts/gen_fast_proof.py
 python3 scripts/gen_layout_proof.py
@@ -20,20 +26,21 @@ bend PROOF.bend
 
 step "JSONTestSuite, and fast.bend against the proven parser (suite.bend)"
 python3 scripts/gen_suite.py
-bend suite.bend
+native suite
 
 step "stress (stress.bend)"
-bend stress.bend
+native stress
 
 step "CLI (main.bend)"
-bend main.bend -- --compact examples/sample.json
-if bend main.bend -- examples/broken.json 2>/dev/null; then
+bend main.bend -o "$tmp/bjson" > /dev/null
+"$tmp/bjson" --compact examples/sample.json
+if "$tmp/bjson" examples/broken.json 2>/dev/null; then
   echo "broken.json should fail"; exit 1
 fi
 echo "broken.json rejected"
 size=$(wc -c < examples/sample.json | tr -d ' ')
-bend main.bend -- --max-bytes "$size" --compact examples/sample.json > /dev/null
-if bend main.bend -- --max-bytes "$((size - 1))" examples/sample.json 2>/dev/null; then
+"$tmp/bjson" --max-bytes "$size" --compact examples/sample.json > /dev/null
+if "$tmp/bjson" --max-bytes "$((size - 1))" examples/sample.json 2>/dev/null; then
   echo "--max-bytes should refuse a bigger file"; exit 1
 fi
 echo "--max-bytes $((size - 1)) refused a $size-byte file"
