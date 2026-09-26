@@ -6,6 +6,8 @@
   and a path:line:col message
 - byte-mutated docs: where Python's UTF-8 decoder rejects the bytes, both
   report invalid UTF-8 at the same line and column
+- examples/regress/: inputs that once failed, checked as bytes on every run;
+  FAIL_DIR=dir saves this run's failing inputs there, to add to it
 - bjson prints exactly what spec_cli.bend (the CLI on the proven parser)
   prints, errors included
 """
@@ -46,10 +48,11 @@ def run_bytes(raw, *flags, binary=BIN):
 
 
 def strict_loads(text):
-    """Python's json, minus its extensions: NaN/Infinity and lone surrogates."""
+    """Python's json, minus its extensions: NaN/Infinity and lone surrogates.
+    A leading BOM is skipped, as RFC 8259 §8.1 allows and bjson does."""
     def no_const(name):
         raise ValueError(name)
-    v = json.loads(text, parse_constant=no_const)
+    v = json.loads(text.removeprefix("\ufeff"), parse_constant=no_const)
     json.dumps(v, ensure_ascii=False).encode("utf-8")  # raises on lone surrogates
     return v
 
@@ -68,7 +71,12 @@ def same(a, b):
 
 
 def fail(name, why, text):
-    failures.append(f"{name}: {why}\n    input: {text[:200]!r}")
+    raw = text if isinstance(text, bytes) else text.encode("utf-8", "surrogatepass")
+    failures.append(f"{name}: {why}\n    input: {raw[:200]!r}")
+    if os.environ.get("FAIL_DIR"):
+        d = Path(os.environ["FAIL_DIR"])
+        d.mkdir(parents=True, exist_ok=True)
+        (d / f"seed{SEED}-{name.replace('#', '-').replace('/', '-')}.json").write_bytes(raw)
 
 
 # Random documents
@@ -151,9 +159,9 @@ def check_bytes(name, raw):
         for flags in [("--compact",), ()]:
             got = run_bytes(raw, *flags)
             if got[0] != 1 or got[2].strip() != want:
-                return fail(name, f"bad UTF-8 not reported as {want!r}: {got[2].strip()!r}", repr(raw))
+                return fail(name, f"bad UTF-8 not reported as {want!r}: {got[2].strip()!r}", raw)
             if run_bytes(raw, *flags, binary=SPEC) != got:
-                return fail(name, "differs from the proven parser's CLI on bad UTF-8", repr(raw))
+                return fail(name, "differs from the proven parser's CLI on bad UTF-8", raw)
         return
     check(name, text)
 
@@ -207,6 +215,9 @@ def main():
     fixtures = sorted((ROOT / "examples").glob("*.json"))
     for f in fixtures:
         check(f.name, f.read_text())
+    regress = sorted((ROOT / "examples/regress").glob("*"))
+    for f in regress:
+        check_bytes(f"regress/{f.name}", f.read_bytes())
     for i in range(N):
         text = rand_text(rand_value())
         check(f"random#{i}", text)
@@ -219,7 +230,7 @@ def main():
     big = json.dumps([rand_value() for _ in range(2000)])
     check("big", big)
 
-    total = len(fixtures) + 2 * N + N // 3 + 1
+    total = len(fixtures) + len(regress) + 2 * N + N // 3 + 1
     print(f"{total - len(failures)}/{total} passed (seed {SEED}; "
           f"{counts['valid']} valid, {counts['invalid']} invalid)")
     for f in failures:

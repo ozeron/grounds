@@ -8,12 +8,21 @@ cd "$(dirname "$0")/.."
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 bend main.bend -o "$tmp/bjson.c" >/dev/null
-clang -std=c11 -O3 -fprofile-instr-generate "$tmp/bjson.c" -lpthread -lm -o "$tmp/bjson-gen"
-for f in bench/data/*.json; do
-  LLVM_PROFILE_FILE="$tmp/%p.profraw" "$tmp/bjson-gen" --compact "$f" >/dev/null 2>&1 || true
-
-done
-xcrun llvm-profdata merge -o "$tmp/bjson.profdata" "$tmp"/*.profraw 2>/dev/null \
-  || llvm-profdata merge -o "$tmp/bjson.profdata" "$tmp"/*.profraw
-clang -std=c11 -O3 -fprofile-instr-use="$tmp/bjson.profdata" -Wno-profile-instr-out-of-date \
-  "$tmp/bjson.c" -lpthread -lm -o bjson
+profdata() {
+  xcrun llvm-profdata "$@" 2>/dev/null && return
+  for t in llvm-profdata $(ls /usr/bin/llvm-profdata-* 2>/dev/null); do
+    command -v "$t" >/dev/null && "$t" "$@" && return
+  done
+  return 1
+}
+pgo() {
+  clang -std=c11 -O3 -fprofile-instr-generate "$tmp/bjson.c" -lpthread -lm -o "$tmp/bjson-gen" || return 1
+  for f in bench/data/*.json; do
+    LLVM_PROFILE_FILE="$tmp/%p.profraw" "$tmp/bjson-gen" --compact "$f" >/dev/null 2>&1 || true
+  done
+  profdata merge -o "$tmp/bjson.profdata" "$tmp"/*.profraw || return 1
+  clang -std=c11 -O3 -fprofile-instr-use="$tmp/bjson.profdata" -Wno-profile-instr-out-of-date \
+    "$tmp/bjson.c" -lpthread -lm -o bjson
+}
+# without clang's profile tools (some Linux images), a plain build
+pgo || { echo "build.sh: no PGO, plain build" >&2; bend main.bend -o bjson >/dev/null; }
