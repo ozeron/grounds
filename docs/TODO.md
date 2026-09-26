@@ -87,3 +87,24 @@ Built from [RFC 8259](rfc8259.txt) (JSON, STD 90). Section numbers point into it
 - [x] Stress: 100k escapes, items, digits and nesting levels (`stress.bend`)
 - [x] 1 MB round trip through the native CLI matches Python's `json`
 - [x] Integration: the native CLI fuzzed against Python's `json` (`scripts/integration.py`)
+
+## Next: prove the fast path equals the proven parser on every input
+
+Goal: `F.reformat(s)` ends where `J.parse_state(s)` does, for every `s`: `Ok{stringify(v)}` on `Fin{v}`, `Err{r, left}` on `Bad{r, left}`. Then prove `parse` accepts exactly the RFC 8259 grammar, numbers first. Mutation-test each proof.
+
+Started on branch `m5-fast-left` (not green):
+- [x] Fast-path errors count the chars left (`Err{reason, left}`), as J's do, so the two compare without U32 arithmetic
+- [x] `J.parse_state(s)`: the loop's end state; `suite.bend` compares the fast path against it
+- [ ] Fix: `main.bend` is reference counted again (`scripts/cold.py`); not the new `J.size` calls in the error rows, still to find
+- [ ] Update `proof/fast.bend`, `proof/fast_run.bend` and `scripts/gen_fast_proof.py` from `at`/`ea` to `bk`
+
+The blocker for an any-input proof: both loops match char literals (`'['`, `'0'`), which a proof cannot evaluate for an unknown char. Plan:
+- [ ] One set of classifiers for both loops: `class` (strings, as now), `nclass` (numbers), and a new `tok` for structure, white space, literals and escape letters
+- [ ] The fast loop makes exactly J's classifier calls at each char, so a proof splits on their results and both sides follow
+- [ ] The fast loop outputs canonical chars (`digit_char(d)`), never an echo of a classified char, so no proof needs `tok(c) == K` to give `c == '['`
+- [ ] Benchmark first: `TOK=1 python3 scripts/gen_fast.py` makes a prototype dispatching on a per-char tag; keep canada within 1.5x Go
+- [ ] Generate the simulation proof (like `scripts/gen_layout_proof.py`); `fast_round_trip` then follows from it and `round_trip`
+
+## CI
+- [x] One Linux job: `check.sh`, the bench gate, a nightly fuzz that saves failing inputs for `examples/regress/`; verified with `act`
+- [ ] macOS: building the fast loop takes about 9 GB, over a macOS runner's 7 GB; cut the build's memory first
