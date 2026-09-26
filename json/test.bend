@@ -280,10 +280,28 @@ def u32_negative() -> {J.u32(n("-1")) == Fail{J.OutOfRange{[]}} : A(U32)}:
 def u32_fraction() -> {J.u32(n("1.5")) == Fail{J.OutOfRange{[]}} : A(U32)}:
   {==}
 
-def u32_too_big() -> {J.u32(n("4294967296")) == Fail{J.OutOfRange{[]}} : A(U32)}:
+def u32_not_num() -> {J.u32(s("1")) == Fail{J.Expected{[], J.KNumber{}, J.KString{}}} : A(U32)}:
   {==}
 
-def u32_not_num() -> {J.u32(s("1")) == Fail{J.Expected{[], J.KNumber{}, J.KString{}}} : A(U32)}:
+def u32_exp() -> {J.u32(n("1e2")) == Done{100} : A(U32)}:
+  {==}
+
+def u32_point_zero() -> {J.u32(n("1.0")) == Done{1} : A(U32)}:
+  {==}
+
+def u32_frac_exp() -> {J.u32(n("0.5e1")) == Done{5} : A(U32)}:
+  {==}
+
+def u32_neg_zero() -> {J.u32(n("-0.0e5")) == Done{0} : A(U32)}:
+  {==}
+
+def u32_neg_exp() -> {J.u32(n("100e-2")) == Done{1} : A(U32)}:
+  {==}
+
+def u32_not_whole() -> {J.u32(n("1.23e1")) == Fail{J.OutOfRange{[]}} : A(U32)}:
+  {==}
+
+def msg_quoted() -> {J.message_access(J.Missing{[J.Name{"a.b"}, J.Name{""}, J.Index{3}, J.Name{"ok_1"}, J.Name{"9a"}]}) == "$[\"a.b\"][\"\"][3].ok_1[\"9a\"]: missing" : String}:
   {==}
 
 def string_ok() -> {J.string(s("x")) == Done{"x"} : A(String)}:

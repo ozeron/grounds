@@ -1196,29 +1196,235 @@ def object(j: Json) -> Result<&2, &2, Access, List<&2, Field>>:
     case other:
       Fail{expected(KObject{}, other)}
 
-def in_range.go(m: Maybe<&2, U32>) -> Result<&2, &2, Access, U32>:
-  match m:
-    case Some{x}:
-      Done{x}
-    case None{}:
+# u32 reads the value, not the text: 1e2, 100.0 and 0.5e2 are all 50 or
+# 100 as written. The digits d1..dk, with leading and trailing zeros gone,
+# are the whole number d1..dk followed by q - k zeros, where q is where
+# the point falls: the integer digits, less the leading zeros, plus the
+# exponent. The number is whole when q >= k, and fits when q <= 10.
+
+def lead_digit(l: Lead) -> Digit:
+  match l:
+    case L1{}:
+      D1{}
+    case L2{}:
+      D2{}
+    case L3{}:
+      D3{}
+    case L4{}:
+      D4{}
+    case L5{}:
+      D5{}
+    case L6{}:
+      D6{}
+    case L7{}:
+      D7{}
+    case L8{}:
+      D8{}
+    case L9{}:
+      D9{}
+
+def digit_nat(d: Digit) -> Nat:
+  match d:
+    case D0{}:
+      0n
+    case D1{}:
+      1n
+    case D2{}:
+      2n
+    case D3{}:
+      3n
+    case D4{}:
+      4n
+    case D5{}:
+      5n
+    case D6{}:
+      6n
+    case D7{}:
+      7n
+    case D8{}:
+      8n
+    case D9{}:
+      9n
+
+def dlen(ds: List<&2, Digit>, +n: Nat) -> Nat:
+  match ds:
+    case Nil{}:
+      n
+    case Con{_, t}:
+      dlen(t, 1n+n)
+
+def frac_digits(f: Frac) -> List<&2, Digit>:
+  match f:
+    case FNone{}:
+      []
+    case FSome{d, ds}:
+      Con{d, ds}
+
+# all the digits, and how many come before the point
+type Digits is Data:
+  Digits{ds: List<&2, Digit>, point: Nat}
+
+def with_point(i: Int, f: Frac) -> Digits:
+  match i:
+    case IZero{}:
+      Digits{frac_digits(f), 0n}
+    case INon{l, +ds}:
+      Digits{Con{lead_digit(l), List.append(&2, Digit, ds, frac_digits(f))}, 1n+dlen(ds, 0n)}
+
+# the smaller of two Nats; Base's Nat.min counts down one by one, which
+# overflows the stack on large values, where Nat.is_le runs natively
+def nat_min.go(le: Bool, +a: Nat, +b: Nat) -> Nat:
+  match le:
+    case True{}:
+      a
+    case False{}:
+      b
+
+def nat_min(+a: Nat, +b: Nat) -> Nat:
+  nat_min.go(Nat.is_le(a, b), a, b)
+
+# an exponent's value, held at 2^32 - 1 once past it: past any input's
+# length, so a larger one decides nothing differently
+def exp_val(ds: List<&2, Digit>, +acc: Nat) -> Nat:
+  match ds:
+    case Nil{}:
+      acc
+    case Con{d, t}:
+      exp_val(t, nat_min(4294967295n, Nat.add(Nat.mul(10n, acc), digit_nat(d))))
+
+def exp_up(e: Exp) -> Nat:
+  match e:
+    case ESome{_, Minus{}, _, _}:
+      0n
+    case ESome{_, _, d, ds}:
+      exp_val(ds, digit_nat(d))
+    case ENone{}:
+      0n
+
+def exp_down(e: Exp) -> Nat:
+  match e:
+    case ESome{_, Minus{}, d, ds}:
+      exp_val(ds, digit_nat(d))
+    case _:
+      0n
+
+# leading zeros dropped, and how many
+type Lead0 is Data:
+  Lead0{ds: List<&2, Digit>, zeros: Nat}
+
+def drop_lead(ds: List<&2, Digit>, +z: Nat) -> Lead0:
+  match ds:
+    case Con{D0{}, t}:
+      drop_lead(t, 1n+z)
+    case rest:
+      Lead0{rest, z}
+
+def drop_zeros(ds: List<&2, Digit>) -> List<&2, Digit>:
+  match ds:
+    case Con{D0{}, t}:
+      drop_zeros(t)
+    case rest:
+      rest
+
+def rev_digits(ds: List<&2, Digit>, acc: List<&2, Digit>) -> List<&2, Digit>:
+  match ds:
+    case Nil{}:
+      acc
+    case Con{d, t}:
+      rev_digits(t, Con{d, acc})
+
+# trailing zeros do not change the value
+def strip_trailing(ds: List<&2, Digit>) -> List<&2, Digit>:
+  rev_digits(drop_zeros(rev_digits(ds, [])), [])
+
+def dvalue(ds: List<&2, Digit>, +acc: Nat) -> Nat:
+  match ds:
+    case Nil{}:
+      acc
+    case Con{d, t}:
+      dvalue(t, Nat.add(Nat.mul(10n, acc), digit_nat(d)))
+
+def times10(n: Nat, +acc: Nat) -> Nat:
+  match n:
+    case 0n:
+      acc
+    case 1n+p:
+      times10(p, Nat.mul(10n, acc))
+
+def u32.fits.go(ok: Bool, +v: Nat) -> Result<&2, &2, Access, U32>:
+  match ok:
+    case True{}:
+      Done{U32.from_nat(v)}
+    case False{}:
       Fail{OutOfRange{[]}}
 
-# a whole number from 0 to 2^32 - 1
+def u32.fits(+v: Nat) -> Result<&2, &2, Access, U32>:
+  u32.fits.go(Nat.is_le(v, 4294967295n), v)
+
+def u32.whole(ok: Bool, sig: List<&2, Digit>, +shift: Nat) -> Result<&2, &2, Access, U32>:
+  match ok:
+    case True{}:
+      u32.fits(times10(shift, dvalue(sig, 0n)))
+    case False{}:
+      Fail{OutOfRange{[]}}
+
+# hi is where the point falls plus the leading zeros and the negative
+# exponent moved across; lo is the digits' count plus the same
+def u32.sig(neg: Bool, sig: List<&2, Digit>, +k: Nat, +hi: Nat, +low: Nat) -> Result<&2, &2, Access, U32>:
+  match neg sig:
+    case _ Nil{}:
+      Done{0}
+    case True{} Con{_, _}:
+      Fail{OutOfRange{[]}}
+    case False{} Con{d, t}:
+      u32.whole(Bool.and(Nat.is_ge(hi, Nat.add(k, low)), Nat.is_le(hi, Nat.add(10n, low))), Con{d, t}, Nat.sub(hi, Nat.add(k, low)))
+
+def u32.trail(neg: Bool, +sig: List<&2, Digit>, +hi: Nat, +low: Nat) -> Result<&2, &2, Access, U32>:
+  u32.sig(neg, sig, dlen(sig, 0n), hi, low)
+
+def u32.lead(neg: Bool, l: Lead0, +point: Nat, +up: Nat, +down: Nat) -> Result<&2, &2, Access, U32>:
+  match l:
+    case Lead0{ds, z}:
+      u32.trail(neg, strip_trailing(ds), Nat.add(point, up), Nat.add(z, down))
+
+def u32.digits(neg: Bool, d: Digits, +e: Exp) -> Result<&2, &2, Access, U32>:
+  match d:
+    case Digits{ds, point}:
+      u32.lead(neg, drop_lead(ds, 0n), point, exp_up(e), exp_down(e))
+
+def u32.num(n: Number) -> Result<&2, &2, Access, U32>:
+  match n:
+    case Number{neg, i, f, e}:
+      u32.digits(neg, with_point(i, f), e)
+
+# a whole number from 0 to 2^32 - 1, however it is written: 1e2, 100.0
 def u32(j: Json) -> Result<&2, &2, Access, U32>:
   match j:
     case JNum{n}:
-      in_range.go(U32.read(num_text(n)))
+      u32.num(n)
     case other:
       Fail{expected(KNumber{}, other)}
 
+# not infinite or NaN: an F32's exponent bits are all ones only for those
+def finite(+x: F32) -> Bool:
+  Bool.not(U32.is_eq(((F32.bits(x) >> 23n) .&. 255 : U32), 255))
+
+def f32.fin(ok: Bool, +x: F32) -> Result<&2, &2, Access, F32>:
+  match ok:
+    case True{}:
+      Done{x}
+    case False{}:
+      Fail{OutOfRange{[]}}
+
 def f32.go(m: Maybe<&2, F32>) -> Result<&2, &2, Access, F32>:
   match m:
-    case Some{x}:
-      Done{x}
+    case Some{+x}:
+      f32.fin(finite(x), x)
     case None{}:
       Fail{OutOfRange{[]}}
 
-# the nearest F32: past 2^24 not every whole number has one
+# the nearest F32: past 2^24 not every whole number has one, and a number
+# past the largest F32 (about 3.4e38) is OutOfRange, not infinity
 def f32(j: Json) -> Result<&2, &2, Access, F32>:
   match j:
     case JNum{n}:
@@ -1299,12 +1505,38 @@ def kind_name(k: JKind) -> String:
     case KObject{}:
       "object"
 
+# a key that reads unambiguously after a dot: a letter or _, then
+# letters, digits or _
+def ident_char(+x: U32, first: Bool) -> Bool:
+  Bool.or(Bool.or(in_range(x, 97, 122), in_range(x, 65, 90)),
+    Bool.or(U32.is_eq(x, 95), Bool.and(Bool.not(first), in_range(x, 48, 57))))
+
+def ident.go(s: String, first: Bool, ok: Bool) -> Bool:
+  match s:
+    case SNil{}:
+      Bool.and(ok, Bool.not(first))
+    case SCon{Chr{+x}, t}:
+      ident.go(t, False{}, Bool.and(ok, ident_char(x, first)))
+
+def ident(k: String) -> Bool:
+  ident.go(k, True{}, True{})
+
+# a key as a path writes it, pushed onto a reversed output: .key when
+# plain, else ["key"] as JSON writes the string, so a dot or bracket in a
+# key reads as part of it
+def key_text(plain: Bool, k: String, out: String) -> String:
+  match plain:
+    case True{}:
+      String.reverse.go(k, SCon{'.', out})
+    case False{}:
+      SCon{']', String.reverse.go(encode(JStr{k}), SCon{'[', out})}
+
 def path_text(p: List<&2, Step>, out: String) -> String:
   match p:
     case Nil{}:
       String.reverse(out)
-    case Con{Name{k}, t}:
-      path_text(t, String.reverse.go(k, SCon{'.', out}))
+    case Con{Name{+k}, t}:
+      path_text(t, key_text(ident(k), k, out))
     case Con{Index{i}, t}:
       path_text(t, SCon{']', String.reverse.go(U32.show(i), SCon{'[', out})})
 

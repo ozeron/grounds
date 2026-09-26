@@ -31,6 +31,9 @@ native suite
 step "stress (stress.bend)"
 native stress
 
+step "reads on numbers too big for test.bend (reads_check.bend)"
+native reads_check
+
 step "CLI (main.bend)"
 bend main.bend -o "$tmp/grounds-json" > /dev/null
 "$tmp/grounds-json" --compact examples/sample.json

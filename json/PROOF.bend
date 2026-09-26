@@ -148,7 +148,7 @@ def Laws.u32_kind(j):
     case J.JBool{_}:
       {==}
     case J.JNum{n}:
-      Access.u32_range(U32.read(J.num_text(n)))
+      Access.num_ok(n)
     case J.JStr{_}:
       {==}
     case J.JArr{_}:
@@ -200,6 +200,36 @@ def Laws.get_kind(j, k):
       {==}
     case J.JObj{fs}:
       Access.get_found(J.get.go(fs, k, None{}), k)
+
+def Laws.u32_frac_zero(neg, i, e):
+  Access.frac_zero(neg, i, e)
+
+def Laws.u32_exp_zero(neg, i, f, u, s):
+  Access.exp_zero(neg, i, f, u, s)
+
+def Laws.u32_neg_zero():
+  {==}
+
+def Laws.u32_shift(l, ds):
+  Access.shift(l, ds)
+
+def Laws.f32_finite(j):
+  match j:
+    case J.JNull{}:
+      {==}
+    case J.JBool{_}:
+      {==}
+    case J.JNum{n}:
+      Access.go_ok(F32.read(J.num_text(n)))
+    case J.JStr{_}:
+      {==}
+    case J.JArr{_}:
+      {==}
+    case J.JObj{_}:
+      {==}
+
+def Laws.key_reads_back(k):
+  RoundTrip.round_trip(J.JStr{k})
 
 def Laws.skip_ws_space(s):
   {==}

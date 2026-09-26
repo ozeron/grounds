@@ -114,6 +114,48 @@ law object_exact:
   for fs: List<&2, J.Field>
   {J.object(J.JObj{fs}) == Done{fs} : Result<&2, &2, J.Access, List<&2, J.Field>>}
 
+# u32 reads the value, whatever the form: moving between forms of one
+# number never changes what it reads
+law u32_frac_zero:
+  for +neg: Bool
+  for +i: J.Int
+  for +e: J.Exp
+  {J.u32(J.JNum{J.Number{neg, i, J.FSome{J.D0{}, []}, e}}) == J.u32(J.JNum{J.Number{neg, i, J.FNone{}, e}}) : Result<&2, &2, J.Access, U32>}
+
+law u32_exp_zero:
+  for +neg: Bool
+  for +i: J.Int
+  for +f: J.Frac
+  for +u: Bool
+  for +s: J.Sign
+  {J.u32(J.JNum{J.Number{neg, i, f, J.ESome{u, s, J.D0{}, []}}}) == J.u32(J.JNum{J.Number{neg, i, f, J.ENone{}}}) : Result<&2, &2, J.Access, U32>}
+
+law u32_neg_zero:
+  {J.u32(J.JNum{J.Number{True{}, J.IZero{}, J.FNone{}, J.ENone{}}}) == Done{0} : Result<&2, &2, J.Access, U32>}
+
+law u32_shift:
+  for +l: J.Lead
+  for +ds: List<&2, J.Digit>
+  {J.u32(J.JNum{J.Number{False{}, J.INon{l, ds}, J.FNone{}, J.ESome{False{}, J.NoSign{}, J.D1{}, []}}}) == J.u32(J.JNum{J.Number{False{}, J.INon{l, List.append(&2, J.Digit, ds, [J.D0{}])}, J.FNone{}, J.ENone{}}}) : Result<&2, &2, J.Access, U32>}
+
+# f32 never answers infinity or NaN
+def f32_ok(r: Result<&2, &2, J.Access, F32>) -> Bool:
+  match r:
+    case Done{x}:
+      J.finite(x)
+    case Fail{_}:
+      True{}
+
+law f32_finite:
+  for +j: J.Json
+  {f32_ok(J.f32(j)) == True{} : Bool}
+
+# a path writes an unusual key as ["key"], as JSON writes the string, and
+# that text reads back as exactly the key
+law key_reads_back:
+  for +k: String
+  {J.parse(J.encode(J.JStr{k})) == Done{J.JStr{k}} : Result<&2, &2, J.Error, J.Json>}
+
 # each read fails as mistyped exactly on the other kinds
 law string_kind:
   for j: J.Json

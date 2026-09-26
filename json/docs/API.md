@@ -29,8 +29,8 @@ Each returns `Result<&2, &2, Access, A>`: `Done{a}` or `Fail{why}`.
 J.get(j, "user")        # the value of a key; the last one wins on duplicates
 J.index(j, 0)           # the item at an index (U32)
 J.string(j)             # String
-J.u32(j)                # U32: a whole number in range
-J.f32(j)                # F32: may round, e.g. past 2^24
+J.u32(j)                # U32: a whole number in range, in any form (1e2, 100.0)
+J.f32(j)                # F32: may round past 2^24; OutOfRange, not infinity, past 3.4e38
 J.bool(j)
 J.array(j)              # List<Json>
 J.object(j)             # List<Field>, in order, duplicates kept
@@ -50,7 +50,7 @@ type JKind is Data:        # `Kind` is a Bend keyword
   KNull{}  KBool{}  KNumber{}  KString{}  KArray{}  KObject{}
 ```
 
-`J.message_access(a)` → `"$.user.tags[0]: expected string, found number"`.
+`J.message_access(a)` → `"$.user.tags[0]: expected string, found number"`. A key that is not a plain name (letters, digits, `_`, not starting with a digit) is written as JSON writes the string: `$["a.b"][""]`.
 
 Level A reports the step it tried for `Missing` (`$.name`, `$[3]`) and the empty path `$` otherwise; level B fills in the full path.
 
