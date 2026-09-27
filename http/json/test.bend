@@ -46,3 +46,17 @@ def decode_bad() -> {HJ.decode(String, j => name(j), post("application/json", "{
 
 def decode_value() -> {HJ.decode(String, j => name(j), post("application/json", "{\"name\": 1}")) == Fail{HJ.InvalidValue{J.Expected{[J.Name{"name"}], J.KString{}, J.KNumber{}}}} : R()}:
   {==}
+
+# parameters, and other or no content types (were laws with one free part)
+
+def json_many_params() -> {HJ.is_json(Some{"application/json; charset=utf-8; x=y"}) == True{} : Bool}:
+  {==}
+
+def suffix_params() -> {HJ.is_json(Some{"application/problem+json;q=1"}) == True{} : Bool}:
+  {==}
+
+def text_params() -> {HJ.is_json(Some{"text/plain;charset=utf-8"}) == False{} : Bool}:
+  {==}
+
+def decode_none() -> {HJ.decode(String, j => name(j), Req.Request{M.MPost{}, "/", [], U.encode("{}")}) == Fail{HJ.UnsupportedContentType{}} : R()}:
+  {==}

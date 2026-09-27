@@ -27,4 +27,4 @@ match HJ.decode(Todo, j => Todo.from_json(j), req):
 
 `moon run http_json:check` runs `test.bend`, curls each route of the example (404, 405, 400, 415 included), and runs the cold check.
 
-**Laws.** `LAWS.bend`, proven in `PROOF.bend`: media-type parameters never change the JSON decision, and a body with another type or none is never parsed.
+**Laws.** `LAWS.bend`, proven in `PROOF.bend`: whatever the headers, a body whose content type is not JSON is never parsed.

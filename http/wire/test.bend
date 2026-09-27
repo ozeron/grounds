@@ -124,3 +124,14 @@ def written_nul() -> {H1.write(Res.header(Res.header(Res.empty(S.no_content()), 
 
 def round_trip() -> {H1.parse_response(H1.write(Res.header(Res.text(S.not_found(), "nope"), "x-a", "1"), False{}), 200) == H1.RParsed{404, [H.Header{"content-type", "text/plain; charset=utf-8"}, H.Header{"x-a", "1"}, H.Header{"content-length", "4"}, H.Header{"connection", "keep-alive"}], b("nope"), b("")} : H1.RParsed}:
   {==}
+
+# spellings and orders the laws cover in general
+
+def chunked_mixed_case() -> {p("POST / HTTP/1.1\r\nHost: x\r\ntRANSFER-eNCODING: chunked\r\n\r\n") == H1.Bad{H1.Unsupported{}} : P()}:
+  {==}
+
+def bad_length_first() -> {p("POST / HTTP/1.1\r\nHost: x\r\nContent-Length: x\r\nContent-Length: 1\r\n\r\na") == H1.Bad{H1.BadLength{}} : P()}:
+  {==}
+
+def written_lowercase_length() -> {H1.write(Res.header(Res.empty(S.no_content()), "content-length", "9"), False{}) == b("HTTP/1.1 204 No Content\r\ncontent-length: 0\r\nconnection: keep-alive\r\n\r\n") : B.Bytes}:
+  {==}

@@ -41,4 +41,4 @@ Bodies are bytes (`List<U32>`, 0..255). Text goes through `grounds-utf8`.
 
 `moon run http:check` runs the tests, the example and the cold check.
 
-**Laws.** `LAWS.bend`, proven in `PROOF.bend`: the first header and the first query pair are the ones read, `T.same` is reflexive, and the nine standard methods read back from their names.
+**Laws.** `LAWS.bend`, proven in `PROOF.bend`: `same_ci` is equality of the lowercased Strings; a header is found under any spelling of its name, and its first value is the one read; a query key's first value is the one read.

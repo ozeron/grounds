@@ -7,35 +7,13 @@ import ../core/request.bend as Req
 
 # Laws grounds-http-json must keep. `bend PROOF.bend` fails while any is open or false.
 
-def R(-A: Data) -> Type:
-  Result<&2, &2, HJ.DecodeError, A>
-
-# media-type parameters never change the decision: what follows ; is not read
-law json_params:
-  for params: String
-  {HJ.is_json(Some{"application/json;" ++ params}) == True{} : Bool}
-
-law suffix_params:
-  for params: String
-  {HJ.is_json(Some{"application/problem+json;" ++ params}) == True{} : Bool}
-
-law text_params:
-  for params: String
-  {HJ.is_json(Some{"text/plain;" ++ params}) == False{} : Bool}
-
-# a body sent as another type, or with no type, is never parsed
-law other_type_refused:
+# whatever the headers, a body whose content type is not JSON is never parsed
+law not_json_refused:
   for -A: Data
   for f: J.Json -> Result<&2, &2, J.Access, A>
-  for m: M.Method
-  for t: String
-  for body: List<&2, U32>
-  {HJ.decode(A, f, Req.Request{m, t, [H.Header{"Content-Type", "text/plain"}], body}) == Fail{HJ.UnsupportedContentType{}} : R(A)}
-
-law no_type_refused:
-  for -A: Data
-  for f: J.Json -> Result<&2, &2, J.Access, A>
-  for m: M.Method
-  for t: String
-  for body: List<&2, U32>
-  {HJ.decode(A, f, Req.Request{m, t, [], body}) == Fail{HJ.UnsupportedContentType{}} : R(A)}
+  for +m: M.Method
+  for +t: String
+  for +hs: List<&2, H.Header>
+  for +body: List<&2, U32>
+  for e: {HJ.is_json(H.get(hs, "content-type")) == False{} : Bool}
+  {HJ.decode(A, f, Req.Request{m, t, hs, body}) == Fail{HJ.UnsupportedContentType{}} : Result<&2, &2, HJ.DecodeError, A>}

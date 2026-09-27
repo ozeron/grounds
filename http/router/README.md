@@ -28,4 +28,4 @@ match Router.route_req(Route, routes(), req):
 
 `moon run http_router:check` runs `test.bend` (12 cases), the example, and the cold check.
 
-**Laws.** `LAWS.bend`, proven in `PROOF.bend`: the first matching route wins and later routes change nothing; a failed literal is final; a capture never binds an empty segment; no match is 404, and a 405 names at least one method.
+**Laws.** `LAWS.bend`, proven in `PROOF.bend`: the first route matching method and path wins, after any routes that did not, and later routes change nothing; a failed literal is final; a capture never binds an empty segment, wherever it sits in the pattern.

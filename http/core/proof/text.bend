@@ -200,3 +200,41 @@ def nat_trans(c, a, b, e1, e2):
       absurd({Nat.is_eq(1n+p, 0n) == True{} : Bool}, e2)
     case 1n+r 1n+p 1n+q:
       nat_trans(r, p, q, e1, e2)
+
+law and_true_l:
+  for +a: Bool
+  for +b: Bool
+  for e: {Bool.and(a, b) == True{} : Bool}
+  {a == True{} : Bool}
+
+def and_true_l(a, b, e):
+  match a:
+    case True{}:
+      {==}
+    case False{}:
+      absurd({False{} == True{} : Bool}, e)
+
+law and_true_r:
+  for +a: Bool
+  for +b: Bool
+  for e: {Bool.and(a, b) == True{} : Bool}
+  {b == True{} : Bool}
+
+def and_true_r(a, b, e):
+  match a:
+    case True{}:
+      e
+    case False{}:
+      absurd({b == True{} : Bool}, e)
+
+law not_true:
+  for +a: Bool
+  for e: {Bool.not(a) == True{} : Bool}
+  {a == False{} : Bool}
+
+def not_true(a, e):
+  match a:
+    case True{}:
+      absurd({True{} == False{} : Bool}, e)
+    case False{}:
+      {==}
