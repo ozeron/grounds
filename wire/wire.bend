@@ -32,6 +32,13 @@ def wire_send(sock: Socket, data: List<&2, U32>) ->
   import "./effs/wire.c"
   import "./effs/wire.js"
 
+# as wire_send, but fails ETIMEDOUT when the peer takes nothing for ms
+# milliseconds
+def wire_send_timeout(sock: Socket, data: List<&2, U32>, ms: U32) ->
+  IO(Socket & Result<&1, &1, U32 & String, Unit>):
+  import "./effs/wire.c"
+  import "./effs/wire.js"
+
 def listen(port: U32) -> IO(Result<&1, &1, U32 & String, Listener>):
   TCP.listen(port)
 
