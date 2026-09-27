@@ -1264,12 +1264,16 @@ def frac_digits(f: Frac) -> List<&2, Digit>:
 type Digits is Data:
   Digits{ds: List<&2, Digit>, point: Nat}
 
+# n is counted first: passing ds on before a read of it would share it
+def with_point.go(n: Nat, l: Lead, ds: List<&2, Digit>, f: Frac) -> Digits:
+  Digits{Con{lead_digit(l), List.append(&2, Digit, ds, frac_digits(f))}, 1n+n}
+
 def with_point(i: Int, f: Frac) -> Digits:
   match i:
     case IZero{}:
       Digits{frac_digits(f), 0n}
     case INon{l, +ds}:
-      Digits{Con{lead_digit(l), List.append(&2, Digit, ds, frac_digits(f))}, 1n+dlen(ds, 0n)}
+      with_point.go(dlen(ds, 0n), l, ds, f)
 
 # the smaller of two Nats; Base's Nat.min counts down one by one, which
 # overflows the stack on large values, where Nat.is_le runs natively
@@ -1370,7 +1374,7 @@ def u32.whole(ok: Bool, sig: List<&2, Digit>, +shift: Nat) -> Result<&2, &2, Acc
 
 # hi is where the point falls plus the leading zeros and the negative
 # exponent moved across; lo is the digits' count plus the same
-def u32.sig(neg: Bool, sig: List<&2, Digit>, +k: Nat, +hi: Nat, +low: Nat) -> Result<&2, &2, Access, U32>:
+def u32.sig(+k: Nat, neg: Bool, sig: List<&2, Digit>, +hi: Nat, +low: Nat) -> Result<&2, &2, Access, U32>:
   match neg sig:
     case _ Nil{}:
       Done{0}
@@ -1380,7 +1384,7 @@ def u32.sig(neg: Bool, sig: List<&2, Digit>, +k: Nat, +hi: Nat, +low: Nat) -> Re
       u32.whole(Bool.and(Nat.is_ge(hi, Nat.add(k, low)), Nat.is_le(hi, Nat.add(10n, low))), Con{d, t}, Nat.sub(hi, Nat.add(k, low)))
 
 def u32.trail(neg: Bool, +sig: List<&2, Digit>, +hi: Nat, +low: Nat) -> Result<&2, &2, Access, U32>:
-  u32.sig(neg, sig, dlen(sig, 0n), hi, low)
+  u32.sig(dlen(sig, 0n), neg, sig, hi, low)
 
 def u32.lead(neg: Bool, l: Lead0, +point: Nat, +up: Nat, +down: Nat) -> Result<&2, &2, Access, U32>:
   match l:
@@ -1549,6 +1553,299 @@ def message_access(a: Access) -> String:
       path_text(p, "$") ++ ": expected " ++ kind_name(want) ++ ", found " ++ kind_name(got)
     case OutOfRange{p}:
       path_text(p, "$") ++ ": number out of range"
+
+# Paths
+# =====
+
+# an error found after walking done (reversed): its path gets done in front
+def with_path(done: List<&2, Step>, a: Access) -> Access:
+  match a:
+    case Missing{p}:
+      Missing{List.reverse.go(&2, Step, done, p)}
+    case Expected{p, want, got}:
+      Expected{List.reverse.go(&2, Step, done, p), want, got}
+    case OutOfRange{p}:
+      OutOfRange{List.reverse.go(&2, Step, done, p)}
+
+# a value at the end of a path, and the path walked, reversed
+type Hit is Data:
+  Hit{value: Json, done: List<&2, Step>}
+
+# a string, rebuilt twice from one read
+type Twice is Data:
+  Twice{a: String, b: String}
+
+def twice(s: String, a: String, b: String) -> Twice:
+  match s:
+    case SNil{}:
+      Twice{String.reverse(a), String.reverse(b)}
+    case SCon{Chr{+x}, t}:
+      twice(t, SCon{Chr{x}, a}, SCon{Chr{x}, b})
+
+def at.next(r: Result<&2, &2, Access, Json>, done: List<&2, Step>, go: Json -> List<&2, Step> -> Result<&2, &2, Access, Hit>) -> Result<&2, &2, Access, Hit>:
+  match r:
+    case Done{v}:
+      go(v, done)
+    case Fail{a}:
+      Fail{with_path(done, a)}
+
+def at.key(k: Twice, j: Json, done: List<&2, Step>, go: Json -> String -> List<&2, Step> -> Result<&2, &2, Access, Hit>) -> Result<&2, &2, Access, Hit>:
+  match k:
+    case Twice{a, b}:
+      at.next(get(j, a), done, v => d => go(v, b, d))
+
+# a key is both looked up and kept in the path, so the lookup gets a copy
+def at.go(steps: List<&2, Step>, j: Json, done: List<&2, Step>) -> Result<&2, &2, Access, Hit>:
+  match steps:
+    case Nil{}:
+      Done{Hit{j, done}}
+    case Con{Name{k}, t}:
+      at.key(twice(k, "", ""), j, done, v => k2 => d => at.go(t, v, Con{Name{k2}, d}))
+    case Con{Index{+i}, t}:
+      at.next(index(j, i), done, v => d => at.go(t, v, Con{Index{i}, d}))
+
+def at.fin(r: Result<&2, &2, Access, Hit>) -> Result<&2, &2, Access, Json>:
+  match r:
+    case Done{Hit{v, _}}:
+      Done{v}
+    case Fail{a}:
+      Fail{a}
+
+# the value at a path of keys and indexes
+def at(j: Json, path: List<&2, Step>) -> Result<&2, &2, Access, Json>:
+  at.fin(at.go(path, j, []))
+
+# Copies of a leaf
+# ----------------
+# a typed path read copies what it returns, so a decoder can read one
+# document many times without sharing it
+
+def copy_bool(b: Bool) -> Bool:
+  match b:
+    case True{}:
+      True{}
+    case False{}:
+      False{}
+
+def copy_text(s: String, acc: String) -> String:
+  match s:
+    case SNil{}:
+      String.reverse(acc)
+    case SCon{Chr{x}, t}:
+      copy_text(t, SCon{Chr{(x + 0 : U32)}, acc})
+
+def copy_digit(d: Digit) -> Digit:
+  match d:
+    case D0{}:
+      D0{}
+    case D1{}:
+      D1{}
+    case D2{}:
+      D2{}
+    case D3{}:
+      D3{}
+    case D4{}:
+      D4{}
+    case D5{}:
+      D5{}
+    case D6{}:
+      D6{}
+    case D7{}:
+      D7{}
+    case D8{}:
+      D8{}
+    case D9{}:
+      D9{}
+
+def copy_digits(ds: List<&2, Digit>, acc: List<&2, Digit>) -> List<&2, Digit>:
+  match ds:
+    case Nil{}:
+      List.reverse(&2, Digit, acc)
+    case Con{d, t}:
+      copy_digits(t, Con{copy_digit(d), acc})
+
+def copy_lead(l: Lead) -> Lead:
+  match l:
+    case L1{}:
+      L1{}
+    case L2{}:
+      L2{}
+    case L3{}:
+      L3{}
+    case L4{}:
+      L4{}
+    case L5{}:
+      L5{}
+    case L6{}:
+      L6{}
+    case L7{}:
+      L7{}
+    case L8{}:
+      L8{}
+    case L9{}:
+      L9{}
+
+def copy_int(i: Int) -> Int:
+  match i:
+    case IZero{}:
+      IZero{}
+    case INon{l, ds}:
+      INon{copy_lead(l), copy_digits(ds, [])}
+
+def copy_frac(f: Frac) -> Frac:
+  match f:
+    case FNone{}:
+      FNone{}
+    case FSome{d, ds}:
+      FSome{copy_digit(d), copy_digits(ds, [])}
+
+def copy_sign(s: Sign) -> Sign:
+  match s:
+    case NoSign{}:
+      NoSign{}
+    case Plus{}:
+      Plus{}
+    case Minus{}:
+      Minus{}
+
+def copy_exp(e: Exp) -> Exp:
+  match e:
+    case ENone{}:
+      ENone{}
+    case ESome{u, sg, d, ds}:
+      ESome{copy_bool(u), copy_sign(sg), copy_digit(d), copy_digits(ds, [])}
+
+# a scalar copied; an array or object becomes an empty one, which keeps
+# its kind for the error a scalar read gives
+def copy_leaf(j: Json) -> Json:
+  match j:
+    case JNull{}:
+      JNull{}
+    case JBool{b}:
+      JBool{copy_bool(b)}
+    case JNum{Number{n, i, f, e}}:
+      JNum{Number{copy_bool(n), copy_int(i), copy_frac(f), copy_exp(e)}}
+    case JStr{t}:
+      JStr{copy_text(t, "")}
+    case JArr{_}:
+      JArr{[]}
+    case JObj{_}:
+      JObj{[]}
+
+def last_key.pick(hit: Bool, here: Nat, found: Nat) -> Nat:
+  match hit:
+    case True{}:
+      here
+    case False{}:
+      found
+
+# the position of the last field named k, plus one; 0n when there is none
+def last_key(fs: List<&2, Field>, +k: String, +i: Nat, found: Nat) -> Nat:
+  match fs:
+    case Nil{}:
+      found
+    case Con{Field{fk, _}, t}:
+      last_key(t, k, (1n + i : Nat), last_key.pick(same(fk, k, True{}), (1n + i : Nat), found))
+
+def missing(done: List<&2, Step>) -> Result<&2, &2, Access, Leaf>:
+  Fail{Missing{List.reverse(&2, Step, done)}}
+
+# a leaf copy, and the path to it, reversed
+type Leaf is Data:
+  Leaf{value: Json, done: List<&2, Step>}
+
+# a read-only walk: it passes parts of j on as they are and never keeps
+# them, so the caller can read j again. It stays in one def, with a mode
+# for where it is: 0n at j; 1n at field n (plus one, 0n for none) of fs;
+# 2n skipping n fields of fs; 3n skipping n items of xs
+def walk(fuel: Nat, steps: List<&2, Step>, mode: Nat, n: Nat, j: Json, fs: List<&2, Field>, xs: List<&2, Json>, done: List<&2, Step>) -> Result<&2, &2, Access, Leaf>:
+  match fuel steps mode n j fs xs:
+    case 0n _ _ _ _ _ _:
+      Fail{Missing{List.reverse(&2, Step, done)}}
+    case 1n+k Nil{} 0n _ j _ _:
+      Done{Leaf{copy_leaf(j), done}}
+    case 1n+k Con{Name{+key}, t} 0n _ JObj{+ys} _ _:
+      walk(k, t, 1n, last_key(ys, key, 0n, 0n), JNull{}, ys, [], Con{Name{key}, done})
+    case 1n+k Con{Index{+i}, t} 0n _ JArr{ys} _ _:
+      walk(k, t, 3n, U32.to_nat(i), JNull{}, [], ys, Con{Index{i}, done})
+    case 1n+k Con{Name{_}, _} 0n _ other _ _:
+      Fail{Expected{List.reverse(&2, Step, done), KObject{}, kind(other)}}
+    case 1n+k Con{Index{_}, _} 0n _ other _ _:
+      Fail{Expected{List.reverse(&2, Step, done), KArray{}, kind(other)}}
+    case 1n+k st 1n 0n _ ys _:
+      missing(done)
+    case 1n+k st 1n 1n+m _ ys _:
+      walk(k, st, 2n, m, JNull{}, ys, [], done)
+    case 1n+k st 2n 0n _ Con{Field{_, v}, _} _:
+      walk(k, st, 0n, 0n, v, [], [], done)
+    case 1n+k st 2n 1n+m _ Con{_, t} _:
+      walk(k, st, 2n, m, JNull{}, t, [], done)
+    case 1n+k st 3n 0n _ _ Con{v, _}:
+      walk(k, st, 0n, 0n, v, [], [], done)
+    case 1n+k st 3n 1n+m _ _ Con{_, t}:
+      walk(k, st, 3n, m, JNull{}, [], t, done)
+    case 1n+k _ _ _ _ _ _:
+      missing(done)
+
+def read_at.fin(-A: Data, r: Result<&2, &2, Access, A>, done: List<&2, Step>) -> Result<&2, &2, Access, A>:
+  match r:
+    case Done{a}:
+      Done{a}
+    case Fail{a}:
+      Fail{with_path(done, a)}
+
+def read_at.leaf(-A: Data, r: Result<&2, &2, Access, Leaf>, f: Json -> Result<&2, &2, Access, A>) -> Result<&2, &2, Access, A>:
+  match r:
+    case Done{Leaf{v, done}}:
+      read_at.fin(A, f(v), done)
+    case Fail{a}:
+      Fail{a}
+
+# a level A read of a copy of the value at a path; its error gets the
+# full path
+def read_at(-A: Data, j: Json, path: List<&2, Step>, f: Json -> Result<&2, &2, Access, A>) -> Result<&2, &2, Access, A>:
+  read_at.leaf(A, walk(4294967295n, path, 0n, 0n, j, [], [], []), f)
+
+def string_at(j: Json, path: List<&2, Step>) -> Result<&2, &2, Access, String>:
+  read_at(String, j, path, string)
+
+def bool_at(j: Json, path: List<&2, Step>) -> Result<&2, &2, Access, Bool>:
+  read_at(Bool, j, path, bool)
+
+def u32_at(j: Json, path: List<&2, Step>) -> Result<&2, &2, Access, U32>:
+  read_at(U32, j, path, u32)
+
+def f32_at(j: Json, path: List<&2, Step>) -> Result<&2, &2, Access, F32>:
+  read_at(F32, j, path, f32)
+
+def number_at(j: Json, path: List<&2, Step>) -> Result<&2, &2, Access, Number>:
+  read_at(Number, j, path, number)
+
+def array_at(j: Json, path: List<&2, Step>) -> Result<&2, &2, Access, List<&2, Json>>:
+  read_at(List<&2, Json>, j, path, array)
+
+def object_at(j: Json, path: List<&2, Step>) -> Result<&2, &2, Access, List<&2, Field>>:
+  read_at(List<&2, Field>, j, path, object)
+
+# Decoding
+# ========
+
+def map(-A: Data, -B: Data, r: Result<&2, &2, Access, A>, f: A -> B) -> Result<&2, &2, Access, B>:
+  match r:
+    case Done{a}:
+      Done{f(a)}
+    case Fail{e}:
+      Fail{e}
+
+# two reads, joined by f; the first error wins
+def both(-A: Data, -B: Data, -C: Data, r1: Result<&2, &2, Access, A>, r2: Result<&2, &2, Access, B>, f: A -> B -> C) -> Result<&2, &2, Access, C>:
+  match r1 r2:
+    case Done{a} Done{b}:
+      Done{f(a, b)}
+    case Fail{e} _:
+      Fail{e}
+    case Done{_} Fail{e}:
+      Fail{e}
 
 # Errors
 # ======

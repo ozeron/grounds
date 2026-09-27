@@ -117,7 +117,7 @@ law sig_ok:
   for +k: Nat
   for +hi: Nat
   for +low: Nat
-  {L.mistyped(U32, J.u32.sig(neg, sig, k, hi, low)) == False{} : Bool}
+  {L.mistyped(U32, J.u32.sig(k, neg, sig, hi, low)) == False{} : Bool}
 
 def sig_ok(neg, sig, k, hi, low):
   match neg sig:

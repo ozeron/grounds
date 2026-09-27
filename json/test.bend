@@ -359,3 +359,44 @@ def bytes_cut() -> {J.parse_bytes([34, 226, 130]) == err(J.InvalidUtf8{}, 1, 1, 
 
 def bytes_first() -> {J.parse_bytes([93, 255]) == err(J.InvalidUtf8{}, 1, 1, 2) : R()}:
   {==}
+
+# paths (level B)
+
+def user() -> J.Json:
+  J.JObj{[J.Field{"user", J.JObj{[J.Field{"name", s("Alex")}, J.Field{"tags", J.JArr{[s("quant"), n("1")]}}]}}]}
+
+def at_empty() -> {J.at(n("1"), []) == Done{n("1")} : A(J.Json)}:
+  {==}
+
+def at_deep() -> {J.string_at(user(), [J.Name{"user"}, J.Name{"tags"}, J.Index{0}]) == Done{"quant"} : A(String)}:
+  {==}
+
+def at_missing() -> {J.at(user(), [J.Name{"user"}, J.Name{"age"}]) == Fail{J.Missing{[J.Name{"user"}, J.Name{"age"}]}} : A(J.Json)}:
+  {==}
+
+def at_mid_kind() -> {J.at(user(), [J.Name{"user"}, J.Name{"name"}, J.Index{0}]) == Fail{J.Expected{[J.Name{"user"}, J.Name{"name"}], J.KArray{}, J.KString{}}} : A(J.Json)}:
+  {==}
+
+def at_read_kind() -> {J.string_at(user(), [J.Name{"user"}, J.Name{"tags"}, J.Index{1}]) == Fail{J.Expected{[J.Name{"user"}, J.Name{"tags"}, J.Index{1}], J.KString{}, J.KNumber{}}} : A(String)}:
+  {==}
+
+def at_u32() -> {J.u32_at(J.JArr{[n("7")]}, [J.Index{0}]) == Done{7} : A(U32)}:
+  {==}
+
+def at_message() -> {J.message_access(J.Expected{[J.Name{"user"}, J.Name{"tags"}, J.Index{1}], J.KString{}, J.KNumber{}}) == "$.user.tags[1]: expected string, found number" : String}:
+  {==}
+
+type Duo is Data:
+  Duo{a: String, b: U32}
+
+def both_ok() -> {J.both(String, U32, Duo, Done{"x"}, Done{2}, a => b => Duo{a, b}) == Done{Duo{"x", 2}} : A(Duo)}:
+  {==}
+
+def both_first() -> {J.both(String, U32, Duo, Fail{J.Missing{[]}}, Fail{J.OutOfRange{[]}}, a => b => Duo{a, b}) == Fail{J.Missing{[]}} : A(Duo)}:
+  {==}
+
+def both_second() -> {J.both(String, U32, Duo, Done{"x"}, Fail{J.OutOfRange{[]}}, a => b => Duo{a, b}) == Fail{J.OutOfRange{[]}} : A(Duo)}:
+  {==}
+
+def map_ok() -> {J.map(U32, U32, Done{2}, x => (x + 1 : U32)) == Done{3} : A(U32)}:
+  {==}
