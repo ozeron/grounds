@@ -17,12 +17,20 @@ H1.write(response, close)   # the bytes to send
 - Lines end in CRLF; a bare CR or LF is refused. One empty line before the request line is skipped (§2.2).
 - The request line is exactly `method SP target SP version`. The method is a token, the target has no control chars, and the version is `HTTP/1.1` or `HTTP/1.0`; any other `HTTP/x.y` is `BadVersion` (505).
 - A header is `name ":" OWS value OWS`. The name is a token, with nothing between it and the colon; the value holds no control char but tab. A line that starts with white space continues the one before (obs-fold) and is refused (§5.2).
-- `Content-Length` is all digits; two that differ are refused (§6.3). `Transfer-Encoding` is `Unsupported` (501) until chunked bodies are read.
+- `Content-Length` is all digits; two that differ are refused (§6.3).
+- A body may be chunked (§7.1): one `Transfer-Encoding: chunked` header. Extensions and trailers are read and dropped. Its framing may take 64 KiB more than `max_body_bytes`. Transfer-Encoding with a Content-Length is refused (400), since the two could frame the body two ways (§6.1). Any other coding is `Unsupported` (501).
 - HTTP/1.1 needs exactly one `Host`; HTTP/1.0 at most one (§3.2).
 - A head past `max_head_bytes` is `HeadTooLarge` (431); a body past `max_body_bytes` is `BodyTooLarge` (413), refused before it is read.
 - `close` is true for `Connection: close`, and for HTTP/1.0 unless `Connection: keep-alive`.
 
-`write` sends the status line, the headers, `content-length`, and `connection: close` or `keep-alive` (an HTTP/1.0 client keeps a connection only when told). A handler's own framing headers (`Content-Length`, `Transfer-Encoding`, `Connection`) are dropped, since the writer decides them, and so is any header with a CR, LF or NUL, which would split the response. `parse_response` reads a response back, for clients and tests.
+`write` sends the status line, the headers, `content-length`, and `connection: close` or `keep-alive` (an HTTP/1.0 client keeps a connection only when told). A handler's own framing headers (`Content-Length`, `Transfer-Encoding`, `Connection`) are dropped, since the writer decides them, and so is any header with a CR, LF or NUL, which would split the response. `parse_response` reads a response back, for tests.
+
+For clients:
+- `write_request` writes a request head: host, the caller's headers, Content-Length, and `connection: close` unless the connection is kept.
+- `read_head` reads a response's head, and says how the body is framed and whether the connection may be kept.
+- `chunks.feed` decodes a chunked body a read at a time.
+
+For streamed responses, `write_head`, `chunk` and `last_chunk` write the head and the chunks.
 
 ## Bytes
 
@@ -30,6 +38,12 @@ The parser works on its own `Bytes` list (`B.BNil`, `B.BCon{head, tail}`); `B.of
 
 ## Tests
 
-`test.bend` holds 32 cases: a valid request, each rejection above, incomplete input, a body with a pipelined request after it, and write then `parse_response` giving the response back. That round trip is a test, not a law: a proof would need `U32.show` and digit parsing to invert on any length, which is not cheap in Bend yet. `moon run http1:check` runs the tests, `examples/echo.bend`, and the cold check.
+`test.bend` holds 78 cases: a valid request, each rejection above, incomplete input, chunked bodies, a body with a pipelined request after it, response heads, the request and chunk writers, and write then `parse_response` giving the response back. That round trip is a test, not a law: a proof would need `U32.show` and digit parsing to invert on any length, which is not cheap in Bend yet. `moon run http1:check` runs the tests, `examples/echo.bend`, and the cold check.
 
-**Laws.** `LAWS.bend`, proven in `PROOF.bend`, for header names in any case: a Transfer-Encoding anywhere is seen; a bad Content-Length stays bad, and two that differ anywhere make it bad; a folded line anywhere fails the head. End to end, a head split into these lines makes `parse` refuse the request. Whatever headers a handler sets, the written lines hold CR, LF or NUL only as line ends, and no framing header of theirs is written.
+**Laws.** `LAWS.bend`, proven in `PROOF.bend`. Header names match in any case.
+- **Smuggling:** a Transfer-Encoding anywhere is seen. A request that has one is framed by it alone (`parse_te`). With a Content-Length too, in either order, it is refused (`parse_te_cl`). A bad Content-Length stays bad, and two that differ anywhere make it bad. A folded line anywhere fails the head.
+- **Response splitting:** whatever headers a handler sets, the written lines hold CR, LF or NUL only as line ends, and no framing header of theirs is written.
+- **Request injection:** `request_head` holds for any headers and any method, target and host without CR, LF or NUL. The head the client writes has one empty line, at its end, and CR or LF only where a line ends.
+- **Chunked bodies:** `chunked_reads_back` holds for pieces within the body limit and a framing budget at least what they take. Pieces written as chunks, then the last chunk, decode to the pieces joined, and the bytes after the body are left.
+
+Content-Length and chunk sizes are written from digit counters (`Dec`, `Hc`), so the proofs can see each digit.

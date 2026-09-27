@@ -11,8 +11,8 @@ Specs in this folder: [RFC 9110](rfc9110.txt) (HTTP semantics), [RFC 9112](rfc91
 5. [ ] **http_json**: `decode(req, decoder)` (checks Content-Type, the body limit, parse and decode errors, as `DecodeError{UnsupportedContentType, BodyTooLarge, InvalidJson, InvalidValue}`) and `response(status, encode, value)`.
 6. [x] **http_router** (`../http_router`): routes as data, `route_req(routes, req)` gives `Found{route, params}`, `NotFound` or `MethodNotAllowed{allowed}`.
 7. [ ] **http_middleware**: `BodyLimit`, `RequestId`, `Logger`, `Timeout`, `Cors`, `Recover`; later compression, rate limits, auth, forwarded headers.
-8. [x] **http_client** (`../client`): requests with one deadline, size limits, chunked and read-to-close responses.
-9. [ ] Later: cookies (RFC 6265), forms, multipart, streamed request bodies, WebSockets, TLS, a client pool.
+8. [x] **http_client** (`../client`): one deadline, size limits, a pool with keep-alive, retries, redirects, JSON, streamed downloads, TLS; laws against injection; a response fuzzer and a soak test.
+9. [ ] Later: cookies (RFC 6265), forms, multipart, streamed request bodies, WebSockets, a cold pool, IPv6, server-side TLS.
 
 ## http, against RFC 9110
 
