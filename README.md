@@ -11,9 +11,10 @@ A monorepo of [Bend 2](https://github.com/bendlang/bend) packages, built with [m
 | [`io`](io/) | whole-file reads, as text or raw bytes |
 | [`wire`](wire/) | TCP on bytes: byte-exact send and receive |
 | [`http1`](http1/) | HTTP/1.1 on the wire: request parsing, response writing (RFC 9112) |
-| [`http_server`](http_server/) | `serve(handler, config)`: an HTTP/1.1 server with keep-alive |
+| [`http_server`](http_server/) | `serve(handler, config)`: an HTTP/1.1 server with keep-alive, timeouts and middleware |
 | [`http_router`](http_router/) | routes as data: a request matched to your route value and its captures |
-| [`http`](http/) | HTTP messages: methods, status, headers, query, request, response (router and JSON layers next) |
+| [`http_json`](http_json/) | JSON request bodies and responses; `examples/todo.bend` is a JSON API |
+| [`http`](http/) | HTTP messages: methods, status, headers, query, request, response |
 
 ```sh
 mise install              # the pinned bend and moon

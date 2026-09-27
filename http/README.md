@@ -1,6 +1,6 @@
 # grounds-http
 
-HTTP messages for [Bend 2](https://github.com/bendlang/bend), per [RFC 9110](docs/rfc9110.txt): methods, status codes, headers, query strings, requests and responses. The message types are used by `grounds-http1` (the wire format) and `grounds-http-server` (`serve`); routing and JSON come next, as separate packages ([docs/TODO.md](docs/TODO.md)).
+HTTP messages for [Bend 2](https://github.com/bendlang/bend), per [RFC 9110](docs/rfc9110.txt): methods, status codes, headers, query strings, requests and responses. The message types are used by `grounds-http1` (the wire format), `grounds-http-server` (`serve`), `grounds-http-router` and `grounds-http-json`.
 
 ```python
 import ../http/request.bend as Req
@@ -19,7 +19,7 @@ def handle(r: Req.Request) -> Res.Response:
 | File | Holds |
 |---|---|
 | `method.bend` | `Method`: `MGet`, `MPost`, …, `MOther{name}`; `parse`, `show` (case-sensitive, §9) |
-| `status.bend` | `Status{code}`, `ok()`, `not_found()`, …, `reason` (§15) |
+| `status.bend` | `Status{code}`, `ok()`, `not_found()`, `request_timeout()`, …, `reason` (§15) |
 | `headers.bend` | `Header{name, value}` in order; `get` (first), `all`, `add`, `set`, `remove`; names compare ignoring case (§5) |
 | `query.bend` | `Param{key, value}` pairs, repeats kept; `parse` decodes `%XX` and `+` |
 | `request.bend` | `Request{method, target, headers, body}`; `path`, `query`, `header`, `body` |
