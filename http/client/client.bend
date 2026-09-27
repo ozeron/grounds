@@ -274,6 +274,24 @@ def port.num(s: String, +n: Nat, ok: Bool, any: Bool) -> Maybe<&2, U32>:
     case SCon{Chr{+x}, t}:
       port.num(t, Nat.add(Nat.mul(10n, n), Nat.sub(U32.to_nat(x), 48n)), Bool.and(ok, Bool.and(U32.is_ge(x, 48), Bool.and(U32.is_le(x, 57), Nat.is_le(n, 65535n)))), True{})
 
+def num.go(s: String, +n: Nat, ok: Bool) -> Maybe<&2, U32>:
+  match s:
+    case SNil{}:
+      Bool.pick(Maybe<&2, U32>, ok, Some{U32.from_nat(n)}, None{})
+    case SCon{Chr{+x}, t}:
+      num.go(t, Nat.add(Nat.mul(10n, n), Nat.sub(U32.to_nat(x), 48n)), Bool.and(ok, Bool.and(U32.is_ge(x, 48), U32.is_le(x, 57))))
+
+def num.of(m: Maybe<&2, U32>) -> U32:
+  match m:
+    case Some{n}:
+      n
+    case None{}:
+      0
+
+# a count from its decimal digits, for tests; 0 when it is not one
+def port.num.of(s: String) -> U32:
+  num.of(num.go(s, 0n, True{}))
+
 def url.port.end(m: Maybe<&2, U32>, tls: Bool, host: String, t: String) -> Url:
   match m:
     case Some{p}:
