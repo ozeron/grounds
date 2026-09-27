@@ -16,6 +16,20 @@ A monorepo of [Bend 2](https://github.com/bendlang/bend) packages, built with [m
 | [`http_json`](http_json/) | JSON request bodies and responses; `examples/todo.bend` is a JSON API |
 | [`http`](http/) | HTTP messages: methods, status, headers, query, request, response |
 
+## Use from BendHub
+
+Version 0.1.0 of every package is one bundle, `0x64e1b9e0466cf913fa57e70aeb11c176`. Import each module from it by its path in this repo:
+
+```python
+import 0x64e1b9e0466cf913fa57e70aeb11c176/json/json.bend as J
+import 0x64e1b9e0466cf913fa57e70aeb11c176/http_json/http_json.bend as HJ
+import 0x64e1b9e0466cf913fa57e70aeb11c176/http_server/server.bend as Server
+```
+
+Take every module from the same bundle. A module's identity is its bundle's hash plus its path, so `http/status.bend` from one bundle is a different type from the same file in another.
+
+## Develop
+
 ```sh
 mise install              # the pinned bend and moon
 moon run :check           # every package's checks
