@@ -372,3 +372,113 @@ law request_head:
   for +et: {H1.unsafe(target, False{}) == False{} : Bool}
   for +eh: {H1.unsafe(host, False{}) == False{} : Bool}
   {hdr(H1.request.head(m, target, host, hs, n, sized, close)) == True{} : Bool}
+
+# Chunked bodies read back (RFC 9112 §7.1)
+# ------------------------
+
+def blen(bs: B.Bytes) -> Nat:
+  match bs:
+    case B.BNil{}:
+      0n
+    case B.BCon{_, t}:
+      1n+blen(t)
+
+# what a streamed body puts on the wire: each piece as a chunk, then the
+# last chunk, then whatever follows
+def stream(ps: List<&2, B.Bytes>, rest: B.Bytes) -> B.Bytes:
+  match ps:
+    case Nil{}:
+      B.cat(H1.last_chunk(), rest)
+    case Con{p, t}:
+      B.cat(H1.chunk(p), stream(t, rest))
+
+def joined(ps: List<&2, B.Bytes>) -> B.Bytes:
+  match ps:
+    case Nil{}:
+      B.BNil{}
+    case Con{p, t}:
+      B.cat(p, joined(t))
+
+def total(ps: List<&2, B.Bytes>) -> Nat:
+  match ps:
+    case Nil{}:
+      0n
+    case Con{p, t}:
+      Nat.add(blen(p), total(t))
+
+# a hex digit's value, and a count's
+def dv(x: H1.Hx) -> Nat:
+  match x:
+    case H1.X0{}:
+      0n
+    case H1.X1{}:
+      1n
+    case H1.X2{}:
+      2n
+    case H1.X3{}:
+      3n
+    case H1.X4{}:
+      4n
+    case H1.X5{}:
+      5n
+    case H1.X6{}:
+      6n
+    case H1.X7{}:
+      7n
+    case H1.X8{}:
+      8n
+    case H1.X9{}:
+      9n
+    case H1.XA{}:
+      10n
+    case H1.XB{}:
+      11n
+    case H1.XC{}:
+      12n
+    case H1.XD{}:
+      13n
+    case H1.XE{}:
+      14n
+    case H1.XF{}:
+      15n
+
+def hv(h: H1.Hc) -> Nat:
+  match h:
+    case H1.HNil{}:
+      0n
+    case H1.HCon{x, t}:
+      Nat.add(Nat.mul(16n, hv(t)), dv(x))
+
+def hlen(h: H1.Hc) -> Nat:
+  match h:
+    case H1.HNil{}:
+      0n
+    case H1.HCon{_, t}:
+      1n+hlen(t)
+
+# the framing bytes the decoder counts against its budget: a chunk's size
+# digits and two CR LFs; five for the last chunk and the empty trailer
+def piece(p: B.Bytes, +more: Nat) -> Nat:
+  match p:
+    case B.BNil{}:
+      more
+    case B.BCon{b, t}:
+      Nat.add(hlen(H1.hc.count(B.BCon{b, t}, H1.HNil{})), Nat.add(4n, more))
+
+def frames(ps: List<&2, B.Bytes>, +extra: Nat) -> Nat:
+  match ps:
+    case Nil{}:
+      Nat.add(5n, extra)
+    case Con{p, t}:
+      piece(p, frames(t, extra))
+
+# pieces sent as chunks read back as the same bytes, in order, and the
+# bytes after the body are left for what follows: for any pieces within
+# max, and a framing budget at least what they take
+law chunked_reads_back:
+  for +ps: List<&2, B.Bytes>
+  for +rest: B.Bytes
+  for +max: Nat
+  for +extra: Nat
+  for e: {Nat.is_le(total(ps), max) == True{} : Bool}
+  {H1.chunks.go(stream(ps, rest), H1.CS{H1.CSize{0n, False{}}, B.BNil{}, 0n, frames(ps, extra)}, max) == H1.CDone{joined(ps), rest} : H1.Chunked}

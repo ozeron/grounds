@@ -560,14 +560,19 @@ def c.frame(m: CM, +b: U32, acc: B.Bytes, +total: Nat, +budget: Nat, +max: Nat) 
       c.trail_lf(U32.is_eq(b, 10), fresh, acc, total, budget)
 
 # a data byte goes to the body; any other spends the budget
-def c.step(m: CM, +budget: Nat, b: U32, acc: B.Bytes, +total: Nat, +max: Nat) -> CS:
-  match m budget:
-    case CData{1n+p} _:
-      CS{c.data(p), B.BCon{b, acc}, total, budget}
-    case _ 0n:
+def c.spend(m: CM, +budget: Nat, b: U32, acc: B.Bytes, +total: Nat, +max: Nat) -> CS:
+  match budget:
+    case 0n:
       CErr{BodyTooLarge{}}
-    case other 1n+p:
-      c.frame(other, b, acc, total, p, max)
+    case 1n+p:
+      c.frame(m, b, acc, total, p, max)
+
+def c.step(m: CM, +budget: Nat, b: U32, acc: B.Bytes, +total: Nat, +max: Nat) -> CS:
+  match m:
+    case CData{1n+p}:
+      CS{c.data(p), B.BCon{b, acc}, total, budget}
+    case other:
+      c.spend(other, budget, b, acc, total, max)
 
 # a byte at a time: the body ends at the empty line after the last chunk,
 # and what follows is the next request
@@ -788,32 +793,125 @@ def write(r: Res.Response, close: Bool) -> B.Bytes:
 # Streamed responses
 # ------------------
 
-def hex.digit(+d: U32) -> Char:
-  Chr{Bool.pick(U32, U32.is_lt(d, 10), (d + 48 : U32), (d + 87 : U32))}
+# Chunk sizes, in hex, from a digit counter, as lengths are in decimal:
+# each digit is a constructor a law can see
+type Hx is Data:
+  X0{}
+  X1{}
+  X2{}
+  X3{}
+  X4{}
+  X5{}
+  X6{}
+  X7{}
+  X8{}
+  X9{}
+  XA{}
+  XB{}
+  XC{}
+  XD{}
+  XE{}
+  XF{}
 
-def hex.go(n: Nat, +x: U32, acc: String) -> String:
-  match n:
-    case 0n:
-      acc
-    case 1n+p:
-      hex.go(p, (x >> 4n : U32), SCon{hex.digit((x .&. 15 : U32)), acc})
+# a count, least significant digit first; HNil is 0
+type Hc is Data:
+  HNil{}
+  HCon{d: Hx, t: Hc}
 
-def hex.trim(s: String) -> String:
-  match s:
-    case SCon{Chr{48}, SCon{c, t}}:
-      hex.trim(SCon{c, t})
-    case other:
-      other
+def hc.inc(h: Hc) -> Hc:
+  match h:
+    case HNil{}:
+      HCon{X1{}, HNil{}}
+    case HCon{X0{}, t}:
+      HCon{X1{}, t}
+    case HCon{X1{}, t}:
+      HCon{X2{}, t}
+    case HCon{X2{}, t}:
+      HCon{X3{}, t}
+    case HCon{X3{}, t}:
+      HCon{X4{}, t}
+    case HCon{X4{}, t}:
+      HCon{X5{}, t}
+    case HCon{X5{}, t}:
+      HCon{X6{}, t}
+    case HCon{X6{}, t}:
+      HCon{X7{}, t}
+    case HCon{X7{}, t}:
+      HCon{X8{}, t}
+    case HCon{X8{}, t}:
+      HCon{X9{}, t}
+    case HCon{X9{}, t}:
+      HCon{XA{}, t}
+    case HCon{XA{}, t}:
+      HCon{XB{}, t}
+    case HCon{XB{}, t}:
+      HCon{XC{}, t}
+    case HCon{XC{}, t}:
+      HCon{XD{}, t}
+    case HCon{XD{}, t}:
+      HCon{XE{}, t}
+    case HCon{XE{}, t}:
+      HCon{XF{}, t}
+    case HCon{XF{}, t}:
+      HCon{X0{}, hc.inc(t)}
 
-# n in hex, without leading zeros
-def hex(+n: U32) -> String:
-  hex.trim(hex.go(8n, n, ""))
+def hx.byte(x: Hx) -> U32:
+  match x:
+    case X0{}:
+      48
+    case X1{}:
+      49
+    case X2{}:
+      50
+    case X3{}:
+      51
+    case X4{}:
+      52
+    case X5{}:
+      53
+    case X6{}:
+      54
+    case X7{}:
+      55
+    case X8{}:
+      56
+    case X9{}:
+      57
+    case XA{}:
+      97
+    case XB{}:
+      98
+    case XC{}:
+      99
+    case XD{}:
+      100
+    case XE{}:
+      101
+    case XF{}:
+      102
+
+# the digits, most significant first, before out
+def hc.bytes(h: Hc, out: B.Bytes) -> B.Bytes:
+  match h:
+    case HNil{}:
+      out
+    case HCon{x, t}:
+      hc.bytes(t, B.BCon{hx.byte(x), out})
+
+# the bytes of bs, counted onto h
+def hc.count(bs: B.Bytes, h: Hc) -> Hc:
+  match bs:
+    case B.BNil{}:
+      h
+    case B.BCon{_, t}:
+      hc.count(t, hc.inc(h))
 
 def chunk.go(+bs: B.Bytes) -> B.Bytes:
-  B.app(head_bytes(hex(count(bs, 0)) ++ "\r\n"), B.app(bs, head_bytes("\r\n")))
+  hc.bytes(hc.count(bs, HNil{}), B.BCon{13, B.BCon{10, B.cat(bs, B.BCon{13, B.BCon{10, B.BNil{}}})}})
 
-# bytes as one chunk of a chunked body (RFC 9112 §7.1); an empty chunk
-# would end the body, so it is left out
+# bytes as one chunk of a chunked body (RFC 9112 §7.1): the size in hex,
+# CR LF, the bytes, CR LF. An empty chunk would end the body, so it is left
+# out
 def chunk(bs: B.Bytes) -> B.Bytes:
   match bs:
     case B.BNil{}:

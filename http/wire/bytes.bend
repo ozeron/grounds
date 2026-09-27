@@ -24,6 +24,15 @@ def rev(bs: Bytes) -> Bytes:
 def app(a: Bytes, b: Bytes) -> Bytes:
   rev.go(rev(a), b)
 
+# a then b, one cell at a time: what a law can follow, where app reverses
+# twice
+def cat(a: Bytes, b: Bytes) -> Bytes:
+  match a:
+    case BNil{}:
+      b
+    case BCon{x, t}:
+      BCon{x, cat(t, b)}
+
 def of_list.go(xs: List<&2, U32>, acc: Bytes) -> Bytes:
   match xs:
     case Nil{}:

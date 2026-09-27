@@ -979,3 +979,622 @@ def Laws.request_head(m, target, host, hs, n, sized, close, em, et, eh):
       len3(sized, n, H1.heads(hs, H1.request.start(m, target, host))),
       Equal.trans(Bool, Laws.hok(H1.heads(hs, H1.request.start(m, target, host)), 3), Laws.hok(H1.request.start(m, target, host), 3), True{},
         heads3(hs, H1.request.start(m, target, host)), start3(m, target, host, em, et, eh))))
+
+# Chunked bodies read back
+# ------------------------
+
+law add_zero:
+  for +a: Nat
+  {Nat.add(a, 0n) == a : Nat}
+
+def add_zero(a):
+  match a:
+    case 0n:
+      {==}
+    case 1n+p:
+      Equal.cong(Nat, Nat, x => 1n+x, Nat.add(p, 0n), p, add_zero(p))
+
+law add_succ:
+  for +a: Nat
+  for +b: Nat
+  {Nat.add(a, 1n+b) == 1n+Nat.add(a, b) : Nat}
+
+def add_succ(a, b):
+  match a:
+    case 0n:
+      {==}
+    case 1n+p:
+      Equal.cong(Nat, Nat, x => 1n+x, Nat.add(p, 1n+b), 1n+Nat.add(p, b), add_succ(p, b))
+
+law add_comm:
+  for +a: Nat
+  for +b: Nat
+  {Nat.add(a, b) == Nat.add(b, a) : Nat}
+
+def add_comm(a, b):
+  match a:
+    case 0n:
+      Equal.sym(Nat, Nat.add(b, 0n), b, add_zero(b))
+    case 1n+p:
+      Equal.trans(Nat, 1n+Nat.add(p, b), 1n+Nat.add(b, p), Nat.add(b, 1n+p),
+        Equal.cong(Nat, Nat, x => 1n+x, Nat.add(p, b), Nat.add(b, p), add_comm(p, b)),
+        Equal.sym(Nat, Nat.add(b, 1n+p), 1n+Nat.add(b, p), add_succ(b, p)))
+
+law add_assoc:
+  for +a: Nat
+  for +b: Nat
+  for +c: Nat
+  {Nat.add(Nat.add(a, b), c) == Nat.add(a, Nat.add(b, c)) : Nat}
+
+def add_assoc(a, b, c):
+  match a:
+    case 0n:
+      {==}
+    case 1n+p:
+      Equal.cong(Nat, Nat, x => 1n+x, Nat.add(Nat.add(p, b), c), Nat.add(p, Nat.add(b, c)), add_assoc(p, b, c))
+
+law add_swap:
+  for +b: Nat
+  for +p: Nat
+  for +x: Nat
+  {Nat.add(b, Nat.add(p, x)) == Nat.add(p, Nat.add(b, x)) : Nat}
+
+def add_swap(b, p, x):
+  Equal.trans(Nat, Nat.add(b, Nat.add(p, x)), Nat.add(Nat.add(b, p), x), Nat.add(p, Nat.add(b, x)),
+    Equal.sym(Nat, Nat.add(Nat.add(b, p), x), Nat.add(b, Nat.add(p, x)), add_assoc(b, p, x)),
+    Equal.trans(Nat, Nat.add(Nat.add(b, p), x), Nat.add(Nat.add(p, b), x), Nat.add(p, Nat.add(b, x)),
+      Equal.cong(Nat, Nat, y => Nat.add(y, x), Nat.add(b, p), Nat.add(p, b), add_comm(b, p)),
+      add_assoc(p, b, x)))
+
+law mul_succ:
+  for +n: Nat
+  for +h: Nat
+  {Nat.mul(n, 1n+h) == Nat.add(n, Nat.mul(n, h)) : Nat}
+
+def mul_succ(n, h):
+  match n:
+    case 0n:
+      {==}
+    case 1n+p:
+      Equal.cong(Nat, Nat, x => 1n+x, Nat.add(h, Nat.mul(p, 1n+h)), Nat.add(p, Nat.add(h, Nat.mul(p, h))),
+        Equal.trans(Nat, Nat.add(h, Nat.mul(p, 1n+h)), Nat.add(h, Nat.add(p, Nat.mul(p, h))), Nat.add(p, Nat.add(h, Nat.mul(p, h))),
+          Equal.cong(Nat, Nat, y => Nat.add(h, y), Nat.mul(p, 1n+h), Nat.add(p, Nat.mul(p, h)), mul_succ(p, h)),
+          add_swap(h, p, Nat.mul(p, h))))
+
+law le_zero:
+  for +m: Nat
+  {Nat.is_le(0n, m) == True{} : Bool}
+
+def le_zero(m):
+  match m:
+    case 0n:
+      {==}
+    case 1n+k:
+      {==}
+
+law le_add:
+  for +a: Nat
+  for +k: Nat
+  {Nat.is_le(a, Nat.add(a, k)) == True{} : Bool}
+
+def le_add(a, k):
+  match a:
+    case 0n:
+      le_zero(k)
+    case 1n+p:
+      le_add(p, k)
+
+law le_trans:
+  for +a: Nat
+  for +b: Nat
+  for +c: Nat
+  for +e1: {Nat.is_le(a, b) == True{} : Bool}
+  for +e2: {Nat.is_le(b, c) == True{} : Bool}
+  {Nat.is_le(a, c) == True{} : Bool}
+
+def le_trans(a, b, c, e1, e2):
+  match a b c:
+    case 0n _ _:
+      le_zero(c)
+    case 1n+x 0n _:
+      P.absurd({Nat.is_le(1n+x, c) == True{} : Bool}, e1)
+    case 1n+x 1n+y 0n:
+      P.absurd({Nat.is_le(1n+x, 0n) == True{} : Bool}, e2)
+    case 1n+x 1n+y 1n+z:
+      le_trans(x, y, z, e1, e2)
+
+# a digit more: the size so far is at most the new size
+law le_grow:
+  for +x: Nat
+  for +v: Nat
+  {Nat.is_le(x, Nat.add(Nat.mul(16n, x), v)) == True{} : Bool}
+
+def le_grow(x, v):
+  %Equal.sym(Nat, Nat.add(Nat.add(x, Nat.mul(15n, x)), v), Nat.add(x, Nat.add(Nat.mul(15n, x), v)), add_assoc(x, Nat.mul(15n, x), v)) : {Nat.is_le(x, _) == True{} : Bool}
+  le_add(x, Nat.add(Nat.mul(15n, x), v))
+
+# what a hex count counts
+law inc_hv:
+  for +h: H1.Hc
+  {Laws.hv(H1.hc.inc(h)) == 1n+Laws.hv(h) : Nat}
+
+def inc_hv(h):
+  match h:
+    case H1.HNil{}:
+      {==}
+    case H1.HCon{H1.X0{}, t}:
+      add_succ(Nat.mul(16n, Laws.hv(t)), 0n)
+    case H1.HCon{H1.X1{}, t}:
+      add_succ(Nat.mul(16n, Laws.hv(t)), 1n)
+    case H1.HCon{H1.X2{}, t}:
+      add_succ(Nat.mul(16n, Laws.hv(t)), 2n)
+    case H1.HCon{H1.X3{}, t}:
+      add_succ(Nat.mul(16n, Laws.hv(t)), 3n)
+    case H1.HCon{H1.X4{}, t}:
+      add_succ(Nat.mul(16n, Laws.hv(t)), 4n)
+    case H1.HCon{H1.X5{}, t}:
+      add_succ(Nat.mul(16n, Laws.hv(t)), 5n)
+    case H1.HCon{H1.X6{}, t}:
+      add_succ(Nat.mul(16n, Laws.hv(t)), 6n)
+    case H1.HCon{H1.X7{}, t}:
+      add_succ(Nat.mul(16n, Laws.hv(t)), 7n)
+    case H1.HCon{H1.X8{}, t}:
+      add_succ(Nat.mul(16n, Laws.hv(t)), 8n)
+    case H1.HCon{H1.X9{}, t}:
+      add_succ(Nat.mul(16n, Laws.hv(t)), 9n)
+    case H1.HCon{H1.XA{}, t}:
+      add_succ(Nat.mul(16n, Laws.hv(t)), 10n)
+    case H1.HCon{H1.XB{}, t}:
+      add_succ(Nat.mul(16n, Laws.hv(t)), 11n)
+    case H1.HCon{H1.XC{}, t}:
+      add_succ(Nat.mul(16n, Laws.hv(t)), 12n)
+    case H1.HCon{H1.XD{}, t}:
+      add_succ(Nat.mul(16n, Laws.hv(t)), 13n)
+    case H1.HCon{H1.XE{}, t}:
+      add_succ(Nat.mul(16n, Laws.hv(t)), 14n)
+    case H1.HCon{H1.XF{}, t}:
+      Equal.trans(Nat, Nat.add(Nat.mul(16n, Laws.hv(H1.hc.inc(t))), 0n), Nat.mul(16n, Laws.hv(H1.hc.inc(t))), 1n+Nat.add(Nat.mul(16n, Laws.hv(t)), 15n),
+        add_zero(Nat.mul(16n, Laws.hv(H1.hc.inc(t)))),
+        Equal.trans(Nat, Nat.mul(16n, Laws.hv(H1.hc.inc(t))), Nat.mul(16n, 1n+Laws.hv(t)), 1n+Nat.add(Nat.mul(16n, Laws.hv(t)), 15n),
+          Equal.cong(Nat, Nat, y => Nat.mul(16n, y), Laws.hv(H1.hc.inc(t)), 1n+Laws.hv(t), inc_hv(t)),
+          Equal.trans(Nat, Nat.mul(16n, 1n+Laws.hv(t)), Nat.add(16n, Nat.mul(16n, Laws.hv(t))), 1n+Nat.add(Nat.mul(16n, Laws.hv(t)), 15n),
+            mul_succ(16n, Laws.hv(t)),
+            Equal.cong(Nat, Nat, y => 1n+y, Nat.add(15n, Nat.mul(16n, Laws.hv(t))), Nat.add(Nat.mul(16n, Laws.hv(t)), 15n), add_comm(15n, Nat.mul(16n, Laws.hv(t)))))))
+
+law count_hv:
+  for +bs: B.Bytes
+  for +h: H1.Hc
+  {Laws.hv(H1.hc.count(bs, h)) == Nat.add(Laws.blen(bs), Laws.hv(h)) : Nat}
+
+def count_hv(bs, h):
+  match bs:
+    case B.BNil{}:
+      {==}
+    case B.BCon{_, t}:
+      Equal.trans(Nat, Laws.hv(H1.hc.count(t, H1.hc.inc(h))), Nat.add(Laws.blen(t), Laws.hv(H1.hc.inc(h))), 1n+Nat.add(Laws.blen(t), Laws.hv(h)),
+        count_hv(t, H1.hc.inc(h)),
+        Equal.trans(Nat, Nat.add(Laws.blen(t), Laws.hv(H1.hc.inc(h))), Nat.add(Laws.blen(t), 1n+Laws.hv(h)), 1n+Nat.add(Laws.blen(t), Laws.hv(h)),
+          Equal.cong(Nat, Nat, y => Nat.add(Laws.blen(t), y), Laws.hv(H1.hc.inc(h)), 1n+Laws.hv(h), inc_hv(h)),
+          add_succ(Laws.blen(t), Laws.hv(h))))
+
+law count_len:
+  for +bs: B.Bytes
+  {Laws.hv(H1.hc.count(bs, H1.HNil{})) == Laws.blen(bs) : Nat}
+
+def count_len(bs):
+  Equal.trans(Nat, Laws.hv(H1.hc.count(bs, H1.HNil{})), Nat.add(Laws.blen(bs), 0n), Laws.blen(bs), count_hv(bs, H1.HNil{}), add_zero(Laws.blen(bs)))
+
+# every size the decoder sees on the way to hv(h) is within max
+def hmax(h: H1.Hc, +max: Nat) -> Bool:
+  match h:
+    case H1.HNil{}:
+      True{}
+    case H1.HCon{+x, +t}:
+      Bool.and(hmax(t, max), Nat.is_le(Laws.hv(H1.HCon{x, t}), max))
+
+law hmax_of:
+  for +h: H1.Hc
+  for +max: Nat
+  for +e: {Nat.is_le(Laws.hv(h), max) == True{} : Bool}
+  {hmax(h, max) == True{} : Bool}
+
+def hmax_of(h, max, e):
+  match h:
+    case H1.HNil{}:
+      {==}
+    case H1.HCon{+x, t}:
+      %Equal.sym(Bool, Nat.is_le(Laws.hv(H1.HCon{x, t}), max), True{}, e) : {Bool.and(hmax(t, max), _) == True{} : Bool}
+      %Equal.sym(Bool, hmax(t, max), True{}, hmax_of(t, max, le_trans(Laws.hv(t), Laws.hv(H1.HCon{x, t}), max, le_grow(Laws.hv(t), Laws.dv(x)), e))) : {Bool.and(_, True{}) == True{} : Bool}
+      {==}
+
+# one size digit, within max
+law dstep:
+  for +x: H1.Hx
+  for +n: Nat
+  for +T: B.Bytes
+  for +acc: B.Bytes
+  for +tot: Nat
+  for +b: Nat
+  for +max: Nat
+  for +any: Bool
+  for +e: {Nat.is_le(Nat.add(Nat.mul(16n, n), Laws.dv(x)), max) == True{} : Bool}
+  {H1.chunks.go(B.BCon{H1.hx.byte(x), T}, H1.CS{H1.CSize{n, any}, acc, tot, 1n+b}, max) == H1.chunks.go(T, H1.CS{H1.CSize{Nat.add(Nat.mul(16n, n), Laws.dv(x)), True{}}, acc, tot, b}, max) : H1.Chunked}
+
+def dstep(x, n, T, acc, tot, b, max, any, e):
+  match x:
+    case H1.X0{}:
+      %Equal.sym(Bool, Nat.is_le(Nat.add(Nat.mul(16n, n), 0n), max), True{}, e) : {H1.chunks.go(T, H1.c.digit(Bool.not(_), Nat.add(Nat.mul(16n, n), 0n), acc, tot, b), max) == H1.chunks.go(T, H1.CS{H1.CSize{Nat.add(Nat.mul(16n, n), 0n), True{}}, acc, tot, b}, max) : H1.Chunked}
+      {==}
+    case H1.X1{}:
+      %Equal.sym(Bool, Nat.is_le(Nat.add(Nat.mul(16n, n), 1n), max), True{}, e) : {H1.chunks.go(T, H1.c.digit(Bool.not(_), Nat.add(Nat.mul(16n, n), 1n), acc, tot, b), max) == H1.chunks.go(T, H1.CS{H1.CSize{Nat.add(Nat.mul(16n, n), 1n), True{}}, acc, tot, b}, max) : H1.Chunked}
+      {==}
+    case H1.X2{}:
+      %Equal.sym(Bool, Nat.is_le(Nat.add(Nat.mul(16n, n), 2n), max), True{}, e) : {H1.chunks.go(T, H1.c.digit(Bool.not(_), Nat.add(Nat.mul(16n, n), 2n), acc, tot, b), max) == H1.chunks.go(T, H1.CS{H1.CSize{Nat.add(Nat.mul(16n, n), 2n), True{}}, acc, tot, b}, max) : H1.Chunked}
+      {==}
+    case H1.X3{}:
+      %Equal.sym(Bool, Nat.is_le(Nat.add(Nat.mul(16n, n), 3n), max), True{}, e) : {H1.chunks.go(T, H1.c.digit(Bool.not(_), Nat.add(Nat.mul(16n, n), 3n), acc, tot, b), max) == H1.chunks.go(T, H1.CS{H1.CSize{Nat.add(Nat.mul(16n, n), 3n), True{}}, acc, tot, b}, max) : H1.Chunked}
+      {==}
+    case H1.X4{}:
+      %Equal.sym(Bool, Nat.is_le(Nat.add(Nat.mul(16n, n), 4n), max), True{}, e) : {H1.chunks.go(T, H1.c.digit(Bool.not(_), Nat.add(Nat.mul(16n, n), 4n), acc, tot, b), max) == H1.chunks.go(T, H1.CS{H1.CSize{Nat.add(Nat.mul(16n, n), 4n), True{}}, acc, tot, b}, max) : H1.Chunked}
+      {==}
+    case H1.X5{}:
+      %Equal.sym(Bool, Nat.is_le(Nat.add(Nat.mul(16n, n), 5n), max), True{}, e) : {H1.chunks.go(T, H1.c.digit(Bool.not(_), Nat.add(Nat.mul(16n, n), 5n), acc, tot, b), max) == H1.chunks.go(T, H1.CS{H1.CSize{Nat.add(Nat.mul(16n, n), 5n), True{}}, acc, tot, b}, max) : H1.Chunked}
+      {==}
+    case H1.X6{}:
+      %Equal.sym(Bool, Nat.is_le(Nat.add(Nat.mul(16n, n), 6n), max), True{}, e) : {H1.chunks.go(T, H1.c.digit(Bool.not(_), Nat.add(Nat.mul(16n, n), 6n), acc, tot, b), max) == H1.chunks.go(T, H1.CS{H1.CSize{Nat.add(Nat.mul(16n, n), 6n), True{}}, acc, tot, b}, max) : H1.Chunked}
+      {==}
+    case H1.X7{}:
+      %Equal.sym(Bool, Nat.is_le(Nat.add(Nat.mul(16n, n), 7n), max), True{}, e) : {H1.chunks.go(T, H1.c.digit(Bool.not(_), Nat.add(Nat.mul(16n, n), 7n), acc, tot, b), max) == H1.chunks.go(T, H1.CS{H1.CSize{Nat.add(Nat.mul(16n, n), 7n), True{}}, acc, tot, b}, max) : H1.Chunked}
+      {==}
+    case H1.X8{}:
+      %Equal.sym(Bool, Nat.is_le(Nat.add(Nat.mul(16n, n), 8n), max), True{}, e) : {H1.chunks.go(T, H1.c.digit(Bool.not(_), Nat.add(Nat.mul(16n, n), 8n), acc, tot, b), max) == H1.chunks.go(T, H1.CS{H1.CSize{Nat.add(Nat.mul(16n, n), 8n), True{}}, acc, tot, b}, max) : H1.Chunked}
+      {==}
+    case H1.X9{}:
+      %Equal.sym(Bool, Nat.is_le(Nat.add(Nat.mul(16n, n), 9n), max), True{}, e) : {H1.chunks.go(T, H1.c.digit(Bool.not(_), Nat.add(Nat.mul(16n, n), 9n), acc, tot, b), max) == H1.chunks.go(T, H1.CS{H1.CSize{Nat.add(Nat.mul(16n, n), 9n), True{}}, acc, tot, b}, max) : H1.Chunked}
+      {==}
+    case H1.XA{}:
+      %Equal.sym(Bool, Nat.is_le(Nat.add(Nat.mul(16n, n), 10n), max), True{}, e) : {H1.chunks.go(T, H1.c.digit(Bool.not(_), Nat.add(Nat.mul(16n, n), 10n), acc, tot, b), max) == H1.chunks.go(T, H1.CS{H1.CSize{Nat.add(Nat.mul(16n, n), 10n), True{}}, acc, tot, b}, max) : H1.Chunked}
+      {==}
+    case H1.XB{}:
+      %Equal.sym(Bool, Nat.is_le(Nat.add(Nat.mul(16n, n), 11n), max), True{}, e) : {H1.chunks.go(T, H1.c.digit(Bool.not(_), Nat.add(Nat.mul(16n, n), 11n), acc, tot, b), max) == H1.chunks.go(T, H1.CS{H1.CSize{Nat.add(Nat.mul(16n, n), 11n), True{}}, acc, tot, b}, max) : H1.Chunked}
+      {==}
+    case H1.XC{}:
+      %Equal.sym(Bool, Nat.is_le(Nat.add(Nat.mul(16n, n), 12n), max), True{}, e) : {H1.chunks.go(T, H1.c.digit(Bool.not(_), Nat.add(Nat.mul(16n, n), 12n), acc, tot, b), max) == H1.chunks.go(T, H1.CS{H1.CSize{Nat.add(Nat.mul(16n, n), 12n), True{}}, acc, tot, b}, max) : H1.Chunked}
+      {==}
+    case H1.XD{}:
+      %Equal.sym(Bool, Nat.is_le(Nat.add(Nat.mul(16n, n), 13n), max), True{}, e) : {H1.chunks.go(T, H1.c.digit(Bool.not(_), Nat.add(Nat.mul(16n, n), 13n), acc, tot, b), max) == H1.chunks.go(T, H1.CS{H1.CSize{Nat.add(Nat.mul(16n, n), 13n), True{}}, acc, tot, b}, max) : H1.Chunked}
+      {==}
+    case H1.XE{}:
+      %Equal.sym(Bool, Nat.is_le(Nat.add(Nat.mul(16n, n), 14n), max), True{}, e) : {H1.chunks.go(T, H1.c.digit(Bool.not(_), Nat.add(Nat.mul(16n, n), 14n), acc, tot, b), max) == H1.chunks.go(T, H1.CS{H1.CSize{Nat.add(Nat.mul(16n, n), 14n), True{}}, acc, tot, b}, max) : H1.Chunked}
+      {==}
+    case H1.XF{}:
+      %Equal.sym(Bool, Nat.is_le(Nat.add(Nat.mul(16n, n), 15n), max), True{}, e) : {H1.chunks.go(T, H1.c.digit(Bool.not(_), Nat.add(Nat.mul(16n, n), 15n), acc, tot, b), max) == H1.chunks.go(T, H1.CS{H1.CSize{Nat.add(Nat.mul(16n, n), 15n), True{}}, acc, tot, b}, max) : H1.Chunked}
+      {==}
+
+def anyh(any: Bool, h: H1.Hc) -> Bool:
+  match h:
+    case H1.HNil{}:
+      any
+    case H1.HCon{_, _}:
+      True{}
+
+# all the size digits: the decoder arrives at the count they write
+law hex:
+  for +h: H1.Hc
+  for +Z: B.Bytes
+  for +acc: B.Bytes
+  for +tot: Nat
+  for +b: Nat
+  for +any: Bool
+  for +max: Nat
+  for +e: {hmax(h, max) == True{} : Bool}
+  {H1.chunks.go(H1.hc.bytes(h, Z), H1.CS{H1.CSize{0n, any}, acc, tot, Nat.add(Laws.hlen(h), b)}, max) == H1.chunks.go(Z, H1.CS{H1.CSize{Laws.hv(h), anyh(any, h)}, acc, tot, b}, max) : H1.Chunked}
+
+def hex(h, Z, acc, tot, b, any, max, e):
+  match h:
+    case H1.HNil{}:
+      {==}
+    case H1.HCon{+x, t}:
+      %add_succ(Laws.hlen(t), b) : {H1.chunks.go(H1.hc.bytes(t, B.BCon{H1.hx.byte(x), Z}), H1.CS{H1.CSize{0n, any}, acc, tot, _}, max) == H1.chunks.go(Z, H1.CS{H1.CSize{Laws.hv(H1.HCon{x, t}), True{}}, acc, tot, b}, max) : H1.Chunked}
+      Equal.trans(H1.Chunked, H1.chunks.go(H1.hc.bytes(t, B.BCon{H1.hx.byte(x), Z}), H1.CS{H1.CSize{0n, any}, acc, tot, Nat.add(Laws.hlen(t), 1n+b)}, max), H1.chunks.go(B.BCon{H1.hx.byte(x), Z}, H1.CS{H1.CSize{Laws.hv(t), anyh(any, t)}, acc, tot, 1n+b}, max), H1.chunks.go(Z, H1.CS{H1.CSize{Laws.hv(H1.HCon{x, t}), True{}}, acc, tot, b}, max),
+        hex(t, B.BCon{H1.hx.byte(x), Z}, acc, tot, 1n+b, any, max, P.and_true_l(hmax(t, max), Nat.is_le(Laws.hv(H1.HCon{x, t}), max), e)),
+        dstep(x, Laws.hv(t), Z, acc, tot, b, max, anyh(any, t), P.and_true_r(hmax(t, max), Nat.is_le(Laws.hv(H1.HCon{x, t}), max), e)))
+
+# a chunk's data bytes go to the body, one at a time
+law data:
+  for +t: B.Bytes
+  for +x: U32
+  for +T: B.Bytes
+  for +acc: B.Bytes
+  for +tot: Nat
+  for +bud: Nat
+  for +max: Nat
+  {H1.chunks.go(B.BCon{x, B.cat(t, T)}, H1.CS{H1.CData{1n+Laws.blen(t)}, acc, tot, bud}, max) == H1.chunks.go(T, H1.CS{H1.CDataCR{}, B.rev.go(B.BCon{x, t}, acc), tot, bud}, max) : H1.Chunked}
+
+def data(t, x, T, acc, tot, bud, max):
+  match t:
+    case B.BNil{}:
+      {==}
+    case B.BCon{+y, u}:
+      data(u, y, T, B.BCon{x, acc}, tot, bud, max)
+
+law cat_hc:
+  for +h: H1.Hc
+  for +Y: B.Bytes
+  for +T: B.Bytes
+  {B.cat(H1.hc.bytes(h, Y), T) == H1.hc.bytes(h, B.cat(Y, T)) : B.Bytes}
+
+def cat_hc(h, Y, T):
+  match h:
+    case H1.HNil{}:
+      {==}
+    case H1.HCon{+x, t}:
+      cat_hc(t, B.BCon{H1.hx.byte(x), Y}, T)
+
+law cat_assoc:
+  for +a: B.Bytes
+  for +b: B.Bytes
+  for +c: B.Bytes
+  {B.cat(B.cat(a, b), c) == B.cat(a, B.cat(b, c)) : B.Bytes}
+
+def cat_assoc(a, b, c):
+  match a:
+    case B.BNil{}:
+      {==}
+    case B.BCon{+x, t}:
+      Equal.cong(B.Bytes, B.Bytes, y => B.BCon{x, y}, B.cat(B.cat(t, b), c), B.cat(t, B.cat(b, c)), cat_assoc(t, b, c))
+
+law cat_nil:
+  for +a: B.Bytes
+  {B.cat(a, B.BNil{}) == a : B.Bytes}
+
+def cat_nil(a):
+  match a:
+    case B.BNil{}:
+      {==}
+    case B.BCon{+x, t}:
+      Equal.cong(B.Bytes, B.Bytes, y => B.BCon{x, y}, B.cat(t, B.BNil{}), t, cat_nil(t))
+
+law rev_cat:
+  for +a: B.Bytes
+  for +b: B.Bytes
+  for +acc: B.Bytes
+  {B.rev.go(B.cat(a, b), acc) == B.rev.go(b, B.rev.go(a, acc)) : B.Bytes}
+
+def rev_cat(a, b, acc):
+  match a:
+    case B.BNil{}:
+      {==}
+    case B.BCon{+x, t}:
+      rev_cat(t, b, B.BCon{x, acc})
+
+law rev_rev:
+  for +a: B.Bytes
+  for +b: B.Bytes
+  for +c: B.Bytes
+  {B.rev.go(B.rev.go(a, b), c) == B.rev.go(b, B.cat(a, c)) : B.Bytes}
+
+def rev_rev(a, b, c):
+  match a:
+    case B.BNil{}:
+      {==}
+    case B.BCon{+x, t}:
+      rev_rev(t, B.BCon{x, b}, c)
+
+# the body so far, reversed, after each piece
+def racc(ps: List<&2, B.Bytes>, acc: B.Bytes) -> B.Bytes:
+  match ps:
+    case Nil{}:
+      acc
+    case Con{p, t}:
+      racc(t, B.rev.go(p, acc))
+
+law racc_joined:
+  for +ps: List<&2, B.Bytes>
+  for +acc: B.Bytes
+  {racc(ps, acc) == B.rev.go(Laws.joined(ps), acc) : B.Bytes}
+
+def racc_joined(ps, acc):
+  match ps:
+    case Nil{}:
+      {==}
+    case Con{+p, t}:
+      Equal.trans(B.Bytes, racc(t, B.rev.go(p, acc)), B.rev.go(Laws.joined(t), B.rev.go(p, acc)), B.rev.go(B.cat(p, Laws.joined(t)), acc),
+        racc_joined(t, B.rev.go(p, acc)),
+        Equal.sym(B.Bytes, B.rev.go(B.cat(p, Laws.joined(t)), acc), B.rev.go(Laws.joined(t), B.rev.go(p, acc)), rev_cat(p, Laws.joined(t), acc)))
+
+# the bytes of a chunk, as the decoder reads them
+law chunk_bytes:
+  for +x: U32
+  for +u: B.Bytes
+  for +T: B.Bytes
+  {B.cat(H1.chunk(B.BCon{x, u}), T) == H1.hc.bytes(H1.hc.count(B.BCon{x, u}, H1.HNil{}), B.BCon{13, B.BCon{10, B.BCon{x, B.cat(u, B.BCon{13, B.BCon{10, T}})}}}) : B.Bytes}
+
+def chunk_bytes(x, u, T):
+  Equal.trans(B.Bytes, B.cat(H1.chunk(B.BCon{x, u}), T), H1.hc.bytes(H1.hc.count(B.BCon{x, u}, H1.HNil{}), B.cat(B.BCon{13, B.BCon{10, B.cat(B.BCon{x, u}, B.BCon{13, B.BCon{10, B.BNil{}}})}}, T)), H1.hc.bytes(H1.hc.count(B.BCon{x, u}, H1.HNil{}), B.BCon{13, B.BCon{10, B.BCon{x, B.cat(u, B.BCon{13, B.BCon{10, T}})}}}),
+    cat_hc(H1.hc.count(B.BCon{x, u}, H1.HNil{}), B.BCon{13, B.BCon{10, B.cat(B.BCon{x, u}, B.BCon{13, B.BCon{10, B.BNil{}}})}}, T),
+    Equal.cong(B.Bytes, B.Bytes, y => H1.hc.bytes(H1.hc.count(B.BCon{x, u}, H1.HNil{}), B.BCon{13, B.BCon{10, B.BCon{x, y}}}), B.cat(B.cat(u, B.BCon{13, B.BCon{10, B.BNil{}}}), T), B.cat(u, B.BCon{13, B.BCon{10, T}}), cat_assoc(u, B.BCon{13, B.BCon{10, B.BNil{}}}, T)))
+
+# after the size line: the size is the piece's length, within max
+law sized:
+  for +x: U32
+  for +u: B.Bytes
+  for +T: B.Bytes
+  for +acc: B.Bytes
+  for +tot: Nat
+  for +b: Nat
+  for +max: Nat
+  for +e: {Nat.is_le(Nat.add(tot, 1n+Laws.blen(u)), max) == True{} : Bool}
+  {H1.chunks.go(B.BCon{13, B.BCon{10, B.BCon{x, B.cat(u, T)}}}, H1.CS{H1.CSize{1n+Laws.blen(u), True{}}, acc, tot, 1n+1n+b}, max) == H1.chunks.go(B.BCon{x, B.cat(u, T)}, H1.CS{H1.CData{1n+Laws.blen(u)}, acc, Nat.add(tot, 1n+Laws.blen(u)), b}, max) : H1.Chunked}
+
+def sized(x, u, T, acc, tot, b, max, e):
+  %Equal.sym(Bool, Nat.is_le(Nat.add(tot, 1n+Laws.blen(u)), max), True{}, e) : {H1.chunks.go(B.BCon{x, B.cat(u, T)}, H1.c.start(False{}, _, 1n+Laws.blen(u), acc, tot, b), max) == H1.chunks.go(B.BCon{x, B.cat(u, T)}, H1.CS{H1.CData{1n+Laws.blen(u)}, acc, Nat.add(tot, 1n+Laws.blen(u)), b}, max) : H1.Chunked}
+  {==}
+
+# b <= a + b
+law le_add.r:
+  for +a: Nat
+  for +b: Nat
+  {Nat.is_le(b, Nat.add(a, b)) == True{} : Bool}
+
+def le_add.r(a, b):
+  %add_comm(b, a) : {Nat.is_le(b, _) == True{} : Bool}
+  le_add(b, a)
+
+# a count of one byte or more has a digit, whatever it started at
+law inc_any:
+  for +h: H1.Hc
+  for +any: Bool
+  {anyh(any, H1.hc.inc(h)) == True{} : Bool}
+
+def inc_any(h, any):
+  match h:
+    case H1.HNil{}:
+      {==}
+    case H1.HCon{H1.X0{}, t}:
+      {==}
+    case H1.HCon{H1.X1{}, t}:
+      {==}
+    case H1.HCon{H1.X2{}, t}:
+      {==}
+    case H1.HCon{H1.X3{}, t}:
+      {==}
+    case H1.HCon{H1.X4{}, t}:
+      {==}
+    case H1.HCon{H1.X5{}, t}:
+      {==}
+    case H1.HCon{H1.X6{}, t}:
+      {==}
+    case H1.HCon{H1.X7{}, t}:
+      {==}
+    case H1.HCon{H1.X8{}, t}:
+      {==}
+    case H1.HCon{H1.X9{}, t}:
+      {==}
+    case H1.HCon{H1.XA{}, t}:
+      {==}
+    case H1.HCon{H1.XB{}, t}:
+      {==}
+    case H1.HCon{H1.XC{}, t}:
+      {==}
+    case H1.HCon{H1.XD{}, t}:
+      {==}
+    case H1.HCon{H1.XE{}, t}:
+      {==}
+    case H1.HCon{H1.XF{}, t}:
+      {==}
+
+law cnt_any:
+  for +bs: B.Bytes
+  for +h: H1.Hc
+  for +any: Bool
+  for +e: {anyh(any, h) == True{} : Bool}
+  {anyh(any, H1.hc.count(bs, h)) == True{} : Bool}
+
+def cnt_any(bs, h, any, e):
+  match bs:
+    case B.BNil{}:
+      e
+    case B.BCon{_, t}:
+      cnt_any(t, H1.hc.inc(h), any, inc_any(h, any))
+
+# after the size digits: the size is the piece's length, and its data
+# and CR LF follow
+law one.rest:
+  for +x: U32
+  for +u: B.Bytes
+  for +T: B.Bytes
+  for +acc: B.Bytes
+  for +tot: Nat
+  for +b: Nat
+  for +max: Nat
+  for +e: {Nat.is_le(Nat.add(tot, Laws.blen(B.BCon{x, u})), max) == True{} : Bool}
+  {H1.chunks.go(B.BCon{13, B.BCon{10, B.BCon{x, B.cat(u, B.BCon{13, B.BCon{10, T}})}}}, H1.CS{H1.CSize{Laws.hv(H1.hc.count(B.BCon{x, u}, H1.HNil{})), anyh(False{}, H1.hc.count(B.BCon{x, u}, H1.HNil{}))}, acc, tot, Nat.add(4n, b)}, max) == H1.chunks.go(T, H1.CS{H1.CSize{0n, False{}}, B.rev.go(B.BCon{x, u}, acc), Nat.add(tot, Laws.blen(B.BCon{x, u})), b}, max) : H1.Chunked}
+
+def one.rest(x, u, T, acc, tot, b, max, e):
+  %Equal.sym(Bool, anyh(False{}, H1.hc.count(B.BCon{x, u}, H1.HNil{})), True{}, cnt_any(u, H1.HCon{H1.X1{}, H1.HNil{}}, False{}, {==})) : {H1.chunks.go(B.BCon{13, B.BCon{10, B.BCon{x, B.cat(u, B.BCon{13, B.BCon{10, T}})}}}, H1.CS{H1.CSize{Laws.hv(H1.hc.count(B.BCon{x, u}, H1.HNil{})), _}, acc, tot, Nat.add(4n, b)}, max) == H1.chunks.go(T, H1.CS{H1.CSize{0n, False{}}, B.rev.go(B.BCon{x, u}, acc), Nat.add(tot, Laws.blen(B.BCon{x, u})), b}, max) : H1.Chunked}
+  %Equal.sym(Nat, Laws.hv(H1.hc.count(B.BCon{x, u}, H1.HNil{})), Laws.blen(B.BCon{x, u}), count_len(B.BCon{x, u})) : {H1.chunks.go(B.BCon{13, B.BCon{10, B.BCon{x, B.cat(u, B.BCon{13, B.BCon{10, T}})}}}, H1.CS{H1.CSize{_, True{}}, acc, tot, Nat.add(4n, b)}, max) == H1.chunks.go(T, H1.CS{H1.CSize{0n, False{}}, B.rev.go(B.BCon{x, u}, acc), Nat.add(tot, Laws.blen(B.BCon{x, u})), b}, max) : H1.Chunked}
+  Equal.trans(H1.Chunked, H1.chunks.go(B.BCon{13, B.BCon{10, B.BCon{x, B.cat(u, B.BCon{13, B.BCon{10, T}})}}}, H1.CS{H1.CSize{1n+Laws.blen(u), True{}}, acc, tot, 1n+1n+1n+1n+b}, max),
+    H1.chunks.go(B.BCon{x, B.cat(u, B.BCon{13, B.BCon{10, T}})}, H1.CS{H1.CData{1n+Laws.blen(u)}, acc, Nat.add(tot, 1n+Laws.blen(u)), 1n+1n+b}, max),
+    H1.chunks.go(T, H1.CS{H1.CSize{0n, False{}}, B.rev.go(B.BCon{x, u}, acc), Nat.add(tot, Laws.blen(B.BCon{x, u})), b}, max),
+    sized(x, u, B.BCon{13, B.BCon{10, T}}, acc, tot, 1n+1n+b, max, e),
+    data(u, x, B.BCon{13, B.BCon{10, T}}, acc, Nat.add(tot, 1n+Laws.blen(u)), 1n+1n+b, max))
+
+# one piece, as a chunk: its bytes join the body, and the decoder is back
+# at a chunk's start
+law one:
+  for +x: U32
+  for +u: B.Bytes
+  for +T: B.Bytes
+  for +acc: B.Bytes
+  for +tot: Nat
+  for +b: Nat
+  for +max: Nat
+  for +e: {Nat.is_le(Nat.add(tot, Laws.blen(B.BCon{x, u})), max) == True{} : Bool}
+  {H1.chunks.go(B.cat(H1.chunk(B.BCon{x, u}), T), H1.CS{H1.CSize{0n, False{}}, acc, tot, Laws.piece(B.BCon{x, u}, b)}, max) == H1.chunks.go(T, H1.CS{H1.CSize{0n, False{}}, B.rev.go(B.BCon{x, u}, acc), Nat.add(tot, Laws.blen(B.BCon{x, u})), b}, max) : H1.Chunked}
+
+def one(x, u, T, acc, tot, b, max, e):
+  %Equal.sym(B.Bytes, B.cat(H1.chunk(B.BCon{x, u}), T), H1.hc.bytes(H1.hc.count(B.BCon{x, u}, H1.HNil{}), B.BCon{13, B.BCon{10, B.BCon{x, B.cat(u, B.BCon{13, B.BCon{10, T}})}}}), chunk_bytes(x, u, T)) : {H1.chunks.go(_, H1.CS{H1.CSize{0n, False{}}, acc, tot, Laws.piece(B.BCon{x, u}, b)}, max) == H1.chunks.go(T, H1.CS{H1.CSize{0n, False{}}, B.rev.go(B.BCon{x, u}, acc), Nat.add(tot, Laws.blen(B.BCon{x, u})), b}, max) : H1.Chunked}
+  Equal.trans(H1.Chunked, H1.chunks.go(H1.hc.bytes(H1.hc.count(B.BCon{x, u}, H1.HNil{}), B.BCon{13, B.BCon{10, B.BCon{x, B.cat(u, B.BCon{13, B.BCon{10, T}})}}}), H1.CS{H1.CSize{0n, False{}}, acc, tot, Nat.add(Laws.hlen(H1.hc.count(B.BCon{x, u}, H1.HNil{})), Nat.add(4n, b))}, max),
+    H1.chunks.go(B.BCon{13, B.BCon{10, B.BCon{x, B.cat(u, B.BCon{13, B.BCon{10, T}})}}}, H1.CS{H1.CSize{Laws.hv(H1.hc.count(B.BCon{x, u}, H1.HNil{})), anyh(False{}, H1.hc.count(B.BCon{x, u}, H1.HNil{}))}, acc, tot, Nat.add(4n, b)}, max),
+    H1.chunks.go(T, H1.CS{H1.CSize{0n, False{}}, B.rev.go(B.BCon{x, u}, acc), Nat.add(tot, Laws.blen(B.BCon{x, u})), b}, max),
+    hex(H1.hc.count(B.BCon{x, u}, H1.HNil{}), B.BCon{13, B.BCon{10, B.BCon{x, B.cat(u, B.BCon{13, B.BCon{10, T}})}}}, acc, tot, Nat.add(4n, b), False{}, max,
+      hmax_of(H1.hc.count(B.BCon{x, u}, H1.HNil{}), max,
+        %Equal.sym(Nat, Laws.hv(H1.hc.count(B.BCon{x, u}, H1.HNil{})), Laws.blen(B.BCon{x, u}), count_len(B.BCon{x, u})) : {Nat.is_le(_, max) == True{} : Bool}
+        le_trans(Laws.blen(B.BCon{x, u}), Nat.add(tot, Laws.blen(B.BCon{x, u})), max, le_add.r(tot, Laws.blen(B.BCon{x, u})), e))),
+    one.rest(x, u, T, acc, tot, b, max, e))
+
+# the last chunk and the empty trailer end the body
+law last:
+  for +rest: B.Bytes
+  for +acc: B.Bytes
+  for +tot: Nat
+  for +extra: Nat
+  for +max: Nat
+  {H1.chunks.go(B.cat(H1.last_chunk(), rest), H1.CS{H1.CSize{0n, False{}}, acc, tot, Nat.add(5n, extra)}, max) == H1.CDone{B.rev(acc), rest} : H1.Chunked}
+
+def last(rest, acc, tot, extra, max):
+  match rest:
+    case B.BNil{}:
+      %Equal.sym(Bool, Nat.is_le(0n, max), True{}, le_zero(max)) : {H1.chunks.go(B.BCon{13, B.BCon{10, B.BCon{13, B.BCon{10, B.BNil{}}}}}, H1.c.digit(Bool.not(_), 0n, acc, tot, 1n+1n+1n+1n+extra), max) == H1.CDone{B.rev(acc), B.BNil{}} : H1.Chunked}
+      {==}
+    case B.BCon{+y, r}:
+      %Equal.sym(Bool, Nat.is_le(0n, max), True{}, le_zero(max)) : {H1.chunks.go(B.BCon{13, B.BCon{10, B.BCon{13, B.BCon{10, B.BCon{y, r}}}}}, H1.c.digit(Bool.not(_), 0n, acc, tot, 1n+1n+1n+1n+extra), max) == H1.CDone{B.rev(acc), B.BCon{y, r}} : H1.Chunked}
+      {==}
+
+law pieces:
+  for +ps: List<&2, B.Bytes>
+  for +rest: B.Bytes
+  for +acc: B.Bytes
+  for +tot: Nat
+  for +extra: Nat
+  for +max: Nat
+  for +e: {Nat.is_le(Nat.add(tot, Laws.total(ps)), max) == True{} : Bool}
+  {H1.chunks.go(Laws.stream(ps, rest), H1.CS{H1.CSize{0n, False{}}, acc, tot, Laws.frames(ps, extra)}, max) == H1.CDone{B.rev(racc(ps, acc)), rest} : H1.Chunked}
+
+def pieces(ps, rest, acc, tot, extra, max, e):
+  match ps:
+    case Nil{}:
+      last(rest, acc, tot, extra, max)
+    case Con{B.BNil{}, t}:
+      pieces(t, rest, acc, tot, extra, max, e)
+    case Con{B.BCon{+x, +u}, t}:
+      Equal.trans(H1.Chunked, H1.chunks.go(Laws.stream(Con{B.BCon{x, u}, t}, rest), H1.CS{H1.CSize{0n, False{}}, acc, tot, Laws.frames(Con{B.BCon{x, u}, t}, extra)}, max),
+        H1.chunks.go(Laws.stream(t, rest), H1.CS{H1.CSize{0n, False{}}, B.rev.go(B.BCon{x, u}, acc), Nat.add(tot, Laws.blen(B.BCon{x, u})), Laws.frames(t, extra)}, max),
+        H1.CDone{B.rev(racc(Con{B.BCon{x, u}, t}, acc)), rest},
+        one(x, u, Laws.stream(t, rest), acc, tot, Laws.frames(t, extra), max,
+          le_trans(Nat.add(tot, Laws.blen(B.BCon{x, u})), Nat.add(Nat.add(tot, Laws.blen(B.BCon{x, u})), Laws.total(t)), max, le_add(Nat.add(tot, Laws.blen(B.BCon{x, u})), Laws.total(t)),
+            %Equal.sym(Nat, Nat.add(Nat.add(tot, Laws.blen(B.BCon{x, u})), Laws.total(t)), Nat.add(tot, Nat.add(Laws.blen(B.BCon{x, u}), Laws.total(t))), add_assoc(tot, Laws.blen(B.BCon{x, u}), Laws.total(t))) : {Nat.is_le(_, max) == True{} : Bool}
+            e)),
+        pieces(t, rest, B.rev.go(B.BCon{x, u}, acc), Nat.add(tot, Laws.blen(B.BCon{x, u})), extra, max,
+          %Equal.sym(Nat, Nat.add(Nat.add(tot, Laws.blen(B.BCon{x, u})), Laws.total(t)), Nat.add(tot, Nat.add(Laws.blen(B.BCon{x, u}), Laws.total(t))), add_assoc(tot, Laws.blen(B.BCon{x, u}), Laws.total(t))) : {Nat.is_le(_, max) == True{} : Bool}
+          e))
+
+def Laws.chunked_reads_back(ps, rest, max, extra, e):
+  Equal.trans(H1.Chunked, H1.chunks.go(Laws.stream(ps, rest), H1.CS{H1.CSize{0n, False{}}, B.BNil{}, 0n, Laws.frames(ps, extra)}, max), H1.CDone{B.rev(racc(ps, B.BNil{})), rest}, H1.CDone{Laws.joined(ps), rest},
+    pieces(ps, rest, B.BNil{}, 0n, extra, max, e),
+    Equal.cong(B.Bytes, H1.Chunked, y => H1.CDone{y, rest}, B.rev(racc(ps, B.BNil{})), Laws.joined(ps),
+      Equal.trans(B.Bytes, B.rev.go(racc(ps, B.BNil{}), B.BNil{}), B.rev.go(B.rev.go(Laws.joined(ps), B.BNil{}), B.BNil{}), Laws.joined(ps),
+        Equal.cong(B.Bytes, B.Bytes, y => B.rev.go(y, B.BNil{}), racc(ps, B.BNil{}), B.rev.go(Laws.joined(ps), B.BNil{}), racc_joined(ps, B.BNil{})),
+        Equal.trans(B.Bytes, B.rev.go(B.rev.go(Laws.joined(ps), B.BNil{}), B.BNil{}), B.cat(Laws.joined(ps), B.BNil{}), Laws.joined(ps),
+          rev_rev(Laws.joined(ps), B.BNil{}, B.BNil{}), cat_nil(Laws.joined(ps))))))
