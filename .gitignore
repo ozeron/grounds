@@ -13,3 +13,5 @@
 # moon
 .moon/cache
 .moon/docker
+!/wire/effs/*.c
+!/wire/effs/*.js
