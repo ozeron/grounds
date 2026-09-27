@@ -1,0 +1,12 @@
+# grounds-redis: a Redis client (RESP2)
+language: "bend"
+dependsOn:
+  - "utf8"
+  - "wire"
+
+tasks:
+  check:
+    command: "./check.sh"
+    inputs:
+      - "*.bend"
+      - "examples/*.bend"

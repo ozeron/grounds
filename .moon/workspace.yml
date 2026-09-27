@@ -7,6 +7,7 @@ projects:
   http_wire: "http/wire"
   io: "io"
   json: "json"
+  redis: "redis"
   utf8: "utf8"
   wire: "wire"
 
