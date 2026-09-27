@@ -2,11 +2,15 @@
 
 # grounds
 
-A monorepo of [Bend 2](https://github.com/bendlang/bend) packages, built with [moon](https://moonrepo.dev).
+Proven building blocks for [Bend 2](https://github.com/bendlang/bend): JSON, UTF-8, TCP and an HTTP/1.1 stack, from bytes to a JSON API. A monorepo built with [moon](https://moonrepo.dev).
+
+- **Proven, not just tested.** Each package's `LAWS.bend` states what it guarantees and `PROOF.bend` proves it: JSON round-trips, and HTTP refuses smuggled requests and never writes a split response.
+- **Cold.** Every example stays free of reference counting, checked on the compiled C.
+- **Small to use.** A hello server is 13 lines (`http/server/examples/hello.bend`); a JSON API is one `match` on routes (`http/json/examples/todo.bend`).
 
 | Package | Does |
 |---|---|
-| [`json`](json/) | JSON parser and printer, proven to round-trip; to be published as `grounds-json` |
+| [`json`](json/) | JSON parser and printer, proven to round-trip; path reads and decoders |
 | [`utf8`](utf8/) | strict UTF-8 decoding of raw bytes |
 | [`io`](io/) | whole-file reads, as text or raw bytes |
 | [`wire`](wire/) | TCP on bytes: byte-exact send and receive |
@@ -18,7 +22,7 @@ A monorepo of [Bend 2](https://github.com/bendlang/bend) packages, built with [m
 
 ## Use from BendHub
 
-Version 0.1.0 of every package is one bundle, `0x64e1b9e0466cf913fa57e70aeb11c176`. Import each module from it by its path in this repo:
+Version 0.1.0 of every package is one bundle, `0x64e1b9e0466cf913fa57e70aeb11c176`. Import each module from it by its path at that version (tag `grounds/v0.1.0`; the http packages sat at the top level then):
 
 ```python
 import 0x64e1b9e0466cf913fa57e70aeb11c176/json/json.bend as J
