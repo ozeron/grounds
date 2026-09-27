@@ -1,0 +1,32 @@
+pool 1: 200 conn 1 req 1
+pool 2: 200 conn 1 req 2
+pool 3: 200 conn 1 req 3
+idle before: 200 conn 2 req 1
+idle after 300 ms: 200 conn 3 req 1
+stale first: 200 GET on conn 1
+stale GET retried: 200 GET on conn 2
+stale POST not retried: error: closed before the response was whole
+pool of 2 under 8 tasks: 40 of 40 answered 200
+retry GET on 503: 200 GET after 3 tries
+no retry for POST: 503 busy
+retries run out: 503 busy
+off by default: 503 busy
+301: 200 GET /done body= auth=secret
+302 POST: 200 GET /done body= auth=-
+303 POST: 200 GET /done body= auth=-
+307 POST: 200 POST /done body=hi auth=-
+308 PUT: 200 PUT /done body=hi auth=-
+to another url: 200 GET /done body= auth=-
+redirect loop: error: too many redirects
+not followed with 0: 301 moved
+never from http to https: 302 to tls
+get_json: cup
+get_json, not JSON: error: invalid JSON: 1:2: unexpected "o"
+get_json, 404: error: status 404: {"error": "no such item"}
+post_json: {"n":3,"item":"cup"}
+download 10 MiB, past max_body: 200, 10485760 bytes streamed
+download, stopped at once: 200, 0 bytes streamed
+https: 200 tls conn 1 req 1
+pool 1: 200 tls conn 2 req 1
+pool 2: 200 tls conn 2 req 2
+pool 3: 200 tls conn 2 req 3

@@ -9,8 +9,9 @@ spid=
 trap '[ -n "$fpid" ] && kill "$fpid" 2>/dev/null; [ -n "$spid" ] && kill "$spid" 2>/dev/null; rm -rf "$tmp"' EXIT
 bend test.bend
 bend tests/live.bend -o "$tmp/live" > /dev/null
+bend tests/more.bend -o "$tmp/more" > /dev/null
 bend ../server/examples/stream.bend -o "$tmp/stream" > /dev/null
-python3 tests/fake.py > "$tmp/fake.out" &
+python3 tests/fake.py "$tmp" > "$tmp/fake.out" &
 fpid=$!
 PORT=8086 "$tmp/stream" 2> /dev/null &
 spid=$!
@@ -23,4 +24,9 @@ done
 "$tmp/live" | tr -d '\r' | sed -E 's/errno [0-9]+/errno N/' > "$tmp/got"
 diff "$tmp/got" tests/live.out || { echo "live: differs from tests/live.out"; exit 1; }
 echo "live: every case as tests/live.out"
-python3 ../../json/scripts/cold.py "$PWD/tests/live.bend"
+GROUNDS_TLS_CA="$tmp/cert.pem" "$tmp/more" | tr -d '\r' > "$tmp/more.got"
+diff "$tmp/more.got" tests/more.out || { echo "more: differs from tests/more.out"; exit 1; }
+echo "more: the pool, retries, redirects, JSON, downloads and TLS, as tests/more.out"
+# one-shot requests stay uncounted; a pool shares its connections
+# through a channel, which counts what it carries
+python3 ../../json/scripts/cold.py "$PWD/tests/live.bend" "$PWD/examples/get.bend" "$PWD/examples/json.bend" "$PWD/examples/download.bend"

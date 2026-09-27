@@ -52,7 +52,6 @@ def main() -> IO(Unit):
     j : Unit <- one("split head", False{}, C.get("http://127.0.0.1:7310/"))
     k : Unit <- one("refused", False{}, C.get("http://127.0.0.1:7399/"))
     l : Unit <- one("no host", False{}, C.get("http://no-such-host.invalid/"))
-    n : Unit <- one("https", False{}, C.get("https://example.com/"))
     o : Unit <- one("server stream", True{}, C.get("http://127.0.0.1:8086/big?n=64"))
     p : Unit <- one("server sse", False{}, C.get("http://localhost:8086/events"))
     q : Unit <- one("server head", True{}, C.request(C.default(), M.MHead{}, "http://127.0.0.1:8086/healthz", [], []))

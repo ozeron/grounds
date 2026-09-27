@@ -224,11 +224,51 @@ def rr_too_large() -> {rr("HTTP/1.1 200 OK\r\nContent-Length: 17\r\n\r\n", False
 def rr_two_lengths() -> {rr("HTTP/1.1 200 OK\r\nContent-Length: 1\r\nContent-Length: 2\r\n\r\nab", False{}) == H1.RBad{H1.BadLength{}} : H1.RParsed}:
   {==}
 
-def wr_get() -> {H1.write_request("GET", "/a?b", "x:81", [H.Header{"accept", "*/*"}, H.Header{"Content-Length", "9"}], b(""), False{}) == b("GET /a?b HTTP/1.1\r\nhost: x:81\r\naccept: */*\r\nconnection: close\r\n\r\n") : B.Bytes}:
+def wr_get() -> {H1.write_request("GET", "/a?b", "x:81", [H.Header{"accept", "*/*"}, H.Header{"Content-Length", "9"}], b(""), False{}, True{}) == b("GET /a?b HTTP/1.1\r\nhost: x:81\r\naccept: */*\r\nconnection: close\r\n\r\n") : B.Bytes}:
   {==}
 
-def wr_post() -> {H1.write_request("POST", "/", "x", [], b("hi"), True{}) == b("POST / HTTP/1.1\r\nhost: x\r\ncontent-length: 2\r\nconnection: close\r\n\r\nhi") : B.Bytes}:
+def wr_post() -> {H1.write_request("POST", "/", "x", [], b("hi"), True{}, True{}) == b("POST / HTTP/1.1\r\nhost: x\r\ncontent-length: 2\r\nconnection: close\r\n\r\nhi") : B.Bytes}:
   {==}
 
-def wr_post_empty() -> {H1.write_request("POST", "/", "x", [], b(""), True{}) == b("POST / HTTP/1.1\r\nhost: x\r\ncontent-length: 0\r\nconnection: close\r\n\r\n") : B.Bytes}:
+def wr_post_empty() -> {H1.write_request("POST", "/", "x", [], b(""), True{}, True{}) == b("POST / HTTP/1.1\r\nhost: x\r\ncontent-length: 0\r\nconnection: close\r\n\r\n") : B.Bytes}:
+  {==}
+
+def wr_keep() -> {H1.write_request("GET", "/", "x", [], b(""), False{}, False{}) == b("GET / HTTP/1.1\r\nhost: x\r\n\r\n") : B.Bytes}:
+  {==}
+
+# response heads, for a client that reads the body itself
+
+def rh(s: String) -> H1.Head:
+  H1.read_head(b(s), 200, 16n, False{})
+
+def rh_len() -> {rh("HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nhi") == H1.Head{200, [H.Header{"Content-Length", "2"}], H1.FLen{2n}, True{}, b("hi")} : H1.Head}:
+  {==}
+
+def rh_close() -> {rh("HTTP/1.1 200 OK\r\nConnection: close\r\nContent-Length: 0\r\n\r\n") == H1.Head{200, [H.Header{"Connection", "close"}, H.Header{"Content-Length", "0"}], H1.FLen{0n}, False{}, b("")} : H1.Head}:
+  {==}
+
+def rh_http10() -> {rh("HTTP/1.0 200 OK\r\nContent-Length: 0\r\n\r\n") == H1.Head{200, [H.Header{"Content-Length", "0"}], H1.FLen{0n}, False{}, b("")} : H1.Head}:
+  {==}
+
+def rh_chunked() -> {rh("HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n1\r\n") == H1.Head{200, [H.Header{"Transfer-Encoding", "chunked"}], H1.FChunked{}, True{}, b("1\r\n")} : H1.Head}:
+  {==}
+
+def rh_to_close() -> {rh("HTTP/1.1 200 OK\r\n\r\nab") == H1.Head{200, [], H1.FClose{}, False{}, b("ab")} : H1.Head}:
+  {==}
+
+def rh_none() -> {rh("HTTP/1.1 304 Not Modified\r\nContent-Length: 9\r\n\r\n") == H1.Head{304, [H.Header{"Content-Length", "9"}], H1.FNone{}, True{}, b("")} : H1.Head}:
+  {==}
+
+def rh_more() -> {rh("HTTP/1.1 200 OK\r\nContent-Le") == H1.HMore{} : H1.Head}:
+  {==}
+
+def rh_too_large() -> {rh("HTTP/1.1 200 OK\r\nContent-Length: 17\r\n\r\n") == H1.HBad{H1.BodyTooLarge{}} : H1.Head}:
+  {==}
+
+# a chunked body fed in two reads, cut inside the size line and the data
+
+def feed_one() -> {H1.chunks.feed(b("3\r\nab"), H1.CS{H1.CSize{0n, False{}}, B.BNil{}, 0n, 20n}, 16n) == H1.Fed{H1.CS{H1.CData{1n}, b("ba"), 3n, 17n}} : H1.Fed}:
+  {==}
+
+def feed_two() -> {H1.chunks.feed(b("c\r\n0\r\n\r\nNEXT"), H1.CS{H1.CData{1n}, B.BNil{}, 3n, 17n}, 16n) == H1.FedEnd{b("c"), b("NEXT")} : H1.Fed}:
   {==}

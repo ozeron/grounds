@@ -3,16 +3,16 @@ import ./client.bend as C
 
 # each def is a test: it checks only if both sides compute to the same value
 
-def plain() -> {C.url("http://localhost/a?b=1") == C.Url{"localhost", 80, "/a?b=1", "localhost"} : C.Url}:
+def plain() -> {C.url("http://localhost/a?b=1") == C.Url{False{}, "localhost", 80, "/a?b=1", "localhost"} : C.Url}:
   {==}
 
-def port() -> {C.url("http://10.0.0.7:8080") == C.Url{"10.0.0.7", 8080, "/", "10.0.0.7:8080"} : C.Url}:
+def port() -> {C.url("http://10.0.0.7:8080") == C.Url{False{}, "10.0.0.7", 8080, "/", "10.0.0.7:8080"} : C.Url}:
   {==}
 
-def query_only() -> {C.url("http://h:81?x") == C.Url{"h", 81, "/?x", "h:81"} : C.Url}:
+def query_only() -> {C.url("http://h:81?x") == C.Url{False{}, "h", 81, "/?x", "h:81"} : C.Url}:
   {==}
 
-def https() -> {C.url("https://h/") == C.UBad{C.Https{}} : C.Url}:
+def https() -> {C.url("https://h/x") == C.Url{True{}, "h", 443, "/x", "h"} : C.Url}:
   {==}
 
 def no_scheme() -> {C.url("h/") == C.UBad{C.BadUrl{}} : C.Url}:
@@ -37,4 +37,10 @@ def space_in_target() -> {C.url("http://h/a b") == C.UBad{C.BadUrl{}} : C.Url}:
   {==}
 
 def crlf_in_target() -> {C.url("http://h/a\r\nX: y") == C.UBad{C.BadUrl{}} : C.Url}:
+  {==}
+
+def https_port() -> {C.url("https://h:8443") == C.Url{True{}, "h", 8443, "/", "h:8443"} : C.Url}:
+  {==}
+
+def ftp() -> {C.url("ftp://h/") == C.UBad{C.BadUrl{}} : C.Url}:
   {==}

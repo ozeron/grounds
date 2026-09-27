@@ -1010,8 +1010,127 @@ def request.len(sized: Bool, +n: U32, out: String) -> String:
     case False{}:
       out
 
+# Response heads, for a client that reads the body itself
+# ---------------------------------------------------------
+
+# how a response's body is framed: n bytes, chunked, to the close, or none
+type Framing is Data:
+  FLen{n: Nat}
+  FChunked{}
+  FClose{}
+  FNone{}
+
+# a response head: status, headers, framing, whether the connection may
+# carry another request after this response, and the bytes after the head
+type Head is Data:
+  Head{code: U32, hs: List<&2, H.Header>, framing: Framing, reuse: Bool, rest: B.Bytes}
+  HMore{}
+  HBad{err: Err}
+
+# HTTP/1.1 keeps the connection unless told; HTTP/1.0 closes it
+def is_v11(bs: B.Bytes) -> Bool:
+  match bs:
+    case B.BCon{72, B.BCon{84, B.BCon{84, B.BCon{80, B.BCon{47, B.BCon{49, B.BCon{46, B.BCon{49, _}}}}}}}}:
+      True{}
+    case _:
+      False{}
+
+def head.coded(one: Bool, +code: U32, hs: List<&2, H.Header>, +reuse: Bool, rest: B.Bytes) -> Head:
+  match one:
+    case True{}:
+      Head{code, hs, FChunked{}, reuse, rest}
+    case False{}:
+      HBad{Unsupported{}}
+
+def head.te(t: TE, +code: U32, +reuse: Bool, rest: B.Bytes) -> Head:
+  match t:
+    case TE{hs, +c, k}:
+      head.coded(Bool.and(U32.is_eq(c, 1), k), code, hs, reuse, rest)
+
+def head.len(ok: Bool, +n: Nat, +code: U32, hs: List<&2, H.Header>, +reuse: Bool, rest: B.Bytes) -> Head:
+  match ok:
+    case True{}:
+      Head{code, hs, FLen{n}, reuse, rest}
+    case False{}:
+      HBad{BodyTooLarge{}}
+
+def head.frame(s: Scanned, none: Bool, +code: U32, +v11: Bool, rest: B.Bytes, +max: Nat) -> Head:
+  match s none:
+    case Scanned{hs, Frame{_, _, _, +c, _}} True{}:
+      Head{code, hs, FNone{}, Bool.and(v11, Bool.not(c)), rest}
+    case Scanned{hs, Frame{_, True{}, _, +c, _}} False{}:
+      head.te(te.scan(hs, 0, False{}, []), code, Bool.and(v11, Bool.not(c)), rest)
+    case Scanned{hs, Frame{Len{+n}, False{}, _, +c, _}} False{}:
+      head.len(Nat.is_le(n, max), n, code, hs, Bool.and(v11, Bool.not(c)), rest)
+    case Scanned{hs, Frame{NoLen{}, False{}, _, _, _}} False{}:
+      Head{code, hs, FClose{}, False{}, rest}
+    case Scanned{_, Frame{LenBad{}, False{}, _, _, _}} False{}:
+      HBad{BadLength{}}
+
+def head.fields(f: Fields, +code: U32, +v11: Bool, rest: B.Bytes, +max: Nat, +head: Bool) -> Head:
+  match f:
+    case FErr{e}:
+      HBad{e}
+    case FOk{hs}:
+      head.frame(scan(List.reverse(&2, H.Header, hs), Frame{NoLen{}, False{}, 0, False{}, False{}}, []), no_body(head, code), code, v11, rest, max)
+
+def head.line(m: Maybe<&2, U32>, +v11: Bool, hl: List<&2, B.Bytes>, rest: B.Bytes, +max: Nat, +head: Bool) -> Head:
+  match m:
+    case None{}:
+      HBad{BadLine{}}
+    case Some{+code}:
+      head.fields(fields(hl, FOk{[]}), code, v11, rest, max, head)
+
+def head.lines(s: Split, +max: Nat, +head: Bool) -> Head:
+  match s:
+    case SMore{}:
+      HMore{}
+    case SBad{e}:
+      HBad{e}
+    case Lines{Nil{}, _}:
+      HBad{BadLine{}}
+    case Lines{Con{+first, hl}, rest}:
+      head.line(status_line(first), is_v11(first), hl, rest, max, head)
+
+# a response's head, from the bytes so far; a Content-Length past max_body
+# is refused. head says the request was a HEAD, so there is no body
+def read_head(buf: B.Bytes, +max_head: U32, +max_body: Nat, +head: Bool) -> Head:
+  head.lines(split.go(buf, B.BNil{}, [], 0, max_head, False{}), max_body, head)
+
+# a chunked body, fed as it comes
+type Fed is Data:
+  Fed{st: CS}
+  FedEnd{data: B.Bytes, rest: B.Bytes}
+  FedBad{err: Err}
+
+# where chunks.feed starts, for a body of at most max bytes
+def chunks.start(+max: Nat) -> CS:
+  CS{CSize{0n, False{}}, B.BNil{}, 0n, Nat.add(65536n, max)}
+
+# the bytes of one read through the decoder: Fed with its state, whose acc
+# holds this read's data, reversed, or FedEnd with the last data and the
+# bytes after the body
+def chunks.feed(bs: B.Bytes, st: CS, +max: Nat) -> Fed:
+  match bs st:
+    case rest CEnd{acc}:
+      FedEnd{B.rev(acc), rest}
+    case _ CErr{e}:
+      FedBad{e}
+    case B.BNil{} CS{m, acc, total, budget}:
+      Fed{CS{m, acc, total, budget}}
+    case B.BCon{b, t} CS{m, acc, +total, +budget}:
+      chunks.feed(t, c.step(m, budget, b, acc, total, max), max)
+
 # a request on the wire, as a client writes it: host first, the caller's
 # headers (framing and unsafe ones dropped), Content-Length when there is
-# a body or the method expects one, and connection: close
-def write_request(m: String, target: String, host: String, hs: List<&2, H.Header>, +body: B.Bytes, sized: Bool) -> B.Bytes:
-  B.app(head_bytes(String.reverse(String.reverse.go("\r\n", String.reverse.go("connection: close\r\n", request.len(Bool.or(sized, B.nonempty(body)), count(body, 0), heads(hs, String.reverse.go("\r\n", String.reverse.go(host, String.reverse.go("host: ", String.reverse.go(" HTTP/1.1\r\n", String.reverse.go(target, String.reverse.go(" ", String.reverse.go(m, ""))))))))))))), body)
+# a body or the method expects one, and connection: close unless the
+# connection is to be kept
+def request.close(close: Bool, out: String) -> String:
+  match close:
+    case True{}:
+      String.reverse.go("connection: close\r\n", out)
+    case False{}:
+      out
+
+def write_request(m: String, target: String, host: String, hs: List<&2, H.Header>, +body: B.Bytes, sized: Bool, close: Bool) -> B.Bytes:
+  B.app(head_bytes(String.reverse(String.reverse.go("\r\n", request.close(close, request.len(Bool.or(sized, B.nonempty(body)), count(body, 0), heads(hs, String.reverse.go("\r\n", String.reverse.go(host, String.reverse.go("host: ", String.reverse.go(" HTTP/1.1\r\n", String.reverse.go(target, String.reverse.go(" ", String.reverse.go(m, ""))))))))))))), body)
