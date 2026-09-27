@@ -85,6 +85,7 @@ type Err is Data:
   TooLarge{}          # past max_head_bytes or max_body_bytes
   BadResponse{}       # not HTTP/1.1 as RFC 9112 frames it
   Redirects{}         # more redirects than the config follows
+  BadMethod{}         # a method name that is not a token
 
 # where the body goes: kept, pieces newest first; sent down a channel; or
 # nowhere, once the channel's reader has closed it
@@ -123,6 +124,8 @@ def show(e: Err) -> String:
       "bad response"
     case Redirects{}:
       "too many redirects"
+    case BadMethod{}:
+      "bad method: not a token"
 
 def R() -> Type:
   Result<&1, &1, Err, Res.Response>
@@ -313,9 +316,7 @@ def url.host(s: String, +tls: Bool, acc: String, ok: Bool, any: Bool) -> Url:
     case SCon{Chr{+x}, t}:
       url.host(t, tls, SCon{Chr{x}, acc}, Bool.and(ok, host.char(x)), True{})
 
-# http[s]://host[:port][/path][?query], the scheme in lowercase. No user
-# info, no IPv6 literal, no fragment
-def url(s: String) -> Url:
+def url.raw(s: String) -> Url:
   match s:
     case SCon{'h', SCon{'t', SCon{'t', SCon{'p', SCon{':', SCon{'/', SCon{'/', rest}}}}}}}:
       url.host(rest, False{}, "", True{}, False{})
@@ -323,6 +324,36 @@ def url(s: String) -> Url:
       url.host(rest, True{}, "", True{}, False{})
     case _:
       UBad{BadUrl{}}
+
+def bad(e: H1.Err) -> Err:
+  match e:
+    case H1.BodyTooLarge{}:
+      TooLarge{}
+    case H1.HeadTooLarge{}:
+      TooLarge{}
+    case _:
+      BadResponse{}
+
+def url.final(bad: Bool, +tls: Bool, h: String, +port: U32, t: String, au: String) -> Url:
+  match bad:
+    case True{}:
+      UBad{BadUrl{}}
+    case False{}:
+      Url{tls, h, port, t, au}
+
+# a url is used only when its target and authority have no CR, LF or NUL:
+# the parser already refuses them, and this check is what the laws read
+def url.check(u: Url) -> Url:
+  match u:
+    case Url{+tls, h, +port, +t, +au}:
+      url.final(Bool.or(H1.unsafe(t, False{}), H1.unsafe(au, False{})), tls, h, port, t, au)
+    case UBad{e}:
+      UBad{e}
+
+# http[s]://host[:port][/path][?query], the scheme in lowercase. No user
+# info, no IPv6 literal, no fragment
+def url(s: String) -> Url:
+  url.check(url.raw(s))
 
 type Url2 is Data:
   Url2{a: Url, b: Url}
@@ -465,15 +496,6 @@ def lim.with_head(l: Lim, h: Bool) -> Lim:
   match l:
     case Lim{dl, ms, st, mh, max, _}:
       Lim{dl, ms, st, mh, max, h}
-
-def bad(e: H1.Err) -> Err:
-  match e:
-    case H1.BodyTooLarge{}:
-      TooLarge{}
-    case H1.HeadTooLarge{}:
-      TooLarge{}
-    case _:
-      BadResponse{}
 
 # a response head, the connection still open; or why not, the connection
 # closed. stale: it failed before a byte of the response came, as a pooled
@@ -833,6 +855,20 @@ def verb(m: M.Method) -> Verb:
       Verb{"TRACE", False{}, False{}, True{}}
     case other:
       Verb{M.show(other), False{}, False{}, False{}}
+
+def verb.final(ok: Bool, n: String, +h: Bool, +z: Bool, +g: Bool) -> Maybe<&2, Verb>:
+  match ok:
+    case True{}:
+      Some{Verb{n, h, z, g}}
+    case False{}:
+      None{}
+
+# a method's name must be a token (RFC 9110 §9.1), which has no CR, LF,
+# NUL or space: a name of the caller's own is checked here
+def verb.check(v: Verb) -> Maybe<&2, Verb>:
+  match v:
+    case Verb{+n, +h, +z, +g}:
+      verb.final(Bool.and(Bool.not(H1.unsafe(n, False{})), H1.is_token.s(n)), n, h, z, g)
 
 type Verb2 is Data:
   Verb2{a: Verb, b: Verb}
@@ -1246,7 +1282,7 @@ def verb.after(+c: U32, v: Verb) -> Verb:
 def spec.same(sp: Spec, t: String, c: U32) -> Spec:
   match sp:
     case Spec{v, Url{tls, h, p, _, au}, hs, b, pl}:
-      spec.shaped(verb.after(c, v), Url{tls, h, p, t, au}, hs, b, pl)
+      spec.shaped(verb.after(c, v), url.check(Url{tls, h, p, t, au}), hs, b, pl)
     case other:
       other
 
@@ -1380,8 +1416,15 @@ def start.p(cfg: Config, sp: Spec, +p: Pool) -> IO(R()):
 
 # a request: method, url, headers (Host, Content-Length, Transfer-Encoding
 # and Connection are the client's own), and body
+def request.go(cfg: Config, v: Maybe<&2, Verb>, u: String, hs: List<&2, H.Header>, body: List<&2, U32>) -> IO(R()):
+  match v:
+    case Some{vb}:
+      start(cfg, Spec{vb, url(u), hs, B.of_list(body), False{}})
+    case None{}:
+      IO.pure(R(), Fail{BadMethod{}})
+
 def request(cfg: Config, m: M.Method, u: String, hs: List<&2, H.Header>, body: List<&2, U32>) -> IO(R()):
-  start(cfg, Spec{verb(m), url(u), hs, B.of_list(body), False{}})
+  request.go(cfg, verb.check(verb(m)), u, hs, body)
 
 def get(u: String) -> IO(R()):
   request(default(), M.MGet{}, u, [], [])
@@ -1405,7 +1448,7 @@ def post(u: String, kind: String, body: List<&2, U32>) -> IO(R()):
 def pool.url(tls: Bool, h: String, port: U32, au: String, g: Tgt) -> Url:
   match g:
     case Tgt{t, True{}}:
-      Url{tls, h, port, t, au}
+      url.check(Url{tls, h, port, t, au})
     case Tgt{_, False{}}:
       UBad{BadUrl{}}
 
@@ -1427,8 +1470,15 @@ def pool.cfg(p: Pool) -> Config:
       Config{a, b, c, d, e, f, g}
 
 # a request through the pool, to a path (/orders/7?full=1) on its origin
+def send.go(+p: Pool, v: Maybe<&2, Verb>, path: String, hs: List<&2, H.Header>, body: List<&2, U32>) -> IO(R()):
+  match v:
+    case Some{vb}:
+      start.p(pool.cfg(p), send.spec(p, vb, path, hs, B.of_list(body)), p)
+    case None{}:
+      IO.pure(R(), Fail{BadMethod{}})
+
 def send(+p: Pool, m: M.Method, path: String, hs: List<&2, H.Header>, body: List<&2, U32>) -> IO(R()):
-  start.p(pool.cfg(p), send.spec(p, verb(m), path, hs, B.of_list(body)), p)
+  send.go(p, verb.check(verb(m)), path, hs, body)
 
 def pool.get(p: Pool, path: String) -> IO(R()):
   send(p, M.MGet{}, path, [], [])

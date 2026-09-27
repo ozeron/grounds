@@ -1003,10 +1003,100 @@ def rres.lines(s: Split, +max: Nat, eof: Bool, +head: Bool) -> RParsed:
 def read_response(buf: B.Bytes, +max_head: U32, +max_body: U32, eof: Bool, +head: Bool) -> RParsed:
   rres.lines(split.go(buf, B.BNil{}, [], 0, max_head, False{}), U32.to_nat(max_body), eof, head)
 
-def request.len(sized: Bool, +n: U32, out: String) -> String:
+# Lengths, in decimal, from a digit counter: each digit is a constructor,
+# so a law sees it is a digit, where U32.show is opaque to the checker
+type Dig is Data:
+  D0{}
+  D1{}
+  D2{}
+  D3{}
+  D4{}
+  D5{}
+  D6{}
+  D7{}
+  D8{}
+  D9{}
+
+# a count, least significant digit first; DNil is 0
+type Dec is Data:
+  DNil{}
+  DCon{d: Dig, t: Dec}
+
+def dec.inc(d: Dec) -> Dec:
+  match d:
+    case DNil{}:
+      DCon{D1{}, DNil{}}
+    case DCon{D0{}, t}:
+      DCon{D1{}, t}
+    case DCon{D1{}, t}:
+      DCon{D2{}, t}
+    case DCon{D2{}, t}:
+      DCon{D3{}, t}
+    case DCon{D3{}, t}:
+      DCon{D4{}, t}
+    case DCon{D4{}, t}:
+      DCon{D5{}, t}
+    case DCon{D5{}, t}:
+      DCon{D6{}, t}
+    case DCon{D6{}, t}:
+      DCon{D7{}, t}
+    case DCon{D7{}, t}:
+      DCon{D8{}, t}
+    case DCon{D8{}, t}:
+      DCon{D9{}, t}
+    case DCon{D9{}, t}:
+      DCon{D0{}, dec.inc(t)}
+
+def dig.char(x: Dig) -> Char:
+  match x:
+    case D0{}:
+      '0'
+    case D1{}:
+      '1'
+    case D2{}:
+      '2'
+    case D3{}:
+      '3'
+    case D4{}:
+      '4'
+    case D5{}:
+      '5'
+    case D6{}:
+      '6'
+    case D7{}:
+      '7'
+    case D8{}:
+      '8'
+    case D9{}:
+      '9'
+
+# the digits, most significant first, before out
+def dec.show.go(d: Dec, out: String) -> String:
+  match d:
+    case DNil{}:
+      out
+    case DCon{x, t}:
+      dec.show.go(t, SCon{dig.char(x), out})
+
+def dec.show(d: Dec) -> String:
+  match d:
+    case DNil{}:
+      "0"
+    case DCon{x, t}:
+      dec.show.go(DCon{x, t}, "")
+
+# the bytes of bs, counted onto d
+def dec.count(bs: B.Bytes, d: Dec) -> Dec:
+  match bs:
+    case B.BNil{}:
+      d
+    case B.BCon{_, t}:
+      dec.count(t, dec.inc(d))
+
+def request.len(sized: Bool, n: Dec, out: String) -> String:
   match sized:
     case True{}:
-      String.reverse.go("\r\n", String.reverse.go(U32.show(n), String.reverse.go("content-length: ", out)))
+      String.reverse.go("\r\n", String.reverse.go(dec.show(n), String.reverse.go("content-length: ", out)))
     case False{}:
       out
 
@@ -1132,5 +1222,30 @@ def request.close(close: Bool, out: String) -> String:
     case False{}:
       out
 
+def is_token.s.go(s: String, ok: Bool) -> Bool:
+  match s:
+    case SNil{}:
+      ok
+    case SCon{Chr{+x}, t}:
+      is_token.s.go(t, Bool.and(ok, B.is_tchar(x)))
+
+# whether a String is a token: one char or more, each a tchar (RFC 9110
+# §5.6.2), as a method name must be
+def is_token.s(s: String) -> Bool:
+  match s:
+    case SNil{}:
+      False{}
+    case SCon{Chr{+x}, t}:
+      is_token.s.go(t, B.is_tchar(x))
+
+# the request line and the host line, reversed
+def request.start(m: String, target: String, host: String) -> String:
+  String.reverse.go("\r\n", String.reverse.go(host, String.reverse.go("host: ", String.reverse.go(" HTTP/1.1\r\n", String.reverse.go(target, String.reverse.go(" ", String.reverse.go(m, "")))))))
+
+# a request's head, reversed: the start, the caller's headers, the length
+# when sized, connection: close when close, and the empty line
+def request.head(m: String, target: String, host: String, hs: List<&2, H.Header>, n: Dec, sized: Bool, close: Bool) -> String:
+  String.reverse.go("\r\n", request.close(close, request.len(sized, n, heads(hs, request.start(m, target, host)))))
+
 def write_request(m: String, target: String, host: String, hs: List<&2, H.Header>, +body: B.Bytes, sized: Bool, close: Bool) -> B.Bytes:
-  B.app(head_bytes(String.reverse(String.reverse.go("\r\n", request.close(close, request.len(Bool.or(sized, B.nonempty(body)), count(body, 0), heads(hs, String.reverse.go("\r\n", String.reverse.go(host, String.reverse.go("host: ", String.reverse.go(" HTTP/1.1\r\n", String.reverse.go(target, String.reverse.go(" ", String.reverse.go(m, ""))))))))))))), body)
+  B.app(head_bytes(String.reverse(request.head(m, target, host, hs, dec.count(body, DNil{}), Bool.or(sized, B.nonempty(body)), close))), body)

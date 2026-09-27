@@ -714,3 +714,268 @@ def Laws.crlf_only(hs, out):
 
 def Laws.crlf_block(hs):
   Laws.crlf_only(hs, "")
+
+# Request injection
+# -----------------
+
+law lf_of:
+  for +x: U32
+  for +cx: {H1.unsafe.char(x) == False{} : Bool}
+  {U32.is_eq(x, 10) == False{} : Bool}
+
+def lf_of(x, cx):
+  P.or_false_l(U32.is_eq(x, 10), U32.is_eq(x, 13), P.or_false_r(U32.is_eq(x, 0), Bool.or(U32.is_eq(x, 10), U32.is_eq(x, 13)), cx))
+
+# a char of a line, in the middle of it
+law in3:
+  for +x: U32
+  for +t: String
+  for +lf: {U32.is_eq(x, 10) == False{} : Bool}
+  for +cx: {H1.unsafe.char(x) == False{} : Bool}
+  {Laws.hok(SCon{Chr{x}, t}, 3) == Laws.hok(t, 3) : Bool}
+
+def in3(x, t, lf, cx):
+  %Equal.sym(Bool, U32.is_eq(x, 10), False{}, lf) : {Laws.hok(t, Bool.pick(U32, _, 1, Bool.pick(U32, H1.unsafe.char(x), 4, 3))) == Laws.hok(t, 3) : Bool}
+  %Equal.sym(Bool, H1.unsafe.char(x), False{}, cx) : {Laws.hok(t, Bool.pick(U32, False{}, 1, Bool.pick(U32, _, 4, 3))) == Laws.hok(t, 3) : Bool}
+  {==}
+
+# a String with no CR, LF or NUL, pushed onto acc, in the middle of a line
+law clean3:
+  for +s: String
+  for +acc: String
+  for +e: {H1.unsafe(s, False{}) == False{} : Bool}
+  {Laws.hok(String.reverse.go(s, acc), 3) == Laws.hok(acc, 3) : Bool}
+
+def clean3(s, acc, e):
+  match s:
+    case SNil{}:
+      {==}
+    case SCon{Chr{+x}, t}:
+      Equal.trans(Bool, Laws.hok(String.reverse.go(t, SCon{Chr{x}, acc}), 3), Laws.hok(SCon{Chr{x}, acc}, 3), Laws.hok(acc, 3),
+        clean3(t, SCon{Chr{x}, acc}, split_tail(H1.unsafe.char(x), t, e)),
+        in3(x, acc, lf_of(x, split_char(H1.unsafe.char(x), x, t, {==}, e)), split_char(H1.unsafe.char(x), x, t, {==}, e)))
+
+# the same at a line's start, a char x of the line after it: the line
+# has a char whatever s is
+law clean2:
+  for +s: String
+  for +x: U32
+  for +acc: String
+  for +cx: {H1.unsafe.char(x) == False{} : Bool}
+  for +e: {H1.unsafe(s, False{}) == False{} : Bool}
+  {Laws.hok(String.reverse.go(s, SCon{Chr{x}, acc}), 2) == Laws.hok(acc, 3) : Bool}
+
+def clean2(s, x, acc, cx, e):
+  match s:
+    case SNil{}:
+      %Equal.sym(Bool, H1.unsafe.char(x), False{}, cx) : {Laws.hok(acc, Bool.pick(U32, _, 4, 3)) == Laws.hok(acc, 3) : Bool}
+      {==}
+    case SCon{Chr{+y}, t}:
+      Equal.trans(Bool, Laws.hok(String.reverse.go(t, SCon{Chr{y}, SCon{Chr{x}, acc}}), 2), Laws.hok(SCon{Chr{x}, acc}, 3), Laws.hok(acc, 3),
+        clean2(t, y, SCon{Chr{x}, acc}, split_char(H1.unsafe.char(y), y, t, {==}, e), split_tail(H1.unsafe.char(y), t, e)),
+        in3(x, acc, lf_of(x, cx), cx))
+
+law keep3:
+  for +drop: Bool
+  for +n: String
+  for +v: String
+  for +out: String
+  for +h: {Bool.or(H1.framing(n), Bool.or(H1.unsafe(n, False{}), H1.unsafe(v, False{}))) == drop : Bool}
+  {Laws.hok(H1.heads.keep(drop, n, v, out), 3) == Laws.hok(out, 3) : Bool}
+
+def keep3(drop, n, v, out, h):
+  match drop:
+    case True{}:
+      {==}
+    case False{}:
+      Equal.trans(Bool, Laws.hok(String.reverse.go(v, SCon{Chr{32}, SCon{Chr{58}, String.reverse.go(n, out)}}), 2), Laws.hok(String.reverse.go(n, out), 3), Laws.hok(out, 3),
+        clean2(v, 32, SCon{Chr{58}, String.reverse.go(n, out)}, {==}, P.or_false_r(H1.unsafe(n, False{}), H1.unsafe(v, False{}), P.or_false_r(H1.framing(n), Bool.or(H1.unsafe(n, False{}), H1.unsafe(v, False{})), h))),
+        clean3(n, out, P.or_false_l(H1.unsafe(n, False{}), H1.unsafe(v, False{}), P.or_false_r(H1.framing(n), Bool.or(H1.unsafe(n, False{}), H1.unsafe(v, False{})), h))))
+
+# the header lines, each of a char at least, as crlf_only has it
+law heads3:
+  for +hs: List<&2, H.Header>
+  for +out: String
+  {Laws.hok(H1.heads(hs, out), 3) == Laws.hok(out, 3) : Bool}
+
+def heads3(hs, out):
+  match hs:
+    case Nil{}:
+      {==}
+    case Con{H.Header{+n, +v}, t}:
+      Equal.trans(Bool, Laws.hok(H1.heads(t, H1.heads.keep(Bool.or(H1.framing(n), Bool.or(H1.unsafe(n, False{}), H1.unsafe(v, False{}))), n, v, out)), 3), Laws.hok(H1.heads.keep(Bool.or(H1.framing(n), Bool.or(H1.unsafe(n, False{}), H1.unsafe(v, False{}))), n, v, out), 3), Laws.hok(out, 3),
+        heads3(t, H1.heads.keep(Bool.or(H1.framing(n), Bool.or(H1.unsafe(n, False{}), H1.unsafe(v, False{}))), n, v, out)),
+        keep3(Bool.or(H1.framing(n), Bool.or(H1.unsafe(n, False{}), H1.unsafe(v, False{}))), n, v, out, {==}))
+
+# a String whose first char is a LF
+def lf1(s: String) -> Bool:
+  match s:
+    case SNil{}:
+      False{}
+    case SCon{Chr{+x}, _}:
+      U32.is_eq(x, 10)
+
+law keep_lf:
+  for +drop: Bool
+  for +n: String
+  for +v: String
+  for +out: String
+  for +e: {lf1(out) == True{} : Bool}
+  {lf1(H1.heads.keep(drop, n, v, out)) == True{} : Bool}
+
+def keep_lf(drop, n, v, out, e):
+  match drop:
+    case True{}:
+      e
+    case False{}:
+      {==}
+
+law heads_lf:
+  for +hs: List<&2, H.Header>
+  for +out: String
+  for +e: {lf1(out) == True{} : Bool}
+  {lf1(H1.heads(hs, out)) == True{} : Bool}
+
+def heads_lf(hs, out, e):
+  match hs:
+    case Nil{}:
+      e
+    case Con{H.Header{+n, +v}, t}:
+      heads_lf(t, H1.heads.keep(Bool.or(H1.framing(n), Bool.or(H1.unsafe(n, False{}), H1.unsafe(v, False{}))), n, v, out), keep_lf(Bool.or(H1.framing(n), Bool.or(H1.unsafe(n, False{}), H1.unsafe(v, False{}))), n, v, out, e))
+
+# at a line's end, states 0 and 3 read alike
+law zero3:
+  for +s: String
+  for +e: {lf1(s) == True{} : Bool}
+  {Laws.hok(s, 0) == Laws.hok(s, 3) : Bool}
+
+def zero3(s, e):
+  match s:
+    case SNil{}:
+      P.absurd({Laws.hok(SNil{}, 0) == Laws.hok(SNil{}, 3) : Bool}, e)
+    case SCon{Chr{+x}, t}:
+      %Equal.sym(Bool, U32.is_eq(x, 10), True{}, e) : {Laws.hok(t, Bool.pick(U32, _, 1, 4)) == Laws.hok(t, Bool.pick(U32, _, 1, Bool.pick(U32, H1.unsafe.char(x), 4, 3))) : Bool}
+      {==}
+
+# a length's digits have no CR, LF or NUL
+law dig_clean:
+  for +x: H1.Dig
+  for +out: String
+  {H1.unsafe(SCon{H1.dig.char(x), out}, False{}) == H1.unsafe(out, False{}) : Bool}
+
+def dig_clean(x, out):
+  match x:
+    case H1.D0{}:
+      {==}
+    case H1.D1{}:
+      {==}
+    case H1.D2{}:
+      {==}
+    case H1.D3{}:
+      {==}
+    case H1.D4{}:
+      {==}
+    case H1.D5{}:
+      {==}
+    case H1.D6{}:
+      {==}
+    case H1.D7{}:
+      {==}
+    case H1.D8{}:
+      {==}
+    case H1.D9{}:
+      {==}
+
+law show_clean.go:
+  for +d: H1.Dec
+  for +out: String
+  {H1.unsafe(H1.dec.show.go(d, out), False{}) == H1.unsafe(out, False{}) : Bool}
+
+def show_clean.go(d, out):
+  match d:
+    case H1.DNil{}:
+      {==}
+    case H1.DCon{+x, t}:
+      Equal.trans(Bool, H1.unsafe(H1.dec.show.go(t, SCon{H1.dig.char(x), out}), False{}), H1.unsafe(SCon{H1.dig.char(x), out}, False{}), H1.unsafe(out, False{}),
+        show_clean.go(t, SCon{H1.dig.char(x), out}), dig_clean(x, out))
+
+law show_clean:
+  for +d: H1.Dec
+  {H1.unsafe(H1.dec.show(d), False{}) == False{} : Bool}
+
+def show_clean(d):
+  match d:
+    case H1.DNil{}:
+      {==}
+    case H1.DCon{+x, t}:
+      show_clean.go(H1.DCon{x, t}, "")
+
+law len3:
+  for +sized: Bool
+  for +n: H1.Dec
+  for +h: String
+  {Laws.hok(H1.request.len(sized, n, h), 3) == Laws.hok(h, 3) : Bool}
+
+def len3(sized, n, h):
+  match sized:
+    case True{}:
+      clean2(H1.dec.show(n), 32, SCon{Chr{58}, String.reverse.go("content-length", h)}, {==}, show_clean(n))
+    case False{}:
+      {==}
+
+law len_lf:
+  for +sized: Bool
+  for +n: H1.Dec
+  for +h: String
+  for +e: {lf1(h) == True{} : Bool}
+  {lf1(H1.request.len(sized, n, h)) == True{} : Bool}
+
+def len_lf(sized, n, h, e):
+  match sized:
+    case True{}:
+      {==}
+    case False{}:
+      e
+
+law start3:
+  for +m: String
+  for +target: String
+  for +host: String
+  for +em: {H1.unsafe(m, False{}) == False{} : Bool}
+  for +et: {H1.unsafe(target, False{}) == False{} : Bool}
+  for +eh: {H1.unsafe(host, False{}) == False{} : Bool}
+  {Laws.hok(H1.request.start(m, target, host), 3) == True{} : Bool}
+
+def start3(m, target, host, em, et, eh):
+  Equal.trans(Bool, Laws.hok(H1.request.start(m, target, host), 3), Laws.hok(String.reverse.go(" HTTP/1.1\r\n", String.reverse.go(target, String.reverse.go(" ", String.reverse.go(m, "")))), 3), True{},
+    clean2(host, 32, SCon{Chr{58}, String.reverse.go("host", String.reverse.go(" HTTP/1.1\r\n", String.reverse.go(target, String.reverse.go(" ", String.reverse.go(m, "")))))}, {==}, eh),
+    Equal.trans(Bool, Laws.hok(String.reverse.go(target, String.reverse.go(" ", String.reverse.go(m, ""))), 3), Laws.hok(String.reverse.go(m, ""), 3), True{},
+      clean3(target, String.reverse.go(" ", String.reverse.go(m, "")), et),
+      clean3(m, "", em)))
+
+law after_close:
+  for +close: Bool
+  for +l: String
+  for +e0: {Laws.hok(l, 0) == True{} : Bool}
+  for +e3: {Laws.hok(l, 3) == True{} : Bool}
+  {Laws.hdr(String.reverse.go("\r\n", H1.request.close(close, l))) == True{} : Bool}
+
+def after_close(close, l, e0, e3):
+  match close:
+    case True{}:
+      e3
+    case False{}:
+      e0
+
+def Laws.request_head(m, target, host, hs, n, sized, close, em, et, eh):
+  after_close(close, H1.request.len(sized, n, H1.heads(hs, H1.request.start(m, target, host))),
+    Equal.trans(Bool, Laws.hok(H1.request.len(sized, n, H1.heads(hs, H1.request.start(m, target, host))), 0), Laws.hok(H1.request.len(sized, n, H1.heads(hs, H1.request.start(m, target, host))), 3), True{},
+      zero3(H1.request.len(sized, n, H1.heads(hs, H1.request.start(m, target, host))), len_lf(sized, n, H1.heads(hs, H1.request.start(m, target, host)), heads_lf(hs, H1.request.start(m, target, host), {==}))),
+      Equal.trans(Bool, Laws.hok(H1.request.len(sized, n, H1.heads(hs, H1.request.start(m, target, host))), 3), Laws.hok(H1.heads(hs, H1.request.start(m, target, host)), 3), True{},
+        len3(sized, n, H1.heads(hs, H1.request.start(m, target, host))),
+        Equal.trans(Bool, Laws.hok(H1.heads(hs, H1.request.start(m, target, host)), 3), Laws.hok(H1.request.start(m, target, host), 3), True{},
+          heads3(hs, H1.request.start(m, target, host)), start3(m, target, host, em, et, eh)))),
+    Equal.trans(Bool, Laws.hok(H1.request.len(sized, n, H1.heads(hs, H1.request.start(m, target, host))), 3), Laws.hok(H1.heads(hs, H1.request.start(m, target, host)), 3), True{},
+      len3(sized, n, H1.heads(hs, H1.request.start(m, target, host))),
+      Equal.trans(Bool, Laws.hok(H1.heads(hs, H1.request.start(m, target, host)), 3), Laws.hok(H1.request.start(m, target, host), 3), True{},
+        heads3(hs, H1.request.start(m, target, host)), start3(m, target, host, em, et, eh))))

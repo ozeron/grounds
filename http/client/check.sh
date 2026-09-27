@@ -8,6 +8,7 @@ fpid=
 spid=
 trap '[ -n "$fpid" ] && kill "$fpid" 2>/dev/null; [ -n "$spid" ] && kill "$spid" 2>/dev/null; rm -rf "$tmp"' EXIT
 bend test.bend
+bend PROOF.bend
 bend tests/live.bend -o "$tmp/live" > /dev/null
 bend tests/more.bend -o "$tmp/more" > /dev/null
 bend ../server/examples/stream.bend -o "$tmp/stream" > /dev/null

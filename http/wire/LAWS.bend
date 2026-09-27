@@ -319,3 +319,56 @@ law framing_connection:
   for +n: String
   for e: {P.lows(n) == "connection" : String}
   {H1.framing(n) == True{} : Bool}
+
+# Request injection (RFC 9112 §2.1, §3)
+# -----------------
+
+# hok reads a request head as request.head builds it, reversed: lines of
+# at least one char, no CR, LF or NUL among them, each ended by CR LF.
+# State 0 wants a line's end (its LF, as the head is reversed), 1 its CR,
+# 2 the line's first char, 3 more chars, a line's end, or the start; 4
+# refuses
+def hstep(+st: U32, +x: U32) -> U32:
+  match st:
+    case 0:
+      Bool.pick(U32, U32.is_eq(x, 10), 1, 4)
+    case 1:
+      Bool.pick(U32, U32.is_eq(x, 13), 2, 4)
+    case 2:
+      Bool.pick(U32, H1.unsafe.char(x), 4, 3)
+    case 3:
+      Bool.pick(U32, U32.is_eq(x, 10), 1, Bool.pick(U32, H1.unsafe.char(x), 4, 3))
+    case _:
+      4
+
+def hok(s: String, +st: U32) -> Bool:
+  match s:
+    case SNil{}:
+      U32.is_eq(st, 3)
+    case SCon{Chr{+x}, t}:
+      hok(t, hstep(st, x))
+
+# a head: the empty line that ends it, then its lines
+def hdr(s: String) -> Bool:
+  match s:
+    case SCon{Chr{10}, SCon{Chr{13}, t}}:
+      hok(t, 0)
+    case _:
+      False{}
+
+# the head a client writes holds one empty line, at its end, and a CR or
+# LF only where a line ends: whatever the headers, and whatever method,
+# target and host without CR, LF or NUL, no header can start another and
+# no request can start inside this one
+law request_head:
+  for +m: String
+  for +target: String
+  for +host: String
+  for +hs: List<&2, H.Header>
+  for +n: H1.Dec
+  for +sized: Bool
+  for +close: Bool
+  for +em: {H1.unsafe(m, False{}) == False{} : Bool}
+  for +et: {H1.unsafe(target, False{}) == False{} : Bool}
+  for +eh: {H1.unsafe(host, False{}) == False{} : Bool}
+  {hdr(H1.request.head(m, target, host, hs, n, sized, close)) == True{} : Bool}
