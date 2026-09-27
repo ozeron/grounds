@@ -105,8 +105,31 @@ def then(name: String, +want: String, k: Unit -> IO(Unit), c: Redis.Client()) ->
 def closing(k: Unit -> IO(Unit), c: Redis.Client()) -> IO(Unit):
   IO.bind(Unit, Unit, Redis.close(c), k)
 
+def pooled(+ok: Nat, r: Result<&1, &1, Redis.Down, R.Reply>, k: Nat -> IO(Unit)) -> IO(Unit):
+  match r:
+    case Done{_}:
+      k(1n+ok)
+    case Fail{_}:
+      k(ok)
+
+# n PINGs through a pool whose server closes after each reply, one retry each
+def pings(n: Nat, +p: Redis.Pool, +ok: Nat, k: Nat -> IO(Unit)) -> IO(Unit):
+  match n:
+    case 0n:
+      k(ok)
+    case 1n+m:
+      IO.bind(Result<&1, &1, Redis.Down, R.Reply>, Unit, Redis.run(1n, p, ["PING"]), r => pooled(ok, r, o => pings(m, p, o, k)))
+
+def reconnected(+ok: Nat) -> IO(Unit):
+  verdict(Nat.is_eq(ok, 10n), "a pool through a server that closes after each reply", Nat.show(ok) ++ " of 10 PINGs answered, reconnecting", x => IO.print("faults: all ok"))
+
+def f12(u: Unit) -> IO(Unit):
+  do IO<Unit>:
+    +p : Redis.Pool <- Redis.pool(cfg(7012), 2)
+    pings(10n, p, 0n, o => reconnected(o))
+
 def f11(u: Unit) -> IO(Unit):
-  expect_reply("two replies in one read", 7011, "FIRST", c => then("the second kept, with nothing more sent", "SECOND", x => IO.print("faults: all ok"), c))
+  expect_reply("two replies in one read", 7011, "FIRST", c => then("the second kept, with nothing more sent", "SECOND", f12, c))
 
 def f10(u: Unit) -> IO(Unit):
   expect_reply("error reply keeps the client", 7010, "(error) ERR wrong kind", c => then("and it answers the next command", "PONG", f11, c))

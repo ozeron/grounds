@@ -240,7 +240,7 @@ def s_auth_none(u: Unit) -> IO(Unit):
   ask("no password: NOAUTH, as a reply", c, ["PING"], "(error) NOAUTH Authentication required.", c2 => closing(s_auth_wrong, c2)))
 
 def s_load(u: Unit) -> IO(Unit):
-  opening("load", plain(), c => ask("reset the counter", c, ["DEL", "grounds:load"], "0", c2 => closing(v => load(w => opening("load", plain(), c3 => ask("the counter after the load", c3, ["GET", "grounds:load"], "\"10000\"", c4 => closing(s_auth_none, c4)))), c2)))
+  opening("load", plain(), c => ask("reset the counter", c, ["SET", "grounds:load", "0"], "OK", c2 => closing(v => load(w => opening("load", plain(), c3 => ask("the counter after the load", c3, ["GET", "grounds:load"], "\"10000\"", c4 => closing(s_auth_none, c4)))), c2)))
 
 def s_cap(u: Unit) -> IO(Unit):
   opening("cap", Redis.with_max_reply(plain(), 1000), c =>
@@ -266,7 +266,7 @@ def s_error(c: Redis.Client()) -> IO(Unit):
   ask("the client still answers", c3, ["PING"], "PONG", c4 => closing(s_select, c4))))
 
 def s_pipe(c: Redis.Client()) -> IO(Unit):
-  ask("reset", c, ["DEL", "grounds:pipe"], "0", c2 =>
+  ask("reset", c, ["SET", "grounds:pipe", "0"], "OK", c2 =>
   IO.bind(Redis.Got(List<&2, R.Reply>), Unit, Redis.pipeline(c2, incrs(1000n, [])), g => piped("1000 INCR in one pipeline", "1000 replies, the last 1000", g, s_error)))
 
 def s_big(c: Redis.Client()) -> IO(Unit):

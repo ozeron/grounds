@@ -17,47 +17,6 @@ import ../wire/wire.bend as W
 type Config is Data:
   Config{host: String, port: U32, user: Maybe<&2, String>, password: Maybe<&2, String>, db: U32, resp3: Bool, timeout_ms: U32, max_reply: U32}
 
-# no AUTH, db 0, RESP2, 5 s per reply, replies up to 64 MiB
-def config(host: String, port: U32) -> Config:
-  Config{host, port, None{}, None{}, 0, False{}, 5000, 67108864}
-
-def with_password(c: Config, pw: String) -> Config:
-  match c:
-    case Config{h, p, u, _, db, r3, ms, max}:
-      Config{h, p, u, Some{pw}, db, r3, ms, max}
-
-# an ACL user (Redis 6+)
-def with_user(c: Config, user: String, pw: String) -> Config:
-  match c:
-    case Config{h, p, _, _, db, r3, ms, max}:
-      Config{h, p, Some{user}, Some{pw}, db, r3, ms, max}
-
-def with_db(c: Config, db: U32) -> Config:
-  match c:
-    case Config{h, p, u, pw, _, r3, ms, max}:
-      Config{h, p, u, pw, db, r3, ms, max}
-
-# RESP3 through HELLO 3: maps, sets, doubles and pushes come as such
-def with_resp3(c: Config) -> Config:
-  match c:
-    case Config{h, p, u, pw, db, _, ms, max}:
-      Config{h, p, u, pw, db, True{}, ms, max}
-
-# how long a send, or a whole reply, may take
-def with_timeout(c: Config, ms: U32) -> Config:
-  match c:
-    case Config{h, p, u, pw, db, r3, _, max}:
-      Config{h, p, u, pw, db, r3, ms, max}
-
-# the most bytes one reply may take
-def with_max_reply(c: Config, bytes: U32) -> Config:
-  match c:
-    case Config{h, p, u, pw, db, r3, ms, _}:
-      Config{h, p, u, pw, db, r3, ms, bytes}
-
-# Clients
-# -------
-
 # why a client is gone; each closes it
 type Down is Data:
   Timeout{}
@@ -66,21 +25,6 @@ type Down is Data:
   Protocol{why: String}
   Io{why: String}
   Rejected{why: String}
-
-def down.show(d: Down) -> String:
-  match d:
-    case Timeout{}:
-      "timed out"
-    case Closed{}:
-      "connection closed"
-    case TooLarge{}:
-      "reply too large"
-    case Protocol{w}:
-      "protocol error: " ++ w
-    case Io{w}:
-      "i/o error: " ++ w
-    case Rejected{w}:
-      "rejected: " ++ w
 
 # a client's state: bytes read past the last reply, and its limits
 type St is Data:
@@ -93,10 +37,6 @@ def Client() -> Type:
 def Got(-A: Data) -> Type:
   Result<&1, &1, Down, Client() & A>
 
-def close(c: Client()) -> IO(Unit):
-  (s, _) = c
-  W.close(s)
-
 def gone(-A: Data, s: Socket, d: Down) -> IO(Got(A)):
   do IO<Got(A)>:
     x : Unit <- W.close(s)
@@ -105,10 +45,157 @@ def gone(-A: Data, s: Socket, d: Down) -> IO(Got(A)):
 # Reading a reply
 # ---------------
 
+def RU() -> Type:
+  Socket & Result<&1, &1, U32 & String, Unit>
+
+law sent.m:
+  for -A: Data
+  for st: St
+  for k: Client() -> IO(Got(A))
+  for m: RU()
+  IO(Got(A))
+
+def timed_out(+code: U32) -> Bool:
+  Bool.or(U32.is_eq(code, 60), U32.is_eq(code, 110))
+
+def sent.fail(-A: Data, t: Bool, why: String, s: Socket) -> IO(Got(A)):
+  match t:
+    case True{}:
+      gone(A, s, Timeout{})
+    case False{}:
+      gone(A, s, Io{why})
+
+def sent(-A: Data, r: Result<&1, &1, U32 & String, Unit>, s: Socket, st: St, k: Client() -> IO(Got(A))) -> IO(Got(A)):
+  match r:
+    case Done{_}:
+      k((s, st))
+    case Fail{(code, why)}:
+      sent.fail(A, timed_out(code), why, s)
+
+def sent.m(A, st, k, m):
+  (s, r) = m
+  sent(A, r, s, st, k)
+
+def send.st(-A: Data, s: Socket, st: St, bytes: R.Buf, k: Client() -> IO(Got(A))) -> IO(Got(A)):
+  match st:
+    case St{buf, +ms, max}:
+      IO.bind(RU(), Got(A), W.wire_send_timeout(s, R.buf.list(bytes), ms), m => sent.m(A, St{buf, ms, max}, k, m))
+
+# a free client, or a place for one to be opened
+def Slot() -> Type:
+  Maybe<&1, Client()>
+
+def back(-A: Data, +ch: Chan(Slot()), g: Got(A)) -> IO(Result<&1, &1, Down, A>):
+  match g:
+    case Done{(c, a)}:
+      do IO<Result<&1, &1, Down, A>>:
+        x : Bool <- Chan.send(Slot(), ch, Some{c})
+        return Done{a}
+    case Fail{d}:
+      do IO<Result<&1, &1, Down, A>>:
+        x : Bool <- Chan.send(Slot(), ch, None{})
+        return Fail{d}
+
+def use(-A: Data, +ch: Chan(Slot()), r: Result<&1, &1, Down, Client()>, f: Client() -> IO(Got(A))) -> IO(Result<&1, &1, Down, A>):
+  match r:
+    case Done{c}:
+      IO.bind(Got(A), Result<&1, &1, Down, A>, f(c), g => back(A, ch, g))
+    case Fail{d}:
+      do IO<Result<&1, &1, Down, A>>:
+        x : Bool <- Chan.send(Slot(), ch, None{})
+        return Fail{d}
+
+def auth(user: Maybe<&2, String>, pw: Maybe<&2, String>) -> List<&2, List<&2, String>>:
+  match user pw:
+    case _ None{}:
+      []
+    case None{} Some{p}:
+      [["AUTH", p]]
+    case Some{u} Some{p}:
+      [["AUTH", u, p]]
+
+def hello(user: Maybe<&2, String>, pw: Maybe<&2, String>) -> List<&2, String>:
+  match user pw:
+    case _ None{}:
+      ["HELLO", "3"]
+    case None{} Some{p}:
+      ["HELLO", "3", "AUTH", "default", p]
+    case Some{u} Some{p}:
+      ["HELLO", "3", "AUTH", u, p]
+
+def select.go(zero: Bool, +db: U32) -> List<&2, List<&2, String>>:
+  match zero:
+    case True{}:
+      []
+    case False{}:
+      [["SELECT", U32.show(db)]]
+
+def select(+db: U32) -> List<&2, List<&2, String>>:
+  select.go(U32.is_eq(db, 0), db)
+
+# the commands a connection starts with: HELLO 3 or AUTH, then SELECT
+def greet(r3: Bool, user: Maybe<&2, String>, pw: Maybe<&2, String>, +db: U32) -> List<&2, List<&2, String>>:
+  match r3:
+    case True{}:
+      Con{hello(user, pw), select(db)}
+    case False{}:
+      List.append(&2, List<&2, String>, auth(user, pw), select(db))
+
+def refused(r: R.Reply) -> Maybe<&2, String>:
+  match r:
+    case R.Error{e}:
+      Some{e}
+    case R.BulkError{e}:
+      Some{R.text(R.buf.of(e))}
+    case _:
+      None{}
+
+# send bytes within the timeout, then go on with k
+def send(-A: Data, c: Client(), bytes: R.Buf, k: Client() -> IO(Got(A))) -> IO(Got(A)):
+  (s, st) = c
+  send.st(A, s, st, bytes, k)
+
+# Commands
+# --------
+
+# a reply being read: its deadline, the bytes read for it so far, and
+# the limits
+type Rd is Data:
+  Rd{dl: Nat, total: Nat, ms: U32, max: Nat}
+
 # bytes that came while a bulk string was still short, newest first
 type Chunks is Data:
   CNil{}
   CCon{bs: R.Buf, t: Chunks}
+
+def Next() -> Type:
+  Socket -> R.Parsed -> Rd -> IO(Got(R.Reply))
+
+# clients shared by tasks: each call takes one and gives it back. A client
+# that fails is replaced by a new one, opened on its next use
+type Pool is Data:
+  Pool{cfg: Config, slots: Chan(Slot())}
+
+def close(c: Client()) -> IO(Unit):
+  (s, _) = c
+  W.close(s)
+
+# wait on for more bytes, then go on with the Next given
+def Again() -> Type:
+  Socket -> R.Mode -> Nat -> Chunks -> Rd -> Next() -> IO(Got(R.Reply))
+
+def RB() -> Type:
+  Socket & Result<&1, &1, U32 & String, Maybe<&1, List<&2, U32>>>
+
+law polled.m:
+  for m: RB()
+  for at: R.Mode
+  for +missing: Nat
+  for cs: Chunks
+  for rd: Rd
+  for again: Again()
+  for k: Next()
+  IO(Got(R.Reply))
 
 def chunks.join(cs: Chunks, acc: R.Buf) -> R.Buf:
   match cs:
@@ -116,24 +203,6 @@ def chunks.join(cs: Chunks, acc: R.Buf) -> R.Buf:
       acc
     case CCon{bs, t}:
       chunks.join(t, R.cat(bs, acc))
-
-# a reply being read: its deadline, the bytes read for it so far, and
-# the limits
-type Rd is Data:
-  Rd{dl: Nat, total: Nat, ms: U32, max: Nat}
-
-def RB() -> Type:
-  Socket & Result<&1, &1, U32 & String, Maybe<&1, List<&2, U32>>>
-
-def Next() -> Type:
-  Socket -> R.Parsed -> Rd -> IO(Got(R.Reply))
-
-# wait on for more bytes, then go on with the Next given
-def Again() -> Type:
-  Socket -> R.Mode -> Nat -> Chunks -> Rd -> Next() -> IO(Got(R.Reply))
-
-def timed_out(+code: U32) -> Bool:
-  Bool.or(U32.is_eq(code, 60), U32.is_eq(code, 110))
 
 def arrived.parse(s: Socket, m: R.Mode, rd: Rd, k: Next()) -> IO(Got(R.Reply)):
   match rd:
@@ -166,16 +235,6 @@ def polled(r: Result<&1, &1, U32 & String, Maybe<&1, List<&2, U32>>>, s: Socket,
     case Fail{(_, why)}:
       gone(R.Reply, s, Io{why})
 
-law polled.m:
-  for m: RB()
-  for at: R.Mode
-  for +missing: Nat
-  for cs: Chunks
-  for rd: Rd
-  for again: Again()
-  for k: Next()
-  IO(Got(R.Reply))
-
 def polled.m(m, at, missing, cs, rd, again, k):
   (s, r) = m
   polled(r, s, at, missing, cs, rd, again, k)
@@ -202,17 +261,17 @@ def wait(fuel: Nat, s: Socket, at: R.Mode, +missing: Nat, cs: Chunks, rd: Rd, k:
         +now : Nat <- IO.now()
         wait.at(now, s, at, missing, cs, rd, s2 => a => n => c => r => kk => wait(f, s2, a, n, c, r, kk), k)
 
-def done.st(rest: R.Buf, rd: Rd) -> St:
-  match rd:
-    case Rd{_, _, ms, max}:
-      St{rest, ms, max}
-
 def is_push(r: R.Reply) -> Bool:
   match r:
     case R.RPush{_}:
       True{}
     case _:
       False{}
+
+def done.st(rest: R.Buf, rd: Rd) -> St:
+  match rd:
+    case Rd{_, _, ms, max}:
+      St{rest, ms, max}
 
 def reply.kept(push: Bool, r: R.Reply, rest: R.Buf, s: Socket, rd: Rd, k: Next()) -> IO(Got(R.Reply)):
   match push rd:
@@ -256,62 +315,135 @@ def read(c: Client()) -> IO(Got(R.Reply)):
 # Sending
 # -------
 
-def RU() -> Type:
-  Socket & Result<&1, &1, U32 & String, Unit>
-
-def sent.fail(-A: Data, t: Bool, why: String, s: Socket) -> IO(Got(A)):
-  match t:
-    case True{}:
-      gone(A, s, Timeout{})
-    case False{}:
-      gone(A, s, Io{why})
-
-def sent(-A: Data, r: Result<&1, &1, U32 & String, Unit>, s: Socket, st: St, k: Client() -> IO(Got(A))) -> IO(Got(A)):
-  match r:
-    case Done{_}:
-      k((s, st))
-    case Fail{(code, why)}:
-      sent.fail(A, timed_out(code), why, s)
-
-law sent.m:
-  for -A: Data
-  for st: St
-  for k: Client() -> IO(Got(A))
-  for m: RU()
-  IO(Got(A))
-
-def sent.m(A, st, k, m):
-  (s, r) = m
-  sent(A, r, s, st, k)
-
-def send.st(-A: Data, s: Socket, st: St, bytes: R.Buf, k: Client() -> IO(Got(A))) -> IO(Got(A)):
-  match st:
-    case St{buf, +ms, max}:
-      IO.bind(RU(), Got(A), W.wire_send_timeout(s, R.buf.list(bytes), ms), m => sent.m(A, St{buf, ms, max}, k, m))
-
-# send bytes within the timeout, then go on with k
-def send(-A: Data, c: Client(), bytes: R.Buf, k: Client() -> IO(Got(A))) -> IO(Got(A)):
-  (s, st) = c
-  send.st(A, s, st, bytes, k)
-
-# Commands
-# --------
-
 # send a command, read its reply. An error reply is a reply: the client
 # stays open
 def command(c: Client(), args: List<&2, String>) -> IO(Got(R.Reply)):
   send(R.Reply, c, R.encode.buf(R.args.text(args), R.BNil{}), read)
 
-# the same, with each argument as bytes: values need not be UTF-8
-def command_bytes(c: Client(), args: List<&2, List<&2, U32>>) -> IO(Got(R.Reply)):
-  send(R.Reply, c, R.encode.buf(R.args.bytes(args), R.BNil{}), read)
+def greeted(m: Maybe<&2, String>, c: Client(), k: Client() -> IO(Result<&1, &1, Down, Client()>)) -> IO(Result<&1, &1, Down, Client()>):
+  match m:
+    case None{}:
+      k(c)
+    case Some{why}:
+      do IO<Result<&1, &1, Down, Client()>>:
+        x : Unit <- close(c)
+        return Fail{Rejected{why}}
 
-def cmds.enc(xs: List<&2, List<&2, String>>, tail: R.Buf) -> R.Buf:
-  match xs:
+def greet.got(g: Got(R.Reply), k: Client() -> IO(Result<&1, &1, Down, Client()>)) -> IO(Result<&1, &1, Down, Client()>):
+  match g:
+    case Done{(c, r)}:
+      greeted(refused(r), c, k)
+    case Fail{d}:
+      IO.pure(Result<&1, &1, Down, Client()>, Fail{d})
+
+def handshake(cmds: List<&2, List<&2, String>>, c: Client()) -> IO(Result<&1, &1, Down, Client()>):
+  match cmds:
     case Nil{}:
-      tail
-    case Con{x, t}:
-      R.encode.buf(R.args.text(x), cmds.enc(t, tail))
+      IO.pure(Result<&1, &1, Down, Client()>, Done{c})
+    case Con{cmd, t}:
+      IO.bind(Got(R.Reply), Result<&1, &1, Down, Client()>, command(c, cmd), g => greet.got(g, c2 => handshake(t, c2)))
+
+def opened(r: Result<&1, &1, U32 & String, Socket>, st: St, cmds: List<&2, List<&2, String>>) -> IO(Result<&1, &1, Down, Client()>):
+  match r:
+    case Done{s}:
+      handshake(cmds, (s, st))
+    case Fail{(_, why)}:
+      IO.pure(Result<&1, &1, Down, Client()>, Fail{Io{why}})
+
+# connect, then HELLO 3 or AUTH, and SELECT, as the config says. A refused
+# AUTH or SELECT is Rejected, and the connection closed
+def open(cfg: Config) -> IO(Result<&1, &1, Down, Client()>):
+  match cfg:
+    case Config{h, p, u, pw, +db, r3, ms, max}:
+      IO.bind(Result<&1, &1, U32 & String, Socket>, Result<&1, &1, Down, Client()>, W.connect(h, p), r => opened(r, St{R.BNil{}, ms, U32.to_nat(max)}, greet(r3, u, pw, db)))
+
+# Pools
+# -----
+
+def fresh.slot(-A: Data, cfg: Config, +ch: Chan(Slot()), s: Maybe<&1, Slot()>, f: Client() -> IO(Got(A))) -> IO(Result<&1, &1, Down, A>):
+  match s:
+    case Some{Some{c}}:
+      IO.bind(Unit, Result<&1, &1, Down, A>, close(c), x => IO.bind(Result<&1, &1, Down, Client()>, Result<&1, &1, Down, A>, open(cfg), r => use(A, ch, r, f)))
+    case Some{None{}}:
+      IO.bind(Result<&1, &1, Down, Client()>, Result<&1, &1, Down, A>, open(cfg), r => use(A, ch, r, f))
+    case None{}:
+      IO.pure(Result<&1, &1, Down, A>, Fail{Closed{}})
+
+# as with, on a new connection: a retry after a failure must not take a
+# client that went stale the same way
+def with.fresh(-A: Data, p: Pool, f: Client() -> IO(Got(A))) -> IO(Result<&1, &1, Down, A>):
+  match p:
+    case Pool{cfg, +ch}:
+      IO.bind(Maybe<&1, Slot()>, Result<&1, &1, Down, A>, Chan.recv(Slot(), ch), s => fresh.slot(A, cfg, ch, s, f))
+
+def retry.got(r: Result<&1, &1, Down, R.Reply>, again: Unit -> IO(Result<&1, &1, Down, R.Reply>)) -> IO(Result<&1, &1, Down, R.Reply>):
+  match r:
+    case Fail{Rejected{w}}:
+      IO.pure(Result<&1, &1, Down, R.Reply>, Fail{Rejected{w}})
+    case Fail{TooLarge{}}:
+      IO.pure(Result<&1, &1, Down, R.Reply>, Fail{TooLarge{}})
+    case Fail{_}:
+      again(Unit{})
+    case other:
+      IO.pure(Result<&1, &1, Down, R.Reply>, other)
+
+# a command through the pool, sent again on a new connection up to retries
+# times when one fails (timed out, closed, i/o); the last failure is
+# reported as Closed. Only for commands safe to
+# repeat: GET is, INCR is not
+def run.again(+retries: Nat, +p: Pool, +args: List<&2, String>) -> IO(Result<&1, &1, Down, R.Reply>):
+  match retries:
+    case 0n:
+      IO.pure(Result<&1, &1, Down, R.Reply>, Fail{Closed{}})
+    case 1n+m:
+      IO.bind(Result<&1, &1, Down, R.Reply>, Result<&1, &1, Down, R.Reply>, with.fresh(R.Reply, p, c => command(c, args)), r => retry.got(r, u => run.again(m, p, args)))
+
+# a value, or the error Redis answered with; the client stays open either way
+def Res(-A: Data) -> Data:
+  Result<&2, &2, String, A>
+
+def typed.got(-A: Data, g: Got(R.Reply), f: R.Reply -> Res(A)) -> Got(Res(A)):
+  match g:
+    case Done{(c, r)}:
+      Done{(c, f(r))}
+    case Fail{d}:
+      Fail{d}
+
+# a command, its reply read by f
+def call(-A: Data, c: Client(), args: List<&2, String>, f: R.Reply -> Res(A)) -> IO(Got(Res(A))):
+  IO.bind(Got(R.Reply), Got(Res(A)), command(c, args), g => IO.pure(Got(Res(A)), typed.got(A, g, f)))
+
+def pool.fill(+n: Nat, +ch: Chan(Slot())) -> IO(Unit):
+  match n:
+    case 0n:
+      IO.pure(Unit, Unit{})
+    case 1n+m:
+      IO.bind(Bool, Unit, Chan.send(Slot(), ch, None{}), x => pool.fill(m, ch))
+
+# a pool of up to n clients, opened as they are first used
+def pool(cfg: Config, +n: U32) -> IO(Pool):
+  do IO<Pool>:
+    +ch : Chan(Slot()) <- Chan.new(Slot(), n)
+    x : Unit <- pool.fill(U32.to_nat(n), ch)
+    return Pool{cfg, ch}
+
+def slot(-A: Data, cfg: Config, +ch: Chan(Slot()), s: Maybe<&1, Slot()>, f: Client() -> IO(Got(A))) -> IO(Result<&1, &1, Down, A>):
+  match s:
+    case Some{Some{c}}:
+      use(A, ch, Done{c}, f)
+    case Some{None{}}:
+      IO.bind(Result<&1, &1, Down, Client()>, Result<&1, &1, Down, A>, open(cfg), r => use(A, ch, r, f))
+    case None{}:
+      IO.pure(Result<&1, &1, Down, A>, Fail{Closed{}})
+
+# run f with a client from the pool, waiting for one when all are in use
+def with(-A: Data, p: Pool, f: Client() -> IO(Got(A))) -> IO(Result<&1, &1, Down, A>):
+  match p:
+    case Pool{cfg, +ch}:
+      IO.bind(Maybe<&1, Slot()>, Result<&1, &1, Down, A>, Chan.recv(Slot(), ch), s => slot(A, cfg, ch, s, f))
+
+def run(+retries: Nat, +p: Pool, +args: List<&2, String>) -> IO(Result<&1, &1, Down, R.Reply>):
+  IO.bind(Result<&1, &1, Down, R.Reply>, Result<&1, &1, Down, R.Reply>, with(R.Reply, p, c => command(c, args)), r => retry.got(r, u => run.again(retries, p, args)))
 
 def replies.got(r: Got(R.Reply), acc: List<&2, R.Reply>, k: Client() -> List<&2, R.Reply> -> IO(Got(List<&2, R.Reply>))) -> IO(Got(List<&2, R.Reply>)):
   match r:
@@ -328,6 +460,73 @@ def replies(+n: Nat, c: Client(), acc: List<&2, R.Reply>) -> IO(Got(List<&2, R.R
     case 1n+m:
       IO.bind(Got(R.Reply), Got(List<&2, R.Reply>), read(c), r => replies.got(r, acc, c2 => a2 => replies(m, c2, a2)))
 
+# no AUTH, db 0, RESP2, 5 s per reply, replies up to 64 MiB
+def config(host: String, port: U32) -> Config:
+  Config{host, port, None{}, None{}, 0, False{}, 5000, 67108864}
+
+def with_password(c: Config, pw: String) -> Config:
+  match c:
+    case Config{h, p, u, _, db, r3, ms, max}:
+      Config{h, p, u, Some{pw}, db, r3, ms, max}
+
+# an ACL user (Redis 6+)
+def with_user(c: Config, user: String, pw: String) -> Config:
+  match c:
+    case Config{h, p, _, _, db, r3, ms, max}:
+      Config{h, p, Some{user}, Some{pw}, db, r3, ms, max}
+
+def with_db(c: Config, db: U32) -> Config:
+  match c:
+    case Config{h, p, u, pw, _, r3, ms, max}:
+      Config{h, p, u, pw, db, r3, ms, max}
+
+# RESP3 through HELLO 3: maps, sets, doubles and pushes come as such
+def with_resp3(c: Config) -> Config:
+  match c:
+    case Config{h, p, u, pw, db, _, ms, max}:
+      Config{h, p, u, pw, db, True{}, ms, max}
+
+# how long a send, or a whole reply, may take
+def with_timeout(c: Config, ms: U32) -> Config:
+  match c:
+    case Config{h, p, u, pw, db, r3, _, max}:
+      Config{h, p, u, pw, db, r3, ms, max}
+
+# the most bytes one reply may take
+def with_max_reply(c: Config, bytes: U32) -> Config:
+  match c:
+    case Config{h, p, u, pw, db, r3, ms, _}:
+      Config{h, p, u, pw, db, r3, ms, bytes}
+
+# Clients
+# -------
+
+def down.show(d: Down) -> String:
+  match d:
+    case Timeout{}:
+      "timed out"
+    case Closed{}:
+      "connection closed"
+    case TooLarge{}:
+      "reply too large"
+    case Protocol{w}:
+      "protocol error: " ++ w
+    case Io{w}:
+      "i/o error: " ++ w
+    case Rejected{w}:
+      "rejected: " ++ w
+
+# the same, with each argument as bytes: values need not be UTF-8
+def command_bytes(c: Client(), args: List<&2, List<&2, U32>>) -> IO(Got(R.Reply)):
+  send(R.Reply, c, R.encode.buf(R.args.bytes(args), R.BNil{}), read)
+
+def cmds.enc(xs: List<&2, List<&2, String>>, tail: R.Buf) -> R.Buf:
+  match xs:
+    case Nil{}:
+      tail
+    case Con{x, t}:
+      R.encode.buf(R.args.text(x), cmds.enc(t, tail))
+
 # send many commands in one write, then read their replies in order: one
 # round trip. Each reply has the timeout to itself
 def pipeline(c: Client(), +cmds: List<&2, List<&2, String>>) -> IO(Got(List<&2, R.Reply>)):
@@ -335,10 +534,6 @@ def pipeline(c: Client(), +cmds: List<&2, List<&2, String>>) -> IO(Got(List<&2, 
 
 # Typed answers
 # -------------
-
-# a value, or the error Redis answered with; the client stays open either way
-def Res(-A: Data) -> Data:
-  Result<&2, &2, String, A>
 
 # a signed integer, as INCR answers
 type Z is Data:
@@ -388,10 +583,60 @@ def as_bytes(r: R.Reply) -> Res(Maybe<&2, List<&2, U32>>):
     case other:
       unexpected(Maybe<&2, List<&2, U32>>, other)
 
+def z.end(ok: Bool, +n: Nat) -> Maybe<&2, Nat>:
+  match ok:
+    case True{}:
+      Some{n}
+    case False{}:
+      None{}
+
+def z.go(s: String, +acc: Nat, +cnt: Nat) -> Maybe<&2, Nat>:
+  match s:
+    case SNil{}:
+      z.end(Bool.and(Nat.is_gt(cnt, 0n), Nat.is_le(cnt, 14n)), acc)
+    case SCon{Chr{x}, t}:
+      z.go(t, Nat.add(Nat.mul(10n, acc), Nat.sub(U32.to_nat(x), 48n)), 1n+cnt)
+
+def z.of(neg: Bool, m: Maybe<&2, Nat>) -> Res(Z):
+  match m:
+    case Some{n}:
+      Done{Z{neg, n}}
+    case None{}:
+      Fail{"integer out of range"}
+
+# an integer's digits (the parser checked them) as a Z, when it has at most
+# 14: a Nat past 2^48 - 1 aborts the runtime
+def z(s: String) -> Res(Z):
+  match s:
+    case SCon{'-', t}:
+      z.of(True{}, z.go(t, 0n, 0n))
+    case other:
+      z.of(False{}, z.go(other, 0n, 0n))
+
+def nat.of(r: Res(Z)) -> Res(Nat):
+  match r:
+    case Done{Z{False{}, n}}:
+      Done{n}
+    case Done{Z{True{}, _}}:
+      Fail{"negative integer"}
+    case Fail{e}:
+      Fail{e}
+
+def bool.of(r: Res(Z)) -> Res(Bool):
+  match r:
+    case Done{Z{False{}, 0n}}:
+      Done{False{}}
+    case Done{Z{False{}, 1n}}:
+      Done{True{}}
+    case Done{_}:
+      Fail{"not 0 or 1"}
+    case Fail{e}:
+      Fail{e}
+
 def as_int(r: R.Reply) -> Res(Z):
   match r:
-    case R.Int{neg, n}:
-      Done{Z{neg, n}}
+    case R.Int{t}:
+      z(t)
     case R.Error{e}:
       Fail{e}
     case R.BulkError{e}:
@@ -401,8 +646,8 @@ def as_int(r: R.Reply) -> Res(Z):
 
 def as_nat(r: R.Reply) -> Res(Nat):
   match r:
-    case R.Int{False{}, n}:
-      Done{n}
+    case R.Int{t}:
+      nat.of(z(t))
     case R.Error{e}:
       Fail{e}
     case R.BulkError{e}:
@@ -412,10 +657,8 @@ def as_nat(r: R.Reply) -> Res(Nat):
 
 def as_bool(r: R.Reply) -> Res(Bool):
   match r:
-    case R.Int{False{}, 0n}:
-      Done{False{}}
-    case R.Int{False{}, 1n}:
-      Done{True{}}
+    case R.Int{t}:
+      bool.of(z(t))
     case R.RBool{b}:
       Done{b}
     case R.Error{e}:
@@ -439,17 +682,6 @@ def as_list(r: R.Reply) -> Res(List<&2, R.Reply>):
       Fail{R.text(R.buf.of(e))}
     case other:
       unexpected(List<&2, R.Reply>, other)
-
-def typed.got(-A: Data, g: Got(R.Reply), f: R.Reply -> Res(A)) -> Got(Res(A)):
-  match g:
-    case Done{(c, r)}:
-      Done{(c, f(r))}
-    case Fail{d}:
-      Fail{d}
-
-# a command, its reply read by f
-def call(-A: Data, c: Client(), args: List<&2, String>, f: R.Reply -> Res(A)) -> IO(Got(Res(A))):
-  IO.bind(Got(R.Reply), Got(Res(A)), command(c, args), g => IO.pure(Got(Res(A)), typed.got(A, g, f)))
 
 def call_bytes(-A: Data, c: Client(), args: List<&2, List<&2, U32>>, f: R.Reply -> Res(A)) -> IO(Got(Res(A))):
   IO.bind(Got(R.Reply), Got(Res(A)), command_bytes(c, args), g => IO.pure(Got(Res(A)), typed.got(A, g, f)))
@@ -495,170 +727,6 @@ def ttl(c: Client(), key: String) -> IO(Got(Res(Z))):
 
 # Opening
 # -------
-
-def auth(user: Maybe<&2, String>, pw: Maybe<&2, String>) -> List<&2, List<&2, String>>:
-  match user pw:
-    case _ None{}:
-      []
-    case None{} Some{p}:
-      [["AUTH", p]]
-    case Some{u} Some{p}:
-      [["AUTH", u, p]]
-
-def hello(user: Maybe<&2, String>, pw: Maybe<&2, String>) -> List<&2, String>:
-  match user pw:
-    case _ None{}:
-      ["HELLO", "3"]
-    case None{} Some{p}:
-      ["HELLO", "3", "AUTH", "default", p]
-    case Some{u} Some{p}:
-      ["HELLO", "3", "AUTH", u, p]
-
-def select.go(zero: Bool, +db: U32) -> List<&2, List<&2, String>>:
-  match zero:
-    case True{}:
-      []
-    case False{}:
-      [["SELECT", U32.show(db)]]
-
-def select(+db: U32) -> List<&2, List<&2, String>>:
-  select.go(U32.is_eq(db, 0), db)
-
-# the commands a connection starts with: HELLO 3 or AUTH, then SELECT
-def greet(r3: Bool, user: Maybe<&2, String>, pw: Maybe<&2, String>, +db: U32) -> List<&2, List<&2, String>>:
-  match r3:
-    case True{}:
-      Con{hello(user, pw), select(db)}
-    case False{}:
-      List.append(&2, List<&2, String>, auth(user, pw), select(db))
-
-def refused(r: R.Reply) -> Maybe<&2, String>:
-  match r:
-    case R.Error{e}:
-      Some{e}
-    case R.BulkError{e}:
-      Some{R.text(R.buf.of(e))}
-    case _:
-      None{}
-
-def greeted(m: Maybe<&2, String>, c: Client(), k: Client() -> IO(Result<&1, &1, Down, Client()>)) -> IO(Result<&1, &1, Down, Client()>):
-  match m:
-    case None{}:
-      k(c)
-    case Some{why}:
-      do IO<Result<&1, &1, Down, Client()>>:
-        x : Unit <- close(c)
-        return Fail{Rejected{why}}
-
-def greet.got(g: Got(R.Reply), k: Client() -> IO(Result<&1, &1, Down, Client()>)) -> IO(Result<&1, &1, Down, Client()>):
-  match g:
-    case Done{(c, r)}:
-      greeted(refused(r), c, k)
-    case Fail{d}:
-      IO.pure(Result<&1, &1, Down, Client()>, Fail{d})
-
-def handshake(cmds: List<&2, List<&2, String>>, c: Client()) -> IO(Result<&1, &1, Down, Client()>):
-  match cmds:
-    case Nil{}:
-      IO.pure(Result<&1, &1, Down, Client()>, Done{c})
-    case Con{cmd, t}:
-      IO.bind(Got(R.Reply), Result<&1, &1, Down, Client()>, command(c, cmd), g => greet.got(g, c2 => handshake(t, c2)))
-
-def opened(r: Result<&1, &1, U32 & String, Socket>, st: St, cmds: List<&2, List<&2, String>>) -> IO(Result<&1, &1, Down, Client()>):
-  match r:
-    case Done{s}:
-      handshake(cmds, (s, st))
-    case Fail{(_, why)}:
-      IO.pure(Result<&1, &1, Down, Client()>, Fail{Io{why}})
-
-# connect, then HELLO 3 or AUTH, and SELECT, as the config says. A refused
-# AUTH or SELECT is Rejected, and the connection closed
-def open(cfg: Config) -> IO(Result<&1, &1, Down, Client()>):
-  match cfg:
-    case Config{h, p, u, pw, +db, r3, ms, max}:
-      IO.bind(Result<&1, &1, U32 & String, Socket>, Result<&1, &1, Down, Client()>, W.connect(h, p), r => opened(r, St{R.BNil{}, ms, U32.to_nat(max)}, greet(r3, u, pw, db)))
-
-# Pools
-# -----
-
-# a free client, or a place for one to be opened
-def Slot() -> Type:
-  Maybe<&1, Client()>
-
-# clients shared by tasks: each call takes one and gives it back. A client
-# that fails is replaced by a new one, opened on its next use
-type Pool is Data:
-  Pool{cfg: Config, slots: Chan(Slot())}
-
-def pool.fill(+n: Nat, +ch: Chan(Slot())) -> IO(Unit):
-  match n:
-    case 0n:
-      IO.pure(Unit, Unit{})
-    case 1n+m:
-      IO.bind(Bool, Unit, Chan.send(Slot(), ch, None{}), x => pool.fill(m, ch))
-
-# a pool of up to n clients, opened as they are first used
-def pool(cfg: Config, +n: U32) -> IO(Pool):
-  do IO<Pool>:
-    +ch : Chan(Slot()) <- Chan.new(Slot(), n)
-    x : Unit <- pool.fill(U32.to_nat(n), ch)
-    return Pool{cfg, ch}
-
-def back(-A: Data, +ch: Chan(Slot()), g: Got(A)) -> IO(Result<&1, &1, Down, A>):
-  match g:
-    case Done{(c, a)}:
-      do IO<Result<&1, &1, Down, A>>:
-        x : Bool <- Chan.send(Slot(), ch, Some{c})
-        return Done{a}
-    case Fail{d}:
-      do IO<Result<&1, &1, Down, A>>:
-        x : Bool <- Chan.send(Slot(), ch, None{})
-        return Fail{d}
-
-def use(-A: Data, +ch: Chan(Slot()), r: Result<&1, &1, Down, Client()>, f: Client() -> IO(Got(A))) -> IO(Result<&1, &1, Down, A>):
-  match r:
-    case Done{c}:
-      IO.bind(Got(A), Result<&1, &1, Down, A>, f(c), g => back(A, ch, g))
-    case Fail{d}:
-      do IO<Result<&1, &1, Down, A>>:
-        x : Bool <- Chan.send(Slot(), ch, None{})
-        return Fail{d}
-
-def slot(-A: Data, cfg: Config, +ch: Chan(Slot()), s: Maybe<&1, Slot()>, f: Client() -> IO(Got(A))) -> IO(Result<&1, &1, Down, A>):
-  match s:
-    case Some{Some{c}}:
-      use(A, ch, Done{c}, f)
-    case Some{None{}}:
-      IO.bind(Result<&1, &1, Down, Client()>, Result<&1, &1, Down, A>, open(cfg), r => use(A, ch, r, f))
-    case None{}:
-      IO.pure(Result<&1, &1, Down, A>, Fail{Closed{}})
-
-# run f with a client from the pool, waiting for one when all are in use
-def with(-A: Data, p: Pool, f: Client() -> IO(Got(A))) -> IO(Result<&1, &1, Down, A>):
-  match p:
-    case Pool{cfg, +ch}:
-      IO.bind(Maybe<&1, Slot()>, Result<&1, &1, Down, A>, Chan.recv(Slot(), ch), s => slot(A, cfg, ch, s, f))
-
-def retry.got(r: Result<&1, &1, Down, R.Reply>, again: Unit -> IO(Result<&1, &1, Down, R.Reply>)) -> IO(Result<&1, &1, Down, R.Reply>):
-  match r:
-    case Fail{Rejected{w}}:
-      IO.pure(Result<&1, &1, Down, R.Reply>, Fail{Rejected{w}})
-    case Fail{TooLarge{}}:
-      IO.pure(Result<&1, &1, Down, R.Reply>, Fail{TooLarge{}})
-    case Fail{_}:
-      again(Unit{})
-    case other:
-      IO.pure(Result<&1, &1, Down, R.Reply>, other)
-
-# a command through the pool, sent again on a new connection up to retries
-# times when one fails (timed out, closed, i/o). Only for commands safe to
-# repeat: GET is, INCR is not
-def run(+retries: Nat, +p: Pool, +args: List<&2, String>) -> IO(Result<&1, &1, Down, R.Reply>):
-  match retries:
-    case 0n:
-      with(R.Reply, p, c => command(c, args))
-    case 1n+m:
-      IO.bind(Result<&1, &1, Down, R.Reply>, Result<&1, &1, Down, R.Reply>, with(R.Reply, p, c => command(c, args)), r => retry.got(r, u => run(m, p, args)))
 
 def drain.slot(s: Maybe<&1, Slot()>, k: Unit -> IO(Unit)) -> IO(Unit):
   match s:

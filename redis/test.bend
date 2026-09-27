@@ -68,10 +68,10 @@ def simple() -> {p("+OK\r\n") == done(R.Simple{"OK"}) : R.Parsed}:
 def error() -> {p("-ERR unknown command\r\n") == done(R.Error{"ERR unknown command"}) : R.Parsed}:
   {==}
 
-def integer() -> {p(":42\r\n") == done(R.Int{False{}, 42n}) : R.Parsed}:
+def integer() -> {p(":42\r\n") == done(R.Int{"42"}) : R.Parsed}:
   {==}
 
-def negative() -> {p(":-3\r\n") == done(R.Int{True{}, 3n}) : R.Parsed}:
+def negative() -> {p(":-3\r\n") == done(R.Int{"-3"}) : R.Parsed}:
   {==}
 
 def bulk_string() -> {p("$5\r\nhello\r\n") == done(bulk("hello")) : R.Parsed}:
@@ -89,10 +89,10 @@ def null_bulk() -> {p("$-1\r\n") == done(R.RNil{}) : R.Parsed}:
 def empty_bulk() -> {p("$0\r\n\r\n") == done(R.Bulk{[]}) : R.Parsed}:
   {==}
 
-def array() -> {p("*2\r\n$1\r\na\r\n:1\r\n") == done(R.Arr{[bulk("a"), R.Int{False{}, 1n}]}) : R.Parsed}:
+def array() -> {p("*2\r\n$1\r\na\r\n:1\r\n") == done(R.Arr{[bulk("a"), R.Int{"1"}]}) : R.Parsed}:
   {==}
 
-def nested() -> {p("*2\r\n*1\r\n:1\r\n:2\r\n") == done(R.Arr{[R.Arr{[R.Int{False{}, 1n}]}, R.Int{False{}, 2n}]}) : R.Parsed}:
+def nested() -> {p("*2\r\n*1\r\n:1\r\n:2\r\n") == done(R.Arr{[R.Arr{[R.Int{"1"}]}, R.Int{"2"}]}) : R.Parsed}:
   {==}
 
 def empty_array() -> {p("*0\r\n") == done(R.Arr{[]}) : R.Parsed}:
@@ -115,7 +115,7 @@ def resp3_bool() -> {p("#t\r\n") == done(R.RBool{True{}}) : R.Parsed}:
 def resp3_double() -> {p(",3.14\r\n") == done(R.RDouble{"3.14"}) : R.Parsed}:
   {==}
 
-def resp3_big() -> {p("(-123\r\n") == done(R.RBig{True{}, 123n}) : R.Parsed}:
+def resp3_big() -> {p("(-123\r\n") == done(R.RBig{"-123"}) : R.Parsed}:
   {==}
 
 def resp3_bulk_error() -> {p("!5\r\nOOPS!\r\n") == done(R.BulkError{U.encode("OOPS!")}) : R.Parsed}:
@@ -124,16 +124,16 @@ def resp3_bulk_error() -> {p("!5\r\nOOPS!\r\n") == done(R.BulkError{U.encode("OO
 def resp3_verbatim() -> {p("=9\r\ntxt:hello\r\n") == done(R.Verbatim{"txt", U.encode("hello")}) : R.Parsed}:
   {==}
 
-def resp3_map() -> {p("%2\r\n+a\r\n:1\r\n+b\r\n:2\r\n") == done(R.RMap{[R.Simple{"a"}, R.Int{False{}, 1n}, R.Simple{"b"}, R.Int{False{}, 2n}]}) : R.Parsed}:
+def resp3_map() -> {p("%2\r\n+a\r\n:1\r\n+b\r\n:2\r\n") == done(R.RMap{[R.Simple{"a"}, R.Int{"1"}, R.Simple{"b"}, R.Int{"2"}]}) : R.Parsed}:
   {==}
 
-def resp3_set() -> {p("~2\r\n:1\r\n:2\r\n") == done(R.RSet{[R.Int{False{}, 1n}, R.Int{False{}, 2n}]}) : R.Parsed}:
+def resp3_set() -> {p("~2\r\n:1\r\n:2\r\n") == done(R.RSet{[R.Int{"1"}, R.Int{"2"}]}) : R.Parsed}:
   {==}
 
 def resp3_push() -> {p(">2\r\n+message\r\n+hi\r\n") == done(R.RPush{[R.Simple{"message"}, R.Simple{"hi"}]}) : R.Parsed}:
   {==}
 
-def resp3_attribute() -> {p("|1\r\n+ttl\r\n:3\r\n:7\r\n") == done(R.Int{False{}, 7n}) : R.Parsed}:
+def resp3_attribute() -> {p("|1\r\n+ttl\r\n:3\r\n:7\r\n") == done(R.Int{"7"}) : R.Parsed}:
   {==}
 
 # Partial input, and going on
@@ -153,7 +153,7 @@ def partial_line() -> {what(p("+OK\r")) == "more" : String}:
 def resumed_bulk() -> {resume(p("$5\r\nhel"), "lo\r\n") == done(bulk("hello")) : R.Parsed}:
   {==}
 
-def resumed_array() -> {resume(p("*2\r\n:1\r\n$3\r\nab"), "c\r\n+x\r\n") == R.Parsed{R.Arr{[R.Int{False{}, 1n}, bulk("abc")]}, R.buf.of(U.encode("+x\r\n"))} : R.Parsed}:
+def resumed_array() -> {resume(p("*2\r\n:1\r\n$3\r\nab"), "c\r\n+x\r\n") == R.Parsed{R.Arr{[R.Int{"1"}, bulk("abc")]}, R.buf.of(U.encode("+x\r\n"))} : R.Parsed}:
   {==}
 
 def resumed_line() -> {resume(p("+O"), "K\r\n") == done(R.Simple{"OK"}) : R.Parsed}:
@@ -184,11 +184,25 @@ def too_large_array() -> {what(R.parse.buf(R.buf.of(U.encode("*3\r\n:1\r\n:2\r\n
 
 # Writing, and reading back
 
-def write_nested() -> {R.write(R.Arr{[bulk("a"), R.Arr{[R.Int{True{}, 2n}]}, R.RNil{}]}) == U.encode("*3\r\n$1\r\na\r\n*1\r\n:-2\r\n_\r\n") : List<&2, U32>}:
+def write_nested() -> {R.write(R.Arr{[bulk("a"), R.Arr{[R.Int{"-2"}]}, R.RNil{}]}) == U.encode("*3\r\n$1\r\na\r\n*1\r\n:-2\r\n_\r\n") : List<&2, U32>}:
   {==}
 
 def write_map() -> {R.write(R.RMap{[R.Simple{"a"}, R.RBool{True{}}]}) == U.encode("%1\r\n+a\r\n#t\r\n") : List<&2, U32>}:
   {==}
 
 def write_reads_back() -> {R.parse(R.write(R.RSet{[R.Verbatim{"txt", U.encode("hi")}, R.RDouble{"1.5"}, R.BulkError{U.encode("E")}]})) == done(R.RSet{[R.Verbatim{"txt", U.encode("hi")}, R.RDouble{"1.5"}, R.BulkError{U.encode("E")}]}) : R.Parsed}:
+  {==}
+
+# numbers the runtime could not hold as a Nat stay text
+
+def huge_int() -> {p(":123456789012345678901234567890\r\n") == done(R.Int{"123456789012345678901234567890"}) : R.Parsed}:
+  {==}
+
+def huge_length() -> {what(p("$123456789012345678901234567890\r\n")) == "too large" : String}:
+  {==}
+
+def padded_length() -> {what(p("$00000000005\r\nhello\r\n")) == "too large" : String}:
+  {==}
+
+def bad_int() -> {what(p(":12a\r\n")) == "bad integer" : String}:
   {==}

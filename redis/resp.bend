@@ -4,18 +4,45 @@ import ../utf8/utf8.bend as U
 # RESP, the Redis protocol (docs/resp.md): a command is an array of bulk
 # strings, a reply one value. RESP2 and RESP3 replies both parse
 
+# bytes as a list type of its own, read without taking it
+type Buf is Data:
+  BNil{}
+  BCon{head: U32, tail: Buf}
+
+def buf.list.go(bs: Buf, acc: List<&2, U32>) -> List<&2, U32>:
+  match bs:
+    case BNil{}:
+      List.reverse(&2, U32, acc)
+    case BCon{b, t}:
+      buf.list.go(t, Con{b, acc})
+
+def buf.list(bs: Buf) -> List<&2, U32>:
+  buf.list.go(bs, [])
+
+def text.of(t: U.Text) -> String:
+  match t:
+    case U.TOk{s}:
+      s
+    case U.TBad{_, before}:
+      String.reverse(before)
+
+def text(bs: Buf) -> String:
+  text.of(U.decode(buf.list(bs)))
+
 # a reply. Bulk strings are bytes (0..255): Redis values are binary. A map
-# holds its keys and values alternating: k1, v1, k2, v2
+# holds its keys and values alternating: k1, v1, k2, v2. Integers keep their
+# digits as text: a Nat past 2^48 - 1 aborts the runtime, and a reply may hold
+# any number of digits
 type Reply is Data:
   Simple{text: String}
   Error{text: String}
-  Int{neg: Bool, n: Nat}
+  Int{text: String}
   Bulk{data: List<&2, U32>}
   RNil{}
   Arr{items: List<&2, Reply>}
   RBool{value: Bool}
   RDouble{text: String}
-  RBig{neg: Bool, n: Nat}
+  RBig{text: String}
   BulkError{data: List<&2, U32>}
   Verbatim{format: String, data: List<&2, U32>}
   RMap{items: List<&2, Reply>}
@@ -24,11 +51,6 @@ type Reply is Data:
 
 # Bytes
 # -----
-
-# bytes as a list type of its own, read without taking it
-type Buf is Data:
-  BNil{}
-  BCon{head: U32, tail: Buf}
 
 def buf.rev(bs: Buf, acc: Buf) -> Buf:
   match bs:
@@ -46,16 +68,6 @@ def buf.of.go(xs: List<&2, U32>, acc: Buf) -> Buf:
 
 def buf.of(xs: List<&2, U32>) -> Buf:
   buf.of.go(xs, BNil{})
-
-def buf.list.go(bs: Buf, acc: List<&2, U32>) -> List<&2, U32>:
-  match bs:
-    case BNil{}:
-      List.reverse(&2, U32, acc)
-    case BCon{b, t}:
-      buf.list.go(t, Con{b, acc})
-
-def buf.list(bs: Buf) -> List<&2, U32>:
-  buf.list.go(bs, [])
 
 # a before tail
 def cat(a: Buf, tail: Buf) -> Buf:
@@ -257,49 +269,83 @@ def line.go(bs: Buf, acc: Buf) -> Line:
     case BNil{}:
       LMore{acc}
 
-def text.of(t: U.Text) -> String:
-  match t:
-    case U.TOk{s}:
-      s
-    case U.TBad{_, before}:
-      String.reverse(before)
-
-def text(bs: Buf) -> String:
-  text.of(U.decode(buf.list(bs)))
-
 type Num is Data:
   NOk{neg: Bool, n: Nat}
+  NBig{}
   NBad{}
 
-def digits.end(ok: Bool, +n: Nat) -> Maybe<&2, Nat>:
-  match ok:
+def grow(small: Bool, +acc: Nat, +v: Nat) -> Nat:
+  match small:
     case True{}:
-      Some{n}
+      Nat.add(Nat.mul(10n, acc), v)
     case False{}:
-      None{}
+      acc
 
-# the digits' value; None unless all digits and at least one
-def digits(bs: Buf, +acc: Nat, ok: Bool, any: Bool) -> Maybe<&2, Nat>:
+def dig.x(+b: U32) -> Nat:
+  Bool.pick(Nat, Bool.and(U32.is_ge(b, 48), U32.is_le(b, 57)), Nat.sub(U32.to_nat(b), 48n), 10n)
+
+# a byte's digit value, 10 when it is not one. The byte of a Buf cell is used
+# once, and copied: using it twice would share the Buf
+def dig.val(b: U32) -> Nat:
+  dig.x((b + 0 : U32))
+
+def is_digit(b: U32) -> Bool:
+  Nat.is_lt(dig.val(b), 10n)
+
+def digits.end(ok: Bool, big: Bool, +n: Nat) -> Num:
+  match ok big:
+    case False{} _:
+      NBad{}
+    case True{} True{}:
+      NBig{}
+    case True{} False{}:
+      NOk{False{}, n}
+
+# a length's digits: its value up to ten digits, NBig past them (more than
+# any limit), NBad unless all digits and at least one
+def digits(bs: Buf, +acc: Nat, ok: Bool, +cnt: Nat) -> Num:
   match bs:
     case BNil{}:
-      digits.end(Bool.and(ok, any), acc)
-    case BCon{+b, t}:
-      digits(t, Nat.add(Nat.mul(10n, acc), Nat.sub(U32.to_nat(b), 48n)), Bool.and(ok, Bool.and(U32.is_ge(b, 48), U32.is_le(b, 57))), True{})
+      digits.end(Bool.and(ok, Nat.is_gt(cnt, 0n)), Nat.is_gt(cnt, 10n), acc)
+    case BCon{b, t}:
+      +v = dig.val(b)
+      digits(t, grow(Nat.is_lt(cnt, 10n), acc, v), Bool.and(ok, Nat.is_lt(v, 10n)), 1n+cnt)
 
-def num.of(neg: Bool, m: Maybe<&2, Nat>) -> Num:
-  match m:
-    case Some{n}:
-      NOk{neg, n}
-    case None{}:
-      NBad{}
+def num.neg(n: Num) -> Num:
+  match n:
+    case NOk{_, v}:
+      NOk{True{}, v}
+    case other:
+      other
 
-# a signed whole number, as :, $, * and ( lines hold
+# a signed length, as $, * and the aggregates' lines hold
 def num(bs: Buf) -> Num:
   match bs:
     case BCon{45, t}:
-      num.of(True{}, digits(t, 0n, True{}, False{}))
+      num.neg(digits(t, 0n, True{}, 0n))
     case other:
-      num.of(False{}, digits(other, 0n, True{}, False{}))
+      digits(other, 0n, True{}, 0n)
+
+# a line checked and copied in one pass: reading it and then using it would
+# share it
+type Checked is Data:
+  Checked{ok: Bool, bs: Buf}
+
+def int.ok(bs: Buf, ok: Bool, any: Bool, acc: Buf) -> Checked:
+  match bs:
+    case BNil{}:
+      Checked{Bool.and(ok, any), buf.rev(acc, BNil{})}
+    case BCon{b, t}:
+      +x = (b + 0 : U32)
+      int.ok(t, Bool.and(ok, Bool.and(U32.is_ge(x, 48), U32.is_le(x, 57))), True{}, BCon{x, acc})
+
+# an integer line: an optional -, then one digit or more
+def int.line(bs: Buf) -> Checked:
+  match bs:
+    case BCon{45, t}:
+      int.ok(t, True{}, False{}, BCon{45, BNil{}})
+    case other:
+      int.ok(other, True{}, False{}, BNil{})
 
 type Took is Data:
   Took{body: Buf, rest: Buf}
@@ -421,6 +467,8 @@ def bulk.head(kind: BKind, n: Num, rest: Buf, stack: List<&2, Frame>, +max: Nat,
       k(MValue{RNil{}, rest, stack})
     case NOk{False{}, +len}:
       bulk.fits(Nat.is_le(len, max), kind, len, rest, stack, k)
+    case NBig{}:
+      TooLarge{}
     case _:
       Bad{"bad bulk length"}
 
@@ -450,17 +498,22 @@ def agg.head(kind: Agg, +pairs: Bool, n: Num, rest: Buf, stack: List<&2, Frame>,
       agg.empty(kind, rest, stack, k)
     case NOk{False{}, 1n+(+m)}:
       agg.fits(Nat.is_le(1n+m, max), kind, agg.items(pairs, 1n+m), rest, stack, k)
+    case NBig{}:
+      TooLarge{}
     case _:
       Bad{"bad aggregate length"}
 
-def integer(big: Bool, n: Num, rest: Buf, stack: List<&2, Frame>, k: K()) -> Parsed:
-  match big n:
-    case False{} NOk{neg, v}:
-      k(MValue{Int{neg, v}, rest, stack})
-    case True{} NOk{neg, v}:
-      k(MValue{RBig{neg, v}, rest, stack})
-    case _ NBad{}:
+def integer.ok(c: Checked, big: Bool, rest: Buf, stack: List<&2, Frame>, k: K()) -> Parsed:
+  match c big:
+    case Checked{True{}, line} False{}:
+      k(MValue{Int{text(line)}, rest, stack})
+    case Checked{True{}, line} True{}:
+      k(MValue{RBig{text(line)}, rest, stack})
+    case Checked{False{}, _} _:
       Bad{"bad integer"}
+
+def integer(big: Bool, line: Buf, rest: Buf, stack: List<&2, Frame>, k: K()) -> Parsed:
+  integer.ok(int.line(line), big, rest, stack, k)
 
 def boolean(line: Buf, rest: Buf, stack: List<&2, Frame>, k: K()) -> Parsed:
   match line:
@@ -485,7 +538,7 @@ def typed(t: U32, line: Buf, rest: Buf, stack: List<&2, Frame>, +max: Nat, k: K(
     case 45:
       k(MValue{Error{text(line)}, rest, stack})
     case 58:
-      integer(False{}, num(line), rest, stack, k)
+      integer(False{}, line, rest, stack, k)
     case 36:
       bulk.head(BBulk{}, num(line), rest, stack, max, k)
     case 42:
@@ -497,7 +550,7 @@ def typed(t: U32, line: Buf, rest: Buf, stack: List<&2, Frame>, +max: Nat, k: K(
     case 44:
       k(MValue{RDouble{text(line)}, rest, stack})
     case 40:
-      integer(True{}, num(line), rest, stack, k)
+      integer(True{}, line, rest, stack, k)
     case 33:
       bulk.head(BErr{}, num(line), rest, stack, max, k)
     case 61:
@@ -513,7 +566,7 @@ def typed(t: U32, line: Buf, rest: Buf, stack: List<&2, Frame>, +max: Nat, k: K(
     case _:
       Bad{"unknown reply type"}
 
-def item.line(+t: U32, l: Line, stack: List<&2, Frame>, +max: Nat, k: K()) -> Parsed:
+def item.line(t: U32, l: Line, stack: List<&2, Frame>, +max: Nat, k: K()) -> Parsed:
   match l:
     case LOk{line, rest}:
       typed(t, line, rest, stack, max, k)
@@ -524,7 +577,7 @@ def item.line(+t: U32, l: Line, stack: List<&2, Frame>, +max: Nat, k: K()) -> Pa
 
 def item(bs: Buf, stack: List<&2, Frame>, +max: Nat, k: K()) -> Parsed:
   match bs:
-    case BCon{+t, rest}:
+    case BCon{t, rest}:
       item.line(t, line.go(rest, BNil{}), stack, max, k)
     case BNil{}:
       More{MItem{BNil{}, stack}, 1n}
@@ -577,13 +630,6 @@ def push.text(s: String, out: Buf) -> Buf:
 def push.bytes(bs: List<&2, U32>, out: Buf) -> Buf:
   buf.rev(buf.of(bs), out)
 
-def push.num(neg: Bool, +n: Nat, out: Buf) -> Buf:
-  match neg:
-    case True{}:
-      push.text(Nat.show(n), BCon{45, out})
-    case False{}:
-      push.text(Nat.show(n), out)
-
 def push.crlf(out: Buf) -> Buf:
   BCon{10, BCon{13, out}}
 
@@ -617,8 +663,8 @@ def write.go(fuel: Nat, work: List<&2, Reply>, out: Buf) -> Buf:
       write.go(f, t, push.line(43, s, out))
     case 1n+f Con{Error{s}, t}:
       write.go(f, t, push.line(45, s, out))
-    case 1n+f Con{Int{neg, +n}, t}:
-      write.go(f, t, push.crlf(push.num(neg, n, BCon{58, out})))
+    case 1n+f Con{Int{s}, t}:
+      write.go(f, t, push.line(58, s, out))
     case 1n+f Con{Bulk{bs}, t}:
       write.go(f, t, push.bulk(36, bs, out))
     case 1n+f Con{RNil{}, t}:
@@ -631,8 +677,8 @@ def write.go(fuel: Nat, work: List<&2, Reply>, out: Buf) -> Buf:
       write.go(f, t, push.line(35, "f", out))
     case 1n+f Con{RDouble{s}, t}:
       write.go(f, t, push.line(44, s, out))
-    case 1n+f Con{RBig{neg, +n}, t}:
-      write.go(f, t, push.crlf(push.num(neg, n, BCon{40, out})))
+    case 1n+f Con{RBig{s}, t}:
+      write.go(f, t, push.line(40, s, out))
     case 1n+f Con{BulkError{bs}, t}:
       write.go(f, t, push.bulk(33, bs, out))
     case 1n+f Con{Verbatim{fm, bs}, t}:
@@ -652,21 +698,14 @@ def write(r: Reply) -> List<&2, U32>:
 # Reading replies
 # ---------------
 
-def sign(neg: Bool) -> String:
-  match neg:
-    case True{}:
-      "-"
-    case False{}:
-      ""
-
 def show.flat(r: Reply) -> String:
   match r:
     case Simple{t}:
       t
     case Error{t}:
       "(error) " ++ t
-    case Int{neg, n}:
-      sign(neg) ++ Nat.show(n)
+    case Int{t}:
+      t
     case Bulk{bs}:
       "\"" ++ text.of(U.decode(bs)) ++ "\""
     case RNil{}:
@@ -677,8 +716,8 @@ def show.flat(r: Reply) -> String:
       "(false)"
     case RDouble{t}:
       t
-    case RBig{neg, n}:
-      "(big) " ++ sign(neg) ++ Nat.show(n)
+    case RBig{t}:
+      "(big) " ++ t
     case BulkError{bs}:
       "(error) " ++ text.of(U.decode(bs))
     case Verbatim{_, bs}:

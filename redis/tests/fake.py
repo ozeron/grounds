@@ -77,6 +77,16 @@ def two_in_one(conn):
     conn.close()
 
 
+def one_then_close(conn):
+    # a server that restarts after every reply: a pool must reconnect
+    try:
+        conn.recv(65536)
+        conn.sendall(b"+PONG\r\n")
+    except OSError:
+        pass
+    conn.close()
+
+
 FAULTS = [
     ("stall", stall),
     ("half", lambda c: reply_after_read(c, b"$10\r\nhello")),
@@ -89,6 +99,7 @@ FAULTS = [
     ("split", lambda c: reply_after_read(c, b"*2\r\n$5\r\nhello\r\n:42\r\n", chunk=1, delay=0.002)),
     ("error", error_then_pong),
     ("two", two_in_one),
+    ("restart", one_then_close),
 ]
 
 
