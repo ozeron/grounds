@@ -22,7 +22,7 @@ H1.write(response, close)   # the bytes to send
 - A head past `max_head_bytes` is `HeadTooLarge` (431); a body past `max_body_bytes` is `BodyTooLarge` (413), refused before it is read.
 - `close` is true for `Connection: close`, and for HTTP/1.0 unless `Connection: keep-alive`.
 
-`write` sends the status line, the headers, `content-length`, and `connection: close` when the server will close; a handler's own framing headers (`Content-Length`, `Transfer-Encoding`, `Connection`) are dropped, since the writer decides them. `parse_response` reads a response back, for clients and tests.
+`write` sends the status line, the headers, `content-length`, and `connection: close` or `keep-alive` (an HTTP/1.0 client keeps a connection only when told). A handler's own framing headers (`Content-Length`, `Transfer-Encoding`, `Connection`) are dropped, since the writer decides them, and so is any header with a CR, LF or NUL, which would split the response. `parse_response` reads a response back, for clients and tests.
 
 ## Bytes
 

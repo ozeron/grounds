@@ -108,12 +108,19 @@ def body_too_large() -> {p("POST / HTTP/1.1\r\nHost: x\r\nContent-Length: 17\r\n
 def err_status() -> {H1.status(H1.BodyTooLarge{}) == S.Status{413} : S.Status}:
   {==}
 
-def written() -> {H1.write(Res.text(S.ok(), "hi"), False{}) == b("HTTP/1.1 200 OK\r\ncontent-type: text/plain; charset=utf-8\r\ncontent-length: 2\r\n\r\nhi") : B.Bytes}:
+def written() -> {H1.write(Res.text(S.ok(), "hi"), False{}) == b("HTTP/1.1 200 OK\r\ncontent-type: text/plain; charset=utf-8\r\ncontent-length: 2\r\nconnection: keep-alive\r\n\r\nhi") : B.Bytes}:
   {==}
 
 def written_close() -> {H1.write(Res.header(Res.empty(S.no_content()), "Content-Length", "99"), True{}) == b("HTTP/1.1 204 No Content\r\ncontent-length: 0\r\nconnection: close\r\n\r\n") : B.Bytes}:
   {==}
 
 # write then parse gives the response back, with the framing it added
-def round_trip() -> {H1.parse_response(H1.write(Res.header(Res.text(S.not_found(), "nope"), "x-a", "1"), False{}), 200) == H1.RParsed{404, [H.Header{"content-type", "text/plain; charset=utf-8"}, H.Header{"x-a", "1"}, H.Header{"content-length", "4"}], b("nope"), b("")} : H1.RParsed}:
+# a header value with CR LF would start a header of its own
+def written_crlf() -> {H1.write(Res.header(Res.empty(S.no_content()), "x-a", "1\r\nset-cookie: x"), False{}) == b("HTTP/1.1 204 No Content\r\ncontent-length: 0\r\nconnection: keep-alive\r\n\r\n") : B.Bytes}:
+  {==}
+
+def written_nul() -> {H1.write(Res.header(Res.header(Res.empty(S.no_content()), "x\u{0}a", "1"), "x-b", "2"), False{}) == b("HTTP/1.1 204 No Content\r\nx-b: 2\r\ncontent-length: 0\r\nconnection: keep-alive\r\n\r\n") : B.Bytes}:
+  {==}
+
+def round_trip() -> {H1.parse_response(H1.write(Res.header(Res.text(S.not_found(), "nope"), "x-a", "1"), False{}), 200) == H1.RParsed{404, [H.Header{"content-type", "text/plain; charset=utf-8"}, H.Header{"x-a", "1"}, H.Header{"content-length", "4"}, H.Header{"connection", "keep-alive"}], b("nope"), b("")} : H1.RParsed}:
   {==}

@@ -1,5 +1,4 @@
 import Base
-import ./text.bend as T
 
 # request methods (RFC 9110 §9); names are case-sensitive
 type Method is Data:
@@ -37,20 +36,27 @@ def show(m: Method) -> String:
     case MOther{name}:
       name
 
-def pick(hit: Bool, m: Method, rest: Method) -> Method:
-  match hit:
-    case True{}:
-      m
-    case False{}:
-      rest
-
-def parse(+s: String) -> Method:
-  pick(T.same(s, "GET", True{}), MGet{},
-  pick(T.same(s, "HEAD", True{}), MHead{},
-  pick(T.same(s, "POST", True{}), MPost{},
-  pick(T.same(s, "PUT", True{}), MPut{},
-  pick(T.same(s, "DELETE", True{}), MDelete{},
-  pick(T.same(s, "CONNECT", True{}), MConnect{},
-  pick(T.same(s, "OPTIONS", True{}), MOptions{},
-  pick(T.same(s, "TRACE", True{}), MTrace{},
-  pick(T.same(s, "PATCH", True{}), MPatch{}, MOther{s})))))))))
+# a literal match compares nothing through a shared helper, so it reads s
+# without sharing it
+def parse(s: String) -> Method:
+  match s:
+    case "GET":
+      MGet{}
+    case "HEAD":
+      MHead{}
+    case "POST":
+      MPost{}
+    case "PUT":
+      MPut{}
+    case "DELETE":
+      MDelete{}
+    case "CONNECT":
+      MConnect{}
+    case "OPTIONS":
+      MOptions{}
+    case "TRACE":
+      MTrace{}
+    case "PATCH":
+      MPatch{}
+    case other:
+      MOther{other}

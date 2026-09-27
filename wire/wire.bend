@@ -20,6 +20,12 @@ def wire_recv(sock: Socket, max: U32) ->
   import "./effs/wire.c"
   import "./effs/wire.js"
 
+# as wire_recv, but None{} when nothing arrives within ms milliseconds
+def wire_recv_timeout(sock: Socket, max: U32, ms: U32) ->
+  IO(Socket & Result<&1, &1, U32 & String, Maybe<&1, List<&2, U32>>>):
+  import "./effs/wire.c"
+  import "./effs/wire.js"
+
 # every byte; a value past 255 fails with EINVAL before any is sent
 def wire_send(sock: Socket, data: List<&2, U32>) ->
   IO(Socket & Result<&1, &1, U32 & String, Unit>):

@@ -40,6 +40,9 @@ def not_found() -> Status:
 def method_not_allowed() -> Status:
   Status{405}
 
+def request_timeout() -> Status:
+  Status{408}
+
 def content_too_large() -> Status:
   Status{413}
 
@@ -93,6 +96,8 @@ def reason(s: Status) -> String:
       "Not Found"
     case Status{405}:
       "Method Not Allowed"
+    case Status{408}:
+      "Request Timeout"
     case Status{413}:
       "Content Too Large"
     case Status{415}:

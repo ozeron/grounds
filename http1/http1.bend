@@ -490,6 +490,18 @@ def count(bs: B.Bytes, +n: U32) -> U32:
 def framing(+n: String) -> Bool:
   Bool.or(T.same_ci(n, "content-length", True{}), Bool.or(T.same_ci(n, "transfer-encoding", True{}), T.same_ci(n, "connection", True{})))
 
+def unsafe.char(+x: U32) -> Bool:
+  Bool.or(U32.is_eq(x, 0), Bool.or(U32.is_eq(x, 10), U32.is_eq(x, 13)))
+
+# a CR, LF or NUL: in a header a handler set, it would split the response
+# (RFC 9110 §5.5)
+def unsafe(s: String, bad: Bool) -> Bool:
+  match s:
+    case SNil{}:
+      bad
+    case SCon{Chr{+x}, t}:
+      unsafe(t, Bool.or(bad, unsafe.char(x)))
+
 def heads.keep(drop: Bool, n: String, v: String, out: String) -> String:
   match drop:
     case True{}:
@@ -497,20 +509,22 @@ def heads.keep(drop: Bool, n: String, v: String, out: String) -> String:
     case False{}:
       String.reverse.go("\r\n", String.reverse.go(v, String.reverse.go(": ", String.reverse.go(n, out))))
 
-# the header lines, reversed onto out; the framing ones are the writer's
+# the header lines, reversed onto out; the framing ones are the writer's,
+# and one with a CR, LF or NUL is dropped
 def heads(hs: List<&2, H.Header>, out: String) -> String:
   match hs:
     case Nil{}:
       out
-    case Con{H.Header{+n, v}, t}:
-      heads(t, heads.keep(framing(n), n, v, out))
+    case Con{H.Header{+n, +v}, t}:
+      heads(t, heads.keep(Bool.or(framing(n), Bool.or(unsafe(n, False{}), unsafe(v, False{}))), n, v, out))
 
+# an HTTP/1.0 client keeps the connection only when told (RFC 9112 §9.3)
 def closing(close: Bool) -> String:
   match close:
     case True{}:
       "connection: close\r\n"
     case False{}:
-      ""
+      "connection: keep-alive\r\n"
 
 # to_bytes for the writer alone: the compiler decides once per def whether
 # it takes its argument or only reads it, and has_token reads a header value
@@ -523,7 +537,7 @@ def write.go(+c: U32, hs: List<&2, H.Header>, +body: B.Bytes, close: Bool) -> B.
   B.app(head_bytes(String.reverse(String.reverse.go("\r\n", String.reverse.go(closing(close), String.reverse.go("\r\n", String.reverse.go(U32.show(count(body, 0)), String.reverse.go("content-length: ", heads(hs, String.reverse.go("\r\n", String.reverse.go(S.reason(S.Status{c}), String.reverse.go(" ", String.reverse.go(U32.show(c), String.reverse.go("HTTP/1.1 ", ""))))))))))))), body)
 
 # a response on the wire: status line, headers, Content-Length, and
-# Connection: close when the server will close after it
+# Connection: close when the server will close after it, else keep-alive
 def write(r: Res.Response, close: Bool) -> B.Bytes:
   match r:
     case Res.Response{S.Status{+c}, hs, list}:

@@ -17,7 +17,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: stable
-      - run: sudo apt-get update && sudo apt-get install -y hyperfine clang llvm
+      - run: sudo apt-get update && sudo apt-get install -y hyperfine clang llvm apache2-utils
       - run: moon run :check
       - run: QUICK=1 bench/run.sh
         working-directory: json
