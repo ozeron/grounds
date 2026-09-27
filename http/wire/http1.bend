@@ -20,7 +20,7 @@ type Err is Data:
   ObsFold{}           # a header line continued on the next (§5.2)
   BadLength{}         # Content-Length not digits, or two that differ (§6.3)
   BadHost{}           # HTTP/1.1 without exactly one Host (§3.2)
-  Unsupported{}       # Transfer-Encoding: chunked bodies are not read yet
+  Unsupported{}       # a Transfer-Encoding other than one chunked
   HeadTooLarge{}      # past max_head_bytes
   BodyTooLarge{}      # past max_body_bytes
 
@@ -310,6 +310,17 @@ def tok.go(bs: B.Bytes, cur: B.Bytes, +want: B.Bytes, found: Bool) -> Bool:
 def has_token(v: String, want: String) -> Bool:
   tok.go(to_bytes(v), B.BNil{}, to_bytes(want), False{})
 
+def comma.go(s: String, found: Bool) -> Bool:
+  match s:
+    case SNil{}:
+      found
+    case SCon{Chr{+x}, t}:
+      comma.go(t, Bool.or(found, U32.is_eq(x, 44)))
+
+# whether a value is exactly one token: "chunked", not "gzip, chunked"
+def is_token(+v: String, want: String) -> Bool:
+  Bool.and(Bool.not(comma.go(v, False{})), has_token(v, want))
+
 type HKind is Data:
   KLen{}
   KTe{}
@@ -389,6 +400,204 @@ def take(bs: B.Bytes, n: Nat, acc: B.Bytes) -> Took:
     case B.BNil{} 1n+_:
       Short{}
 
+# Chunked bodies (RFC 9112 §7.1)
+# --------------
+
+# where the decoder is: in a chunk's size (n so far, whether a digit came),
+# its extension, the LF after the size line, a chunk's data (left bytes, at
+# least 1), the CR LF after it, or the trailer lines (fresh: at a line's
+# start, where an empty line ends the body)
+type CM is Data:
+  CSize{n: Nat, any: Bool}
+  CExt{n: Nat}
+  CSizeLF{n: Nat}
+  CData{left: Nat}
+  CDataCR{}
+  CDataLF{}
+  CTrail{fresh: Bool}
+  CTrailLF{fresh: Bool}
+
+# the decoder after a byte: acc is the body so far, reversed, and total its
+# length; budget counts the framing bytes (sizes, extensions, CR LFs,
+# trailers) still allowed
+type CS is Data:
+  CS{m: CM, acc: B.Bytes, total: Nat, budget: Nat}
+  CEnd{acc: B.Bytes}
+  CErr{err: Err}
+
+type Chunked is Data:
+  CDone{body: B.Bytes, rest: B.Bytes}
+  CMore{}
+  CBad{err: Err}
+
+# a byte, as a size line reads it
+type Cls is Data:
+  KCR{}
+  KLF{}
+  KSemi{}
+  KHex{v: U32}
+  KElse{}
+
+def hex.x(+b: U32) -> U32:
+  Bool.pick(U32, B.is_digit(b), (b - 48 : U32),
+    Bool.pick(U32, Bool.and(U32.is_ge(b, 97), U32.is_le(b, 102)), (b - 87 : U32),
+      Bool.pick(U32, Bool.and(U32.is_ge(b, 65), U32.is_le(b, 70)), (b - 55 : U32), 16)))
+
+def cls.hex(+v: U32) -> Cls:
+  Bool.pick(Cls, U32.is_lt(v, 16), KHex{v}, KElse{})
+
+def cls(+b: U32) -> Cls:
+  Bool.pick(Cls, U32.is_eq(b, 13), KCR{},
+    Bool.pick(Cls, U32.is_eq(b, 10), KLF{},
+      Bool.pick(Cls, U32.is_eq(b, 59), KSemi{}, cls.hex(hex.x(b)))))
+
+def c.bad() -> CS:
+  CErr{BadLength{}}
+
+def c.digit(over: Bool, +n: Nat, acc: B.Bytes, +total: Nat, +budget: Nat) -> CS:
+  match over:
+    case True{}:
+      CErr{BodyTooLarge{}}
+    case False{}:
+      CS{CSize{n, True{}}, acc, total, budget}
+
+def c.grow(+n: Nat, +v: U32) -> Nat:
+  Nat.add(Nat.mul(16n, n), U32.to_nat(v))
+
+# hex digits, then CR, or ; for an extension: no white space, no sign
+def c.size(k: Cls, any: Bool, +n: Nat, acc: B.Bytes, +total: Nat, +budget: Nat, +max: Nat) -> CS:
+  match k any:
+    case KHex{+v} _:
+      c.digit(Bool.not(Nat.is_le(c.grow(n, v), max)), c.grow(n, v), acc, total, budget)
+    case KCR{} True{}:
+      CS{CSizeLF{n}, acc, total, budget}
+    case KSemi{} True{}:
+      CS{CExt{n}, acc, total, budget}
+    case _ _:
+      c.bad()
+
+# an extension runs to the CR; it is read and dropped
+def c.ext(k: Cls, ctl: Bool, +n: Nat, acc: B.Bytes, +total: Nat, +budget: Nat) -> CS:
+  match k ctl:
+    case KCR{} _:
+      CS{CSizeLF{n}, acc, total, budget}
+    case KLF{} _:
+      c.bad()
+    case _ True{}:
+      c.bad()
+    case _ False{}:
+      CS{CExt{n}, acc, total, budget}
+
+def c.data(+left: Nat) -> CM:
+  match left:
+    case 0n:
+      CDataCR{}
+    case _:
+      CData{left}
+
+def c.start(zero: Bool, fits: Bool, +n: Nat, acc: B.Bytes, +total: Nat, +budget: Nat) -> CS:
+  match zero fits:
+    case True{} _:
+      CS{CTrail{True{}}, acc, total, budget}
+    case False{} True{}:
+      CS{CData{n}, acc, Nat.add(total, n), budget}
+    case False{} False{}:
+      CErr{BodyTooLarge{}}
+
+# the size line has ended: size 0 starts the trailers, any other the
+# chunk's data, if the body stays within max
+def c.sized(lf: Bool, +n: Nat, acc: B.Bytes, +total: Nat, +budget: Nat, +max: Nat) -> CS:
+  match lf:
+    case True{}:
+      c.start(Nat.is_eq(n, 0n), Nat.is_le(Nat.add(total, n), max), n, acc, total, budget)
+    case False{}:
+      c.bad()
+
+def c.expect(ok: Bool, m: CM, acc: B.Bytes, +total: Nat, +budget: Nat) -> CS:
+  match ok:
+    case True{}:
+      CS{m, acc, total, budget}
+    case False{}:
+      c.bad()
+
+# trailer lines are read and dropped
+def c.trail(k: Cls, fresh: Bool, acc: B.Bytes, +total: Nat, +budget: Nat) -> CS:
+  match k:
+    case KCR{}:
+      CS{CTrailLF{fresh}, acc, total, budget}
+    case KLF{}:
+      c.bad()
+    case _:
+      CS{CTrail{False{}}, acc, total, budget}
+
+def c.trail_lf(lf: Bool, fresh: Bool, acc: B.Bytes, +total: Nat, +budget: Nat) -> CS:
+  match lf fresh:
+    case True{} True{}:
+      CEnd{acc}
+    case True{} False{}:
+      CS{CTrail{True{}}, acc, total, budget}
+    case False{} _:
+      c.bad()
+
+# a framing byte
+def c.frame(m: CM, +b: U32, acc: B.Bytes, +total: Nat, +budget: Nat, +max: Nat) -> CS:
+  match m:
+    case CSize{+n, any}:
+      c.size(cls(b), any, n, acc, total, budget, max)
+    case CExt{+n}:
+      c.ext(cls(b), B.is_ctl(b), n, acc, total, budget)
+    case CSizeLF{+n}:
+      c.sized(U32.is_eq(b, 10), n, acc, total, budget, max)
+    case CData{left}:
+      CS{CData{left}, acc, total, budget}
+    case CDataCR{}:
+      c.expect(U32.is_eq(b, 13), CDataLF{}, acc, total, budget)
+    case CDataLF{}:
+      c.expect(U32.is_eq(b, 10), CSize{0n, False{}}, acc, total, budget)
+    case CTrail{fresh}:
+      c.trail(cls(b), fresh, acc, total, budget)
+    case CTrailLF{fresh}:
+      c.trail_lf(U32.is_eq(b, 10), fresh, acc, total, budget)
+
+# a data byte goes to the body; any other spends the budget
+def c.step(m: CM, +budget: Nat, b: U32, acc: B.Bytes, +total: Nat, +max: Nat) -> CS:
+  match m budget:
+    case CData{1n+p} _:
+      CS{c.data(p), B.BCon{b, acc}, total, budget}
+    case _ 0n:
+      CErr{BodyTooLarge{}}
+    case other 1n+p:
+      c.frame(other, b, acc, total, p, max)
+
+# a byte at a time: the body ends at the empty line after the last chunk,
+# and what follows is the next request
+def chunks.go(bs: B.Bytes, st: CS, +max: Nat) -> Chunked:
+  match bs st:
+    case rest CEnd{acc}:
+      CDone{B.rev(acc), rest}
+    case _ CErr{e}:
+      CBad{e}
+    case B.BNil{} CS{_, _, _, _}:
+      CMore{}
+    case B.BCon{b, t} CS{m, acc, +total, +budget}:
+      chunks.go(t, c.step(m, budget, b, acc, total, max), max)
+
+# a chunked body of at most max bytes; its framing may take 64 KiB more
+# than max, which bounds extensions, trailers and tiny chunks
+def chunks(bs: B.Bytes, +max: Nat) -> Chunked:
+  chunks.go(bs, CS{CSize{0n, False{}}, B.BNil{}, 0n, Nat.add(65536n, max)}, max)
+
+# the Transfer-Encoding headers: how many, and whether one said chunked
+type TE is Data:
+  TE{hs: List<&2, H.Header>, count: U32, chunked: Bool}
+
+def te.scan(hs: List<&2, H.Header>, +count: U32, chunked: Bool, acc: List<&2, H.Header>) -> TE:
+  match hs:
+    case Nil{}:
+      TE{List.reverse(&2, H.Header, acc), count, chunked}
+    case Con{H.Header{+n, +v}, t}:
+      te.scan(t, Bool.pick(U32, T.same_ci(n, "transfer-encoding", True{}), (count + 1 : U32), count), Bool.or(chunked, Bool.and(T.same_ci(n, "transfer-encoding", True{}), is_token(v, "chunked"))), Con{H.Header{n, v}, acc})
+
 # a request read off the wire: the request, whether to close the connection
 # after answering it, and the bytes after it (the next request, pipelined)
 type Parsed is Data:
@@ -433,10 +642,43 @@ def close_of(v: Version, +c: Bool, +k: Bool) -> Bool:
     case _:
       Bool.or(c, Bool.not(k))
 
+def req.chunks(c: Chunked, m: M.Method, target: String, hs: List<&2, H.Header>, close: Bool) -> Parsed:
+  match c:
+    case CDone{body, rest}:
+      Parsed{Req.Request{m, target, hs, B.to_list(body)}, close, rest}
+    case CMore{}:
+      More{}
+    case CBad{e}:
+      Bad{e}
+
+def req.coded(one: Bool, hosts: Bool, close: Bool, +max: Nat, rest: B.Bytes, m: M.Method, target: String, hs: List<&2, H.Header>) -> Parsed:
+  match one hosts:
+    case False{} _:
+      Bad{Unsupported{}}
+    case True{} False{}:
+      Bad{BadHost{}}
+    case True{} True{}:
+      req.chunks(chunks(rest, max), m, target, hs, close)
+
+def req.te.of(t: TE, hosts: Bool, close: Bool, +max: Nat, rest: B.Bytes, m: M.Method, target: String) -> Parsed:
+  match t:
+    case TE{hs, +c, k}:
+      req.coded(Bool.and(U32.is_eq(c, 1), k), hosts, close, max, rest, m, target, hs)
+
+# a Transfer-Encoding: with a Content-Length too, the two could frame the
+# body two ways, so it is refused (RFC 9112 §6.1); else it must be one
+# header, chunked
+def req.te(cl: CL, hosts: Bool, close: Bool, +max: Nat, rest: B.Bytes, m: M.Method, target: String, hs: List<&2, H.Header>) -> Parsed:
+  match cl:
+    case NoLen{}:
+      req.te.of(te.scan(hs, 0, False{}, []), hosts, close, max, rest, m, target)
+    case _:
+      Bad{BadLength{}}
+
 def req.check(te: Bool, hosts: Bool, cl: CL, close: Bool, +max: Nat, rest: B.Bytes, m: M.Method, target: String, hs: List<&2, H.Header>) -> Parsed:
   match te hosts:
     case True{} _:
-      Bad{Unsupported{}}
+      req.te(cl, hosts, close, max, rest, m, target, hs)
     case False{} False{}:
       Bad{BadHost{}}
     case False{} True{}:

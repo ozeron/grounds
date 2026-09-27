@@ -70,6 +70,25 @@ law cl_bad_stays:
   for e: {fcl(fr) == H1.LenBad{} : H1.CL}
   {cl_of(H1.scan(hs, fr, acc)) == H1.LenBad{} : H1.CL}
 
+def has_len(cl: H1.CL) -> Bool:
+  match cl:
+    case H1.NoLen{}:
+      False{}
+    case _:
+      True{}
+
+# a Content-Length anywhere among the headers sets the length, or makes it
+# bad; no later header clears it
+law cl_seen:
+  for +pre: List<&2, H.Header>
+  for +n: String
+  for +v: String
+  for +post: List<&2, H.Header>
+  for +fr: H1.Frame
+  for +acc: List<&2, H.Header>
+  for e: {P.lows(n) == "content-length" : String}
+  {has_len(cl_of(H1.scan(List.append(&2, H.Header, pre, Con{H.Header{n, v}, post}), fr, acc))) == True{} : Bool}
+
 # two Content-Lengths that differ, anywhere among the headers, make the
 # length bad
 law cl_twice:
@@ -108,7 +127,17 @@ law obs_fold:
 # End to end: the head of buf split into its request line and header lines
 # ----------
 
-# a request with a Transfer-Encoding is refused
+# what a request with a Transfer-Encoding comes to: req.te's answer, which
+# never reads a body by Content-Length
+def by_te(s: H1.Scanned, m: M.Method, t: String, +ver: H1.Version, rest: B.Bytes, +max: Nat) -> H1.Parsed:
+  match s:
+    case H1.Scanned{hs, H1.Frame{cl, _, +h, +c, +k}}:
+      H1.req.te(cl, H1.hosts_ok(ver, h), H1.close_of(ver, c, k), max, rest, m, t, hs)
+
+def Frame0() -> H1.Frame:
+  H1.Frame{H1.NoLen{}, False{}, 0, False{}, False{}}
+
+# a request with a Transfer-Encoding is framed by it alone
 law parse_te:
   for +buf: B.Bytes
   for +mh: U32
@@ -129,7 +158,37 @@ law parse_te:
   for ef: {H1.fields(hl, H1.FOk{[]}) == H1.FOk{hs} : H1.Fields}
   for eo: {List.reverse(&2, H.Header, hs) == List.append(&2, H.Header, pre, Con{H.Header{n, v}, post}) : List<&2, H.Header>}
   for en: {P.lows(n) == "transfer-encoding" : String}
-  {H1.parse(buf, mh, mb) == H1.Bad{H1.Unsupported{}} : H1.Parsed}
+  {H1.parse(buf, mh, mb) == by_te(H1.scan(List.append(&2, H.Header, pre, Con{H.Header{n, v}, post}), Frame0(), []), m, t, ver, rest, U32.to_nat(mb)) : H1.Parsed}
+
+# a request with both a Transfer-Encoding and a Content-Length, anywhere and
+# in either order, is refused: the two could frame its body two ways
+law parse_te_cl:
+  for +buf: B.Bytes
+  for +mh: U32
+  for +mb: U32
+  for +first: B.Bytes
+  for +hl: List<&2, B.Bytes>
+  for +rest: B.Bytes
+  for +m: M.Method
+  for +t: String
+  for +ver: H1.Version
+  for +hs: List<&2, H.Header>
+  for +pre: List<&2, H.Header>
+  for +n: String
+  for +v: String
+  for +post: List<&2, H.Header>
+  for +pre2: List<&2, H.Header>
+  for +n2: String
+  for +v2: String
+  for +post2: List<&2, H.Header>
+  for es: {H1.split.go(buf, B.BNil{}, [], 0, mh, False{}) == H1.Lines{Con{first, hl}, rest} : H1.Split}
+  for el: {H1.request_line(H1.split_sp.go(first, B.BNil{}, [])) == H1.Line{m, t, ver} : H1.Line}
+  for ef: {H1.fields(hl, H1.FOk{[]}) == H1.FOk{hs} : H1.Fields}
+  for +eo: {List.reverse(&2, H.Header, hs) == List.append(&2, H.Header, pre, Con{H.Header{n, v}, post}) : List<&2, H.Header>}
+  for eo2: {List.reverse(&2, H.Header, hs) == List.append(&2, H.Header, pre2, Con{H.Header{n2, v2}, post2}) : List<&2, H.Header>}
+  for en: {P.lows(n) == "transfer-encoding" : String}
+  for en2: {P.lows(n2) == "content-length" : String}
+  {is_bad(H1.parse(buf, mh, mb)) == True{} : Bool}
 
 # a request with two differing Content-Lengths is refused
 law parse_cl_twice:

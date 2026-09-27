@@ -96,7 +96,7 @@ def no_host() -> {p("GET / HTTP/1.1\r\n\r\n") == H1.Bad{H1.BadHost{}} : P()}:
 def two_hosts() -> {p("GET / HTTP/1.1\r\nHost: a\r\nHost: b\r\n\r\n") == H1.Bad{H1.BadHost{}} : P()}:
   {==}
 
-def chunked() -> {p("POST / HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\n\r\n") == H1.Bad{H1.Unsupported{}} : P()}:
+def chunked() -> {p("POST / HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\n\r\n") == H1.More{} : P()}:
   {==}
 
 def head_too_large() -> {H1.parse(b("GET / HTTP/1.1\r\nHost: x\r\n\r\n"), 10, 16) == H1.Bad{H1.HeadTooLarge{}} : P()}:
@@ -127,11 +127,52 @@ def round_trip() -> {H1.parse_response(H1.write(Res.header(Res.text(S.not_found(
 
 # spellings and orders the laws cover in general
 
-def chunked_mixed_case() -> {p("POST / HTTP/1.1\r\nHost: x\r\ntRANSFER-eNCODING: chunked\r\n\r\n") == H1.Bad{H1.Unsupported{}} : P()}:
+def chunked_mixed_case() -> {p("POST / HTTP/1.1\r\nHost: x\r\ntRANSFER-eNCODING: Chunked\r\n\r\n0\r\n\r\n") == H1.Parsed{Req.Request{M.MPost{}, "/", [H.Header{"Host", "x"}, H.Header{"tRANSFER-eNCODING", "Chunked"}], []}, False{}, b("")} : P()}:
   {==}
 
 def bad_length_first() -> {p("POST / HTTP/1.1\r\nHost: x\r\nContent-Length: x\r\nContent-Length: 1\r\n\r\na") == H1.Bad{H1.BadLength{}} : P()}:
   {==}
 
 def written_lowercase_length() -> {H1.write(Res.header(Res.empty(S.no_content()), "content-length", "9"), False{}) == b("HTTP/1.1 204 No Content\r\ncontent-length: 0\r\nconnection: keep-alive\r\n\r\n") : B.Bytes}:
+  {==}
+
+# chunked bodies
+
+def chunked_body() -> {p("POST / HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\n\r\n3\r\nabc\r\n1;x=y\r\nd\r\n0\r\n\r\nGET") == H1.Parsed{Req.Request{M.MPost{}, "/", [H.Header{"Host", "x"}, H.Header{"Transfer-Encoding", "chunked"}], [97, 98, 99, 100]}, False{}, b("GET")} : P()}:
+  {==}
+
+def chunked_crlf_in_data() -> {p("POST / HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\n\r\n5\r\n0\r\n\r\n\r\n0\r\n\r\n") == H1.Parsed{Req.Request{M.MPost{}, "/", [H.Header{"Host", "x"}, H.Header{"Transfer-Encoding", "chunked"}], [48, 13, 10, 13, 10]}, False{}, b("")} : P()}:
+  {==}
+
+def chunked_trailers() -> {p("POST / HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\n\r\nA\r\n0123456789\r\n0\r\nX-T: 1\r\n\r\n") == H1.Parsed{Req.Request{M.MPost{}, "/", [H.Header{"Host", "x"}, H.Header{"Transfer-Encoding", "chunked"}], [48, 49, 50, 51, 52, 53, 54, 55, 56, 57]}, False{}, b("")} : P()}:
+  {==}
+
+def chunked_more() -> {p("POST / HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\n\r\n3\r\nab") == H1.More{} : P()}:
+  {==}
+
+def chunked_more_end() -> {p("POST / HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\n\r\n0\r\n\r") == H1.More{} : P()}:
+  {==}
+
+def chunked_too_large() -> {p("POST / HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\n\r\n11\r\n") == H1.Bad{H1.BodyTooLarge{}} : P()}:
+  {==}
+
+def chunked_sum_too_large() -> {p("POST / HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\n\r\n9\r\n123456789\r\n8\r\n") == H1.Bad{H1.BodyTooLarge{}} : P()}:
+  {==}
+
+def chunked_bad_size() -> {p("POST / HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\n\r\n 3\r\nabc\r\n0\r\n\r\n") == H1.Bad{H1.BadLength{}} : P()}:
+  {==}
+
+def chunked_no_crlf_after_data() -> {p("POST / HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\n\r\n3\r\nabcd\r\n0\r\n\r\n") == H1.Bad{H1.BadLength{}} : P()}:
+  {==}
+
+def chunked_bare_lf() -> {p("POST / HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\n\r\n3\nabc\r\n0\r\n\r\n") == H1.Bad{H1.BadLength{}} : P()}:
+  {==}
+
+def te_and_length() -> {p("POST / HTTP/1.1\r\nHost: x\r\nContent-Length: 3\r\nTransfer-Encoding: chunked\r\n\r\n0\r\n\r\n") == H1.Bad{H1.BadLength{}} : P()}:
+  {==}
+
+def te_gzip() -> {p("POST / HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: gzip, chunked\r\n\r\n") == H1.Bad{H1.Unsupported{}} : P()}:
+  {==}
+
+def te_twice() -> {p("POST / HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\nTransfer-Encoding: chunked\r\n\r\n0\r\n\r\n") == H1.Bad{H1.Unsupported{}} : P()}:
   {==}

@@ -203,6 +203,93 @@ def Laws.cl_bad_stays(hs, fr, acc, e):
     case Con{H.Header{+n, +v}, t}:
       Laws.cl_bad_stays(t, H1.frame.step(H1.kind(n), fr, v), Con{H.Header{n, v}, acc}, step_bad(H1.kind(n), fr, v, e))
 
+law merge_eq_has:
+  for +same: Bool
+  for +a: Nat
+  {Laws.has_len(H1.cl_merge.eq(same, a)) == True{} : Bool}
+
+def merge_eq_has(same, a):
+  match same:
+    case True{}:
+      {==}
+    case False{}:
+      {==}
+
+# a Content-Length leaves a length, or a bad one, whatever came before
+law merge_has:
+  for +cl: H1.CL
+  for +d: Maybe<&2, Nat>
+  {Laws.has_len(H1.cl_merge(cl, d)) == True{} : Bool}
+
+def merge_has(cl, d):
+  match cl d:
+    case H1.NoLen{} Some{_}:
+      {==}
+    case H1.NoLen{} None{}:
+      {==}
+    case H1.Len{+a} Some{+b}:
+      merge_eq_has(Nat.is_eq(a, b), a)
+    case H1.Len{_} None{}:
+      {==}
+    case H1.LenBad{} Some{_}:
+      {==}
+    case H1.LenBad{} None{}:
+      {==}
+
+law step_has:
+  for +k: H1.HKind
+  for +fr: H1.Frame
+  for +v: String
+  for +e: {Laws.has_len(Laws.fcl(fr)) == True{} : Bool}
+  {Laws.has_len(Laws.fcl(H1.frame.step(k, fr, v))) == True{} : Bool}
+
+def step_has(k, fr, v, e):
+  match k fr:
+    case H1.KLen{} H1.Frame{cl, te, h, c, kp}:
+      merge_has(cl, H1.cl_digits.go(v, 0n, True{}, False{}))
+    case H1.KTe{} H1.Frame{cl, te, h, c, kp}:
+      e
+    case H1.KHost{} H1.Frame{cl, te, h, c, kp}:
+      e
+    case H1.KConn{} H1.Frame{cl, te, h, c, kp}:
+      e
+    case H1.KOther{} f:
+      e
+
+law has_sticky:
+  for +hs: List<&2, H.Header>
+  for +fr: H1.Frame
+  for +acc: List<&2, H.Header>
+  for +e: {Laws.has_len(Laws.fcl(fr)) == True{} : Bool}
+  {Laws.has_len(Laws.cl_of(H1.scan(hs, fr, acc))) == True{} : Bool}
+
+def has_sticky(hs, fr, acc, e):
+  match hs:
+    case Nil{}:
+      e
+    case Con{H.Header{+n, +v}, t}:
+      has_sticky(t, H1.frame.step(H1.kind(n), fr, v), Con{H.Header{n, v}, acc}, step_has(H1.kind(n), fr, v, e))
+
+law has_head:
+  for +post: List<&2, H.Header>
+  for +fr: H1.Frame
+  for +v: String
+  for +acc: List<&2, H.Header>
+  {Laws.has_len(Laws.cl_of(H1.scan(post, H1.frame.step(H1.KLen{}, fr, v), acc))) == True{} : Bool}
+
+def has_head(post, fr, v, acc):
+  match fr:
+    case H1.Frame{cl, te, h, c, kp}:
+      has_sticky(post, H1.Frame{H1.cl_merge(cl, H1.cl_digits.go(v, 0n, True{}, False{})), te, h, c, kp}, acc, merge_has(cl, H1.cl_digits.go(v, 0n, True{}, False{})))
+
+def Laws.cl_seen(pre, n, v, post, fr, acc, e):
+  match pre:
+    case Nil{}:
+      %Equal.sym(H1.HKind, H1.kind(n), H1.KLen{}, kind_len(n, e)) : {Laws.has_len(Laws.cl_of(H1.scan(post, H1.frame.step(_, fr, v), Con{H.Header{n, v}, acc}))) == True{} : Bool}
+      has_head(post, fr, v, Con{H.Header{n, v}, acc})
+    case Con{H.Header{+k, +w}, t}:
+      Laws.cl_seen(t, n, v, post, H1.frame.step(H1.kind(k), fr, w), Con{H.Header{k, w}, acc}, e)
+
 # after a Content-Length of a: the length is a, or already bad
 def lenish(+a: Nat, cl: H1.CL) -> Bool:
   match cl:
@@ -403,13 +490,49 @@ law frame_te:
   for +rest: B.Bytes
   for +max: Nat
   for +e: {Laws.te_of(s) == True{} : Bool}
-  {H1.req.frame(s, m, t, ver, rest, max) == H1.Bad{H1.Unsupported{}} : H1.Parsed}
+  {H1.req.frame(s, m, t, ver, rest, max) == Laws.by_te(s, m, t, ver, rest, max) : H1.Parsed}
 
 def frame_te(s, m, t, ver, rest, max, e):
   match s:
     case H1.Scanned{hs, H1.Frame{cl, te, +h, +c, +k}}:
-      %Equal.sym(Bool, te, True{}, e) : {H1.req.check(_, H1.hosts_ok(ver, h), cl, H1.close_of(ver, c, k), max, rest, m, t, hs) == H1.Bad{H1.Unsupported{}} : H1.Parsed}
+      %Equal.sym(Bool, te, True{}, e) : {H1.req.check(_, H1.hosts_ok(ver, h), cl, H1.close_of(ver, c, k), max, rest, m, t, hs) == H1.req.te(cl, H1.hosts_ok(ver, h), H1.close_of(ver, c, k), max, rest, m, t, hs) : H1.Parsed}
       {==}
+
+law te_len:
+  for +cl: H1.CL
+  for +hosts: Bool
+  for +close: Bool
+  for +max: Nat
+  for +rest: B.Bytes
+  for +m: M.Method
+  for +t: String
+  for +hs: List<&2, H.Header>
+  for e: {Laws.has_len(cl) == True{} : Bool}
+  {Laws.is_bad(H1.req.te(cl, hosts, close, max, rest, m, t, hs)) == True{} : Bool}
+
+def te_len(cl, hosts, close, max, rest, m, t, hs, e):
+  match cl:
+    case H1.NoLen{}:
+      P.absurd({Laws.is_bad(H1.req.te(H1.NoLen{}, hosts, close, max, rest, m, t, hs)) == True{} : Bool}, e)
+    case H1.Len{_}:
+      {==}
+    case H1.LenBad{}:
+      {==}
+
+law by_te_len:
+  for +s: H1.Scanned
+  for +m: M.Method
+  for +t: String
+  for +ver: H1.Version
+  for +rest: B.Bytes
+  for +max: Nat
+  for +e: {Laws.has_len(Laws.cl_of(s)) == True{} : Bool}
+  {Laws.is_bad(Laws.by_te(s, m, t, ver, rest, max)) == True{} : Bool}
+
+def by_te_len(s, m, t, ver, rest, max, e):
+  match s:
+    case H1.Scanned{hs, H1.Frame{cl, te, +h, +c, +k}}:
+      te_len(cl, H1.hosts_ok(ver, h), H1.close_of(ver, c, k), max, rest, m, t, hs, e)
 
 law check_lenbad:
   for +te: Bool
@@ -465,14 +588,19 @@ def fields_bad(f, m, t, ver, rest, max, e):
       P.absurd({Laws.is_bad(H1.req.fields(H1.FOk{hs}, m, t, ver, rest, max)) == True{} : Bool}, e)
 
 def Frame0() -> H1.Frame:
-  H1.Frame{H1.NoLen{}, False{}, 0, False{}, False{}}
+  Laws.Frame0()
 
 def Laws.parse_te(buf, mh, mb, first, hl, rest, m, t, ver, hs, pre, n, v, post, es, el, ef, eo, en):
-  %Equal.sym(H1.Split, H1.split.go(buf, B.BNil{}, [], 0, mh, False{}), H1.Lines{Con{first, hl}, rest}, es) : {H1.req.lines(_, U32.to_nat(mb)) == H1.Bad{H1.Unsupported{}} : H1.Parsed}
-  %Equal.sym(H1.Line, H1.request_line(H1.split_sp.go(first, B.BNil{}, [])), H1.Line{m, t, ver}, el) : {H1.req.line(_, hl, rest, U32.to_nat(mb)) == H1.Bad{H1.Unsupported{}} : H1.Parsed}
-  %Equal.sym(H1.Fields, H1.fields(hl, H1.FOk{[]}), H1.FOk{hs}, ef) : {H1.req.fields(_, m, t, ver, rest, U32.to_nat(mb)) == H1.Bad{H1.Unsupported{}} : H1.Parsed}
-  %Equal.sym(List<&2, H.Header>, List.reverse(&2, H.Header, hs), List.append(&2, H.Header, pre, Con{H.Header{n, v}, post}), eo) : {H1.req.frame(H1.scan(_, Frame0(), []), m, t, ver, rest, U32.to_nat(mb)) == H1.Bad{H1.Unsupported{}} : H1.Parsed}
+  %Equal.sym(H1.Split, H1.split.go(buf, B.BNil{}, [], 0, mh, False{}), H1.Lines{Con{first, hl}, rest}, es) : {H1.req.lines(_, U32.to_nat(mb)) == Laws.by_te(H1.scan(List.append(&2, H.Header, pre, Con{H.Header{n, v}, post}), Frame0(), []), m, t, ver, rest, U32.to_nat(mb)) : H1.Parsed}
+  %Equal.sym(H1.Line, H1.request_line(H1.split_sp.go(first, B.BNil{}, [])), H1.Line{m, t, ver}, el) : {H1.req.line(_, hl, rest, U32.to_nat(mb)) == Laws.by_te(H1.scan(List.append(&2, H.Header, pre, Con{H.Header{n, v}, post}), Frame0(), []), m, t, ver, rest, U32.to_nat(mb)) : H1.Parsed}
+  %Equal.sym(H1.Fields, H1.fields(hl, H1.FOk{[]}), H1.FOk{hs}, ef) : {H1.req.fields(_, m, t, ver, rest, U32.to_nat(mb)) == Laws.by_te(H1.scan(List.append(&2, H.Header, pre, Con{H.Header{n, v}, post}), Frame0(), []), m, t, ver, rest, U32.to_nat(mb)) : H1.Parsed}
+  %Equal.sym(List<&2, H.Header>, List.reverse(&2, H.Header, hs), List.append(&2, H.Header, pre, Con{H.Header{n, v}, post}), eo) : {H1.req.frame(H1.scan(_, Frame0(), []), m, t, ver, rest, U32.to_nat(mb)) == Laws.by_te(H1.scan(List.append(&2, H.Header, pre, Con{H.Header{n, v}, post}), Frame0(), []), m, t, ver, rest, U32.to_nat(mb)) : H1.Parsed}
   frame_te(H1.scan(List.append(&2, H.Header, pre, Con{H.Header{n, v}, post}), Frame0(), []), m, t, ver, rest, U32.to_nat(mb), Laws.te_seen(pre, n, v, post, Frame0(), [], en))
+
+def Laws.parse_te_cl(buf, mh, mb, first, hl, rest, m, t, ver, hs, pre, n, v, post, pre2, n2, v2, post2, es, el, ef, eo, eo2, en, en2):
+  %Equal.sym(H1.Parsed, H1.parse(buf, mh, mb), Laws.by_te(H1.scan(List.append(&2, H.Header, pre, Con{H.Header{n, v}, post}), Frame0(), []), m, t, ver, rest, U32.to_nat(mb)), Laws.parse_te(buf, mh, mb, first, hl, rest, m, t, ver, hs, pre, n, v, post, es, el, ef, eo, en)) : {Laws.is_bad(_) == True{} : Bool}
+  %Equal.trans(List<&2, H.Header>, List.append(&2, H.Header, pre2, Con{H.Header{n2, v2}, post2}), List.reverse(&2, H.Header, hs), List.append(&2, H.Header, pre, Con{H.Header{n, v}, post}), Equal.sym(List<&2, H.Header>, List.reverse(&2, H.Header, hs), List.append(&2, H.Header, pre2, Con{H.Header{n2, v2}, post2}), eo2), eo) : {Laws.is_bad(Laws.by_te(H1.scan(_, Frame0(), []), m, t, ver, rest, U32.to_nat(mb))) == True{} : Bool}
+  by_te_len(H1.scan(List.append(&2, H.Header, pre2, Con{H.Header{n2, v2}, post2}), Frame0(), []), m, t, ver, rest, U32.to_nat(mb), Laws.cl_seen(pre2, n2, v2, post2, Frame0(), [], en2))
 
 def Laws.parse_cl_twice(buf, mh, mb, first, hl, rest, m, t, ver, hs, pre, n1, v1, mid, n2, v2, post, a, b, es, el, ef, eo, e1, e2, d1, d2, ne):
   %Equal.sym(H1.Split, H1.split.go(buf, B.BNil{}, [], 0, mh, False{}), H1.Lines{Con{first, hl}, rest}, es) : {Laws.is_bad(H1.req.lines(_, U32.to_nat(mb))) == True{} : Bool}
