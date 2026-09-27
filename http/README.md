@@ -21,10 +21,10 @@ def handle(r: Req.Request) -> Res.Response:
 | `method.bend` | `Method`: `MGet`, `MPost`, …, `MOther{name}`; `parse`, `show` (case-sensitive, §9) |
 | `status.bend` | `Status{code}`, `ok()`, `not_found()`, `request_timeout()`, …, `reason` (§15) |
 | `headers.bend` | `Header{name, value}` in order; `get` (first), `all`, `add`, `set`, `remove`; names compare ignoring case (§5) |
-| `query.bend` | `Param{key, value}` pairs, repeats kept; `parse` decodes `%XX` and `+` |
-| `request.bend` | `Request{method, target, headers, body}`; `path`, `query`, `header`, `body` |
-| `response.bend` | `Response{status, headers, body}`; `new`, `empty`, `bytes`, `text`, `html`, `redirect`, `not_found`, `bad_request`, `header` |
-| `text.bend` | compares and cuts Strings by reading only |
+| `query.bend` | `Param{key, value}` pairs, repeats kept; `parse` decodes `%XX` and `+`; `get` (first) |
+| `request.bend` | `Request{method, target, headers, body}`; `path`, `query`, `param` (a query value), `header`, `body` |
+| `response.bend` | `Response{status, headers, body}`; `new`, `empty`, `ok`, `bytes`, `text`, `html`, `redirect`, `not_found`, `bad_request`, `header` |
+| `text.bend` | compares and cuts Strings by reading only; `or(maybe, default)`, `u32(digits)` |
 
 Bodies are bytes (`List<U32>`, 0..255). Text goes through `grounds-utf8`.
 

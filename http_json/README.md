@@ -20,6 +20,7 @@ match HJ.decode(Todo, j => Todo.from_json(j), req):
   - `InvalidValue{J.Access}`: `f` failed; `J.message_access` gives e.g. `$.done: expected bool, found string`.
 - **`response(status, j)`** answers with `j` and `content-type: application/json`.
 - **`error(e)`** turns a `DecodeError` into its answer.
+- **Answers:** `ok(j)`, `created(j)`, `fail(status, msg)`, `not_found()`, `maybe(A, f, m)` (200 or 404), `decoded(A, f, req, k)` (decode, then `k`, or the error's answer), and `dispatch`: `Router.dispatch` with JSON 404 and 405 bodies.
 - **Pass the decoder as a lambda** (`j => Todo.from_json(j)`): a decoder takes `+j`, which a plain function type does not.
 
 `examples/todo.bend` is a JSON API on port 8081: `GET /todos`, `POST /todos`, `GET /todos/:id`. The handler keeps no state, so the list is fixed and POST answers with the todo it would create.

@@ -30,6 +30,10 @@ def html(s: S.Status, t: String) -> Response:
 def redirect(location: String) -> Response:
   Response{S.see_other(), [H.Header{"location", location}], []}
 
+# 200 with text
+def ok(t: String) -> Response:
+  text(S.ok(), t)
+
 def not_found() -> Response:
   text(S.not_found(), "Not Found")
 

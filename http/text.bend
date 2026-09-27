@@ -53,3 +53,24 @@ def cut.go(+s: String, +c: U32, acc: String, hit: Bool) -> Cut:
 
 def cut(+s: String, +c: U32) -> Cut:
   cut.go(s, c, "", head_is(s, c))
+
+# the value, or d when there is none
+def or(m: Maybe<&2, String>, d: String) -> String:
+  match m:
+    case Some{s}:
+      s
+    case None{}:
+      d
+
+def u32.go(s: String, +acc: U32, +n: U32, ok: Bool) -> Maybe<&2, U32>:
+  match s ok:
+    case _ False{}:
+      None{}
+    case SNil{} True{}:
+      Bool.pick(Maybe<&2, U32>, Bool.and(U32.is_gt(n, 0), U32.is_le(n, 9)), Some{acc}, None{})
+    case SCon{Chr{+c}, t} True{}:
+      u32.go(t, ((acc * 10) + (c - 48) : U32), (n + 1 : U32), Bool.and(U32.is_ge(c, 48), U32.is_le(c, 57)))
+
+# a whole number of one to nine digits, as a path or query writes an id
+def u32(s: String) -> Maybe<&2, U32>:
+  u32.go(s, 0, 0, True{})

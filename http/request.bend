@@ -47,6 +47,13 @@ def query(r: Request) -> List<&2, Q.Param>:
     case Request{_, t, _, _}:
       query.of(T.cut(t, 63))
 
+# the first value of a query key: ?name=x gives Some{"x"}. It takes the
+# request; for several keys, match Req.query(r) with Q.get
+def param(r: Request, +name: String) -> Maybe<&2, String>:
+  match r:
+    case Request{_, t, _, _}:
+      Q.get(query.of(T.cut(t, 63)), name)
+
 def headers(r: Request) -> List<&2, H.Header>:
   match r:
     case Request{_, _, hs, _}:

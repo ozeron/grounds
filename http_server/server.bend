@@ -212,3 +212,10 @@ def serve(~h: Req.Request -> IO(Res.Response), cfg: Config) -> IO(Unit):
         l : Listener <- IO.try(Listener, W.listen(port))
         m : RA() <- W.accept(l)
         accept.loop(~h, 4294967295n, mh, mb, ims, rms, U32.to_nat(mr), m)
+
+def lift(~h: Req.Request -> Res.Response, r: Req.Request) -> IO(Res.Response):
+  IO.pure(Res.Response, h(r))
+
+# serve for a handler that does no IO: it returns a Response, not IO
+def serve_pure(~h: Req.Request -> Res.Response, cfg: Config) -> IO(Unit):
+  serve(~lift(~h), cfg)

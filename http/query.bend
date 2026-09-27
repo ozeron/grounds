@@ -75,3 +75,32 @@ def parse.go(fuel: Nat, c: T.Cut, acc: List<&2, Param>) -> List<&2, Param>:
 # the pairs of a query string, without its ?
 def parse(+q: String) -> List<&2, Param>:
   parse.go(String.length(q), T.cut(q, 38), [])
+
+# query's own compare: one shared with callers that pass literals would
+# make it an owner, and a name used for every pair would then be shared
+def same(a: String, b: String, ok: Bool) -> Bool:
+  match a b:
+    case SNil{} SNil{}:
+      ok
+    case SCon{x, at} SCon{y, bt}:
+      same(at, bt, Bool.and(ok, Char.is_eq(x, y)))
+    case _ _:
+      False{}
+
+def get.keep(hit: Bool, v: String, found: Maybe<&2, String>) -> Maybe<&2, String>:
+  match hit found:
+    case True{} None{}:
+      Some{v}
+    case _ other:
+      other
+
+def get.go(ps: List<&2, Param>, +name: String, found: Maybe<&2, String>) -> Maybe<&2, String>:
+  match ps:
+    case Nil{}:
+      found
+    case Con{Param{k, v}, t}:
+      get.go(t, name, get.keep(same(k, name, True{}), v, found))
+
+# the first value of a key
+def get(ps: List<&2, Param>, +name: String) -> Maybe<&2, String>:
+  get.go(ps, name, None{})

@@ -19,6 +19,7 @@ match Router.route_req(Route, routes(), req):
   case Router.Routed{Router.NotFound{}, _}: …                   # 404
 ```
 
+- **Dispatch:** `Router.dispatch(Route, routes(), req, on)` routes and answers: `on(route, params, req)` for a match, 404 or 405 with `Allow` otherwise. `Router.param_u32(params, "id")` reads a numeric capture.
 - **Patterns:** `/`-separated literals and `:name` captures; no wildcards, no regex. A capture takes a non-empty segment, so `/todos/` is not `/todos/:id`. A trailing slash counts: `/todos/` is not `/todos`.
 - **Matching:** routes are tried in order and the first whose method and path match wins. The query string is ignored.
 - **405:** a path that matches under other methods gives `MethodNotAllowed` with those methods; `Router.allow` writes the `Allow` header's value (RFC 9110 §15.5.6).

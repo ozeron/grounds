@@ -6,16 +6,16 @@ An HTTP/1.1 server for [Bend 2](https://github.com/bendlang/bend): `serve(handle
 import ../http_server/server.bend as Server
 import ../http/request.bend as Req
 import ../http/response.bend as Res
-import ../http/status.bend as S
+import ../http/text.bend as T
 
-def hello(r: Req.Request) -> IO(Res.Response):
-  IO.pure(Res.Response, Res.text(S.ok(), "hello\n"))
+def hello(r: Req.Request) -> Res.Response:
+  Res.ok("hello, " ++ T.or(Req.param(r, "name"), "world") ++ "\n")
 
 def main() -> IO(Unit):
-  Server.serve(~hello, Server.default(8080))
+  Server.serve_pure(~hello, Server.default(8080))
 ```
 
-`examples/hello.bend` answers `curl 'localhost:8080/?name=x'` with `hello, x`.
+`serve_pure` takes a handler that does no IO; `serve` takes one returning `IO(Response)`. `examples/hello.bend` answers `curl 'localhost:8080/?name=x'` with `hello, x`.
 
 ## Behaviour
 

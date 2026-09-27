@@ -5,6 +5,7 @@ import ./headers.bend as H
 import ./query.bend as Q
 import ./request.bend as Req
 import ./response.bend as Res
+import ./text.bend as T
 
 # each def is a test: it checks only if both sides compute to the same value
 
@@ -63,4 +64,27 @@ def res_text() -> {Res.text(S.ok(), "hi") == Res.Response{S.Status{200}, [H.Head
   {==}
 
 def res_header() -> {Res.header(Res.empty(S.no_content()), "cache-control", "no-store") == Res.Response{S.Status{204}, [H.Header{"cache-control", "no-store"}], []} : Res.Response}:
+  {==}
+
+# DevX helpers
+
+def q_get() -> {Q.get(Q.parse("a=1&b=2&a=3"), "a") == Some{"1"} : Maybe<&2, String>}:
+  {==}
+
+def q_get_none() -> {Q.get(Q.parse("a=1"), "b") == None{} : Maybe<&2, String>}:
+  {==}
+
+def req_param() -> {Req.param(Req.Request{M.MGet{}, "/?name=x%20y", [], []}, "name") == Some{"x y"} : Maybe<&2, String>}:
+  {==}
+
+def or_default() -> {T.or(None{}, "world") == "world" : String}:
+  {==}
+
+def u32_ok() -> {T.u32("42") == Some{42} : Maybe<&2, U32>}:
+  {==}
+
+def u32_bad() -> {T.u32("4x") == None{} : Maybe<&2, U32>}:
+  {==}
+
+def u32_empty() -> {T.u32("") == None{} : Maybe<&2, U32>}:
   {==}

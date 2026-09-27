@@ -1,6 +1,9 @@
 import Base
 import ../http/method.bend as M
 import ../http/request.bend as Req
+import ../http/response.bend as Res
+import ../http/status.bend as S
+import ../http/text.bend as T
 
 # grounds-http-router: match a request's method and path against routes,
 # and answer with data: the route value you gave, and the path's captures.
@@ -252,3 +255,28 @@ def allow.go(ms: List<&2, M.Method>, out: String) -> String:
 # the Allow header's value for a 405 (RFC 9110 §10.2.1): "GET, POST"
 def allow(ms: List<&2, M.Method>) -> String:
   allow.go(ms, "")
+
+def param_u32.of(m: Maybe<&2, String>) -> Maybe<&2, U32>:
+  match m:
+    case Some{s}:
+      T.u32(s)
+    case None{}:
+      None{}
+
+# a capture as a number: /todos/:id with id 7 gives Some{7}
+def param_u32(ps: List<&2, Param>, +name: String) -> Maybe<&2, U32>:
+  param_u32.of(param(ps, name))
+
+def dispatch.go(-R: Data, rt: Routed<R>, on: R -> List<&2, Param> -> Req.Request -> Res.Response, miss: Res.Response, bad: List<&2, M.Method> -> Res.Response) -> Res.Response:
+  match rt:
+    case Routed{Found{r, ps}, req}:
+      on(r, ps, req)
+    case Routed{NotFound{}, _}:
+      miss
+    case Routed{MethodNotAllowed{al}, _}:
+      bad(al)
+
+# route a request and answer it: on gets the route, its captures and the
+# request; no route is 404, a route under other methods 405 with Allow
+def dispatch(-R: Data, rs: List<&2, Route<R>>, r: Req.Request, on: R -> List<&2, Param> -> Req.Request -> Res.Response) -> Res.Response:
+  dispatch.go(R, route_req(R, rs, r), on, Res.not_found(), al => Res.header(Res.text(S.method_not_allowed(), "Method Not Allowed"), "allow", allow(al)))

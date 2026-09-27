@@ -5,6 +5,8 @@ import ../http/status.bend as S
 import ../http/headers.bend as H
 import ../http/request.bend as Req
 import ../http/response.bend as Res
+import ../http/method.bend as M
+import ../http_router/router.bend as Router
 
 # JSON bodies for http: decode a request's body into your type, and answer
 # with a JSON value
@@ -142,3 +144,45 @@ def error(e: DecodeError) -> Res.Response:
       response(S.bad_request(), error_body("invalid JSON: " ++ J.message(x)))
     case InvalidValue{a}:
       response(S.bad_request(), error_body(J.message_access(a)))
+
+# Answers
+# -------
+
+def ok(j: J.Json) -> Res.Response:
+  response(S.ok(), j)
+
+def created(j: J.Json) -> Res.Response:
+  response(S.created(), j)
+
+# {"error": msg} with a status
+def fail(s: S.Status, msg: String) -> Res.Response:
+  response(s, error_body(msg))
+
+def not_found() -> Res.Response:
+  fail(S.not_found(), "not found")
+
+def decoded.go(-A: Data, r: Result<&2, &2, DecodeError, A>, k: A -> Res.Response) -> Res.Response:
+  match r:
+    case Done{a}:
+      k(a)
+    case Fail{e}:
+      error(e)
+
+# decode the body and answer with k, or answer why it did not decode
+def decoded(-A: Data, f: J.Json -> Result<&2, &2, J.Access, A>, r: Req.Request, k: A -> Res.Response) -> Res.Response:
+  decoded.go(A, decode(A, f, r), k)
+
+# 200 with f(a), or 404
+def maybe(-A: Data, f: A -> J.Json, m: Maybe<&2, A>) -> Res.Response:
+  match m:
+    case Some{a}:
+      ok(f(a))
+    case None{}:
+      not_found()
+
+def allowed(al: List<&2, M.Method>) -> Res.Response:
+  Res.header(fail(S.method_not_allowed(), "method not allowed"), "allow", Router.allow(al))
+
+# Router.dispatch with JSON answers: 404 and 405 as {"error": ...}
+def dispatch(-R: Data, rs: List<&2, Router.Route<R>>, r: Req.Request, on: R -> List<&2, Router.Param> -> Req.Request -> Res.Response) -> Res.Response:
+  Router.dispatch.go(R, Router.route_req(R, rs, r), on, not_found(), al => allowed(al))
