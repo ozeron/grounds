@@ -9,7 +9,7 @@ Specs in this folder: [RFC 9110](rfc9110.txt) (HTTP semantics), [RFC 9112](rfc91
 3. [x] **http1** (`../http1`): request heads and Content-Length bodies parsed, responses written, malformed input refused (RFC 9112). [ ] Chunked coding (§7), trailers.
 4. [x] **http_server** (`../http_server`): accept loop, a spawned computation per connection, keep-alive and pipelining, `serve(handler, config)` with head, body and request limits. [ ] Idle and request timeouts, graceful shutdown.
 5. [ ] **http_json**: `decode(req, decoder)` (checks Content-Type, the body limit, parse and decode errors, as `DecodeError{UnsupportedContentType, BodyTooLarge, InvalidJson, InvalidValue}`) and `response(status, encode, value)`.
-6. [ ] **http_router**: pure matching of method and path to a route value and params: `Router.get(r, "/users/:id", GetUser)`, `Router.match(routes, req) -> Match{route, params} | NotFound | MethodNotAllowed`.
+6. [x] **http_router** (`../http_router`): routes as data, `route_req(routes, req)` gives `Found{route, params}`, `NotFound` or `MethodNotAllowed{allowed}`.
 7. [ ] **http_middleware**: `BodyLimit`, `RequestId`, `Logger`, `Timeout`, `Cors`, `Recover`; later compression, rate limits, auth, forwarded headers.
 8. [ ] Later: cookies (RFC 6265), forms, multipart, streaming bodies, SSE, WebSockets.
 
@@ -28,6 +28,11 @@ Specs in this folder: [RFC 9110](rfc9110.txt) (HTTP semantics), [RFC 9112](rfc91
 - [ ] Path percent-decoding and normalisation, dot segments (RFC 3986 §5.2.4)
 - [ ] `Content-Type` parsing: media type and parameters (§8.3)
 - [ ] Laws: `get` finds the first of repeated names; `set` leaves exactly one; `parse(show(m)) == m`
+
+## Measured (M1 tests 1 and 2)
+
+- Middleware as nested templates works: `run(~rec.wrap(~log.wrap(~app)), x)` typechecks and runs, so a wrapper is a def taking `~next`.
+- Route tables: rebuilt per request (`routes()`) stays cold; one table reused makes Lists and all they hold reference counted.
 
 ## Open design questions
 
