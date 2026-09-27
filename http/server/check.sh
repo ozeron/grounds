@@ -55,4 +55,31 @@ grep -q "the handler failed on purpose" "$tmp/errlog" || { echo "stack: recover 
 grep -q "^GET /fail 500 " "$tmp/log" || { echo "stack: logger did not log"; exit 1; }
 echo "stack: request id, 500 from recover, 413 from body_limit, logged"
 
-python3 ../../json/scripts/cold.py "$PWD/examples/hello.bend" "$PWD/examples/stack.bend"
+# streamed bodies, health, env config and a graceful stop (examples/stream)
+bend examples/stream.bend -o "$tmp/stream" > /dev/null
+PORT=8083 "$tmp/stream" > /dev/null 2>&1 &
+tpid=$!
+trap '[ -n "$pid" ] && kill "$pid" 2>/dev/null; kill "$spid" "$tpid" 2>/dev/null; rm -rf "$tmp"' EXIT
+tries=0
+until curl -s -o /dev/null "localhost:8083/healthz"; do
+  tries=$((tries + 1))
+  [ "$tries" -lt 100 ] || { echo "stream did not start"; exit 1; }
+  python3 -c 'import time; time.sleep(0.05)'
+done
+[ "$(curl -s -N localhost:8083/events | grep -c '^data: tick')" = 3 ] || { echo "stream: want 3 events"; exit 1; }
+[ "$(curl -s 'localhost:8083/big?n=160' | wc -c | tr -d ' ')" = 10485760 ] || { echo "stream: want 10 MiB"; exit 1; }
+[ "$(curl -s localhost:8083/healthz)" = ok ] || { echo "stream: /healthz"; exit 1; }
+[ "$(curl -s localhost:8083/readyz)" = ready ] || { echo "stream: /readyz"; exit 1; }
+kill "$tpid"
+echo "stream: 3 server-sent events, 10 MiB in chunks, /healthz, /readyz"
+out=$(HTTP_MAX_BODY_BYTES=x "$tmp/stream" 2>&1) && { echo "env: a bad number must stop the server"; exit 1; }
+echo "env: $out"
+out=$(python3 examples/stop.py "$tmp/stream" 8084 5000)
+echo "$out"
+echo "$out" | grep -q "slow answered: True | connection: close: True" || { echo "stop: the slow request must finish"; exit 1; }
+echo "$out" | grep -q "every connection done" || { echo "stop: must drain"; exit 1; }
+out=$(python3 examples/stop.py "$tmp/stream" 8085 500)
+echo "$out" | grep -q "connections cut" || { echo "$out"; echo "stop: must cut at the drain deadline"; exit 1; }
+echo "stop: cut at a 500 ms drain deadline"
+
+python3 ../../json/scripts/cold.py "$PWD/examples/hello.bend" "$PWD/examples/stack.bend" "$PWD/examples/stream.bend"

@@ -54,5 +54,30 @@ def wire_connect_timeout(host: String, port: U32, ms: U32) -> IO(Result<&1, &1, 
   import "./effs/wire.c"
   import "./effs/wire.js"
 
+# as accept, but None{} when no connection comes within ms milliseconds
+def wire_accept_timeout(l: Listener, ms: U32) -> IO(Listener & Result<&1, &1, U32 & String, Maybe<&1, Socket>>):
+  import "./effs/wire.c"
+  import "./effs/wire.js"
+
+def close_listener(l: Listener) -> IO(Unit):
+  Listener.close(l)
+
+# from now on, SIGTERM and SIGINT set the stop flag instead of ending the
+# process
+def wire_on_stop() -> IO(Unit):
+  import "./effs/wire.c"
+  import "./effs/wire.js"
+
+# 1 once SIGTERM or SIGINT came after wire_on_stop, else 0
+def wire_stopping() -> IO(U32):
+  import "./effs/wire.c"
+  import "./effs/wire.js"
+
+# a process-wide count: adds d (1; 4294967295 for -1; 0 to read), gives the
+# new count
+def wire_live(d: U32) -> IO(U32):
+  import "./effs/wire.c"
+  import "./effs/wire.js"
+
 def close(sock: Socket) -> IO(Unit):
   Socket.close(sock)

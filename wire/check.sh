@@ -9,3 +9,20 @@ bend loopback.bend -o "$tmp/loopback" > /dev/null
 bend timeout.bend -o "$tmp/timeout" > /dev/null
 "$tmp/timeout"
 python3 ../json/scripts/cold.py "$PWD/loopback.bend"
+bend stop.bend -o "$tmp/stop" > /dev/null
+"$tmp/stop" > "$tmp/stop.out" &
+spid=$!
+python3 - <<'PY'
+import socket, time
+for _ in range(100):
+    try:
+        socket.create_connection(("127.0.0.1", 7201)).close()
+        break
+    except OSError:
+        time.sleep(0.05)
+time.sleep(0.2)
+PY
+kill -TERM "$spid"
+wait "$spid"
+grep -q "^stopped: 1 accepted, live 1$" "$tmp/stop.out" || { cat "$tmp/stop.out"; echo "stop: want 'stopped: 1 accepted, live 1'"; exit 1; }
+echo "SIGTERM caught: $(tail -1 "$tmp/stop.out")"

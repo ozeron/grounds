@@ -176,3 +176,18 @@ def te_gzip() -> {p("POST / HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: gzip, chun
 
 def te_twice() -> {p("POST / HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\nTransfer-Encoding: chunked\r\n\r\n0\r\n\r\n") == H1.Bad{H1.Unsupported{}} : P()}:
   {==}
+
+# streamed responses
+
+def chunk_hex() -> {H1.chunk(b("0123456789abcdefg")) == b("11\r\n0123456789abcdefg\r\n") : B.Bytes}:
+  {==}
+
+def chunk_empty() -> {H1.chunk(b("")) == b("") : B.Bytes}:
+  {==}
+
+def stream_head() -> {H1.write_head(200, [H.Header{"content-type", "text/event-stream"}, H.Header{"Content-Length", "3"}], False{}) == b("HTTP/1.1 200 OK\r\ncontent-type: text/event-stream\r\ntransfer-encoding: chunked\r\nconnection: keep-alive\r\n\r\n") : B.Bytes}:
+  {==}
+
+# what write_head and chunk write, the parser reads back
+def stream_reads_back() -> {p("POST / HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\n\r\n" ++ H1.latin1(B.app(H1.chunk(b("ab")), B.app(H1.chunk(b("c")), H1.last_chunk())))) == H1.Parsed{Req.Request{M.MPost{}, "/", [H.Header{"Host", "x"}, H.Header{"Transfer-Encoding", "chunked"}], [97, 98, 99]}, False{}, b("")} : P()}:
+  {==}

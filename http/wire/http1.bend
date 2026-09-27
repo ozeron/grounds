@@ -785,6 +785,51 @@ def write(r: Res.Response, close: Bool) -> B.Bytes:
     case Res.Response{S.Status{+c}, hs, list}:
       write.go(c, hs, B.of_list(list), close)
 
+# Streamed responses
+# ------------------
+
+def hex.digit(+d: U32) -> Char:
+  Chr{Bool.pick(U32, U32.is_lt(d, 10), (d + 48 : U32), (d + 87 : U32))}
+
+def hex.go(n: Nat, +x: U32, acc: String) -> String:
+  match n:
+    case 0n:
+      acc
+    case 1n+p:
+      hex.go(p, (x >> 4n : U32), SCon{hex.digit((x .&. 15 : U32)), acc})
+
+def hex.trim(s: String) -> String:
+  match s:
+    case SCon{Chr{48}, SCon{c, t}}:
+      hex.trim(SCon{c, t})
+    case other:
+      other
+
+# n in hex, without leading zeros
+def hex(+n: U32) -> String:
+  hex.trim(hex.go(8n, n, ""))
+
+def chunk.go(+bs: B.Bytes) -> B.Bytes:
+  B.app(head_bytes(hex(count(bs, 0)) ++ "\r\n"), B.app(bs, head_bytes("\r\n")))
+
+# bytes as one chunk of a chunked body (RFC 9112 §7.1); an empty chunk
+# would end the body, so it is left out
+def chunk(bs: B.Bytes) -> B.Bytes:
+  match bs:
+    case B.BNil{}:
+      B.BNil{}
+    case B.BCon{b, t}:
+      chunk.go(B.BCon{b, t})
+
+# the empty chunk that ends a chunked body, with no trailers
+def last_chunk() -> B.Bytes:
+  head_bytes("0\r\n\r\n")
+
+# a streamed response's head: its body follows in chunks. As in write, the
+# handler's framing headers and unsafe ones are dropped
+def write_head(+c: U32, hs: List<&2, H.Header>, close: Bool) -> B.Bytes:
+  head_bytes(String.reverse(String.reverse.go("\r\n", String.reverse.go(closing(close), String.reverse.go("transfer-encoding: chunked\r\n", heads(hs, String.reverse.go("\r\n", String.reverse.go(S.reason(S.Status{c}), String.reverse.go(" ", String.reverse.go(U32.show(c), String.reverse.go("HTTP/1.1 ", "")))))))))))
+
 # a response read off the wire (for clients, and to test write)
 type RParsed is Data:
   RParsed{code: U32, hs: List<&2, H.Header>, body: B.Bytes, rest: B.Bytes}
