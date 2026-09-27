@@ -313,3 +313,49 @@ static void __attribute__((constructor)) gw_live_use(void) {
 }
 
 #endif
+
+#ifdef CID_WIRE_RESOLVE
+
+#include <netdb.h>
+
+// A host name to its first IPv4 address, dotted, on a helper thread:
+// getaddrinfo blocks. An address already dotted comes back as it is.
+static void gw_resolve_call(IoWork* w) {
+  struct addrinfo hint;
+  struct addrinfo* got = NULL;
+  memset(&hint, 0, sizeof(hint));
+  hint.ai_family   = AF_INET;
+  hint.ai_socktype = SOCK_STREAM;
+  int r = getaddrinfo(w->data, NULL, &hint, &got);
+  if (r != 0 || got == NULL) {
+    w->code = r == EAI_SYSTEM ? (u32)errno : EHOSTUNREACH;
+    return;
+  }
+  char* out = io_mem(malloc(INET_ADDRSTRLEN));
+  inet_ntop(AF_INET, &((struct sockaddr_in*)got->ai_addr)->sin_addr, out, INET_ADDRSTRLEN);
+  freeaddrinfo(got);
+  free(w->data);
+  w->data = out;
+  w->code = 0;
+}
+
+static Term gw_resolve_pack(Env e, IoWork* w) {
+  Term r = w->code ? io_fail(e, w->code, NULL) : io_done(e, io_str(e, w->data, strlen(w->data)));
+  free(w->data);
+  return r;
+}
+
+Term gw_resolve_run(Env e, Term* f, IoWork* w) {
+  w->data = io_cstr(e, f[0], &w->size);
+  if (io_nul(w->data, w->size) || w->size == 0) {
+    free(w->data);
+    return io_fail(e, EINVAL, NULL);
+  }
+  return io_work(w, gw_resolve_call, gw_resolve_pack);
+}
+
+static void __attribute__((constructor)) gw_resolve_use(void) {
+  io_eff(CID_WIRE_RESOLVE, gw_resolve_run, 0);
+}
+
+#endif

@@ -10,7 +10,7 @@ A monorepo of [Bend 2](https://github.com/bendlang/bend) packages: JSON, UTF-8, 
 | [`utf8`](utf8/) | strict UTF-8 decoding |
 | [`io`](io/) | whole-file reads |
 | [`wire`](wire/) | TCP on raw bytes |
-| [`http`](http/) | HTTP/1.1: messages, parsing, server, router, JSON bodies |
+| [`http`](http/) | HTTP/1.1: messages, parsing, server, client, router, JSON bodies |
 | [`redis`](redis/) | Redis client: RESP2 and RESP3, pipelining, a pool; proven framing |
 
 ```sh

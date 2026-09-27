@@ -907,3 +907,111 @@ def res.lines(s: Split) -> RParsed:
 # a response from bytes; with no Content-Length the body runs to the end
 def parse_response(buf: B.Bytes, +max_head: U32) -> RParsed:
   res.lines(split.go(buf, B.BNil{}, [], 0, max_head, False{}))
+
+# Responses, as a client reads them
+# ---------------------------------
+
+def rres.body(t: Took, +code: U32, hs: List<&2, H.Header>) -> RParsed:
+  match t:
+    case Took{body, rest}:
+      RParsed{code, hs, body, rest}
+    case Short{}:
+      RMore{}
+
+def rres.len(ok: Bool, +n: Nat, +code: U32, hs: List<&2, H.Header>, rest: B.Bytes) -> RParsed:
+  match ok:
+    case True{}:
+      rres.body(take(rest, n, B.BNil{}), code, hs)
+    case False{}:
+      RBad{BodyTooLarge{}}
+
+def rres.chunks(c: Chunked, +code: U32, hs: List<&2, H.Header>) -> RParsed:
+  match c:
+    case CDone{body, rest}:
+      RParsed{code, hs, body, rest}
+    case CMore{}:
+      RMore{}
+    case CBad{e}:
+      RBad{e}
+
+def rres.coded(one: Bool, +code: U32, hs: List<&2, H.Header>, rest: B.Bytes, +max: Nat) -> RParsed:
+  match one:
+    case True{}:
+      rres.chunks(chunks(rest, max), code, hs)
+    case False{}:
+      RBad{Unsupported{}}
+
+def rres.te(t: TE, +code: U32, rest: B.Bytes, +max: Nat) -> RParsed:
+  match t:
+    case TE{hs, +c, k}:
+      rres.coded(Bool.and(U32.is_eq(c, 1), k), code, hs, rest, max)
+
+# a body with no Content-Length runs to the close
+def rres.eof(eof: Bool, +code: U32, hs: List<&2, H.Header>, rest: B.Bytes) -> RParsed:
+  match eof:
+    case True{}:
+      RParsed{code, hs, rest, B.BNil{}}
+    case False{}:
+      RMore{}
+
+def rres.frame(s: Scanned, none: Bool, +code: U32, rest: B.Bytes, +max: Nat, eof: Bool) -> RParsed:
+  match s none:
+    case Scanned{hs, _} True{}:
+      RParsed{code, hs, B.BNil{}, rest}
+    case Scanned{hs, Frame{_, True{}, _, _, _}} False{}:
+      rres.te(te.scan(hs, 0, False{}, []), code, rest, max)
+    case Scanned{hs, Frame{Len{+n}, False{}, _, _, _}} False{}:
+      rres.len(Nat.is_le(n, max), n, code, hs, rest)
+    case Scanned{hs, Frame{NoLen{}, False{}, _, _, _}} False{}:
+      rres.eof(eof, code, hs, rest)
+    case Scanned{_, Frame{LenBad{}, False{}, _, _, _}} False{}:
+      RBad{BadLength{}}
+
+# 1xx, 204 and 304 have no body, nor has the answer to a HEAD (RFC 9112 §6.3)
+def no_body(+head: Bool, +code: U32) -> Bool:
+  Bool.or(head, Bool.or(Bool.and(U32.is_ge(code, 100), U32.is_lt(code, 200)), Bool.or(U32.is_eq(code, 204), U32.is_eq(code, 304))))
+
+def rres.fields(f: Fields, +code: U32, rest: B.Bytes, +max: Nat, eof: Bool, +head: Bool) -> RParsed:
+  match f:
+    case FErr{e}:
+      RBad{e}
+    case FOk{hs}:
+      rres.frame(scan(List.reverse(&2, H.Header, hs), Frame{NoLen{}, False{}, 0, False{}, False{}}, []), no_body(head, code), code, rest, max, eof)
+
+def rres.line(m: Maybe<&2, U32>, hl: List<&2, B.Bytes>, rest: B.Bytes, +max: Nat, eof: Bool, +head: Bool) -> RParsed:
+  match m:
+    case None{}:
+      RBad{BadLine{}}
+    case Some{+code}:
+      rres.fields(fields(hl, FOk{[]}), code, rest, max, eof, head)
+
+def rres.lines(s: Split, +max: Nat, eof: Bool, +head: Bool) -> RParsed:
+  match s:
+    case SMore{}:
+      RMore{}
+    case SBad{e}:
+      RBad{e}
+    case Lines{Nil{}, _}:
+      RBad{BadLine{}}
+    case Lines{Con{first, hl}, rest}:
+      rres.line(status_line(first), hl, rest, max, eof, head)
+
+# a response as a client reads it: framed by Content-Length, chunked, or
+# (with neither) by the close, once eof says the server has closed; no
+# body after a HEAD or for 1xx, 204 and 304; a body past max_body is
+# refused. A 1xx is handed back as it is: the client reads on after it
+def read_response(buf: B.Bytes, +max_head: U32, +max_body: U32, eof: Bool, +head: Bool) -> RParsed:
+  rres.lines(split.go(buf, B.BNil{}, [], 0, max_head, False{}), U32.to_nat(max_body), eof, head)
+
+def request.len(sized: Bool, +n: U32, out: String) -> String:
+  match sized:
+    case True{}:
+      String.reverse.go("\r\n", String.reverse.go(U32.show(n), String.reverse.go("content-length: ", out)))
+    case False{}:
+      out
+
+# a request on the wire, as a client writes it: host first, the caller's
+# headers (framing and unsafe ones dropped), Content-Length when there is
+# a body or the method expects one, and connection: close
+def write_request(m: String, target: String, host: String, hs: List<&2, H.Header>, +body: B.Bytes, sized: Bool) -> B.Bytes:
+  B.app(head_bytes(String.reverse(String.reverse.go("\r\n", String.reverse.go("connection: close\r\n", request.len(Bool.or(sized, B.nonempty(body)), count(body, 0), heads(hs, String.reverse.go("\r\n", String.reverse.go(host, String.reverse.go("host: ", String.reverse.go(" HTTP/1.1\r\n", String.reverse.go(target, String.reverse.go(" ", String.reverse.go(m, ""))))))))))))), body)

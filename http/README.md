@@ -6,7 +6,8 @@ An HTTP/1.1 stack for [Bend 2](https://github.com/bendlang/bend), in layers. Eac
 |---|---|
 | [`core`](core/) | messages: methods, status, headers, query, request, response (RFC 9110) |
 | [`wire`](wire/) | HTTP/1.1 parsing and writing (RFC 9112); proven against smuggling and response splitting |
-| [`server`](server/) | `serve(handler, config)`: keep-alive, timeouts, middleware |
+| [`server`](server/) | `serve(handler, config)`: keep-alive, timeouts, streaming, graceful stop, health, middleware |
+| [`client`](client/) | `get`, `post`, `request`: calls to other services, with timeouts and size limits |
 | [`router`](router/) | routes as data, matched to your own route type |
 | [`json`](json/) | JSON bodies; `examples/todo.bend` is a JSON API |
 

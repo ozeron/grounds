@@ -210,3 +210,18 @@ function wire_live(d) {
   gw_live = (gw_live + Number(d)) >>> 0;
   return gw_live;
 }
+
+// a host name to its first IPv4 address, dotted
+function wire_resolve(host) {
+  if (/^\d+\.\d+\.\d+\.\d+$/.test(host)) {
+    return io_done(host);
+  }
+  try {
+    const r = Bun.spawnSync(["getent", "ahostsv4", host]);
+    const line = new TextDecoder().decode(r.stdout).split("\n")[0];
+    const ip = line.split(/\s+/)[0];
+    return ip ? io_done(ip) : io_fail(65);
+  } catch (e) {
+    return io_fail(65);
+  }
+}

@@ -1,0 +1,15 @@
+# grounds-http-client: HTTP/1.1 requests to other services
+language: "bend"
+dependsOn:
+  - "http_core"
+  - "http_wire"
+  - "http_server"
+  - "wire"
+  - "utf8"
+
+tasks:
+  check:
+    command: "./check.sh"
+    inputs:
+      - "*.bend"
+      - "tests/*"

@@ -26,3 +26,6 @@ kill -TERM "$spid"
 wait "$spid"
 grep -q "^stopped: 1 accepted, live 1$" "$tmp/stop.out" || { cat "$tmp/stop.out"; echo "stop: want 'stopped: 1 accepted, live 1'"; exit 1; }
 echo "SIGTERM caught: $(tail -1 "$tmp/stop.out")"
+bend resolve.bend -o "$tmp/resolve" > /dev/null
+[ "$("$tmp/resolve")" = "127.0.0.1 10.1.2.3 fails" ] || { echo "resolve: want '127.0.0.1 10.1.2.3 fails'"; exit 1; }
+echo "resolve: localhost, an address, and a name that does not exist"

@@ -79,5 +79,11 @@ def wire_live(d: U32) -> IO(U32):
   import "./effs/wire.c"
   import "./effs/wire.js"
 
+# a host name to its first IPv4 address, dotted, for connect; "localhost"
+# gives "127.0.0.1", and an address comes back as it is
+def wire_resolve(host: String) -> IO(Result<&1, &1, U32 & String, String>):
+  import "./effs/wire.c"
+  import "./effs/wire.js"
+
 def close(sock: Socket) -> IO(Unit):
   Socket.close(sock)

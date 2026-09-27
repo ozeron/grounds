@@ -191,3 +191,44 @@ def stream_head() -> {H1.write_head(200, [H.Header{"content-type", "text/event-s
 # what write_head and chunk write, the parser reads back
 def stream_reads_back() -> {p("POST / HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\n\r\n" ++ H1.latin1(B.app(H1.chunk(b("ab")), B.app(H1.chunk(b("c")), H1.last_chunk())))) == H1.Parsed{Req.Request{M.MPost{}, "/", [H.Header{"Host", "x"}, H.Header{"Transfer-Encoding", "chunked"}], [97, 98, 99]}, False{}, b("")} : P()}:
   {==}
+
+# responses, as a client reads them
+
+def rr(s: String, eof: Bool) -> H1.RParsed:
+  H1.read_response(b(s), 200, 16, eof, False{})
+
+def rr_length() -> {rr("HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nhiX", False{}) == H1.RParsed{200, [H.Header{"Content-Length", "2"}], b("hi"), b("X")} : H1.RParsed}:
+  {==}
+
+def rr_chunked() -> {rr("HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n2\r\nhi\r\n1\r\n!\r\n0\r\n\r\n", False{}) == H1.RParsed{200, [H.Header{"Transfer-Encoding", "chunked"}], b("hi!"), b("")} : H1.RParsed}:
+  {==}
+
+def rr_to_close_more() -> {rr("HTTP/1.1 200 OK\r\n\r\nabc", False{}) == H1.RMore{} : H1.RParsed}:
+  {==}
+
+def rr_to_close() -> {rr("HTTP/1.1 200 OK\r\n\r\nabc", True{}) == H1.RParsed{200, [], b("abc"), b("")} : H1.RParsed}:
+  {==}
+
+def rr_no_content() -> {rr("HTTP/1.1 204 No Content\r\n\r\n", False{}) == H1.RParsed{204, [], b(""), b("")} : H1.RParsed}:
+  {==}
+
+def rr_head() -> {H1.read_response(b("HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\n"), 200, 16, False{}, True{}) == H1.RParsed{200, [H.Header{"Content-Length", "5"}], b(""), b("")} : H1.RParsed}:
+  {==}
+
+def rr_continue() -> {rr("HTTP/1.1 100 Continue\r\n\r\nHTTP/1.1 200 OK\r\n", False{}) == H1.RParsed{100, [], b(""), b("HTTP/1.1 200 OK\r\n")} : H1.RParsed}:
+  {==}
+
+def rr_too_large() -> {rr("HTTP/1.1 200 OK\r\nContent-Length: 17\r\n\r\n", False{}) == H1.RBad{H1.BodyTooLarge{}} : H1.RParsed}:
+  {==}
+
+def rr_two_lengths() -> {rr("HTTP/1.1 200 OK\r\nContent-Length: 1\r\nContent-Length: 2\r\n\r\nab", False{}) == H1.RBad{H1.BadLength{}} : H1.RParsed}:
+  {==}
+
+def wr_get() -> {H1.write_request("GET", "/a?b", "x:81", [H.Header{"accept", "*/*"}, H.Header{"Content-Length", "9"}], b(""), False{}) == b("GET /a?b HTTP/1.1\r\nhost: x:81\r\naccept: */*\r\nconnection: close\r\n\r\n") : B.Bytes}:
+  {==}
+
+def wr_post() -> {H1.write_request("POST", "/", "x", [], b("hi"), True{}) == b("POST / HTTP/1.1\r\nhost: x\r\ncontent-length: 2\r\nconnection: close\r\n\r\nhi") : B.Bytes}:
+  {==}
+
+def wr_post_empty() -> {H1.write_request("POST", "/", "x", [], b(""), True{}) == b("POST / HTTP/1.1\r\nhost: x\r\ncontent-length: 0\r\nconnection: close\r\n\r\n") : B.Bytes}:
+  {==}

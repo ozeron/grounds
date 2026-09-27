@@ -1,0 +1,29 @@
+chunked: 200 hello world
+to close: 200 to the end
+stall: error: timed out
+cut: error: closed before the response was whole
+huge: error: response too large
+continue: 201 after
+echo: 200 PUT /p?q=1 HTTP/1.1
+host: localhost:7307
+x-a: 1
+content-length: 2
+connection: close
+
+hi
+garbage: error: bad response
+big: 200, 4194304 bytes
+split head: 404 no
+refused: error: connection failed: errno N
+no host: error: host not found
+https: error: https is not supported: no TLS
+server stream: 200, 4194304 bytes
+server sse: 200 data: tick 1
+
+data: tick 2
+
+data: tick 3
+
+
+server head: 200, 0 bytes
+too large for the config: error: response too large

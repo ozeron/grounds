@@ -7,6 +7,7 @@ import ./http/core/http.bend as Http
 import ./http/wire/http1.bend as H1
 import ./http/router/router.bend as Router
 import ./http/server/http_server.bend as Server
+import ./http/client/client.bend as Client
 import ./http/json/http_json.bend as HJ
 import ./redis/redis.bend as Redis
 
