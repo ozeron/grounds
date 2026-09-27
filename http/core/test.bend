@@ -88,3 +88,35 @@ def u32_bad() -> {T.u32("4x") == None{} : Maybe<&2, U32>}:
 
 def u32_empty() -> {T.u32("") == None{} : Maybe<&2, U32>}:
   {==}
+
+# every standard method reads back from its name (was a law: nine cases)
+
+def round_trip_get() -> {M.parse(M.show(M.MGet{})) == M.MGet{} : M.Method}:
+  {==}
+
+def round_trip_head() -> {M.parse(M.show(M.MHead{})) == M.MHead{} : M.Method}:
+  {==}
+
+def round_trip_post() -> {M.parse(M.show(M.MPost{})) == M.MPost{} : M.Method}:
+  {==}
+
+def round_trip_put() -> {M.parse(M.show(M.MPut{})) == M.MPut{} : M.Method}:
+  {==}
+
+def round_trip_delete() -> {M.parse(M.show(M.MDelete{})) == M.MDelete{} : M.Method}:
+  {==}
+
+def round_trip_connect() -> {M.parse(M.show(M.MConnect{})) == M.MConnect{} : M.Method}:
+  {==}
+
+def round_trip_options() -> {M.parse(M.show(M.MOptions{})) == M.MOptions{} : M.Method}:
+  {==}
+
+def round_trip_trace() -> {M.parse(M.show(M.MTrace{})) == M.MTrace{} : M.Method}:
+  {==}
+
+def round_trip_patch() -> {M.parse(M.show(M.MPatch{})) == M.MPatch{} : M.Method}:
+  {==}
+
+def other_name() -> {M.show(M.MOther{"BREW"}) == "BREW" : String}:
+  {==}

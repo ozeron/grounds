@@ -1,4 +1,6 @@
 import Base
+import ../text.bend as T
+import ../headers.bend as H
 
 # lemmas the http proofs share: Bool algebra, and reflexivity of the
 # compares on Words, U32s and Chars
@@ -88,3 +90,113 @@ def char_refl(c):
   match c:
     case Chr{x}:
       u32_refl(x)
+
+# a String lowercased (ASCII), the spec the case-insensitive compares meet
+def lows(s: String) -> String:
+  match s:
+    case SNil{}:
+      SNil{}
+    case SCon{Chr{x}, t}:
+      SCon{Chr{T.lower(x)}, lows(t)}
+
+law same_ci_lows:
+  for +a: String
+  for +b: String
+  for +ok: Bool
+  {T.same_ci(a, b, ok) == T.same(lows(a), lows(b), ok) : Bool}
+
+def same_ci_lows(a, b, ok):
+  match a b:
+    case SNil{} SNil{}:
+      {==}
+    case SNil{} SCon{Chr{_}, _}:
+      {==}
+    case SCon{Chr{_}, _} SNil{}:
+      {==}
+    case SCon{Chr{+x}, at} SCon{Chr{+y}, bt}:
+      same_ci_lows(at, bt, Bool.and(ok, T.fold.eq(x, y)))
+
+law name_eq_lows:
+  for +a: String
+  for +b: String
+  for +ok: Bool
+  {H.name_eq(a, b, ok) == T.same(lows(a), lows(b), ok) : Bool}
+
+def name_eq_lows(a, b, ok):
+  match a b:
+    case SNil{} SNil{}:
+      {==}
+    case SNil{} SCon{Chr{_}, _}:
+      {==}
+    case SCon{Chr{_}, _} SNil{}:
+      {==}
+    case SCon{Chr{+x}, at} SCon{Chr{+y}, bt}:
+      name_eq_lows(at, bt, Bool.and(ok, T.fold.eq(x, y)))
+
+law absurd_t:
+  for -A: Type
+  for e: {True{} == False{} : Bool}
+  A
+
+def absurd_t(A, e):
+  absurd(A, Equal.sym(Bool, True{}, False{}, e))
+
+law or_false_l:
+  for +a: Bool
+  for +b: Bool
+  for e: {Bool.or(a, b) == False{} : Bool}
+  {a == False{} : Bool}
+
+def or_false_l(a, b, e):
+  match a:
+    case True{}:
+      absurd_t({True{} == False{} : Bool}, e)
+    case False{}:
+      {==}
+
+law or_false_r:
+  for +a: Bool
+  for +b: Bool
+  for e: {Bool.or(a, b) == False{} : Bool}
+  {b == False{} : Bool}
+
+def or_false_r(a, b, e):
+  match a:
+    case True{}:
+      absurd_t({b == False{} : Bool}, e)
+    case False{}:
+      e
+
+law nat_refl:
+  for +a: Nat
+  {Nat.is_eq(a, a) == True{} : Bool}
+
+def nat_refl(a):
+  match a:
+    case 0n:
+      {==}
+    case 1n+p:
+      nat_refl(p)
+
+law nat_trans:
+  for +c: Nat
+  for +a: Nat
+  for +b: Nat
+  for e1: {Nat.is_eq(c, a) == True{} : Bool}
+  for e2: {Nat.is_eq(c, b) == True{} : Bool}
+  {Nat.is_eq(a, b) == True{} : Bool}
+
+def nat_trans(c, a, b, e1, e2):
+  match c a b:
+    case 0n 0n 0n:
+      {==}
+    case 0n 0n 1n+q:
+      absurd({Nat.is_eq(0n, 1n+q) == True{} : Bool}, e2)
+    case 0n 1n+p _:
+      absurd({Nat.is_eq(1n+p, b) == True{} : Bool}, e1)
+    case 1n+r 0n _:
+      absurd({Nat.is_eq(0n, b) == True{} : Bool}, e1)
+    case 1n+r 1n+p 0n:
+      absurd({Nat.is_eq(1n+p, 0n) == True{} : Bool}, e2)
+    case 1n+r 1n+p 1n+q:
+      nat_trans(r, p, q, e1, e2)
