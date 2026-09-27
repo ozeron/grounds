@@ -5,6 +5,8 @@ import ./proof/nat.bend as N
 import ./proof/spec.bend as S
 import ./proof/line.bend as L
 import ./proof/cmd.bend as C
+import ./proof/bridge.bend as B
+import ../utf8/utf8.bend as U
 
 def Laws.command_reads_back(xs, tail, max, f, e):
   %Equal.sym(R.Line, R.line.go(R.render0(R.nargs(xs, R.DNil{}), R.crlf(R.enc.args(xs, tail))), R.BNil{}), R.LOk{R.render0(R.nargs(xs, R.DNil{}), R.BNil{}), R.enc.args(xs, tail)}, L.length_line(R.nargs(xs, R.DNil{}), R.enc.args(xs, tail))) : {R.item.line(42, _, [], max, n => R.parse.go(Nat.add(S.steps(xs), 1n+f), max, n)) == R.Parsed{R.Arr{S.bulks(xs)}, tail} : R.Parsed}
@@ -55,3 +57,79 @@ def Laws.empty_bulk(rest, max, f):
       {==}
     case 1n+m:
       {==}
+
+def Laws.cut_dollar(max, f):
+  {==}
+
+def Laws.cut_length(d, max, f):
+  %Equal.sym(R.Line, R.line.go(R.render(d, R.BNil{}), R.BNil{}), R.line.go(R.BNil{}, L.push(d, R.BNil{})), L.line_digits(d, R.BNil{}, R.BNil{})) : {Laws.is_more(R.item.line(36, _, [], max, n => R.parse.go(f, max, n))) == True{} : Bool}
+  {==}
+
+def cut_cr.go(x: R.Dig, u: R.Dec, max: Nat, f: Nat) -> {Laws.is_more(R.parse.go(1n+f, max, R.MItem{R.BCon{36, R.render0(R.DCon{x, u}, R.BCon{13, R.BNil{}})}, []})) == True{} : Bool}:
+  %Equal.sym(R.Line, R.line.go(R.render(R.DCon{x, u}, R.BCon{13, R.BNil{}}), R.BNil{}), R.line.go(R.BCon{13, R.BNil{}}, L.push(R.DCon{x, u}, R.BNil{})), L.line_digits(R.DCon{x, u}, R.BCon{13, R.BNil{}}, R.BNil{})) : {Laws.is_more(R.item.line(36, _, [], max, n => R.parse.go(f, max, n))) == True{} : Bool}
+  {==}
+
+def Laws.cut_cr(d, max, f):
+  match d:
+    case R.DNil{}:
+      {==}
+    case R.DCon{x, u}:
+      cut_cr.go(x, u, max, f)
+
+# the length line and its bytes read, as in C.arg_read, up to the bulk step
+law bulk_after:
+  for +a: R.Buf
+  for +r: R.Buf
+  for +max: Nat
+  for +f: Nat
+  for +e: {S.fit(a, max) == True{} : Bool}
+  {R.parse.go(1n+1n+f, max, R.MItem{R.BCon{36, R.render0(R.count(a, R.DNil{}), R.crlf(R.cat(a, r)))}, []}) == R.bulk.took(R.BBulk{}, N.blen(a), R.Took{a, r}, [], n => R.parse.go(f, max, n)) : R.Parsed}
+
+def bulk_after(a, r, max, f, e):
+  %Equal.sym(R.Line, R.line.go(R.render0(R.count(a, R.DNil{}), R.crlf(R.cat(a, r))), R.BNil{}), R.LOk{R.render0(R.count(a, R.DNil{}), R.BNil{}), R.cat(a, r)}, L.length_line(R.count(a, R.DNil{}), R.cat(a, r))) : {R.item.line(36, _, [], max, n => R.parse.go(1n+f, max, n)) == R.bulk.took(R.BBulk{}, N.blen(a), R.Took{a, r}, [], n => R.parse.go(f, max, n)) : R.Parsed}
+  %Equal.sym(R.Num, R.num(R.render0(R.count(a, R.DNil{}), R.BNil{})), R.NOk{False{}, N.hor(0n, R.count(a, R.DNil{}))}, L.num_count(R.count(a, R.DNil{}), N.and_l(Nat.is_le(N.dlen(R.count(a, R.DNil{})), 10n), Nat.is_le(N.blen(a), max), e))) : {R.bulk.head(R.BBulk{}, _, R.cat(a, r), [], max, n => R.parse.go(1n+f, max, n)) == R.bulk.took(R.BBulk{}, N.blen(a), R.Took{a, r}, [], n => R.parse.go(f, max, n)) : R.Parsed}
+  %Equal.sym(Nat, N.hor(0n, R.count(a, R.DNil{})), N.blen(a), N.arg_len(a)) : {R.bulk.fits(Nat.is_le(_, max), R.BBulk{}, _, R.cat(a, r), [], n => R.parse.go(1n+f, max, n)) == R.bulk.took(R.BBulk{}, N.blen(a), R.Took{a, r}, [], n => R.parse.go(f, max, n)) : R.Parsed}
+  %Equal.sym(Bool, Nat.is_le(N.blen(a), max), True{}, N.and_r(Nat.is_le(N.dlen(R.count(a, R.DNil{})), 10n), Nat.is_le(N.blen(a), max), e)) : {R.bulk.fits(_, R.BBulk{}, N.blen(a), R.cat(a, r), [], n => R.parse.go(1n+f, max, n)) == R.bulk.took(R.BBulk{}, N.blen(a), R.Took{a, r}, [], n => R.parse.go(f, max, n)) : R.Parsed}
+  %Equal.sym(R.Took, R.take(N.blen(a), R.cat(a, r), R.BNil{}), R.Took{a, r}, L.take_arg(a, r)) : {R.bulk.took(R.BBulk{}, N.blen(a), _, [], n => R.parse.go(f, max, n)) == R.bulk.took(R.BBulk{}, N.blen(a), R.Took{a, r}, [], n => R.parse.go(f, max, n)) : R.Parsed}
+  {==}
+
+def Laws.cut_end(a, max, f, e):
+  %Equal.sym(R.Parsed, R.parse.go(1n+1n+f, max, R.MItem{R.BCon{36, R.render0(R.count(a, R.DNil{}), R.crlf(R.cat(a, R.BNil{})))}, []}), R.bulk.took(R.BBulk{}, N.blen(a), R.Took{a, R.BNil{}}, [], n => R.parse.go(f, max, n)), bulk_after(a, R.BNil{}, max, f, e)) : {Laws.is_more(_) == True{} : Bool}
+  {==}
+
+def Laws.cut_end_cr(a, max, f, e):
+  %Equal.sym(R.Parsed, R.parse.go(1n+1n+f, max, R.MItem{R.BCon{36, R.render0(R.count(a, R.DNil{}), R.crlf(R.cat(a, R.BCon{13, R.BNil{}})))}, []}), R.bulk.took(R.BBulk{}, N.blen(a), R.Took{a, R.BCon{13, R.BNil{}}}, [], n => R.parse.go(f, max, n)), bulk_after(a, R.BCon{13, R.BNil{}}, max, f, e)) : {Laws.is_more(_) == True{} : Bool}
+  {==}
+
+# The List and String API
+
+law texts_bulks:
+  for +xs: List<&2, String>
+  {S.bulks(R.args.text(xs)) == Laws.texts(xs) : List<&2, R.Reply>}
+
+def texts_bulks(xs):
+  match xs:
+    case Nil{}:
+      {==}
+    case Con{x, t}:
+      %Equal.sym(List<&2, U32>, R.buf.list(R.buf.of(U.encode(x))), U.encode(x), B.list_of(U.encode(x))) : {Con{R.Bulk{_}, S.bulks(R.args.text(t))} == Laws.texts(Con{x, t}) : List<&2, R.Reply>}
+      Equal.cong(List<&2, R.Reply>, List<&2, R.Reply>, y => Con{R.Bulk{U.encode(x)}, y}, S.bulks(R.args.text(t)), Laws.texts(t), texts_bulks(t))
+
+# parse_encode for any fuel and limit: the literals stay out of the proof
+law parse_encode.gen:
+  for +xs: List<&2, String>
+  for +fuel: Nat
+  for +max: Nat
+  for +g: Nat
+  for +ef: {fuel == 1n+Nat.add(S.steps(R.args.text(xs)), 1n+g) : Nat}
+  for +e: {S.cfits(R.args.text(xs), max) == True{} : Bool}
+  {R.parse.go(fuel, max, R.MItem{R.buf.of(R.buf.list(R.encode.buf(R.args.text(xs), R.BNil{}))), []}) == R.Parsed{R.Arr{Laws.texts(xs)}, R.BNil{}} : R.Parsed}
+
+def parse_encode.gen(xs, fuel, max, g, ef, e):
+  %Equal.sym(R.Buf, R.buf.of(R.buf.list(R.encode.buf(R.args.text(xs), R.BNil{}))), R.encode.buf(R.args.text(xs), R.BNil{}), B.of_list(R.encode.buf(R.args.text(xs), R.BNil{}))) : {R.parse.go(fuel, max, R.MItem{_, []}) == R.Parsed{R.Arr{Laws.texts(xs)}, R.BNil{}} : R.Parsed}
+  %Equal.sym(Nat, fuel, 1n+Nat.add(S.steps(R.args.text(xs)), 1n+g), ef) : {R.parse.go(_, max, R.MItem{R.encode.buf(R.args.text(xs), R.BNil{}), []}) == R.Parsed{R.Arr{Laws.texts(xs)}, R.BNil{}} : R.Parsed}
+  %texts_bulks(xs) : {R.parse.go(1n+Nat.add(S.steps(R.args.text(xs)), 1n+g), max, R.MItem{R.encode.buf(R.args.text(xs), R.BNil{}), []}) == R.Parsed{R.Arr{_}, R.BNil{}} : R.Parsed}
+  Laws.command_reads_back(R.args.text(xs), R.BNil{}, max, g, e)
+
+def Laws.parse_encode(xs, fuel, g, e, ef):
+  parse_encode.gen(xs, fuel, 536870912n, g, ef, e)

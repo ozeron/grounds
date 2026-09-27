@@ -16,17 +16,18 @@ import time
 
 N = int(sys.argv[1]) if len(sys.argv) > 1 else 1000
 SEED = int(sys.argv[2]) if len(sys.argv) > 2 else 1
-MAX = 67108864  # the client's default max_reply
+CAP = 8388608  # the client's default max_reply
+MAX = CAP - 16  # a declared length or count must leave room for its header
 
 # Replies: (kind, value)
 
 
 def text(b):
-    # R.text: UTF-8, cut where a bad sequence starts
+    # R.text: UTF-8, or else each byte as a char (Latin-1)
     try:
         return b.decode("utf-8")
-    except UnicodeDecodeError as e:
-        return b[:e.start].decode("utf-8")
+    except UnicodeDecodeError:
+        return b.decode("latin-1")
 
 
 class Incomplete(Exception):
@@ -89,7 +90,7 @@ def parse_value(b, i):
         if t == ord("-"):
             return ("error", text(l)), j
         if t == ord(":") or t == ord("("):
-            d = l[1:] if l[:1] == b"-" else l
+            d = l[1:] if l[:1] in (b"-", b"+") else l
             if not digits_ok(d):
                 raise Refused("bad integer")
             return ("int" if t == ord(":") else "big", l.decode()), j
@@ -107,7 +108,7 @@ def parse_value(b, i):
             return ("double", text(l)), j
         if t in BULK:
             n = num(l)
-            if n == (True, 1):
+            if n == (True, 1) and t == ord("$"):
                 return ("nil", None), j
             if n is None or n[0]:
                 raise Refused("bad bulk length")
@@ -131,7 +132,7 @@ def parse_value(b, i):
             return (kind, body), k + 2
         if t in AGG:
             n = num(l)
-            if n == (True, 1):
+            if n == (True, 1) and t == ord("*"):
                 return ("nil", None), j
             if n is None or n[0]:
                 raise Refused("bad aggregate length")
@@ -183,7 +184,7 @@ def write(v):
         return b"!" + str(len(x)).encode() + b"\r\n" + x + b"\r\n"
     if k == "verb":
         f, d = x
-        body = f.encode() + b":" + d
+        body = f.encode() + b":" + d if f else d
         return b"=" + str(len(body)).encode() + b"\r\n" + body + b"\r\n"
     head = {"arr": b"*", "map": b"%", "set": b"~", "push": b">"}[k]
     n = len(x) // 2 if k == "map" else len(x)
@@ -219,7 +220,7 @@ def gen(rng, depth=0):
     if r == 6:
         return b"," + rng.choice([b"3.14", b"-0.5", b"inf", b"-inf", b"nan", b"1e10"]) + b"\r\n"
     if r == 7:
-        return b"(" + rng.choice([b"", b"-"]) + str(rng.randrange(10 ** 30)).encode() + b"\r\n"
+        return b"(" + rng.choice([b"", b"-", b"+"]) + str(rng.randrange(10 ** 30)).encode() + b"\r\n"
     if r == 8:
         d = rtext(rng)
         return b"!" + str(len(d)).encode() + b"\r\n" + d + b"\r\n"

@@ -174,7 +174,7 @@ def Next() -> Type:
 # clients shared by tasks: each call takes one and gives it back. A client
 # that fails is replaced by a new one, opened on its next use
 type Pool is Data:
-  Pool{cfg: Config, slots: Chan(Slot())}
+  Pool{cfg: Config, slots: Chan(Slot()), size: U32}
 
 def close(c: Client()) -> IO(Unit):
   (s, _) = c
@@ -207,7 +207,7 @@ def chunks.join(cs: Chunks, acc: R.Buf) -> R.Buf:
 def arrived.parse(s: Socket, m: R.Mode, rd: Rd, k: Next()) -> IO(Got(R.Reply)):
   match rd:
     case Rd{dl, total, ms, +max}:
-      k(s, R.parse.at(m, max), Rd{dl, total, ms, max})
+      k(s, R.parse.at(m, Nat.sub(max, 16n)), Rd{dl, total, ms, max})
 
 def arrived.fits(ok: Bool, +missing: Nat, s: Socket, at: R.Mode, cs: Chunks, rd: Rd, again: Again(), k: Next()) -> IO(Got(R.Reply)):
   match ok missing:
@@ -276,7 +276,7 @@ def done.st(rest: R.Buf, rd: Rd) -> St:
 def reply.kept(push: Bool, r: R.Reply, rest: R.Buf, s: Socket, rd: Rd, k: Next()) -> IO(Got(R.Reply)):
   match push rd:
     case True{} Rd{dl, total, ms, +max}:
-      k(s, R.parse.buf(rest, max), Rd{dl, total, ms, max})
+      k(s, R.parse.buf(rest, Nat.sub(max, 16n)), Rd{dl, total, ms, max})
     case False{} _:
       IO.pure(Got(R.Reply), Done{((s, done.st(rest, rd)), r)})
 
@@ -300,10 +300,15 @@ def handle(fuel: Nat, s: Socket, p: R.Parsed, rd: Rd) -> IO(Got(R.Reply)):
     case 1n+f:
       handle.p(p, s, rd, s2 => q => r => handle(f, s2, q, r))
 
+def read.left(+left: Nat, s: Socket, buf: R.Buf, +now: Nat, +ms: U32, +max: Nat) -> IO(Got(R.Reply)):
+  handle(4294967295n, s, R.parse.buf(buf, Nat.sub(max, 16n)), Rd{Nat.add(now, U32.to_nat(ms)), left, ms, max})
+
+# a length or count is refused when it cannot fit with its header (16 bytes
+# at most) in the cap; bytes left from the last read count toward it
 def read.st(s: Socket, st: St, +now: Nat) -> IO(Got(R.Reply)):
   match st:
-    case St{buf, +ms, +max}:
-      handle(4294967295n, s, R.parse.buf(buf, max), Rd{Nat.add(now, U32.to_nat(ms)), 0n, ms, max})
+    case St{+buf, +ms, +max}:
+      read.left(R.buf.len(buf, 0n), s, buf, now, ms, max)
 
 # the next reply, within the timeout
 def read(c: Client()) -> IO(Got(R.Reply)):
@@ -343,19 +348,26 @@ def handshake(cmds: List<&2, List<&2, String>>, c: Client()) -> IO(Result<&1, &1
     case Con{cmd, t}:
       IO.bind(Got(R.Reply), Result<&1, &1, Down, Client()>, command(c, cmd), g => greet.got(g, c2 => handshake(t, c2)))
 
+def open.fail(t: Bool, why: String) -> Down:
+  match t:
+    case True{}:
+      Timeout{}
+    case False{}:
+      Io{why}
+
 def opened(r: Result<&1, &1, U32 & String, Socket>, st: St, cmds: List<&2, List<&2, String>>) -> IO(Result<&1, &1, Down, Client()>):
   match r:
     case Done{s}:
       handshake(cmds, (s, st))
-    case Fail{(_, why)}:
-      IO.pure(Result<&1, &1, Down, Client()>, Fail{Io{why}})
+    case Fail{(+code, why)}:
+      IO.pure(Result<&1, &1, Down, Client()>, Fail{open.fail(timed_out(code), why)})
 
-# connect, then HELLO 3 or AUTH, and SELECT, as the config says. A refused
-# AUTH or SELECT is Rejected, and the connection closed
+# connect within the timeout, then HELLO 3 or AUTH, and SELECT, as the
+# config says. A refused AUTH or SELECT is Rejected, and the connection closed
 def open(cfg: Config) -> IO(Result<&1, &1, Down, Client()>):
   match cfg:
-    case Config{h, p, u, pw, +db, r3, ms, max}:
-      IO.bind(Result<&1, &1, U32 & String, Socket>, Result<&1, &1, Down, Client()>, W.connect(h, p), r => opened(r, St{R.BNil{}, ms, U32.to_nat(max)}, greet(r3, u, pw, db)))
+    case Config{h, p, u, pw, +db, r3, +ms, max}:
+      IO.bind(Result<&1, &1, U32 & String, Socket>, Result<&1, &1, Down, Client()>, W.wire_connect_timeout(h, p, ms), r => opened(r, St{R.BNil{}, ms, U32.to_nat(max)}, greet(r3, u, pw, db)))
 
 # Pools
 # -----
@@ -373,30 +385,59 @@ def fresh.slot(-A: Data, cfg: Config, +ch: Chan(Slot()), s: Maybe<&1, Slot()>, f
 # client that went stale the same way
 def with.fresh(-A: Data, p: Pool, f: Client() -> IO(Got(A))) -> IO(Result<&1, &1, Down, A>):
   match p:
-    case Pool{cfg, +ch}:
+    case Pool{cfg, +ch, _}:
       IO.bind(Maybe<&1, Slot()>, Result<&1, &1, Down, A>, Chan.recv(Slot(), ch), s => fresh.slot(A, cfg, ch, s, f))
 
-def retry.got(r: Result<&1, &1, Down, R.Reply>, again: Unit -> IO(Result<&1, &1, Down, R.Reply>)) -> IO(Result<&1, &1, Down, R.Reply>):
+def retry.got(r: Result<&1, &1, Down, R.Reply>, again: Down -> IO(Result<&1, &1, Down, R.Reply>)) -> IO(Result<&1, &1, Down, R.Reply>):
   match r:
     case Fail{Rejected{w}}:
       IO.pure(Result<&1, &1, Down, R.Reply>, Fail{Rejected{w}})
     case Fail{TooLarge{}}:
       IO.pure(Result<&1, &1, Down, R.Reply>, Fail{TooLarge{}})
-    case Fail{_}:
-      again(Unit{})
+    case Fail{d}:
+      again(d)
     case other:
       IO.pure(Result<&1, &1, Down, R.Reply>, other)
 
-# a command through the pool, sent again on a new connection up to retries
-# times when one fails (timed out, closed, i/o); the last failure is
-# reported as Closed. Only for commands safe to
-# repeat: GET is, INCR is not
-def run.again(+retries: Nat, +p: Pool, +args: List<&2, String>) -> IO(Result<&1, &1, Down, R.Reply>):
+# closed or failed i/o: the server may have restarted, and the pool's other
+# clients with it. A timeout says only that this reply was slow
+def stale(d: Down) -> Bool:
+  match d:
+    case Closed{}:
+      True{}
+    case Io{_}:
+      True{}
+    case _:
+      False{}
+
+def slot(-A: Data, cfg: Config, +ch: Chan(Slot()), s: Maybe<&1, Slot()>, f: Client() -> IO(Got(A))) -> IO(Result<&1, &1, Down, A>):
+  match s:
+    case Some{Some{c}}:
+      use(A, ch, Done{c}, f)
+    case Some{None{}}:
+      IO.bind(Result<&1, &1, Down, Client()>, Result<&1, &1, Down, A>, open(cfg), r => use(A, ch, r, f))
+    case None{}:
+      IO.pure(Result<&1, &1, Down, A>, Fail{Closed{}})
+
+# run f with a client from the pool, waiting for one when all are in use
+def with(-A: Data, p: Pool, f: Client() -> IO(Got(A))) -> IO(Result<&1, &1, Down, A>):
+  match p:
+    case Pool{cfg, +ch, _}:
+      IO.bind(Maybe<&1, Slot()>, Result<&1, &1, Down, A>, Chan.recv(Slot(), ch), s => slot(A, cfg, ch, s, f))
+
+def attempt(fresh: Bool, +p: Pool, +args: List<&2, String>) -> IO(Result<&1, &1, Down, R.Reply>):
+  match fresh:
+    case True{}:
+      with.fresh(R.Reply, p, c => command(c, args))
+    case False{}:
+      with(R.Reply, p, c => command(c, args))
+
+def run.again(+retries: Nat, +p: Pool, +args: List<&2, String>, +d: Down) -> IO(Result<&1, &1, Down, R.Reply>):
   match retries:
     case 0n:
-      IO.pure(Result<&1, &1, Down, R.Reply>, Fail{Closed{}})
+      IO.pure(Result<&1, &1, Down, R.Reply>, Fail{d})
     case 1n+m:
-      IO.bind(Result<&1, &1, Down, R.Reply>, Result<&1, &1, Down, R.Reply>, with.fresh(R.Reply, p, c => command(c, args)), r => retry.got(r, u => run.again(m, p, args)))
+      IO.bind(Result<&1, &1, Down, R.Reply>, Result<&1, &1, Down, R.Reply>, attempt(stale(d), p, args), r => retry.got(r, d2 => run.again(m, p, args, d2)))
 
 # a value, or the error Redis answered with; the client stays open either way
 def Res(-A: Data) -> Data:
@@ -425,25 +466,10 @@ def pool(cfg: Config, +n: U32) -> IO(Pool):
   do IO<Pool>:
     +ch : Chan(Slot()) <- Chan.new(Slot(), n)
     x : Unit <- pool.fill(U32.to_nat(n), ch)
-    return Pool{cfg, ch}
-
-def slot(-A: Data, cfg: Config, +ch: Chan(Slot()), s: Maybe<&1, Slot()>, f: Client() -> IO(Got(A))) -> IO(Result<&1, &1, Down, A>):
-  match s:
-    case Some{Some{c}}:
-      use(A, ch, Done{c}, f)
-    case Some{None{}}:
-      IO.bind(Result<&1, &1, Down, Client()>, Result<&1, &1, Down, A>, open(cfg), r => use(A, ch, r, f))
-    case None{}:
-      IO.pure(Result<&1, &1, Down, A>, Fail{Closed{}})
-
-# run f with a client from the pool, waiting for one when all are in use
-def with(-A: Data, p: Pool, f: Client() -> IO(Got(A))) -> IO(Result<&1, &1, Down, A>):
-  match p:
-    case Pool{cfg, +ch}:
-      IO.bind(Maybe<&1, Slot()>, Result<&1, &1, Down, A>, Chan.recv(Slot(), ch), s => slot(A, cfg, ch, s, f))
+    return Pool{cfg, ch, n}
 
 def run(+retries: Nat, +p: Pool, +args: List<&2, String>) -> IO(Result<&1, &1, Down, R.Reply>):
-  IO.bind(Result<&1, &1, Down, R.Reply>, Result<&1, &1, Down, R.Reply>, with(R.Reply, p, c => command(c, args)), r => retry.got(r, u => run.again(retries, p, args)))
+  IO.bind(Result<&1, &1, Down, R.Reply>, Result<&1, &1, Down, R.Reply>, with(R.Reply, p, c => command(c, args)), r => retry.got(r, d => run.again(retries, p, args, d)))
 
 def replies.got(r: Got(R.Reply), acc: List<&2, R.Reply>, k: Client() -> List<&2, R.Reply> -> IO(Got(List<&2, R.Reply>))) -> IO(Got(List<&2, R.Reply>)):
   match r:
@@ -460,9 +486,10 @@ def replies(+n: Nat, c: Client(), acc: List<&2, R.Reply>) -> IO(Got(List<&2, R.R
     case 1n+m:
       IO.bind(Got(R.Reply), Got(List<&2, R.Reply>), read(c), r => replies.got(r, acc, c2 => a2 => replies(m, c2, a2)))
 
-# no AUTH, db 0, RESP2, 5 s per reply, replies up to 64 MiB
+# no AUTH, db 0, RESP2, 5 s to connect, per send and per reply, replies up
+# to 8 MiB. A reply takes about 20 bytes of memory per byte while it is read
 def config(host: String, port: U32) -> Config:
-  Config{host, port, None{}, None{}, 0, False{}, 5000, 67108864}
+  Config{host, port, None{}, None{}, 0, False{}, 5000, 8388608}
 
 def with_password(c: Config, pw: String) -> Config:
   match c:
@@ -516,9 +543,32 @@ def down.show(d: Down) -> String:
     case Rejected{w}:
       "rejected: " ++ w
 
-# the same, with each argument as bytes: values need not be UTF-8
-def command_bytes(c: Client(), args: List<&2, List<&2, U32>>) -> IO(Got(R.Reply)):
-  send(R.Reply, c, R.encode.buf(R.args.bytes(args), R.BNil{}), read)
+def octets(xs: List<&2, U32>, ok: Bool) -> Bool:
+  match xs:
+    case Nil{}:
+      ok
+    case Con{+x, t}:
+      octets(t, Bool.and(ok, U32.is_le(x, 255)))
+
+def octets.all(xs: List<&2, List<&2, U32>>, ok: Bool) -> Bool:
+  match xs:
+    case Nil{}:
+      ok
+    case Con{x, t}:
+      octets.all(t, octets(x, ok))
+
+def command_bytes.go(ok: Bool, c: Client(), args: List<&2, List<&2, U32>>) -> IO(Got(R.Reply)):
+  match ok:
+    case True{}:
+      send(R.Reply, c, R.encode.buf(R.args.bytes(args), R.BNil{}), read)
+    case False{}:
+      IO.pure(Got(R.Reply), Done{(c, R.Error{"ERR grounds: an argument byte is past 255"})})
+
+# the same, with each argument as bytes: values need not be UTF-8. A value
+# past 255 is not a byte: the command is not sent, and the answer is an
+# error reply, with the client still open
+def command_bytes(c: Client(), +args: List<&2, List<&2, U32>>) -> IO(Got(R.Reply)):
+  command_bytes.go(octets.all(args, True{}), c, args)
 
 def cmds.enc(xs: List<&2, List<&2, String>>, tail: R.Buf) -> R.Buf:
   match xs:
@@ -668,20 +718,21 @@ def as_bool(r: R.Reply) -> Res(Bool):
     case other:
       unexpected(Bool, other)
 
-def as_list(r: R.Reply) -> Res(List<&2, R.Reply>):
+# an array or set; None for the null array, which is not the empty one
+def as_list(r: R.Reply) -> Res(Maybe<&2, List<&2, R.Reply>>):
   match r:
     case R.Arr{xs}:
-      Done{xs}
+      Done{Some{xs}}
     case R.RSet{xs}:
-      Done{xs}
+      Done{Some{xs}}
     case R.RNil{}:
-      Done{[]}
+      Done{None{}}
     case R.Error{e}:
       Fail{e}
     case R.BulkError{e}:
       Fail{R.text(R.buf.of(e))}
     case other:
-      unexpected(List<&2, R.Reply>, other)
+      unexpected(Maybe<&2, List<&2, R.Reply>>, other)
 
 def call_bytes(-A: Data, c: Client(), args: List<&2, List<&2, U32>>, f: R.Reply -> Res(A)) -> IO(Got(Res(A))):
   IO.bind(Got(R.Reply), Got(Res(A)), command_bytes(c, args), g => IO.pure(Got(Res(A)), typed.got(A, g, f)))
@@ -742,8 +793,9 @@ def drain(+n: Nat, +ch: Chan(Slot())) -> IO(Unit):
     case 1n+m:
       IO.bind(Maybe<&1, Slot()>, Unit, Chan.recv(Slot(), ch), s => drain.slot(s, x => drain(m, ch)))
 
-# close a pool of n clients, once every task is done with it
-def pool.close(p: Pool, n: U32) -> IO(Unit):
+# close a pool and its clients. It waits for each client in use to come back
+# first, so none is left open
+def pool.close(p: Pool) -> IO(Unit):
   match p:
-    case Pool{_, ch}:
+    case Pool{_, ch, n}:
       drain(U32.to_nat(n), ch)

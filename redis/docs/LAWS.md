@@ -2,7 +2,7 @@
 
 The laws from the RESP spec in [resp.md](resp.md) (redis/docs, "Redis serialization protocol specification"). Section names below are that file's headings. Redis has no RFC; this spec is the reference.
 
-**Status.** Proven in `PROOF.bend`: 1 and 2 (`command_reads_back`), 3 (`bulk_framed`), 4 (`null_bulk`, `empty_bulk`), and 5 for bulk strings (`bulk_cut`, and the bytes after a reply kept in 1 and 3). Checked, not proven: 6 and 7, by the fuzzer (thousands of replies against a reference parser, byte for byte) and the unit tests. Why: the checker cannot reduce a match on a byte it does not know, which 7 needs; and 6 needs `Nat.show` read back, a number lemma as large as json's.
+**Status.** Proven in `PROOF.bend`: 1 and 2 (`command_reads_back`, and `parse_encode` for `encode` on Strings), 3 (`bulk_framed`), 4 (`null_bulk`, `empty_bulk`), and 5 for bulk strings: every strict prefix is `More` (`cut_dollar`, `cut_length`, `cut_cr`, `bulk_cut`, `cut_end`, `cut_end_cr`), and the bytes after a reply are kept (1 and 3). Arguments are of up to the parser's limit, and fewer than 10^10 bytes (`S.cfits`). The laws take the fuel as a parameter: `parse`'s 2^32 − 1 is too large a literal for the checker to unfold. Checked, not proven: 6 and 7, by the fuzzer (thousands of replies against a reference parser, byte for byte) and the unit tests. Why: the checker cannot reduce a match on a byte it does not know, which 7 needs; and 6 needs `Nat.show` read back, a number lemma as large as json's.
 
 ## Commands: what the client sends
 

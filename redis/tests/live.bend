@@ -199,7 +199,7 @@ def load(k: Unit -> IO(Unit)) -> IO(Unit):
     chs : List<&2, Chan(Nat)> <- forks(40n, p, [])
     +bad : Nat <- joins(chs, 0n)
     +t1 : Nat <- IO.now()
-    x : Unit <- Redis.pool.close(p, 8)
+    x : Unit <- Redis.pool.close(p)
     loaded(bad, Nat.sub(t1, t0), k)
 
 # Steps

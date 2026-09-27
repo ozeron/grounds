@@ -58,11 +58,14 @@ def down.opened(name: String, +want: String, +t0: Nat, +limit: Nat, r: Result<&1
       verdict(False{}, name, "open: " ++ Redis.down.show(d), k)
 
 # act on a fresh client to port: it must end in want within limit ms
-def expect_down(name: String, +port: U32, +want: String, +limit: Nat, act: Redis.Client() -> IO(Redis.Got(R.Reply)), k: Unit -> IO(Unit)) -> IO(Unit):
+def expect_down.cfg(name: String, c: Redis.Config, +want: String, +limit: Nat, act: Redis.Client() -> IO(Redis.Got(R.Reply)), k: Unit -> IO(Unit)) -> IO(Unit):
   do IO<Unit>:
     +t0 : Nat <- IO.now()
-    r : Result<&1, &1, Redis.Down, Redis.Client()> <- Redis.open(cfg(port))
+    r : Result<&1, &1, Redis.Down, Redis.Client()> <- Redis.open(c)
     down.opened(name, want, t0, limit, r, act, k)
+
+def expect_down(name: String, +port: U32, +want: String, +limit: Nat, act: Redis.Client() -> IO(Redis.Got(R.Reply)), k: Unit -> IO(Unit)) -> IO(Unit):
+  expect_down.cfg(name, cfg(port), want, limit, act, k)
 
 def ping(c: Redis.Client()) -> IO(Redis.Got(R.Reply)):
   Redis.command(c, ["PING"])
@@ -120,8 +123,115 @@ def pings(n: Nat, +p: Redis.Pool, +ok: Nat, k: Nat -> IO(Unit)) -> IO(Unit):
     case 1n+m:
       IO.bind(Result<&1, &1, Redis.Down, R.Reply>, Unit, Redis.run(1n, p, ["PING"]), r => pooled(ok, r, o => pings(m, p, o, k)))
 
+def repeat(n: Nat, +c: Char, acc: String) -> String:
+  match n:
+    case 0n:
+      acc
+    case 1n+m:
+      repeat(m, c, SCon{c, acc})
+
+def down.after(name: String, +want: String, g: Redis.Got(R.Reply), k: Unit -> IO(Unit)) -> IO(Unit):
+  match g:
+    case Done{(c, r)}:
+      IO.bind(Unit, Unit, Redis.close(c), x => verdict(False{}, name, "a reply: " ++ R.show(r), k))
+    case Fail{+d}:
+      verdict(same(kind(d), want), name, kind(d), k)
+
+def sized.shown(ok: Bool, c: Redis.Client(), k: Redis.Client() -> IO(Unit)) -> IO(Unit):
+  verdict(ok, "984 bytes, under a 1000-byte cap", "the 984 bytes", u => k(c))
+
+def sized.first(g: Redis.Got(R.Reply), k: Unit -> IO(Unit)) -> IO(Unit):
+  match g:
+    case Done{(c, r)}:
+      sized.shown(same(R.show(r), "\"" ++ repeat(984n, 'a', "") ++ "\""), c, c2 => IO.bind(Redis.Got(R.Reply), Unit, ping(c2), g2 => down.after("1000 bytes, past it: refused as declared", "too large", g2, k)))
+    case Fail{d}:
+      verdict(False{}, "984 bytes", Redis.down.show(d), k)
+
+def sized.opened(r: Result<&1, &1, Redis.Down, Redis.Client()>, k: Unit -> IO(Unit)) -> IO(Unit):
+  match r:
+    case Done{c}:
+      IO.bind(Redis.Got(R.Reply), Unit, ping(c), g => sized.first(g, k))
+    case Fail{d}:
+      verdict(False{}, "sized", Redis.down.show(d), k)
+
+def shows(xs: List<&2, R.Reply>, out: String) -> String:
+  match xs:
+    case Nil{}:
+      out
+    case Con{x, t}:
+      shows(t, out ++ R.show(x) ++ ";")
+
+def pipe.shown(+got: String, k: Unit -> IO(Unit)) -> IO(Unit):
+  verdict(same(got, "A;B;"), "a push between two pipelined replies, skipped", got, k)
+
+def piped(g: Redis.Got(List<&2, R.Reply>), k: Unit -> IO(Unit)) -> IO(Unit):
+  match g:
+    case Done{(c, xs)}:
+      IO.bind(Unit, Unit, Redis.close(c), x => pipe.shown(shows(xs, ""), k))
+    case Fail{d}:
+      verdict(False{}, "push between pipelined replies", Redis.down.show(d), k)
+
+def pipe.opened(r: Result<&1, &1, Redis.Down, Redis.Client()>, k: Unit -> IO(Unit)) -> IO(Unit):
+  match r:
+    case Done{c}:
+      IO.bind(Redis.Got(List<&2, R.Reply>), Unit, Redis.pipeline(c, [["PING"], ["PING"]]), g => piped(g, k))
+    case Fail{d}:
+      verdict(False{}, "push between", Redis.down.show(d), k)
+
+def big_pipe(c: Redis.Client()) -> IO(Redis.Got(R.Reply)):
+  Redis.command_bytes(c, [[83, 69, 84], [107], big(20000000n, [])])
+
+def RP() -> Type:
+  Result<&1, &1, Redis.Down, R.Reply>
+
+def pool.down(name: String, r: RP(), +want: String, k: Unit -> IO(Unit)) -> IO(Unit):
+  match r:
+    case Done{x}:
+      verdict(False{}, name, "a reply: " ++ R.show(x), k)
+    case Fail{+d}:
+      verdict(same(kind(d), want), name, kind(d), k)
+
+def conn.timed(+t0: Nat, +now: Nat, got: String, k: Unit -> IO(Unit)) -> IO(Unit):
+  verdict(Nat.is_le(Nat.sub(now, t0), 1500n), "connect to an address that drops packets", got ++ " after " ++ Nat.show(Nat.sub(now, t0)) ++ " ms", k)
+
+def conn.done(+t0: Nat, r: Result<&1, &1, Redis.Down, Redis.Client()>, k: Unit -> IO(Unit)) -> IO(Unit):
+  match r:
+    case Done{c}:
+      IO.bind(Unit, Unit, Redis.close(c), x => k(Unit{}))
+    case Fail{d}:
+      IO.bind(Nat, Unit, IO.now(), now => conn.timed(t0, now, kind(d), k))
+
+def f18(u: Unit) -> IO(Unit):
+  do IO<Unit>:
+    +t0 : Nat <- IO.now()
+    r : Result<&1, &1, Redis.Down, Redis.Client()> <- Redis.open(Redis.with_timeout(Redis.config("10.255.255.1", 6379), 300))
+    conn.done(t0, r, x => IO.print("faults: all ok"))
+
+def f17(u: Unit) -> IO(Unit):
+  do IO<Unit>:
+    +p : Redis.Pool <- Redis.pool(cfg(7999), 1)
+    r1 : RP() <- Redis.with(R.Reply, p, c => ping(c))
+    x1 : Unit <- pool.down("a pool whose server is down", r1, "io", u1 => IO.pure(Unit, Unit{}))
+    r2 : RP() <- Redis.with(R.Reply, p, c => ping(c))
+    x2 : Unit <- pool.down("and again: its slot came back", r2, "io", u2 => IO.pure(Unit, Unit{}))
+    x3 : Unit <- Redis.pool.close(p)
+    r3 : RP() <- Redis.with(R.Reply, p, c => ping(c))
+    pool.down("after pool.close", r3, "closed", f18)
+
+def f16(u: Unit) -> IO(Unit):
+  expect_down("20 MB to a server that closes at once: an error, not a crash", 7015, "io", 3000n, big_pipe, f17)
+
+def f15(u: Unit) -> IO(Unit):
+  IO.bind(Result<&1, &1, Redis.Down, Redis.Client()>, Unit, Redis.open(cfg(7014)), r => pipe.opened(r, f16))
+
+def f14(u: Unit) -> IO(Unit):
+  IO.bind(Result<&1, &1, Redis.Down, Redis.Client()>, Unit, Redis.open(Redis.with_max_reply(cfg(7013), 1000)), r => sized.opened(r, f15))
+
+def f13(u: Unit) -> IO(Unit):
+  expect_down.cfg("a line past the default 8 MiB cap, in time", Redis.config("127.0.0.1", 7004), "too large", 5000n, ping, f14)
+
 def reconnected(+ok: Nat) -> IO(Unit):
-  verdict(Nat.is_eq(ok, 10n), "a pool through a server that closes after each reply", Nat.show(ok) ++ " of 10 PINGs answered, reconnecting", x => IO.print("faults: all ok"))
+  verdict(Nat.is_eq(ok, 10n), "a pool through a server that closes after each reply", Nat.show(ok) ++ " of 10 PINGs answered, reconnecting", f13)
 
 def f12(u: Unit) -> IO(Unit):
   do IO<Unit>:

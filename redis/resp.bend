@@ -26,8 +26,33 @@ def text.of(t: U.Text) -> String:
     case U.TBad{_, before}:
       String.reverse(before)
 
-def text(bs: Buf) -> String:
-  text.of(U.decode(buf.list(bs)))
+def latin1(bs: Buf, acc: String) -> String:
+  match bs:
+    case BNil{}:
+      String.reverse(acc)
+    case BCon{b, t}:
+      latin1(t, SCon{Chr{b}, acc})
+
+def text.or(t: U.Text, bs: Buf) -> String:
+  match t:
+    case U.TOk{s}:
+      s
+    case U.TBad{_, _}:
+      latin1(bs, "")
+
+# text's own copy of buf.list: bulk.make owns what it lists, text only reads,
+# and one def for both would share Bufs
+def text.list(bs: Buf, acc: List<&2, U32>) -> List<&2, U32>:
+  match bs:
+    case BNil{}:
+      List.reverse(&2, U32, acc)
+    case BCon{b, t}:
+      text.list(t, Con{b, acc})
+
+# a line as text: UTF-8, or else each byte as the char of that code (Latin-1),
+# so no byte of an error message is lost
+def text(+bs: Buf) -> String:
+  text.or(U.decode(text.list(bs, [])), bs)
 
 # a reply. Bulk strings are bytes (0..255): Redis values are binary. A map
 # holds its keys and values alternating: k1, v1, k2, v2. Integers keep their
@@ -356,11 +381,13 @@ def int.ok(bs: Buf, ok: Bool, any: Bool, acc: Buf) -> Checked:
       +x = (b + 0 : U32)
       int.ok(t, Bool.and(ok, Bool.and(U32.is_ge(x, 48), U32.is_le(x, 57))), True{}, BCon{x, acc})
 
-# an integer line: an optional -, then one digit or more
+# an integer line: an optional - or +, then one digit or more
 def int.line(bs: Buf) -> Checked:
   match bs:
     case BCon{45, t}:
       int.ok(t, True{}, False{}, BCon{45, BNil{}})
+    case BCon{43, t}:
+      int.ok(t, True{}, False{}, BCon{43, BNil{}})
     case other:
       int.ok(other, True{}, False{}, BNil{})
 
@@ -393,12 +420,15 @@ type BKind is Data:
 type Frame is Data:
   Frame{kind: Agg, left: Nat, acc: List<&2, Reply>}
 
-# where the parser is: at the start of an item, holding a value read, or
-# inside a bulk string of len bytes
+# where the parser is: at the start of an item, holding a value read, inside
+# a bulk string of len bytes, or inside the line of an item of type t, with
+# the bytes of it read so far (reversed) and those still to read. A line
+# goes on where it stopped: it is never read again from its start
 type Mode is Data:
   MItem{bs: Buf, stack: List<&2, Frame>}
   MValue{v: Reply, bs: Buf, stack: List<&2, Frame>}
   MBulk{kind: BKind, len: Nat, bs: Buf, stack: List<&2, Frame>}
+  MLine{t: U32, read: Buf, bs: Buf, stack: List<&2, Frame>}
 
 # one reply and the bytes after it; More when it has not all come, with
 # where to go on and how many bytes are missing at least
@@ -479,14 +509,16 @@ def bulk.fits(ok: Bool, kind: BKind, +len: Nat, rest: Buf, stack: List<&2, Frame
       TooLarge{}
 
 def bulk.head(kind: BKind, n: Num, rest: Buf, stack: List<&2, Frame>, +max: Nat, k: K()) -> Parsed:
-  match n:
-    case NOk{True{}, 1n}:
+  match kind n:
+    case BBulk{} NOk{True{}, 1n}:
       k(MValue{RNil{}, rest, stack})
-    case NOk{False{}, +len}:
+    case _ NOk{True{}, _}:
+      Bad{"bad bulk length"}
+    case kind NOk{False{}, +len}:
       bulk.fits(Nat.is_le(len, max), kind, len, rest, stack, k)
-    case NBig{}:
+    case _ NBig{}:
       TooLarge{}
-    case _:
+    case _ NBad{}:
       Bad{"bad bulk length"}
 
 def agg.fits(ok: Bool, kind: Agg, +n: Nat, rest: Buf, stack: List<&2, Frame>, k: K()) -> Parsed:
@@ -507,17 +539,20 @@ def agg.items(pairs: Bool, +n: Nat) -> Nat:
       n
 
 # an aggregate's header; a map or attribute of n pairs holds 2n items
+# the null array, *-1, is RESP2's; RESP3's aggregates have no negative count
 def agg.head(kind: Agg, +pairs: Bool, n: Num, rest: Buf, stack: List<&2, Frame>, +max: Nat, k: K()) -> Parsed:
-  match n:
-    case NOk{True{}, 1n}:
+  match kind n:
+    case KArr{} NOk{True{}, 1n}:
       k(MValue{RNil{}, rest, stack})
-    case NOk{False{}, 0n}:
+    case _ NOk{True{}, _}:
+      Bad{"bad aggregate length"}
+    case kind NOk{False{}, 0n}:
       agg.empty(kind, rest, stack, k)
-    case NOk{False{}, 1n+(+m)}:
+    case kind NOk{False{}, 1n+(+m)}:
       agg.fits(Nat.is_le(1n+m, max), kind, agg.items(pairs, 1n+m), rest, stack, k)
-    case NBig{}:
+    case _ NBig{}:
       TooLarge{}
-    case _:
+    case _ NBad{}:
       Bad{"bad aggregate length"}
 
 def integer.ok(c: Checked, big: Bool, rest: Buf, stack: List<&2, Frame>, k: K()) -> Parsed:
@@ -583,12 +618,21 @@ def typed(t: U32, line: Buf, rest: Buf, stack: List<&2, Frame>, +max: Nat, k: K(
     case _:
       Bad{"unknown reply type"}
 
+# a line that stopped at a CR goes on from the CR, which line.go must see
+# again to find the LF after it
+def line.stop(t: U32, read: Buf, stack: List<&2, Frame>) -> Mode:
+  match read:
+    case BCon{13, r}:
+      MLine{t, r, BCon{13, BNil{}}, stack}
+    case other:
+      MLine{t, other, BNil{}, stack}
+
 def item.line(t: U32, l: Line, stack: List<&2, Frame>, +max: Nat, k: K()) -> Parsed:
   match l:
     case LOk{line, rest}:
       typed(t, line, rest, stack, max, k)
     case LMore{read}:
-      More{MItem{BCon{t, buf.rev(read, BNil{})}, stack}, 1n}
+      More{line.stop(t, read, stack), 1n}
     case LBad{}:
       Bad{"bare CR or LF"}
 
@@ -607,6 +651,8 @@ def step(m: Mode, +max: Nat, k: K()) -> Parsed:
       item(bs, stack, max, k)
     case MBulk{kind, +len, bs, stack}:
       bulk.took(kind, len, take(len, bs, BNil{}), stack, k)
+    case MLine{t, read, bs, stack}:
+      item.line(t, line.go(bs, read), stack, max, k)
 
 # fuel bounds the steps: one per item and one per value
 def parse.go(fuel: Nat, +max: Nat, m: Mode) -> Parsed:
@@ -628,6 +674,8 @@ def feed(m: Mode, bs: Buf) -> Mode:
       MBulk{kind, len, cat(a, bs), stack}
     case MValue{v, a, stack}:
       MValue{v, cat(a, bs), stack}
+    case MLine{t, read, a, stack}:
+      MLine{t, read, cat(a, bs), stack}
 
 # one reply from bytes, with bulk strings and aggregates of at most max
 # bytes or items; nested aggregates use a stack of their own, so no depth
@@ -666,8 +714,13 @@ def half(n: Nat) -> Nat:
     case _:
       0n
 
+# a verbatim string with no format was read whole: write it back whole
 def push.verb(f: String, +bs: List<&2, U32>, out: Buf) -> Buf:
-  push.bulk(61, List.append(&2, U32, U.encode(f ++ ":"), bs), out)
+  match f:
+    case SNil{}:
+      push.bulk(61, bs, out)
+    case other:
+      push.bulk(61, List.append(&2, U32, U.encode(other ++ ":"), bs), out)
 
 # the work left: replies to write, the items of an aggregate first
 def write.go(fuel: Nat, work: List<&2, Reply>, out: Buf) -> Buf:

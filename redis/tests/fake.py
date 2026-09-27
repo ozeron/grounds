@@ -87,6 +87,39 @@ def one_then_close(conn):
     conn.close()
 
 
+def sized(conn):
+    # with max_reply 1000: 984 bytes of body fit, 1000 do not
+    try:
+        conn.recv(65536)
+        conn.sendall(b"$984\r\n" + b"a" * 984 + b"\r\n")
+        conn.recv(65536)
+        conn.sendall(b"$1000\r\n" + b"b" * 1000 + b"\r\n")
+        time.sleep(0.5)
+    except OSError:
+        pass
+    conn.close()
+
+
+def push_between(conn):
+    # two pipelined commands, a push between their replies
+    try:
+        buf = b""
+        while buf.count(b"PING") < 2:
+            more = conn.recv(65536)
+            if not more:
+                break
+            buf += more
+        conn.sendall(b"+A\r\n>2\r\n+message\r\n+x\r\n+B\r\n")
+        time.sleep(0.5)
+    except OSError:
+        pass
+    conn.close()
+
+
+def close_now(conn):
+    conn.close()
+
+
 FAULTS = [
     ("stall", stall),
     ("half", lambda c: reply_after_read(c, b"$10\r\nhello")),
@@ -100,6 +133,9 @@ FAULTS = [
     ("error", error_then_pong),
     ("two", two_in_one),
     ("restart", one_then_close),
+    ("sized", sized),
+    ("push between", push_between),
+    ("close on accept", close_now),
 ]
 
 

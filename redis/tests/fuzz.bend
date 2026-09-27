@@ -2,7 +2,7 @@ import Base
 import ../redis.bend as Redis
 import ../resp.bend as R
 
-# the client side of tests/fuzz.py: n times, FUZZ on a new connection;
+# the client side of tests/fuzz.py: FUZZ on a new connection each time;
 # a reply goes back re-encoded in GOT, a client gone goes on to the next
 
 def got.sent(g: Redis.Got(R.Reply), k: Unit -> IO(Unit)) -> IO(Unit):
@@ -23,8 +23,8 @@ def opened(r: Result<&1, &1, Redis.Down, Redis.Client()>, k: Unit -> IO(Unit)) -
   match r:
     case Done{c}:
       IO.bind(Redis.Got(R.Reply), Unit, Redis.command(c, ["FUZZ"]), g => fuzzed(g, k))
-    case Fail{d}:
-      IO.die(Unit, 1, "fuzz: open: " ++ Redis.down.show(d))
+    case Fail{_}:
+      IO.pure(Unit, Unit{})
 
 def cases(n: Nat) -> IO(Unit):
   match n:
@@ -33,5 +33,6 @@ def cases(n: Nat) -> IO(Unit):
     case 1n+m:
       IO.bind(Result<&1, &1, Redis.Down, Redis.Client()>, Unit, Redis.open(Redis.config("127.0.0.1", 7100)), r => opened(r, u => cases(m)))
 
+# cases until the server, done with its own count, stops taking connections
 def main() -> IO(Unit):
-  cases(2000n)
+  cases(4294967295n)

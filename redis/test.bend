@@ -206,3 +206,38 @@ def padded_length() -> {what(p("$00000000005\r\nhello\r\n")) == "too large" : St
 
 def bad_int() -> {what(p(":12a\r\n")) == "bad integer" : String}:
   {==}
+
+# review fixes
+
+def plus_int() -> {p(":+5\r\n") == done(R.Int{"+5"}) : R.Parsed}:
+  {==}
+
+def attr_null() -> {what(p("|-1\r\n")) == "bad aggregate length" : String}:
+  {==}
+
+def map_null() -> {what(p("%-1\r\n")) == "bad aggregate length" : String}:
+  {==}
+
+def bulk_error_null() -> {what(p("!-1\r\n")) == "bad bulk length" : String}:
+  {==}
+
+def attr_in_array() -> {p("*2\r\n|1\r\n+a\r\n:1\r\n:5\r\n:6\r\n") == done(R.Arr{[R.Int{"5"}, R.Int{"6"}]}) : R.Parsed}:
+  {==}
+
+def empty_attr() -> {p("|0\r\n:7\r\n") == done(R.Int{"7"}) : R.Parsed}:
+  {==}
+
+def empty_map() -> {p("%0\r\n") == done(R.RMap{[]}) : R.Parsed}:
+  {==}
+
+def verbatim_no_format() -> {R.parse(R.write(R.Verbatim{"", U.encode("ab")})) == done(R.Verbatim{"", U.encode("ab")}) : R.Parsed}:
+  {==}
+
+def text_not_utf8() -> {R.parse([45, 69, 82, 82, 32, 255, 33, 13, 10]) == done(R.Error{"ERR \u{ff}!"}) : R.Parsed}:
+  {==}
+
+def line_resumed_at_cr() -> {resume(p("+OK\r"), "\n") == done(R.Simple{"OK"}) : R.Parsed}:
+  {==}
+
+def line_resumed_twice() -> {resume(resume(p("+ab"), "cd"), "e\r\n") == done(R.Simple{"abcde"}) : R.Parsed}:
+  {==}

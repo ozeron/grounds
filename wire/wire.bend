@@ -48,5 +48,11 @@ def accept(l: Listener) -> IO(Listener & Result<&1, &1, U32 & String, Socket>):
 def connect(host: String, port: U32) -> IO(Result<&1, &1, U32 & String, Socket>):
   TCP.connect(host, port)
 
+# as connect, but fails ETIMEDOUT when the connection is not made within ms
+# milliseconds: an address that drops packets would wait for the OS
+def wire_connect_timeout(host: String, port: U32, ms: U32) -> IO(Result<&1, &1, U32 & String, Socket>):
+  import "./effs/wire.c"
+  import "./effs/wire.js"
+
 def close(sock: Socket) -> IO(Unit):
   Socket.close(sock)
