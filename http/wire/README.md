@@ -31,3 +31,5 @@ The parser works on its own `Bytes` list (`B.BNil`, `B.BCon{head, tail}`); `B.of
 ## Tests
 
 `test.bend` holds 32 cases: a valid request, each rejection above, incomplete input, a body with a pipelined request after it, and write then `parse_response` giving the response back. That round trip is a test, not a law: a proof would need `U32.show` and digit parsing to invert on any length, which is not cheap in Bend yet. `moon run http1:check` runs the tests, `examples/echo.bend`, and the cold check.
+
+**Laws.** `LAWS.bend`, proven in `PROOF.bend`: a Transfer-Encoding anywhere is seen and refused; differing or bad Content-Lengths are refused; a folded line anywhere fails the head; a header with CR, LF or NUL, and a handler's framing headers, are never written.

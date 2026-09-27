@@ -40,3 +40,5 @@ Bodies are bytes (`List<U32>`, 0..255). Text goes through `grounds-utf8`.
 - **Shares no String.** Every helper reads Strings without keeping them, so a program using http keeps Strings free of reference counting; `check.sh` verifies it on `examples/hello.bend`.
 
 `moon run http:check` runs the tests, the example and the cold check.
+
+**Laws.** `LAWS.bend`, proven in `PROOF.bend`: the first header and the first query pair are the ones read, `T.same` is reflexive, and the nine standard methods read back from their names.

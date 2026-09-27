@@ -26,3 +26,5 @@ match HJ.decode(Todo, j => Todo.from_json(j), req):
 `examples/todo.bend` is a JSON API on port 8081: `GET /todos`, `POST /todos`, `GET /todos/:id`. The handler keeps no state, so the list is fixed and POST answers with the todo it would create.
 
 `moon run http_json:check` runs `test.bend`, curls each route of the example (404, 405, 400, 415 included), and runs the cold check.
+
+**Laws.** `LAWS.bend`, proven in `PROOF.bend`: media-type parameters never change the JSON decision, and a body with another type or none is never parsed.

@@ -3,5 +3,6 @@
 set -eu
 cd "$(dirname "$0")"
 bend test.bend
+bend PROOF.bend
 bend examples/routes.bend
 python3 ../../json/scripts/cold.py "$PWD/examples/routes.bend"

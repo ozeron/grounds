@@ -7,6 +7,7 @@ tmp=$(mktemp -d)
 pid=
 trap '[ -n "$pid" ] && kill "$pid" 2>/dev/null; rm -rf "$tmp"' EXIT
 bend test.bend
+bend PROOF.bend
 bend examples/todo.bend -o "$tmp/todo" > /dev/null
 "$tmp/todo" &
 pid=$!

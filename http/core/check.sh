@@ -6,6 +6,7 @@ step() { printf '\n== %s\n' "$1"; }
 
 step "unit tests (test.bend)"
 bend test.bend
+bend PROOF.bend
 
 step "example (examples/hello.bend)"
 bend examples/hello.bend
