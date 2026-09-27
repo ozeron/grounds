@@ -1,0 +1,13 @@
+# grounds-http-server: serve(handler, config) on HTTP/1.1
+language: "bend"
+dependsOn:
+  - "http_core"
+  - "http_wire"
+  - "wire"
+
+tasks:
+  check:
+    command: "./check.sh"
+    inputs:
+      - "*.bend"
+      - "examples/*"

@@ -1,0 +1,14 @@
+# grounds-http-json: JSON request bodies and responses
+language: "bend"
+dependsOn:
+  - "http_core"
+  - "json"
+  - "http_router"
+  - "http_server"
+
+tasks:
+  check:
+    command: "./check.sh"
+    inputs:
+      - "*.bend"
+      - "examples/*.bend"

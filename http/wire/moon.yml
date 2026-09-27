@@ -1,0 +1,12 @@
+# grounds-http-wire: HTTP/1.1 on the wire (RFC 9112)
+language: "bend"
+dependsOn:
+  - "http_core"
+  - "utf8"
+
+tasks:
+  check:
+    command: "./check.sh"
+    inputs:
+      - "*.bend"
+      - "examples/*.bend"

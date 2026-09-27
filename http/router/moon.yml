@@ -1,0 +1,11 @@
+# grounds-http-router: routes as data
+language: "bend"
+dependsOn:
+  - "http_core"
+
+tasks:
+  check:
+    command: "./check.sh"
+    inputs:
+      - "*.bend"
+      - "examples/*.bend"

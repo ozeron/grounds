@@ -1,10 +1,10 @@
 # grounds: a monorepo of Bend packages
 projects:
-  http: "http"
-  http1: "http1"
-  http_json: "http_json"
-  http_router: "http_router"
-  http_server: "http_server"
+  http_core: "http/core"
+  http_json: "http/json"
+  http_router: "http/router"
+  http_server: "http/server"
+  http_wire: "http/wire"
   io: "io"
   json: "json"
   utf8: "utf8"

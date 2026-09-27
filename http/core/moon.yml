@@ -1,0 +1,13 @@
+# grounds-http-core: HTTP messages (RFC 9110): methods, status, headers, query,
+# request and response. HTTP/1.1, the server, routing and JSON come as
+# separate packages on top
+language: "bend"
+dependsOn:
+  - "utf8"
+
+tasks:
+  check:
+    command: "./check.sh"
+    inputs:
+      - "*.bend"
+      - "examples/*.bend"
