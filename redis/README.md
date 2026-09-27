@@ -6,12 +6,13 @@ A Redis client for [Bend 2](https://github.com/bendlang/bend): RESP2 and RESP3, 
 import ../redis/redis.bend as Redis
 
 cfg = Redis.with_password(Redis.config("127.0.0.1", 6379), "s3cret")
-r : Result<&1, &1, Redis.Down, Redis.Client()> <- Redis.open(cfg)
-g : Redis.Got(Redis.Res(Maybe<&2, String>)) <- Redis.get(c, "k")   # Done{(c, Done{Some{"v"}})}
+# open, GET, close: Done{Done{Some{"v"}}}
+r : Result<&1, &1, Redis.Down, Redis.Res(Maybe<&2, String>)> <- Redis.session(Redis.Res(Maybe<&2, String>), cfg, c => Redis.get(c, "k"))
 ```
 
 ## Failing safely
 
+- **Connections are always closed, if you use `session` or a `Pool`.** `session(A, cfg, f)` opens a client, runs `f`, and closes it on every path; `Pool.with` does the same for pooled clients. The type system cannot enforce it: a Bend value may always be dropped, so a client from `open` that is dropped without `close` keeps its socket until the process ends. Use `open` and `close` by hand only when a client must outlive one function.
 - **Down closes the client.** Every call hands the client back with its answer, or fails with `Down`: `Timeout`, `Closed`, `TooLarge`, `Protocol`, `Io` or `Rejected`. A client that failed is closed and not handed back, so a connection left half-read can never be used again.
 - **An error reply is not Down.** `-ERR …` is an answer: typed calls give `Fail{"ERR …"}`, and the client stays open.
 - **Nothing waits forever.** `timeout_ms` (default 5 s) bounds the connect, each send and each whole reply. An address that drops packets, or a server that stalls, trickles or stops reading, is `Timeout`.
@@ -23,7 +24,8 @@ g : Redis.Got(Redis.Res(Maybe<&2, String>)) <- Redis.get(c, "k")   # Done{(c, Do
 
 | Call | Does |
 |---|---|
-| `open(cfg)` | connect, then `HELLO 3` or `AUTH`, and `SELECT`, as `cfg` says |
+| `session(A, cfg, f)` | open a client, run `f`, close it whatever happens: the way to use one |
+| `open(cfg)`, `close(c)` | connect, then `HELLO 3` or `AUTH`, and `SELECT`, as `cfg` says; and close |
 | `config(host, port)`, `with_password`, `with_user`, `with_db`, `with_resp3`, `with_timeout`, `with_max_reply` | the config |
 | `command(c, args)`, `command_bytes(c, args)` | one command, its raw `R.Reply`; arguments as text or as bytes |
 | `pipeline(c, cmds)` | many commands in one write, their replies in order |
@@ -57,7 +59,7 @@ The laws are about this parser reading this encoder. The framing is RESP's, so t
 3. The cold check.
 4. `tests/faults.bend` against `tests/fake.py`, a server that misbehaves in 15 ways: it stalls, closes mid-reply, floods past the cap (the default one too), sends garbage, trickles, never reads, sends pushes (between pipelined replies too), sends byte by byte, sends two replies in one write, closes after every reply, sends replies at the cap, and closes at once while 20 MB go to it. Each fault must end in its `Down` within its time bound. A pool must reconnect, and fail fast when its server is down. A connect to an address that drops packets must time out.
 5. `tests/fuzz.bend` against `tests/fuzz.py`: 2000 random valid and mutated replies (`FUZZ_N`, `SEED`), sent in random chunks. The client must parse each exactly as a reference parser does, byte for byte, or go down when it does.
-6. With a Redis on 6379: `examples/demo.bend`, and `tests/live.bend`. The live tests cover binary and 5 MB values, a 1000-command pipeline, SELECT, RESP3 maps, the cap, and 40 tasks × 250 INCR through a pool of 8. With one on 6380 (password `s3cret`): `tests/auth.bend`.
+6. With a Redis on 6379: `examples/demo.bend`, and `tests/live.bend`. The live tests cover binary and 5 MB values, a 1000-command pipeline, SELECT, RESP3 maps, the cap, 40 tasks × 250 INCR through a pool of 8, and that 200 sessions leave no connection open. With one on 6380 (password `s3cret`): `tests/auth.bend`.
 
 ```sh
 podman run -d -p 6379:6379 redis:7-alpine

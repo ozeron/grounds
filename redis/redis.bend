@@ -369,6 +369,30 @@ def open(cfg: Config) -> IO(Result<&1, &1, Down, Client()>):
     case Config{h, p, u, pw, +db, r3, +ms, max}:
       IO.bind(Result<&1, &1, U32 & String, Socket>, Result<&1, &1, Down, Client()>, W.wire_connect_timeout(h, p, ms), r => opened(r, St{R.BNil{}, ms, U32.to_nat(max)}, greet(r3, u, pw, db)))
 
+# Sessions
+# --------
+
+def session.done(-A: Data, g: Got(A)) -> IO(Result<&1, &1, Down, A>):
+  match g:
+    case Done{(c, a)}:
+      IO.bind(Unit, Result<&1, &1, Down, A>, close(c), x => IO.pure(Result<&1, &1, Down, A>, Done{a}))
+    case Fail{d}:
+      IO.pure(Result<&1, &1, Down, A>, Fail{d})
+
+def session.opened(-A: Data, r: Result<&1, &1, Down, Client()>, f: Client() -> IO(Got(A))) -> IO(Result<&1, &1, Down, A>):
+  match r:
+    case Done{c}:
+      IO.bind(Got(A), Result<&1, &1, Down, A>, f(c), g => session.done(A, g))
+    case Fail{d}:
+      IO.pure(Result<&1, &1, Down, A>, Fail{d})
+
+# open a client, run f with it, and close it, whatever happens: f hands the
+# client back with its answer, and a client that failed was closed already.
+# The type system cannot make a client be closed (a value may always be
+# dropped), so this, or a Pool, is how to never leave one open
+def session(-A: Data, cfg: Config, f: Client() -> IO(Got(A))) -> IO(Result<&1, &1, Down, A>):
+  IO.bind(Result<&1, &1, Down, Client()>, Result<&1, &1, Down, A>, open(cfg), r => session.opened(A, r, f))
+
 # Pools
 # -----
 

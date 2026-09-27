@@ -208,8 +208,55 @@ def load(k: Unit -> IO(Unit)) -> IO(Unit):
 def s_done(u: Unit) -> IO(Unit):
   IO.print("live: all ok")
 
+# Sessions
+# --------
+
+def RS() -> Type:
+  Result<&1, &1, Redis.Down, R.Reply>
+
+def session.ok(r: RS(), k: Unit -> IO(Unit)) -> IO(Unit):
+  match r:
+    case Done{_}:
+      k(Unit{})
+    case Fail{d}:
+      down("session", d)
+
+def sessions(n: Nat) -> IO(Unit):
+  match n:
+    case 0n:
+      IO.pure(Unit, Unit{})
+    case 1n+m:
+      IO.bind(RS(), Unit, Redis.session(R.Reply, plain(), c => Redis.command(c, ["PING"])), r => session.ok(r, u => sessions(m)))
+
+def lines(s: String, +n: Nat) -> Nat:
+  match s:
+    case SNil{}:
+      n
+    case SCon{'\n', t}:
+      lines(t, 1n+n)
+    case SCon{_, t}:
+      lines(t, n)
+
+def clients.n(+n: Nat, k: Unit -> IO(Unit)) -> IO(Unit):
+  verdict(Nat.is_eq(n, 1n), "200 sessions leave no connection open", Nat.show(n) ++ " client connected: the one asking", k)
+
+def clients(r: RS(), k: Unit -> IO(Unit)) -> IO(Unit):
+  match r:
+    case Done{R.Bulk{bs}}:
+      clients.n(lines(R.text(R.buf.of(bs)), 0n), k)
+    case Done{other}:
+      verdict(False{}, "CLIENT LIST", R.show(other), k)
+    case Fail{d}:
+      down("CLIENT LIST", d)
+
+def s_sessions(u: Unit) -> IO(Unit):
+  do IO<Unit>:
+    x : Unit <- sessions(200n)
+    r : RS() <- Redis.session(R.Reply, plain(), c => Redis.command(c, ["CLIENT", "LIST"]))
+    clients(r, s_done)
+
 def s_load(u: Unit) -> IO(Unit):
-  opening("load", plain(), c => ask("reset the counter", c, ["SET", "grounds:load", "0"], "OK", c2 => closing(v => load(w => opening("load", plain(), c3 => ask("the counter after the load", c3, ["GET", "grounds:load"], "\"10000\"", c4 => closing(s_done, c4)))), c2)))
+  opening("load", plain(), c => ask("reset the counter", c, ["SET", "grounds:load", "0"], "OK", c2 => closing(v => load(w => opening("load", plain(), c3 => ask("the counter after the load", c3, ["GET", "grounds:load"], "\"10000\"", c4 => closing(s_sessions, c4)))), c2)))
 
 def s_cap(u: Unit) -> IO(Unit):
   opening("cap", Redis.with_max_reply(plain(), 1000), c =>
