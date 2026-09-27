@@ -1,6 +1,6 @@
 # grounds-json public API v1
 
-Level A is built (see the README's tables); B and E are next. v1 = **A + B + E**: safe accessors, typed paths, and hand-written decoders. Generic `Decoder<A>` combinators (D) wait until we see what composes well in Bend.
+Levels A and B are built (see the README's tables); E is the recipe in `examples/user.bend`. v1 = **A + B + E**: safe accessors, typed paths, and hand-written decoders. Generic `Decoder<A>` combinators (D) wait until we see what composes well in Bend.
 
 The example throughout:
 
@@ -94,7 +94,7 @@ def User.from_json(+j: J.Json) -> Result<&2, &2, J.Access, User>:
 
 The `.go` helper is the price of Bend's match rule. The README would show this pattern as the recommended decoder recipe.
 
-Open question: add `J.both(r1, r2) -> Result<Access, A & B>` so a two-field decoder needs no helper? It is one def and saves the most boilerplate. Past two fields it nests, so it doesn't replace the helper.
+Done: `J.both(A, B, C, r1, r2, f)` takes a constructor, so a two-field decoder is one expression. Past two fields, nest it or add `both3`.
 
 ## Names
 
@@ -132,9 +132,9 @@ Clean break or aliases: we have no users yet, so I'd make a clean break and skip
 ## Work
 
 1. [x] Fix `get` so it shares no String; `cold.py` checks `examples/access.bend`. It reads every field, since the last duplicate wins.
-2. [x] Add `Access`, `JKind`, `Step` and level A, with their laws. [ ] Level B.
+2. [x] Add `Access`, `JKind`, `Step` and level A, with their laws. [x] Level B, with `both` and `map`; typed `_at` reads walk without taking the document and copy the leaf.
 3. [x] Rename per the table; update `test.bend`, the proofs and the README.
-4. Write the `User.from_json` recipe as a tested example (`examples/user.bend`).
+4. [x] Write the `User.from_json` recipe as a tested example (`examples/user.bend`).
 5. README: an API table for each level and the decoder recipe.
 
 About two days. The proofs mostly stay: they are about `parse` and the printer, not the accessors.

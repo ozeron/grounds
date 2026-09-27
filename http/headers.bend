@@ -9,6 +9,18 @@ type Header is Data:
 def Headers() -> Type:
   List<&2, Header>
 
+# headers' own compare: http1 calls T.same_ci with literals, which makes
+# it the owner of what it reads; a name used for every header would then
+# be shared
+def name_eq(a: String, b: String, ok: Bool) -> Bool:
+  match a b:
+    case SNil{} SNil{}:
+      ok
+    case SCon{Chr{+x}, at} SCon{Chr{+y}, bt}:
+      name_eq(at, bt, Bool.and(ok, T.fold.eq(x, y)))
+    case _ _:
+      False{}
+
 def keep(hit: Bool, v: String, found: Maybe<&2, String>) -> Maybe<&2, String>:
   match hit found:
     case True{} None{}:
@@ -21,7 +33,7 @@ def get.go(hs: List<&2, Header>, +name: String, found: Maybe<&2, String>) -> May
     case Nil{}:
       found
     case Con{Header{n, v}, t}:
-      get.go(t, name, keep(T.same_ci(n, name, True{}), v, found))
+      get.go(t, name, keep(name_eq(n, name, True{}), v, found))
 
 # the first value of a header
 def get(hs: List<&2, Header>, +name: String) -> Maybe<&2, String>:
@@ -39,7 +51,7 @@ def all.go(hs: List<&2, Header>, +name: String, acc: List<&2, String>) -> List<&
     case Nil{}:
       List.reverse(&2, String, acc)
     case Con{Header{n, v}, t}:
-      all.go(t, name, all.add(T.same_ci(n, name, True{}), v, acc))
+      all.go(t, name, all.add(name_eq(n, name, True{}), v, acc))
 
 # every value of a header, in order
 def all(hs: List<&2, Header>, +name: String) -> List<&2, String>:
@@ -57,7 +69,7 @@ def drop.go(hs: List<&2, Header>, +name: String, acc: List<&2, Header>) -> List<
     case Nil{}:
       List.reverse(&2, Header, acc)
     case Con{Header{+n, v}, t}:
-      drop.go(t, name, drop.keep(T.same_ci(n, name, True{}), Header{n, v}, acc))
+      drop.go(t, name, drop.keep(name_eq(n, name, True{}), Header{n, v}, acc))
 
 # every header but those named name
 def remove(hs: List<&2, Header>, +name: String) -> List<&2, Header>:

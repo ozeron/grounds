@@ -49,7 +49,24 @@ Build values with `JNull`, `JBool`, `JNum{Number}`, `JStr`, `JArr{List<Json>}`, 
 
 A `Number` holds the sign, digits, fraction and exponent as written. An invalid number cannot be built.
 
-`examples/access.bend` reads a nested field by chaining reads; paths (level B) will do that in one call.
+Paths (level B) read a nested value in one call, and their errors carry the full path:
+
+| Function | Does |
+|---|---|
+| `J.at(j, [J.Name{"user"}, J.Index{0}])` | the value at a path |
+| `J.string_at`, `bool_at`, `u32_at`, `f32_at`, `number_at` | a typed read at a path; it copies what it returns, so one document can be read many times |
+| `J.array_at`, `J.object_at` | the items, the fields at a path |
+| `J.both(A, B, C, r1, r2, f)` | two reads joined by `f`; the first error wins |
+| `J.map(A, B, r, f)` | `f` on a read's value |
+
+A decoder is one expression (`examples/user.bend`):
+
+```python
+def User.from_json(+j: J.Json) -> Result<&2, &2, J.Access, User>:
+  J.both(String, U32, User, J.string_at(j, [J.Name{"name"}]), J.u32_at(j, [J.Name{"age"}]), n => a => User{n, a})
+```
+
+Read one document many times only with the typed `_at` reads: `at`, `array_at` and `object_at` return part of it, which shares it. Call reads from a def, not from `main` itself: a read there owns its argument, which heats a type the decoder reads twice.
 
 ## Behavior to know
 

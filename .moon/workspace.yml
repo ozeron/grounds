@@ -2,6 +2,7 @@
 projects:
   http: "http"
   http1: "http1"
+  http_json: "http_json"
   http_router: "http_router"
   http_server: "http_server"
   io: "io"

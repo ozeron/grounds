@@ -1,5 +1,4 @@
 import Base
-import ../http/text.bend as T
 import ../http/method.bend as M
 import ../http/request.bend as Req
 
@@ -34,6 +33,17 @@ type Match<-R: Data> is Data:
 type Parts is Data:
   PNil{}
   PCon{head: String, tail: Parts}
+
+# the router's own compare: sharing http's with the server makes one def
+# both a reader here and an owner there
+def same(a: String, b: String, ok: Bool) -> Bool:
+  match a b:
+    case SNil{} SNil{}:
+      ok
+    case SCon{x, at} SCon{y, bt}:
+      same(at, bt, Bool.and(ok, Char.is_eq(x, y)))
+    case _ _:
+      False{}
 
 def parts.rev(p: Parts, acc: Parts) -> Parts:
   match p:
@@ -121,7 +131,7 @@ def bind(pat: List<&2, Seg>, ps: Parts, acc: List<&2, Param>, ok: Bool) -> Maybe
     case Nil{} PNil{}:
       bind.end(ok, acc)
     case Con{Lit{l}, pt} PCon{p, t}:
-      bind(pt, t, acc, Bool.and(ok, T.same(l, p, True{})))
+      bind(pt, t, acc, Bool.and(ok, same(l, p, True{})))
     case Con{Cap{n}, pt} PCon{+p, t}:
       bind(pt, t, Con{Param{n, copy(p, "")}, acc}, Bool.and(ok, filled(p)))
     case _ _:
@@ -148,7 +158,7 @@ def method_eq(a: M.Method, b: M.Method) -> Bool:
     case M.MPatch{} M.MPatch{}:
       True{}
     case M.MOther{x} M.MOther{y}:
-      T.same(x, y, True{})
+      same(x, y, True{})
     case _ _:
       False{}
 
@@ -224,7 +234,7 @@ def get.go(ps: List<&2, Param>, +name: String, acc: Maybe<&2, String>) -> Maybe<
     case Nil{}:
       acc
     case Con{Param{n, v}, t}:
-      get.go(t, name, param.keep(T.same(n, name, True{}), v, acc))
+      get.go(t, name, param.keep(same(n, name, True{}), v, acc))
 
 # a capture's value
 def param(ps: List<&2, Param>, +name: String) -> Maybe<&2, String>:
