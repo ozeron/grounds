@@ -2,7 +2,7 @@
 
 # grounds
 
-A monorepo of [Bend 2](https://github.com/bendlang/bend) packages: JSON, UTF-8, TCP, HTTP/1.1 and Redis. json and http prove their guarantees in `LAWS.bend`; each package has its own README.
+A monorepo of [Bend 2](https://github.com/bendlang/bend) packages: JSON, UTF-8, TCP, HTTP/1.1 and Redis. json, http and redis prove their guarantees in `LAWS.bend`; each package has its own README.
 
 | Package | Does |
 |---|---|
@@ -11,7 +11,7 @@ A monorepo of [Bend 2](https://github.com/bendlang/bend) packages: JSON, UTF-8, 
 | [`io`](io/) | whole-file reads |
 | [`wire`](wire/) | TCP on raw bytes |
 | [`http`](http/) | HTTP/1.1: messages, parsing, server, router, JSON bodies |
-| [`redis`](redis/) | Redis client (RESP2) |
+| [`redis`](redis/) | Redis client: RESP2 and RESP3, pipelining, a pool; proven framing |
 
 ```sh
 mise install        # pinned bend and moon

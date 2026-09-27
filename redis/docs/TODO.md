@@ -1,9 +1,12 @@
 # grounds-redis: plan
 
-- [ ] Laws, per [LAWS.md](LAWS.md): encode reads back as an array of bulk strings, bulk strings are length-framed, null is not empty, parsing is streaming-safe.
-- [ ] Pipelining: send several commands, then read their replies in order. `parse` already hands back the bytes after a reply.
-- [ ] Binary arguments: `command` taking bytes, not only Strings.
-- [ ] RESP3 via `HELLO 3`: maps, sets, doubles, booleans, big numbers, pushes.
-- [ ] AUTH and SELECT on connect; a timeout per reply with `wire_recv_timeout`.
+- [x] Timeouts on every send and reply; a failed client is closed and not handed back.
+- [x] AUTH, ACL users, SELECT, HELLO 3; a pool that replaces failed clients; retries on new connections.
+- [x] Pipelining; bytes after a reply kept; binary arguments; RESP3 replies.
+- [x] Limits: reply bytes, declared lengths and counts; integers kept as text.
+- [x] Laws 1-5 proven (docs/LAWS.md); fault tests, fuzzing, live and load tests.
+- [ ] Laws 6 and 7 proven, not only fuzzed.
+- [ ] Pub/sub: deliver pushes instead of skipping them.
 - [ ] Share one bytes type with http/wire: move it to `wire`.
-- [ ] Deep arrays in `R.show`, which prints nested arrays as `[...]`.
+- [ ] A connect timeout: TCP connect to an address that drops packets waits for the OS (about 75 s).
+- [ ] Deep aggregates in `R.show`, which prints them nested as `[...]`.

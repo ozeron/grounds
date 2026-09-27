@@ -2,9 +2,9 @@ import Base
 import ../redis.bend as Redis
 import ../resp.bend as R
 
-# against a real Redis: 127.0.0.1:6379 open, 127.0.0.1:6380 with password
-# s3cret. Binary and 5 MB values, a 1000-command pipeline, SELECT, RESP3,
-# the reply cap, AUTH, and a pool under 40 concurrent tasks
+# against a real Redis on 127.0.0.1:6379: binary and 5 MB values, a
+# 1000-command pipeline, SELECT, RESP3, the reply cap, and a pool under 40
+# concurrent tasks (tests/auth.bend covers AUTH)
 
 def same(a: String, b: String) -> Bool:
   match a b:
@@ -154,18 +154,6 @@ def capped(+name: String, g: Redis.Got(R.Reply), k: Unit -> IO(Unit)) -> IO(Unit
     case Fail{d}:
       down(name, d)
 
-# Auth
-# ----
-
-def rejected(+name: String, r: Result<&1, &1, Redis.Down, Redis.Client()>, k: Unit -> IO(Unit)) -> IO(Unit):
-  match r:
-    case Fail{Redis.Rejected{why}}:
-      verdict(True{}, name, "rejected: " ++ why, k)
-    case Fail{d}:
-      down(name, d)
-    case Done{c}:
-      IO.bind(Unit, Unit, Redis.close(c), x => IO.die(Unit, 1, "FAIL " ++ name ++ ": opened"))
-
 # Load
 # ----
 
@@ -220,27 +208,8 @@ def load(k: Unit -> IO(Unit)) -> IO(Unit):
 def s_done(u: Unit) -> IO(Unit):
   IO.print("live: all ok")
 
-def s_auth_resp3(u: Unit) -> IO(Unit):
-  opening("RESP3 with AUTH", Redis.with_resp3(Redis.with_password(authed(), "s3cret")), c =>
-  ask("HELLO 3 with AUTH, then PING", c, ["PING"], "PONG", c2 => closing(s_done, c2)))
-
-def s_auth_user(u: Unit) -> IO(Unit):
-  opening("AUTH as a user", Redis.with_user(authed(), "default", "s3cret"), c =>
-  ask("AUTH default s3cret, then PING", c, ["PING"], "PONG", c2 => closing(s_auth_resp3, c2)))
-
-def s_auth_ok(u: Unit) -> IO(Unit):
-  opening("AUTH", Redis.with_password(authed(), "s3cret"), c =>
-  ask("AUTH s3cret, then PING", c, ["PING"], "PONG", c2 => closing(s_auth_user, c2)))
-
-def s_auth_wrong(u: Unit) -> IO(Unit):
-  IO.bind(Result<&1, &1, Redis.Down, Redis.Client()>, Unit, Redis.open(Redis.with_password(authed(), "wrong")), r => rejected("a wrong password", r, s_auth_ok))
-
-def s_auth_none(u: Unit) -> IO(Unit):
-  opening("no password", authed(), c =>
-  ask("no password: NOAUTH, as a reply", c, ["PING"], "(error) NOAUTH Authentication required.", c2 => closing(s_auth_wrong, c2)))
-
 def s_load(u: Unit) -> IO(Unit):
-  opening("load", plain(), c => ask("reset the counter", c, ["SET", "grounds:load", "0"], "OK", c2 => closing(v => load(w => opening("load", plain(), c3 => ask("the counter after the load", c3, ["GET", "grounds:load"], "\"10000\"", c4 => closing(s_auth_none, c4)))), c2)))
+  opening("load", plain(), c => ask("reset the counter", c, ["SET", "grounds:load", "0"], "OK", c2 => closing(v => load(w => opening("load", plain(), c3 => ask("the counter after the load", c3, ["GET", "grounds:load"], "\"10000\"", c4 => closing(s_done, c4)))), c2)))
 
 def s_cap(u: Unit) -> IO(Unit):
   opening("cap", Redis.with_max_reply(plain(), 1000), c =>

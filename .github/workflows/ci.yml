@@ -11,12 +11,18 @@ on:
 jobs:
   ci:
     runs-on: ubuntu-latest
-    # redis:check runs its demo against this
+    # redis:check runs its live tests against these: one open, one with a password
     services:
       redis:
         image: redis:7-alpine
         ports:
           - 6379:6379
+      redis-auth:
+        image: bitnami/redis:7.2
+        env:
+          REDIS_PASSWORD: s3cret
+        ports:
+          - 6380:6379
     steps:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v2

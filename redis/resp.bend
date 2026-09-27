@@ -274,13 +274,6 @@ type Num is Data:
   NBig{}
   NBad{}
 
-def grow(small: Bool, +acc: Nat, +v: Nat) -> Nat:
-  match small:
-    case True{}:
-      Nat.add(Nat.mul(10n, acc), v)
-    case False{}:
-      acc
-
 def dig.x(+b: U32) -> Nat:
   Bool.pick(Nat, Bool.and(U32.is_ge(b, 48), U32.is_le(b, 57)), Nat.sub(U32.to_nat(b), 48n), 10n)
 
@@ -292,24 +285,48 @@ def dig.val(b: U32) -> Nat:
 def is_digit(b: U32) -> Bool:
   Nat.is_lt(dig.val(b), 10n)
 
-def digits.end(ok: Bool, big: Bool, +n: Nat) -> Num:
-  match ok big:
-    case False{} _:
-      NBad{}
-    case True{} True{}:
-      NBig{}
-    case True{} False{}:
+def digits.end(ok: Bool, +n: Nat) -> Num:
+  match ok:
+    case True{}:
       NOk{False{}, n}
+    case False{}:
+      NBad{}
 
-# a length's digits: its value up to ten digits, NBig past them (more than
-# any limit), NBad unless all digits and at least one
-def digits(bs: Buf, +acc: Nat, ok: Bool, +cnt: Nat) -> Num:
+# the value of a line of digits, most significant first; NBad unless all
+# digits and at least one
+def digits(bs: Buf, +acc: Nat, ok: Bool, any: Bool) -> Num:
   match bs:
     case BNil{}:
-      digits.end(Bool.and(ok, Nat.is_gt(cnt, 0n)), Nat.is_gt(cnt, 10n), acc)
+      digits.end(Bool.and(ok, any), acc)
     case BCon{b, t}:
       +v = dig.val(b)
-      digits(t, grow(Nat.is_lt(cnt, 10n), acc, v), Bool.and(ok, Nat.is_lt(v, 10n)), 1n+cnt)
+      digits(t, Nat.add(Nat.mul(10n, acc), v), Bool.and(ok, Nat.is_lt(v, 10n)), True{})
+
+def all_digits(bs: Buf, ok: Bool) -> Bool:
+  match bs:
+    case BNil{}:
+      ok
+    case BCon{b, t}:
+      all_digits(t, Bool.and(ok, is_digit(b)))
+
+def num.big(ok: Bool) -> Num:
+  match ok:
+    case True{}:
+      NBig{}
+    case False{}:
+      NBad{}
+
+def num.len(small: Bool, bs: Buf) -> Num:
+  match small:
+    case True{}:
+      digits(bs, 0n, True{}, False{})
+    case False{}:
+      num.big(all_digits(bs, True{}))
+
+# more than ten digits is more than any limit: NBig, before any arithmetic,
+# as a Nat past 2^48 - 1 aborts the runtime
+def num.pos(+bs: Buf) -> Num:
+  num.len(Nat.is_le(buf.len(bs, 0n), 10n), bs)
 
 def num.neg(n: Num) -> Num:
   match n:
@@ -322,9 +339,9 @@ def num.neg(n: Num) -> Num:
 def num(bs: Buf) -> Num:
   match bs:
     case BCon{45, t}:
-      num.neg(digits(t, 0n, True{}, 0n))
+      num.neg(num.pos(t))
     case other:
-      digits(other, 0n, True{}, 0n)
+      num.pos(other)
 
 # a line checked and copied in one pass: reading it and then using it would
 # share it

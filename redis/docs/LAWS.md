@@ -1,6 +1,8 @@
-# grounds-redis: laws to prove
+# grounds-redis: laws
 
-The laws `LAWS.bend` should state, taken from the RESP spec in [resp.md](resp.md) (redis/docs, "Redis serialization protocol specification"). Section names below are that file's headings. Redis has no RFC; this spec is the reference.
+The laws from the RESP spec in [resp.md](resp.md) (redis/docs, "Redis serialization protocol specification"). Section names below are that file's headings. Redis has no RFC; this spec is the reference.
+
+**Status.** Proven in `PROOF.bend`: 1 and 2 (`command_reads_back`), 3 (`bulk_framed`), 4 (`null_bulk`, `empty_bulk`), and 5 for bulk strings (`bulk_cut`, and the bytes after a reply kept in 1 and 3). Checked, not proven: 6 and 7, by the fuzzer (thousands of replies against a reference parser, byte for byte) and the unit tests. Why: the checker cannot reduce a match on a byte it does not know, which 7 needs; and 6 needs `Nat.show` read back, a number lemma as large as json's.
 
 ## Commands: what the client sends
 
@@ -27,10 +29,5 @@ The laws `LAWS.bend` should state, taken from the RESP spec in [resp.md](resp.md
 7. **The terminator is strict.** A bare CR or LF in a simple string, error or length line is `Bad`, never accepted.
    - Spec: "Simple strings never contain carriage return (`\r`) or line feed (`\n`) characters", and CRLF "always separates its parts".
 
-## Order
-
-- Start with 4 and 7: definitional or an easy induction.
-- Then 3 and 1, with the digits lemma shared with http/wire.
-- Then 5, 6 and 2.
 
 RESP3 (maps, sets, doubles, pushes, `HELLO 3`) comes after its parser, with the same laws for the new types.
