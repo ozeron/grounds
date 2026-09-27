@@ -225,3 +225,25 @@ function wire_resolve(host) {
     return io_fail(65);
   }
 }
+
+// TLS is native only: the JS target fails ENOSYS (78 on macOS, 38 on Linux)
+function gw_nosys() {
+  return io_sys().mac ? 78 : 38;
+}
+
+function wire_tls_connect(socket, host, ms) {
+  return io_tup(socket, io_fail(gw_nosys()));
+}
+
+function wire_tls_send_timeout(socket, data, ms) {
+  return io_tup(socket, io_fail(gw_nosys()));
+}
+
+function wire_tls_recv_timeout(socket, max, ms) {
+  return io_tup(socket, io_fail(gw_nosys()));
+}
+
+function wire_tls_close(socket) {
+  io_sys().close(socket);
+  return { $: "Unit" };
+}

@@ -85,5 +85,28 @@ def wire_resolve(host: String) -> IO(Result<&1, &1, U32 & String, String>):
   import "./effs/wire.c"
   import "./effs/wire.js"
 
+# TLS on a connected socket (OpenSSL 3, loaded at run time; BEND_LIBSSL
+# overrides its path). The handshake sends host as SNI and checks the
+# chain and host name; GROUNDS_TLS_CA names a PEM file to trust as well.
+# The socket then moves only through wire_tls_* until wire_tls_close
+def wire_tls_connect(sock: Socket, host: String, ms: U32) -> IO(Socket & Result<&1, &1, U32 & String, Unit>):
+  import "./effs/wire.c"
+  import "./effs/wire.js"
+
+def wire_tls_send_timeout(sock: Socket, data: List<&2, U32>, ms: U32) -> IO(Socket & Result<&1, &1, U32 & String, Unit>):
+  import "./effs/wire.c"
+  import "./effs/wire.js"
+
+# Some{bytes}; Some{[]} once the peer sends close_notify; None{} past ms. A
+# bare EOF fails ECONNRESET: a body read to the close could have been cut
+def wire_tls_recv_timeout(sock: Socket, max: U32, ms: U32) -> IO(Socket & Result<&1, &1, U32 & String, Maybe<&1, List<&2, U32>>>):
+  import "./effs/wire.c"
+  import "./effs/wire.js"
+
+# sends close_notify, frees the session and closes the socket
+def wire_tls_close(sock: Socket) -> IO(Unit):
+  import "./effs/wire.c"
+  import "./effs/wire.js"
+
 def close(sock: Socket) -> IO(Unit):
   Socket.close(sock)
