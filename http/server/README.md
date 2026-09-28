@@ -89,6 +89,8 @@ Server.serve(~Mw.logger(~Mw.request_id(~Mw.body_limit(~small, ~Mw.recover(~app))
 
 `auth` sends 401 and `WWW-Authenticate` for missing, unsupported or rejected credentials. Missing credentials offer both Bearer and Basic challenges. A rejected Bearer token includes `error="invalid_token"`; malformed Bearer syntax or repeated Authorization fields get 400 with `error="invalid_request"`. The realm is `grounds`; Basic challenges advertise UTF-8. Use Basic only with TLS. The verifier decides token validity, password checking, claims and authorization policy; the middleware does not retain secrets.
 
+`cors(~policy, ~next)` reads a fresh `Cors.Policy` per request. Ordinary responses receive `Vary: Origin` and CORS fields only for listed origins. The wrapper removes downstream CORS fields first so a handler cannot override the policy. A request with `OPTIONS`, one Origin and `Access-Control-Request-Method` is a preflight: allowed method and requested headers get 204, `Access-Control-Allow-Methods`, `Access-Control-Allow-Headers` when requested, `Access-Control-Max-Age`, and `Vary` on Origin, requested method and requested headers. Denied preflights get 403 without an allow origin. With credentials enabled, the response echoes an exact allowed origin and `Access-Control-Allow-Credentials: true`; a wildcard policy entry never combines with credentials. The policy holds serialized origins, such as `https://app.example`, without a trailing slash.
+
 ## Checks
 
 `moon run http_server:check`:
@@ -102,4 +104,5 @@ Server.serve(~Mw.logger(~Mw.request_id(~Mw.body_limit(~small, ~Mw.recover(~app))
 8. Runs `examples/stop.py`: SIGTERM with an idle and a slow connection open. The slow request must finish, the idle one must close, and a short `HTTP_DRAIN_MS` must cut.
 9. Serves the TLS and redirect examples: trusted curl, certificate and host rejection, ALPN, TLS 1.1 rejection, handshake deadline, protocol-header stripping, trusted proxy opt-in, HSTS and 308 redirect.
 10. Serves `examples/auth.bend` and checks Bearer and Basic success, challenges, malformed credentials, duplicate fields and removal of Authorization before the handler.
-11. Runs the cold check on all examples.
+11. Serves `examples/cors.bend` and checks exact and denied origins, credentials, 204 preflight, `Vary`, method and header allowlists.
+12. Runs the cold check on the existing examples and auth. CORS's repeated policy lookups currently make String and List constructors reference counted.

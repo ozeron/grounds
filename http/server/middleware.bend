@@ -5,6 +5,7 @@ import ../core/request.bend as Req
 import ../core/headers.bend as H
 import ../core/response.bend as Res
 import ../core/auth.bend as Auth
+import ../core/cors.bend as Cors
 
 # middleware as compile-time wrappers: each takes the next handler as a
 # template, so a stack is one expression the compiler inlines:
@@ -164,6 +165,119 @@ def auth.taken(~verify: Auth.Credential -> IO(Maybe<&2, Auth.Principal>), ~next:
 # challenge; malformed Bearer credentials and duplicates have a 400 challenge.
 def auth(~verify: Auth.Credential -> IO(Maybe<&2, Auth.Principal>), ~next: Auth.Principal -> Req.Request -> IO(Res.Response), r: Req.Request) -> IO(Res.Response):
   auth.taken(~verify, ~next, Auth.take(r))
+
+# CORS
+# ----
+
+def cors.strip(res: Res.Response) -> Res.Response:
+  match res:
+    case Res.Response{status, hs, body}:
+      Res.Response{status,
+        H.remove(H.remove(H.remove(H.remove(H.remove(H.remove(hs,
+          "access-control-allow-origin"), "access-control-allow-credentials"),
+          "access-control-allow-methods"), "access-control-allow-headers"),
+          "access-control-max-age"), "access-control-expose-headers"), body}
+
+def cors.credentials(res: Res.Response, credentials: Bool) -> Res.Response:
+  match credentials:
+    case True{}:
+      Res.header(res, "access-control-allow-credentials", "true")
+    case False{}:
+      res
+
+def cors.response(decision: Cors.Decision, credentials: Bool, res: Res.Response) -> Res.Response:
+  match decision:
+    case Cors.Deny{}:
+      Res.header(cors.strip(res), "vary", "Origin")
+    case Cors.Exact{origin}:
+      cors.credentials(Res.header(Res.header(cors.strip(res), "vary", "Origin"), "access-control-allow-origin", origin), credentials)
+    case Cors.Any{}:
+      Res.header(Res.header(cors.strip(res), "vary", "Origin"), "access-control-allow-origin", "*")
+
+def cors.actual(~next: Req.Request -> IO(Res.Response), decision: Cors.Decision, credentials: Bool, req: Req.Request) -> IO(Res.Response):
+  IO.bind(Res.Response, Res.Response, next(req), res => IO.pure(Res.Response, cors.response(decision, credentials, res)))
+
+def cors.denied() -> Res.Response:
+  Res.header(Res.header(Res.empty(S.forbidden()), "vary", "Origin"), "vary", "Access-Control-Request-Method, Access-Control-Request-Headers")
+
+def cors.header_choice(slot: Cors.Slot, +allowed: List<&2, String>) -> Maybe<&2, String>:
+  match slot:
+    case Cors.Absent{}:
+      Some{""}
+    case Cors.One{value}:
+      Cors.header_value(value, allowed)
+    case Cors.Many{}:
+      None{}
+
+def cors.allowed_headers(res: Res.Response, value: String) -> Res.Response:
+  match value:
+    case SNil{}:
+      res
+    case other:
+      Res.header(res, "access-control-allow-headers", other)
+
+def cors.preflight_ready(decision: Cors.Decision, credentials: Bool, method: Maybe<&2, String>, headers: Maybe<&2, String>, +age: U32) -> Res.Response:
+  match method headers:
+    case Some{m} Some{h}:
+      cors.allowed_headers(
+        Res.header(
+          Res.header(
+            Res.header(cors.response(decision, credentials, Res.empty(S.no_content())), "vary", "Access-Control-Request-Method, Access-Control-Request-Headers"),
+            "access-control-allow-methods", m),
+          "access-control-max-age", U32.show(age)),
+        h)
+    case _ _:
+      cors.denied()
+
+def cors.preflight(decision: Cors.Decision, credentials: Bool, method: String, request_headers: Cors.Slot, methods: List<&2, String>, headers: List<&2, String>, +age: U32) -> Res.Response:
+  match decision:
+    case Cors.Deny{}:
+      cors.denied()
+    case allowed:
+      cors.preflight_ready(allowed, credentials, Cors.method_name(methods, method), cors.header_choice(request_headers, headers), age)
+
+def cors.options(~next: Req.Request -> IO(Res.Response), has_origin: Bool, decision: Cors.Decision, credentials: Bool, method: Cors.Slot, request_headers: Cors.Slot, req: Req.Request, methods: List<&2, String>, headers: List<&2, String>, +age: U32) -> IO(Res.Response):
+  match has_origin method:
+    case True{} Cors.One{want}:
+      IO.pure(Res.Response, cors.preflight(decision, credentials, want, request_headers, methods, headers, age))
+    case True{} Cors.Many{}:
+      IO.pure(Res.Response, cors.denied())
+    case _ _:
+      cors.actual(~next, decision, credentials, req)
+
+def cors.method(~next: Req.Request -> IO(Res.Response), has_origin: Bool, decision: Cors.Decision, credentials: Bool, method: Cors.Slot, request_headers: Cors.Slot, req: Req.Request, methods: List<&2, String>, headers: List<&2, String>, +age: U32) -> IO(Res.Response):
+  match req:
+    case Req.Request{M.MOptions{}, target, hs, body}:
+      cors.options(~next, has_origin, decision, credentials, method, request_headers, Req.Request{M.MOptions{}, target, hs, body}, methods, headers, age)
+    case other:
+      cors.actual(~next, decision, credentials, other)
+
+def cors.selected(~next: Req.Request -> IO(Res.Response), value: String, method: Cors.Slot, request_headers: Cors.Slot, req: Req.Request, origins: List<&2, String>, credentials: Bool, methods: List<&2, String>, headers: List<&2, String>, +age: U32) -> IO(Res.Response):
+  match credentials:
+    case True{}:
+      cors.method(~next, True{}, Cors.decide(origins, True{}, value), True{}, method, request_headers, req, methods, headers, age)
+    case False{}:
+      cors.method(~next, True{}, Cors.decide(origins, False{}, value), False{}, method, request_headers, req, methods, headers, age)
+
+def cors.origin(~next: Req.Request -> IO(Res.Response), origin: Cors.Slot, method: Cors.Slot, request_headers: Cors.Slot, req: Req.Request, origins: List<&2, String>, credentials: Bool, methods: List<&2, String>, headers: List<&2, String>, +age: U32) -> IO(Res.Response):
+  match origin:
+    case Cors.One{value}:
+      cors.selected(~next, value, method, request_headers, req, origins, credentials, methods, headers, age)
+    case Cors.Many{}:
+      cors.method(~next, True{}, Cors.Deny{}, credentials, method, request_headers, req, methods, headers, age)
+    case Cors.Absent{}:
+      cors.method(~next, False{}, Cors.Deny{}, credentials, method, request_headers, req, methods, headers, age)
+
+def cors.observed(~next: Req.Request -> IO(Res.Response), policy: Cors.Policy, observed: Cors.Observed) -> IO(Res.Response):
+  match policy observed:
+    case Cors.Policy{origins, credentials, methods, headers, age} Cors.Observed{origin, method, request_headers, req}:
+      cors.origin(~next, origin, method, request_headers, req, origins, credentials, methods, headers, age)
+
+# The policy is a no-argument template so each request gets a fresh value.
+# OPTIONS with Origin and Access-Control-Request-Method is handled here; other
+# requests reach next, with CORS response fields controlled by this wrapper.
+def cors(~policy: Cors.Policy, ~next: Req.Request -> IO(Res.Response), req: Req.Request) -> IO(Res.Response):
+  cors.observed(~next, policy, Cors.observe(req))
 
 # Logger
 # ------

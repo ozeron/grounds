@@ -28,6 +28,7 @@ def handle(r: Req.Request) -> Res.Response:
 | `event.bend` | server-sent events: `Message{name, data, id}`, which the server writes and the client reads; `write`, `retry`, `ping`, and the WHATWG parser `feed` |
 | `cookie.bend` | `get(req, name)`, `set(res, name, value)`, `clear(res, name)`, and HMAC-SHA256 `sign(key, value)` / `verify(key, signed)` |
 | `auth.bend` | strict Bearer and UTF-8 Basic credentials, duplicate detection, `Principal{subject, claims}` |
+| `cors.bend` | CORS allowlist policy, origin decisions, request field inspection and preflight header validation |
 
 Bodies are bytes (`List<U32>`, 0..255). Text goes through `grounds-utf8`.
 
@@ -41,6 +42,10 @@ Bodies are bytes (`List<U32>`, 0..255). Text goes through `grounds-utf8`.
 
 `Auth.parse_header(value)` parses an RFC 6750 Bearer token or RFC 7617 Basic user/password pair into `Got{Credential}`. Bearer tokens must follow the RFC token grammar; Basic uses strict, canonical Base64 and UTF-8, rejects control characters and requires the first colon to divide user from password. Malformed values have `BadBearer{}` or `BadBasic{}`; unknown schemes have `Unsupported{}`. `Auth.take(req)` also rejects repeated Authorization fields and returns the request with Authorization removed. `Principal{subject, claims}` is supplied only by an application verifier, through [server middleware](../server/README.md#middleware). Serve Basic credentials over TLS. The verifier can apply any required Unicode normalization or account policy.
 
+## CORS policy
+
+`Cors.Policy{origins, credentials, methods, headers, max_age}` holds serialized allowed origins (or `"*"`), case-sensitive methods, case-insensitive allowed header names, and a preflight cache age in seconds. `Cors.decide` returns `Exact{origin}`, `Any{}` or `Deny{}`; it rejects unsafe Origin field values. `Cors.header_value` validates a requested header list and returns a normalized list from the configured names. The `cors_safe` law proves that exact results come from the allowlist and that wildcard results require an explicit `"*"` with credentials disabled.
+
 ## Design
 
 - **HTTP knows nothing about JSON.** It deals in bytes, headers, content types and lengths. `http_json` bridges the two, so the server serves protobuf, images or HTML just as well.
@@ -50,8 +55,8 @@ Bodies are bytes (`List<U32>`, 0..255). Text goes through `grounds-utf8`.
 - **Two error levels.** Protocol errors (a bad request line, a bad `Content-Length`, a bad chunk) stay inside HTTP/1.1 and become responses or a closed connection. Applications see only data errors: a JSON decode failure, no route, a bad query.
 - **Limits are explicit.** The server reads a body only up to its configured limit; nothing allocates without bound.
 - **A request is used once.** Bend values are single-use, so an accessor like `Req.path(r)` takes the request whole. To read several parts, match on `Request{method, target, headers, body}`.
-- **Shares no String.** Every helper reads Strings without keeping them, so a program using http keeps Strings free of reference counting; `check.sh` verifies it on `examples/hello.bend`.
+- **Cold baseline.** The basic HTTP helpers keep Strings free of reference counting in `examples/hello.bend`, as `check.sh` verifies. CORS policy lookups currently share Strings and Lists when one policy is checked against several names.
 
 `moon run http:check` runs the tests, examples, HMAC vectors checked against Python, and cold checks.
 
-**Laws.** `LAWS.bend`, proven in `PROOF.bend`: `same_ci` is equality of the lowercased Strings; a header is found under any spelling of its name, and its first value is the one read; a query key's first value is the one read. `set_cookie_clean`: every value `set` writes has no CR or LF. `sse_reads_back`: events `write` makes, `feed` reads back as the same names, data and ids, for any name and id with no CR or LF and any data with no CR, `data:` or `id:` text inside it included. `write_joins`: events written one at a time make the same stream as written together.
+**Laws.** `LAWS.bend`, proven in `PROOF.bend`: `same_ci` is equality of the lowercased Strings; a header is found under any spelling of its name, and its first value is the one read; a query key's first value is the one read. `set_cookie_clean`: every value `set` writes has no CR or LF. `cors_safe`: the CORS decision never selects an unlisted origin or a wildcard with credentials. `sse_reads_back`: events `write` makes, `feed` reads back as the same names, data and ids, for any name and id with no CR or LF and any data with no CR, `data:` or `id:` text inside it included. `write_joins`: events written one at a time make the same stream as written together.

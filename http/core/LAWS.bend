@@ -4,6 +4,7 @@ import ./query.bend as Q
 import ./text.bend as T
 import ./event.bend as Ev
 import ./cookie.bend as Ck
+import ./cors.bend as Cors
 import ./proof/text.bend as P
 
 # Laws grounds-http-core must keep. `bend PROOF.bend` fails while any is open or false.
@@ -37,6 +38,14 @@ law set_cookie_clean:
   for +name: String
   for +value: String
   {Ck.no_crlf(Ck.set_value(name, value)) == True{} : Bool}
+
+# CORS never selects an unlisted origin; "*" requires an explicit wildcard
+# policy entry and credentials disabled.
+law cors_safe:
+  for +origins: List<&2, String>
+  for +credentials: Bool
+  for +origin: String
+  {Cors.safe(Cors.decide(origins, credentials, origin), origins, credentials) == True{} : Bool}
 
 # Server-sent events (WHATWG HTML, the event stream format)
 # ------------------

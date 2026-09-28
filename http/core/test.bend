@@ -9,6 +9,7 @@ import ./response.bend as Res
 import ./text.bend as T
 import ./cookie.bend as Ck
 import ./auth.bend as Auth
+import ./cors.bend as Cors
 
 # each def is a test: it checks only if both sides compute to the same value
 
@@ -130,6 +131,36 @@ def auth_strips_authorization() -> {Auth.take(Req.Request{M.MGet{}, "/", [H.Head
   {==}
 
 def auth_rejects_duplicate() -> {Auth.take(Req.Request{M.MGet{}, "/", [H.Header{"Authorization", "Bearer a"}, H.Header{"authorization", "Bearer b"}], []}) == Auth.Taken{Auth.Duplicate{}, Req.Request{M.MGet{}, "/", [], []}} : Auth.Taken}:
+  {==}
+
+def cors_exact_origin() -> {Cors.decide(["https://a.example"], True{}, "https://a.example") == Cors.Exact{"https://a.example"} : Cors.Decision}:
+  {==}
+
+def cors_denies_unlisted() -> {Cors.decide(["https://a.example"], False{}, "https://b.example") == Cors.Deny{} : Cors.Decision}:
+  {==}
+
+def cors_wildcard_without_credentials() -> {Cors.decide(["*"], False{}, "https://b.example") == Cors.Any{} : Cors.Decision}:
+  {==}
+
+def cors_wildcard_with_credentials_denied() -> {Cors.decide(["*"], True{}, "https://b.example") == Cors.Deny{} : Cors.Decision}:
+  {==}
+
+def cors_exact_after_wildcard_with_credentials() -> {Cors.decide(["*", "https://app.example"], True{}, "https://app.example") == Cors.Exact{"https://app.example"} : Cors.Decision}:
+  {==}
+
+def cors_rejects_unsafe_origin() -> {Cors.decide(["https://app.example\r\nx: y"], False{}, "https://app.example\r\nx: y") == Cors.Deny{} : Cors.Decision}:
+  {==}
+
+def cors_headers_normalized() -> {Cors.header_value("X-Token, Content-Type", ["content-type", "x-token"]) == Some{"x-token, content-type"} : Maybe<&2, String>}:
+  {==}
+
+def cors_headers_reject_unlisted() -> {Cors.header_value("X-Token, X-Secret", ["x-token"]) == None{} : Maybe<&2, String>}:
+  {==}
+
+def cors_headers_reject_empty_member() -> {Cors.header_value("X-Token,", ["x-token"]) == None{} : Maybe<&2, String>}:
+  {==}
+
+def cors_observe_keeps_request() -> {Cors.observe(Req.Request{M.MGet{}, "/", [H.Header{"Origin", "https://a.example"}], []}) == Cors.Observed{Cors.One{"https://a.example"}, Cors.Absent{}, Cors.Absent{}, Req.Request{M.MGet{}, "/", [H.Header{"Origin", "https://a.example"}], []}} : Cors.Observed}:
   {==}
 
 # DevX helpers

@@ -91,4 +91,7 @@ python3 examples/tls_check.py "$tmp/tls" "$tmp/redirect" "$tmp/trusted_proxy"
 bend examples/auth.bend -o "$tmp/auth" > /dev/null
 python3 examples/auth_check.py "$tmp/auth"
 
+bend examples/cors.bend -o "$tmp/cors" > /dev/null
+python3 examples/cors_check.py "$tmp/cors"
+
 python3 ../../json/scripts/cold.py "$PWD/examples/hello.bend" "$PWD/examples/stack.bend" "$PWD/examples/stream.bend" "$PWD/examples/tls.bend" "$PWD/examples/redirect.bend" "$PWD/examples/trusted_proxy.bend" "$PWD/examples/auth.bend"

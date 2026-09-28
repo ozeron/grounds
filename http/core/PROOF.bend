@@ -5,6 +5,7 @@ import ./query.bend as Q
 import ./text.bend as T
 import ./event.bend as Ev
 import ./cookie.bend as Ck
+import ./cors.bend as Cors
 import ../../utf8/utf8.bend as U
 import ./proof/text.bend as P
 
@@ -119,6 +120,136 @@ def without_lines_clean(s):
 
 def Laws.set_cookie_clean(name, value):
   without_lines_clean(Ck.escape.to(U.encode(name), True{}, SCon{'=', Ck.escape.to(U.encode(value), False{}, "; Path=/; HttpOnly; Secure; SameSite=Lax")}))
+
+law cors_same_refl:
+  for +s: String
+  {T.same(s, s, True{}) == True{} : Bool}
+
+def cors_same_refl(s):
+  match s:
+    case SNil{}:
+      {==}
+    case SCon{c, tail}:
+      %Equal.sym(Bool, Char.is_eq(c, c), True{}, P.char_refl(c)) : {T.same(tail, tail, Bool.and(True{}, _)) == True{} : Bool}
+      cors_same_refl(tail)
+
+law cors_listed_head:
+  for +entry: String
+  for +tail: List<&2, String>
+  {Cors.listed(Con{entry, tail}, entry) == True{} : Bool}
+
+def cors_listed_head(entry, tail):
+  %Equal.sym(Bool, T.same(entry, entry, True{}), True{}, cors_same_refl(entry)) : {Bool.or(_, Cors.listed(tail, entry)) == True{} : Bool}
+  {==}
+
+law cors_listed_lift:
+  for +entry: String
+  for +tail: List<&2, String>
+  for +value: String
+  for e: {Cors.listed(tail, value) == True{} : Bool}
+  {Cors.listed(Con{entry, tail}, value) == True{} : Bool}
+
+def cors_listed_lift(entry, tail, value, e):
+  %Equal.sym(Bool, Cors.listed(tail, value), True{}, e) : {Bool.or(T.same(entry, value, True{}), _) == True{} : Bool}
+  P.or_true(T.same(entry, value, True{}))
+
+law cors_safe_lift:
+  for +decision: Cors.Decision
+  for +entry: String
+  for +tail: List<&2, String>
+  for +credentials: Bool
+  for e: {Cors.safe(decision, tail, credentials) == True{} : Bool}
+  {Cors.safe(decision, Con{entry, tail}, credentials) == True{} : Bool}
+
+def cors_safe_lift(decision, entry, tail, credentials, e):
+  match decision credentials:
+    case Cors.Deny{} _:
+      {==}
+    case Cors.Exact{origin} _:
+      cors_listed_lift(entry, tail, origin, e)
+    case Cors.Any{} False{}:
+      cors_listed_lift(entry, tail, "*", e)
+    case Cors.Any{} True{}:
+      P.absurd({Cors.safe(Cors.Any{}, Con{entry, tail}, True{}) == True{} : Bool}, e)
+
+law cors_any_false:
+  for +hit: Bool
+  for +entry: String
+  for +tail: List<&2, String>
+  for +later: Cors.Decision
+  for same: {T.same(entry, "*", True{}) == hit : Bool}
+  for e: {Cors.safe(later, tail, False{}) == True{} : Bool}
+  {Cors.safe(Cors.any_if(hit, later), Con{entry, tail}, False{}) == True{} : Bool}
+
+def cors_any_false(hit, entry, tail, later, same, e):
+  match hit:
+    case True{}:
+      %Equal.sym(Bool, T.same(entry, "*", True{}), True{}, same) : {Bool.or(_, Cors.listed(tail, "*")) == True{} : Bool}
+      {==}
+    case False{}:
+      cors_safe_lift(later, entry, tail, False{}, e)
+
+law cors_any_safe:
+  for +entry: String
+  for +tail: List<&2, String>
+  for +credentials: Bool
+  for +later: Cors.Decision
+  for e: {Cors.safe(later, tail, credentials) == True{} : Bool}
+  {Cors.safe(Cors.any_if(Bool.and(Bool.not(credentials), T.same(entry, "*", True{})), later), Con{entry, tail}, credentials) == True{} : Bool}
+
+def cors_any_safe(entry, tail, credentials, later, e):
+  match credentials:
+    case True{}:
+      cors_safe_lift(later, entry, tail, True{}, e)
+    case False{}:
+      cors_any_false(T.same(entry, "*", True{}), entry, tail, later, {==}, e)
+
+law cors_hit_safe:
+  for +found: Bool
+  for +entry: String
+  for +tail: List<&2, String>
+  for +credentials: Bool
+  for +later: Cors.Decision
+  for e: {Cors.safe(later, Con{entry, tail}, credentials) == True{} : Bool}
+  {Cors.safe(Cors.hit(found, entry, later), Con{entry, tail}, credentials) == True{} : Bool}
+
+def cors_hit_safe(found, entry, tail, credentials, later, e):
+  match found:
+    case True{}:
+      cors_listed_head(entry, tail)
+    case False{}:
+      e
+
+law cors_go_safe:
+  for +origins: List<&2, String>
+  for +origin: String
+  for +credentials: Bool
+  {Cors.safe(Cors.decide.go(origins, origin, credentials), origins, credentials) == True{} : Bool}
+
+def cors_go_safe(origins, origin, credentials):
+  match origins:
+    case Nil{}:
+      {==}
+    case Con{+entry, tail}:
+      cors_hit_safe(T.same(entry, origin, True{}), entry, tail, credentials,
+        Cors.any_if(Bool.and(Bool.not(credentials), T.same(entry, "*", True{})), Cors.decide.go(tail, origin, credentials)),
+        cors_any_safe(entry, tail, credentials, Cors.decide.go(tail, origin, credentials), cors_go_safe(tail, origin, credentials)))
+
+law cors_clean_safe:
+  for +check: Cors.Clean
+  for +origins: List<&2, String>
+  for +credentials: Bool
+  {Cors.safe(Cors.decide.clean(check, origins, credentials), origins, credentials) == True{} : Bool}
+
+def cors_clean_safe(check, origins, credentials):
+  match check:
+    case Cors.Clean{True{}, origin}:
+      cors_go_safe(origins, origin, credentials)
+    case Cors.Clean{False{}, _}:
+      {==}
+
+def Laws.cors_safe(origins, credentials, origin):
+  cors_clean_safe(Cors.clean.go(origin, True{}, False{}, ""), origins, credentials)
 
 # Server-sent events
 # ------------------
