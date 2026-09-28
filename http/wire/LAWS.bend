@@ -482,3 +482,56 @@ law chunked_reads_back:
   for +extra: Nat
   for e: {Nat.is_le(total(ps), max) == True{} : Bool}
   {H1.chunks.go(stream(ps, rest), H1.CS{H1.CSize{0n, False{}}, B.BNil{}, 0n, frames(ps, extra)}, max) == H1.CDone{joined(ps), rest} : H1.Chunked}
+
+# Lengths read back
+# -----------------
+
+def dd(x: H1.Dig) -> Nat:
+  match x:
+    case H1.D0{}:
+      0n
+    case H1.D1{}:
+      1n
+    case H1.D2{}:
+      2n
+    case H1.D3{}:
+      3n
+    case H1.D4{}:
+      4n
+    case H1.D5{}:
+      5n
+    case H1.D6{}:
+      6n
+    case H1.D7{}:
+      7n
+    case H1.D8{}:
+      8n
+    case H1.D9{}:
+      9n
+
+# a decimal count's value
+def dval(d: H1.Dec) -> Nat:
+  match d:
+    case H1.DNil{}:
+      0n
+    case H1.DCon{x, t}:
+      Nat.add(Nat.mul(10n, dval(t)), dd(x))
+
+# the Content-Length a client writes for a body is what a server reads as
+# that body's length (cl_digits, the parser's own), for any body under
+# 4 GiB
+law body_length:
+  for +bs: B.Bytes
+  for e: {Nat.is_le(blen(bs), 4294967295n) == True{} : Bool}
+  {H1.cl_digits.go(H1.dec.show(H1.dec.count(bs, H1.DNil{})), 0n, True{}, False{}) == Some{blen(bs)} : Maybe<&2, Nat>}
+
+# a request's head counts the very bytes that follow it: the body
+law writes_count:
+  for +m: String
+  for +t: String
+  for +h: String
+  for +hs: List<&2, H.Header>
+  for +bs: B.Bytes
+  for +sized: Bool
+  for +close: Bool
+  {H1.write_request(m, t, h, hs, bs, sized, close) == B.app(H1.head_bytes(String.reverse(H1.request.head(m, t, h, hs, H1.dec.count(bs, H1.DNil{}), Bool.or(sized, B.nonempty(bs)), close))), bs) : B.Bytes}

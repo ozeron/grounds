@@ -1598,3 +1598,253 @@ def Laws.chunked_reads_back(ps, rest, max, extra, e):
         Equal.cong(B.Bytes, B.Bytes, y => B.rev.go(y, B.BNil{}), racc(ps, B.BNil{}), B.rev.go(Laws.joined(ps), B.BNil{}), racc_joined(ps, B.BNil{})),
         Equal.trans(B.Bytes, B.rev.go(B.rev.go(Laws.joined(ps), B.BNil{}), B.BNil{}), B.cat(Laws.joined(ps), B.BNil{}), Laws.joined(ps),
           rev_rev(Laws.joined(ps), B.BNil{}, B.BNil{}), cat_nil(Laws.joined(ps))))))
+
+# Lengths read back
+# -----------------
+
+law dinc:
+  for +d: H1.Dec
+  {Laws.dval(H1.dec.inc(d)) == 1n+Laws.dval(d) : Nat}
+
+def dinc(d):
+  match d:
+    case H1.DNil{}:
+      {==}
+    case H1.DCon{H1.D0{}, t}:
+      add_succ(Nat.mul(10n, Laws.dval(t)), 0n)
+    case H1.DCon{H1.D1{}, t}:
+      add_succ(Nat.mul(10n, Laws.dval(t)), 1n)
+    case H1.DCon{H1.D2{}, t}:
+      add_succ(Nat.mul(10n, Laws.dval(t)), 2n)
+    case H1.DCon{H1.D3{}, t}:
+      add_succ(Nat.mul(10n, Laws.dval(t)), 3n)
+    case H1.DCon{H1.D4{}, t}:
+      add_succ(Nat.mul(10n, Laws.dval(t)), 4n)
+    case H1.DCon{H1.D5{}, t}:
+      add_succ(Nat.mul(10n, Laws.dval(t)), 5n)
+    case H1.DCon{H1.D6{}, t}:
+      add_succ(Nat.mul(10n, Laws.dval(t)), 6n)
+    case H1.DCon{H1.D7{}, t}:
+      add_succ(Nat.mul(10n, Laws.dval(t)), 7n)
+    case H1.DCon{H1.D8{}, t}:
+      add_succ(Nat.mul(10n, Laws.dval(t)), 8n)
+    case H1.DCon{H1.D9{}, t}:
+      Equal.trans(Nat, Nat.add(Nat.mul(10n, Laws.dval(H1.dec.inc(t))), 0n), Nat.mul(10n, Laws.dval(H1.dec.inc(t))), 1n+Nat.add(Nat.mul(10n, Laws.dval(t)), 9n),
+        add_zero(Nat.mul(10n, Laws.dval(H1.dec.inc(t)))),
+        Equal.trans(Nat, Nat.mul(10n, Laws.dval(H1.dec.inc(t))), Nat.mul(10n, 1n+Laws.dval(t)), 1n+Nat.add(Nat.mul(10n, Laws.dval(t)), 9n),
+          Equal.cong(Nat, Nat, y => Nat.mul(10n, y), Laws.dval(H1.dec.inc(t)), 1n+Laws.dval(t), dinc(t)),
+          Equal.trans(Nat, Nat.mul(10n, 1n+Laws.dval(t)), Nat.add(10n, Nat.mul(10n, Laws.dval(t))), 1n+Nat.add(Nat.mul(10n, Laws.dval(t)), 9n),
+            mul_succ(10n, Laws.dval(t)),
+            Equal.cong(Nat, Nat, y => 1n+y, Nat.add(9n, Nat.mul(10n, Laws.dval(t))), Nat.add(Nat.mul(10n, Laws.dval(t)), 9n), add_comm(9n, Nat.mul(10n, Laws.dval(t)))))))
+
+law dcount:
+  for +bs: B.Bytes
+  for +d: H1.Dec
+  {Laws.dval(H1.dec.count(bs, d)) == Nat.add(Laws.blen(bs), Laws.dval(d)) : Nat}
+
+def dcount(bs, d):
+  match bs:
+    case B.BNil{}:
+      {==}
+    case B.BCon{_, t}:
+      Equal.trans(Nat, Laws.dval(H1.dec.count(t, H1.dec.inc(d))), Nat.add(Laws.blen(t), Laws.dval(H1.dec.inc(d))), 1n+Nat.add(Laws.blen(t), Laws.dval(d)),
+        dcount(t, H1.dec.inc(d)),
+        Equal.trans(Nat, Nat.add(Laws.blen(t), Laws.dval(H1.dec.inc(d))), Nat.add(Laws.blen(t), 1n+Laws.dval(d)), 1n+Nat.add(Laws.blen(t), Laws.dval(d)),
+          Equal.cong(Nat, Nat, y => Nat.add(Laws.blen(t), y), Laws.dval(H1.dec.inc(d)), 1n+Laws.dval(d), dinc(d)),
+          add_succ(Laws.blen(t), Laws.dval(d))))
+
+law dlen:
+  for +bs: B.Bytes
+  {Laws.dval(H1.dec.count(bs, H1.DNil{})) == Laws.blen(bs) : Nat}
+
+def dlen(bs):
+  Equal.trans(Nat, Laws.dval(H1.dec.count(bs, H1.DNil{})), Nat.add(Laws.blen(bs), 0n), Laws.blen(bs), dcount(bs, H1.DNil{}), add_zero(Laws.blen(bs)))
+
+# every value the digit parser sees on the way to dval(d) is within cap
+def dmax(d: H1.Dec, +cap: Nat) -> Bool:
+  match d:
+    case H1.DNil{}:
+      True{}
+    case H1.DCon{+x, +t}:
+      Bool.and(dmax(t, cap), Nat.is_le(Laws.dval(H1.DCon{x, t}), cap))
+
+law dgrow:
+  for +x: Nat
+  for +v: Nat
+  {Nat.is_le(x, Nat.add(Nat.mul(10n, x), v)) == True{} : Bool}
+
+def dgrow(x, v):
+  %Equal.sym(Nat, Nat.add(Nat.add(x, Nat.mul(9n, x)), v), Nat.add(x, Nat.add(Nat.mul(9n, x), v)), add_assoc(x, Nat.mul(9n, x), v)) : {Nat.is_le(x, _) == True{} : Bool}
+  le_add(x, Nat.add(Nat.mul(9n, x), v))
+
+law dmax_of:
+  for +d: H1.Dec
+  for +cap: Nat
+  for +e: {Nat.is_le(Laws.dval(d), cap) == True{} : Bool}
+  {dmax(d, cap) == True{} : Bool}
+
+def dmax_of(d, cap, e):
+  match d:
+    case H1.DNil{}:
+      {==}
+    case H1.DCon{+x, t}:
+      %Equal.sym(Bool, Nat.is_le(Laws.dval(H1.DCon{x, t}), cap), True{}, e) : {Bool.and(dmax(t, cap), _) == True{} : Bool}
+      %Equal.sym(Bool, dmax(t, cap), True{}, dmax_of(t, cap, le_trans(Laws.dval(t), Laws.dval(H1.DCon{x, t}), cap, dgrow(Laws.dval(t), Laws.dd(x)), e))) : {Bool.and(_, True{}) == True{} : Bool}
+      {==}
+
+# one digit, within the cap
+law ddigit:
+  for +x: H1.Dig
+  for +n: Nat
+  for +T: String
+  for +any: Bool
+  for +e: {Nat.is_le(Nat.add(Nat.mul(10n, n), Laws.dd(x)), 4294967295n) == True{} : Bool}
+  {H1.cl_digits.go(SCon{H1.dig.char(x), T}, n, True{}, any) == H1.cl_digits.go(T, Nat.add(Nat.mul(10n, n), Laws.dd(x)), True{}, True{}) : Maybe<&2, Nat>}
+
+def ddigit(x, n, T, any, e):
+  match x:
+    case H1.D0{}:
+      %Equal.sym(Bool, Nat.is_le(Nat.add(Nat.mul(10n, n), 0n), 4294967295n), True{}, e) : {H1.cl_digits.go(T, H1.nat_le.pick(_, Nat.add(Nat.mul(10n, n), 0n), 4294967295n), True{}, True{}) == H1.cl_digits.go(T, Nat.add(Nat.mul(10n, n), 0n), True{}, True{}) : Maybe<&2, Nat>}
+      {==}
+    case H1.D1{}:
+      %Equal.sym(Bool, Nat.is_le(Nat.add(Nat.mul(10n, n), 1n), 4294967295n), True{}, e) : {H1.cl_digits.go(T, H1.nat_le.pick(_, Nat.add(Nat.mul(10n, n), 1n), 4294967295n), True{}, True{}) == H1.cl_digits.go(T, Nat.add(Nat.mul(10n, n), 1n), True{}, True{}) : Maybe<&2, Nat>}
+      {==}
+    case H1.D2{}:
+      %Equal.sym(Bool, Nat.is_le(Nat.add(Nat.mul(10n, n), 2n), 4294967295n), True{}, e) : {H1.cl_digits.go(T, H1.nat_le.pick(_, Nat.add(Nat.mul(10n, n), 2n), 4294967295n), True{}, True{}) == H1.cl_digits.go(T, Nat.add(Nat.mul(10n, n), 2n), True{}, True{}) : Maybe<&2, Nat>}
+      {==}
+    case H1.D3{}:
+      %Equal.sym(Bool, Nat.is_le(Nat.add(Nat.mul(10n, n), 3n), 4294967295n), True{}, e) : {H1.cl_digits.go(T, H1.nat_le.pick(_, Nat.add(Nat.mul(10n, n), 3n), 4294967295n), True{}, True{}) == H1.cl_digits.go(T, Nat.add(Nat.mul(10n, n), 3n), True{}, True{}) : Maybe<&2, Nat>}
+      {==}
+    case H1.D4{}:
+      %Equal.sym(Bool, Nat.is_le(Nat.add(Nat.mul(10n, n), 4n), 4294967295n), True{}, e) : {H1.cl_digits.go(T, H1.nat_le.pick(_, Nat.add(Nat.mul(10n, n), 4n), 4294967295n), True{}, True{}) == H1.cl_digits.go(T, Nat.add(Nat.mul(10n, n), 4n), True{}, True{}) : Maybe<&2, Nat>}
+      {==}
+    case H1.D5{}:
+      %Equal.sym(Bool, Nat.is_le(Nat.add(Nat.mul(10n, n), 5n), 4294967295n), True{}, e) : {H1.cl_digits.go(T, H1.nat_le.pick(_, Nat.add(Nat.mul(10n, n), 5n), 4294967295n), True{}, True{}) == H1.cl_digits.go(T, Nat.add(Nat.mul(10n, n), 5n), True{}, True{}) : Maybe<&2, Nat>}
+      {==}
+    case H1.D6{}:
+      %Equal.sym(Bool, Nat.is_le(Nat.add(Nat.mul(10n, n), 6n), 4294967295n), True{}, e) : {H1.cl_digits.go(T, H1.nat_le.pick(_, Nat.add(Nat.mul(10n, n), 6n), 4294967295n), True{}, True{}) == H1.cl_digits.go(T, Nat.add(Nat.mul(10n, n), 6n), True{}, True{}) : Maybe<&2, Nat>}
+      {==}
+    case H1.D7{}:
+      %Equal.sym(Bool, Nat.is_le(Nat.add(Nat.mul(10n, n), 7n), 4294967295n), True{}, e) : {H1.cl_digits.go(T, H1.nat_le.pick(_, Nat.add(Nat.mul(10n, n), 7n), 4294967295n), True{}, True{}) == H1.cl_digits.go(T, Nat.add(Nat.mul(10n, n), 7n), True{}, True{}) : Maybe<&2, Nat>}
+      {==}
+    case H1.D8{}:
+      %Equal.sym(Bool, Nat.is_le(Nat.add(Nat.mul(10n, n), 8n), 4294967295n), True{}, e) : {H1.cl_digits.go(T, H1.nat_le.pick(_, Nat.add(Nat.mul(10n, n), 8n), 4294967295n), True{}, True{}) == H1.cl_digits.go(T, Nat.add(Nat.mul(10n, n), 8n), True{}, True{}) : Maybe<&2, Nat>}
+      {==}
+    case H1.D9{}:
+      %Equal.sym(Bool, Nat.is_le(Nat.add(Nat.mul(10n, n), 9n), 4294967295n), True{}, e) : {H1.cl_digits.go(T, H1.nat_le.pick(_, Nat.add(Nat.mul(10n, n), 9n), 4294967295n), True{}, True{}) == H1.cl_digits.go(T, Nat.add(Nat.mul(10n, n), 9n), True{}, True{}) : Maybe<&2, Nat>}
+      {==}
+
+def danyd(any: Bool, d: H1.Dec) -> Bool:
+  match d:
+    case H1.DNil{}:
+      any
+    case H1.DCon{_, _}:
+      True{}
+
+# all the digits, most significant first: the parser arrives at dval
+law ddigits:
+  for +d: H1.Dec
+  for +T: String
+  for +any: Bool
+  for +e: {dmax(d, 4294967295n) == True{} : Bool}
+  {H1.cl_digits.go(H1.dec.show.go(d, T), 0n, True{}, any) == H1.cl_digits.go(T, Laws.dval(d), True{}, danyd(any, d)) : Maybe<&2, Nat>}
+
+def ddigits(d, T, any, e):
+  match d:
+    case H1.DNil{}:
+      {==}
+    case H1.DCon{+x, t}:
+      Equal.trans(Maybe<&2, Nat>, H1.cl_digits.go(H1.dec.show.go(t, SCon{H1.dig.char(x), T}), 0n, True{}, any), H1.cl_digits.go(SCon{H1.dig.char(x), T}, Laws.dval(t), True{}, danyd(any, t)), H1.cl_digits.go(T, Laws.dval(H1.DCon{x, t}), True{}, True{}),
+        ddigits(t, SCon{H1.dig.char(x), T}, any, P.and_true_l(dmax(t, 4294967295n), Nat.is_le(Laws.dval(H1.DCon{x, t}), 4294967295n), e)),
+        ddigit(x, Laws.dval(t), T, danyd(any, t), P.and_true_r(dmax(t, 4294967295n), Nat.is_le(Laws.dval(H1.DCon{x, t}), 4294967295n), e)))
+
+def isdcon(d: H1.Dec) -> Bool:
+  match d:
+    case H1.DNil{}:
+      False{}
+    case H1.DCon{_, _}:
+      True{}
+
+law incd:
+  for +d: H1.Dec
+  {isdcon(H1.dec.inc(d)) == True{} : Bool}
+
+def incd(d):
+  match d:
+    case H1.DNil{}:
+      {==}
+    case H1.DCon{H1.D0{}, t}:
+      {==}
+    case H1.DCon{H1.D1{}, t}:
+      {==}
+    case H1.DCon{H1.D2{}, t}:
+      {==}
+    case H1.DCon{H1.D3{}, t}:
+      {==}
+    case H1.DCon{H1.D4{}, t}:
+      {==}
+    case H1.DCon{H1.D5{}, t}:
+      {==}
+    case H1.DCon{H1.D6{}, t}:
+      {==}
+    case H1.DCon{H1.D7{}, t}:
+      {==}
+    case H1.DCon{H1.D8{}, t}:
+      {==}
+    case H1.DCon{H1.D9{}, t}:
+      {==}
+
+law cntd:
+  for +bs: B.Bytes
+  for +d: H1.Dec
+  for +e: {isdcon(d) == True{} : Bool}
+  {isdcon(H1.dec.count(bs, d)) == True{} : Bool}
+
+def cntd(bs, d, e):
+  match bs:
+    case B.BNil{}:
+      e
+    case B.BCon{_, t}:
+      cntd(t, H1.dec.inc(d), incd(d))
+
+# a count of one byte or more is shown by its digits alone
+law show_con:
+  for +d: H1.Dec
+  for +e: {isdcon(d) == True{} : Bool}
+  {H1.dec.show(d) == H1.dec.show.go(d, "") : String}
+
+def show_con(d, e):
+  match d:
+    case H1.DNil{}:
+      P.absurd({H1.dec.show(H1.DNil{}) == H1.dec.show.go(H1.DNil{}, "") : String}, e)
+    case H1.DCon{_, _}:
+      {==}
+
+law body_length.end:
+  for +d: H1.Dec
+  for +n: Nat
+  for +c: {isdcon(d) == True{} : Bool}
+  for +e: {Laws.dval(d) == n : Nat}
+  {H1.cl_digits.go("", Laws.dval(d), True{}, danyd(False{}, d)) == Some{n} : Maybe<&2, Nat>}
+
+def body_length.end(d, n, c, e):
+  match d:
+    case H1.DNil{}:
+      P.absurd({H1.cl_digits.go("", Laws.dval(H1.DNil{}), True{}, danyd(False{}, H1.DNil{})) == Some{n} : Maybe<&2, Nat>}, c)
+    case H1.DCon{+x, +t}:
+      Equal.cong(Nat, Maybe<&2, Nat>, y => Some{y}, Laws.dval(H1.DCon{x, t}), n, e)
+
+def Laws.body_length(bs, e):
+  match bs:
+    case B.BNil{}:
+      {==}
+    case B.BCon{+x, +t}:
+      %Equal.sym(String, H1.dec.show(H1.dec.count(B.BCon{x, t}, H1.DNil{})), H1.dec.show.go(H1.dec.count(B.BCon{x, t}, H1.DNil{}), ""), show_con(H1.dec.count(B.BCon{x, t}, H1.DNil{}), cntd(t, H1.DCon{H1.D1{}, H1.DNil{}}, {==}))) : {H1.cl_digits.go(_, 0n, True{}, False{}) == Some{Laws.blen(B.BCon{x, t})} : Maybe<&2, Nat>}
+      Equal.trans(Maybe<&2, Nat>, H1.cl_digits.go(H1.dec.show.go(H1.dec.count(B.BCon{x, t}, H1.DNil{}), ""), 0n, True{}, False{}), H1.cl_digits.go("", Laws.dval(H1.dec.count(B.BCon{x, t}, H1.DNil{})), True{}, danyd(False{}, H1.dec.count(B.BCon{x, t}, H1.DNil{}))), Some{Laws.blen(B.BCon{x, t})},
+        ddigits(H1.dec.count(B.BCon{x, t}, H1.DNil{}), "", False{}, dmax_of(H1.dec.count(B.BCon{x, t}, H1.DNil{}), 4294967295n,
+          %Equal.sym(Nat, Laws.dval(H1.dec.count(B.BCon{x, t}, H1.DNil{})), Laws.blen(B.BCon{x, t}), dlen(B.BCon{x, t})) : {Nat.is_le(_, 4294967295n) == True{} : Bool}
+          e)),
+        body_length.end(H1.dec.count(B.BCon{x, t}, H1.DNil{}), Laws.blen(B.BCon{x, t}), cntd(t, H1.DCon{H1.D1{}, H1.DNil{}}, {==}), dlen(B.BCon{x, t})))
+
+def Laws.writes_count(m, t, h, hs, bs, sized, close):
+  {==}
