@@ -8,6 +8,14 @@ bend loopback.bend -o "$tmp/loopback" > /dev/null
 "$tmp/loopback"
 bend timeout.bend -o "$tmp/timeout" > /dev/null
 "$tmp/timeout"
+bend udp.bend -o "$tmp/udp" > /dev/null
+"$tmp/udp"
+if command -v bun > /dev/null 2>&1; then
+  bend udp.bend -o "$tmp/udp.js" > /dev/null
+  bun "$tmp/udp.js"
+else
+  echo "udp JS target: Bun unavailable; skipped"
+fi
 python3 ../json/scripts/cold.py "$PWD/loopback.bend"
 bend stop.bend -o "$tmp/stop" > /dev/null
 "$tmp/stop" > "$tmp/stop.out" &

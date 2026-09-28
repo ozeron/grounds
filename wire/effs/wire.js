@@ -127,6 +127,77 @@ function wire_send_timeout(socket, data, ms, k) {
   return go(0);
 }
 
+// Binary UDP. A zero-byte datagram is Some{[]}; None{} is only a timeout.
+function wire_udp_send_to(socket, host, port, data, ms, k) {
+  const sys = io_sys();
+  const at = io_addr(host, Number(port));
+  if (at === null) {
+    return io_tup(socket, io_fail(22));
+  }
+  const bytes = [];
+  for (let xs = data; xs.$ === "Con"; xs = xs.tail) {
+    bytes.push(xs.head);
+  }
+  if (bytes.some((x) => x > 255)) {
+    return io_tup(socket, io_fail(22));
+  }
+  const b = Uint8Array.from(bytes);
+  const send_buf = b.length ? b : new Uint8Array(1);
+  const deadline = performance.now() + Number(ms);
+  const again = sys.mac ? 35 : 11;
+  const go = () => {
+    const n = Number(sys.sendto(socket, sys.ptr(send_buf), b.length, 0,
+      sys.ptr(at), 16));
+    if (n < 0) {
+      const code = sys.errno();
+      if (code === again) {
+        if (performance.now() >= deadline) {
+          return io_tup(socket, io_fail(sys.mac ? 60 : 110));
+        }
+        io_park_on(socket, true, k, go, deadline);
+        return undefined;
+      }
+      return io_tup(socket, io_fail(code));
+    }
+    return io_tup(socket, n === b.length ? io_done({ $: "Unit" }) : io_fail(5));
+  };
+  return go();
+}
+
+function wire_udp_recv_from_timeout(socket, max, ms, k) {
+  const sys = io_sys();
+  const cap = Math.min(Number(max) + 1, 65535);
+  const b = new Uint8Array(cap);
+  const peer = new Uint8Array(16);
+  const len = new Uint32Array([16]);
+  const deadline = performance.now() + Number(ms);
+  const again = sys.mac ? 35 : 11;
+  const go = () => {
+    len[0] = 16;
+    const n = Number(sys.recvfrom(socket, sys.ptr(b), cap, 0,
+      sys.ptr(peer), sys.ptr(len)));
+    if (n < 0) {
+      const code = sys.errno();
+      if (code !== again) {
+        return io_tup(socket, io_fail(code));
+      }
+      if (performance.now() >= deadline) {
+        return io_tup(socket, io_done({ $: "None" }));
+      }
+      io_park_on(socket, false, k, go, deadline);
+      return undefined;
+    }
+    if (n > Number(max)) {
+      return io_tup(socket, io_fail(sys.mac ? 40 : 90));
+    }
+    const host = peer[4] + "." + peer[5] + "." + peer[6] + "." + peer[7];
+    const port = (peer[2] << 8) | peer[3];
+    const value = io_tup(host, port, gw_list(b, n));
+    return io_tup(socket, io_done({ $: "Some", value }));
+  };
+  return go();
+}
+
 // TCP.connect with a deadline: ETIMEDOUT (60 on macOS, 110 on Linux) when
 // the socket is not writable by then
 function wire_connect_timeout(host, port, ms, k) {

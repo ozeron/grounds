@@ -129,3 +129,18 @@ def wire_close(sock: Socket) -> IO(Unit):
 
 def close(sock: Socket) -> IO(Unit):
   Socket.close(sock)
+
+# Binary UDP for datagram protocols. UDP.bind and Socket.close come from Base;
+# Base's UDP.send_to/recv_from use String and cannot preserve arbitrary bytes.
+# Sending is atomic. Invalid octets fail EINVAL before the datagram is sent.
+def wire_udp_send_to(sock: Socket, host: String, port: U32, data: List<&2, U32>, ms: U32) ->
+  IO(Socket & Result<&1, &1, U32 & String, Unit>):
+  import "./effs/wire.c"
+  import "./effs/wire.js"
+
+# None{} means timeout; Some{(host, (port, bytes))} includes an empty datagram.
+# A datagram larger than max is consumed and fails EMSGSIZE (no truncation).
+def wire_udp_recv_from_timeout(sock: Socket, max: U32, ms: U32) ->
+  IO(Socket & Result<&1, &1, U32 & String, Maybe<&1, String & U32 & List<&2, U32>>>):
+  import "./effs/wire.c"
+  import "./effs/wire.js"

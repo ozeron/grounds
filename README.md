@@ -9,7 +9,7 @@ A monorepo of [Bend 2](https://github.com/bendlang/bend) packages: JSON, UTF-8, 
 | [`json`](json/) | JSON parse, print, path reads; proven to round-trip |
 | [`utf8`](utf8/) | strict UTF-8 decoding |
 | [`io`](io/) | whole-file reads |
-| [`wire`](wire/) | TCP on raw bytes |
+| [`wire`](wire/) | TCP and UDP on raw bytes |
 | [`crypto`](crypto/) | pure Bend SHA-256, HMAC-SHA-256 and HKDF-SHA-256; experimental, not yet used by TLS or cookies |
 | [`http`](http/) | HTTP/1.1: messages, parsing, server, client, router, JSON bodies |
 | [`redis`](redis/) | Redis client: RESP2 and RESP3, pipelining, a pool; proven framing |

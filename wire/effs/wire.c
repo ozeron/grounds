@@ -189,6 +189,104 @@ static void __attribute__((constructor)) gw_sendt_use(void) {
 
 #endif
 
+#ifdef CID_WIRE_UDP_SEND_TO
+
+static Term gw_udp_send_more(Env e, IoWork* w) {
+  struct sockaddr_in at;
+  int fd = (int)w->hand;
+  u64 deadline = io_wait_time(w);
+  ssize_t n = -1;
+  errno = EINVAL;
+  if (io_sys_addr(w->text, (u32)w->made, &at) == 0) {
+    n = sendto(fd, w->data, w->size, 0, (struct sockaddr*)&at, sizeof(at));
+  }
+  io_sys_end(w, n);
+  if (w->code == EAGAIN) {
+    if (io_tick() < deadline) {
+      return io_wait_on(w, fd, POLLOUT, deadline, gw_udp_send_more);
+    }
+    w->code = ETIMEDOUT;
+  }
+  if (w->code == 0 && (u64)n != w->size) {
+    w->code = EIO;
+  }
+  Term r = w->code ? io_fail(e, w->code, NULL)
+    : io_done(e, term_pak(CID_UNIT, 0));
+  free(w->text);
+  free(w->data);
+  return io_tup(e, io_hand(w->hand), r);
+}
+
+Term gw_udp_send_run(Env e, Term* f, IoWork* w) {
+  u64 host_len;
+  bool bad;
+  w->hand = (intptr_t)io_hand_v(f[0]);
+  w->text = io_cstr(e, f[1], &host_len);
+  w->made = (intptr_t)f[2];
+  w->data = gw_octets(e, f[3], &w->size, &bad);
+  if (bad || io_nul(w->text, host_len)) {
+    free(w->text);
+    free(w->data);
+    return io_tup(e, io_hand(w->hand), io_fail(e, EINVAL, NULL));
+  }
+  return io_wait_on(w, (int)w->hand, POLLOUT,
+    io_tick() + (u64)f[4] * 1000000ull, gw_udp_send_more);
+}
+
+static void __attribute__((constructor)) gw_udp_send_use(void) {
+  io_eff(CID_WIRE_UDP_SEND_TO, gw_udp_send_run, 0);
+}
+
+#endif
+
+#ifdef CID_WIRE_UDP_RECV_FROM_TIMEOUT
+
+static Term gw_udp_recv_more(Env e, IoWork* w) {
+  struct sockaddr_in at = { 0 };
+  socklen_t at_len = sizeof(at);
+  char host[16];
+  int fd = (int)w->hand;
+  u64 deadline = io_wait_time(w);
+  ssize_t n = io_sys_end(w, recvfrom(fd, w->data, (size_t)w->made, 0,
+    (struct sockaddr*)&at, &at_len));
+  if (w->code == EAGAIN) {
+    if (io_tick() < deadline) {
+      return io_wait_on(w, fd, POLLIN, deadline, gw_udp_recv_more);
+    }
+    free(w->data);
+    return io_tup(e, io_hand(w->hand), io_done(e, term_pak(CID_NONE, 0)));
+  }
+  Term r;
+  if (w->code) {
+    r = io_fail(e, w->code, NULL);
+  } else if ((u64)n > w->size) {
+    r = io_fail(e, EMSGSIZE, NULL);
+  } else if (!inet_ntop(AF_INET, &at.sin_addr, host, sizeof(host))) {
+    r = io_fail(e, errno, NULL);
+  } else {
+    Term peer = io_tup(e, io_str(e, host, strlen(host)),
+      io_tup(e, ntohs(at.sin_port), gw_list(e, w->data, (u64)n)));
+    r = io_done(e, io_box(e, CID_SOME, peer));
+  }
+  free(w->data);
+  return io_tup(e, io_hand(w->hand), r);
+}
+
+Term gw_udp_recv_run(Env e, Term* f, IoWork* w) {
+  w->hand = (intptr_t)io_hand_v(f[0]);
+  w->size = (u64)f[1];
+  w->made = w->size < 65535 ? (intptr_t)w->size + 1 : 65535;
+  w->data = io_mem(malloc((size_t)w->made));
+  return io_wait_on(w, (int)w->hand, POLLIN,
+    io_tick() + (u64)f[2] * 1000000ull, gw_udp_recv_more);
+}
+
+static void __attribute__((constructor)) gw_udp_recv_use(void) {
+  io_eff(CID_WIRE_UDP_RECV_FROM_TIMEOUT, gw_udp_recv_run, 0);
+}
+
+#endif
+
 #ifdef CID_WIRE_CONNECT_TIMEOUT
 
 // TCP.connect with a deadline: the connect parks on POLLOUT and the clock;

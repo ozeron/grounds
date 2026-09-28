@@ -20,6 +20,8 @@ w : Socket & Result<&1, &1, U32 & String, Unit> <- W.wire_send(sock, [72, 105])
 | `W.wire_connect_timeout(host, port, ms)` | `connect`, failing `ETIMEDOUT` past `ms`: an address that drops packets would wait for the OS |
 | `W.wire_accept_timeout(l, ms)` | `accept`, as `Some{sock}`; `None{}` when no connection comes within `ms` |
 | `W.wire_resolve(host)` | a host name to its first IPv4 address, dotted; `connect` takes only addresses |
+| `W.wire_udp_send_to(sock, host, port, bytes, ms)` | sends one binary UDP datagram or fails; invalid bytes fail `EINVAL` before send |
+| `W.wire_udp_recv_from_timeout(sock, max, ms)` | `Some{(host, (port, bytes))}` on a datagram, including empty bytes; `None{}` on timeout; oversized datagrams fail `EMSGSIZE` after consumption |
 | `W.wire_on_stop()` | from now on SIGTERM and SIGINT set the stop flag instead of ending the process |
 | `W.wire_stopping()` | 1 once a stop signal has come, else 0 |
 | `W.wire_live(d)` | a process-wide counter: adds `d` (1, 4294967295 for −1, or 0 to read) and returns the count |
@@ -32,10 +34,12 @@ w : Socket & Result<&1, &1, U32 & String, Unit> <- W.wire_send(sock, [72, 105])
 - The TLS client uses `wire_tls_connect(sock, host, ms)`, `wire_tls_send_timeout`, `wire_tls_recv_timeout` and `wire_tls_close`. It verifies the certificate chain and host; `GROUNDS_TLS_CA` adds a PEM trust root.
 - An effect's name is global in a program: its C id is `CID_WIRE_RECV`, taken from the def's name. So the effects carry the package's name, and there are no `recv`/`send` wrappers: a one-line wrapper is merged into the effect and takes its name.
 - The effects follow `bend-kit-wire` on BendHub (`0x096635686408886b7d907f16c4550317`, MIT-0), with `List<U32>` in place of one Char per byte, for both the C and JS targets.
+- For UDP, use Base's `UDP.bind(port)` to create the socket and `Socket.close(sock)` to end it. UDP transport is IPv4. The receive limit is checked against the full datagram; the largest supported receive buffer is 65535 bytes.
 
 `moon run wire:check` builds these natively and runs them:
 - `loopback.bend`: all 256 byte values go through a connection to itself and back.
 - `timeout.bend`: a poll times out, gets bytes, then sees the close.
+- `udp.bend`: native and, when Bun is available, JS binary datagrams, including all 256 octets, zero-byte datagrams, timeout, oversize and invalid input.
 - `stop.bend`: accepts one connection, then SIGTERM ends its loop.
 - `resolve.bend`: resolves localhost, an address, and a name that does not exist.
 - `tls.bend`: a client GET, wrong host and untrusted certificate against the Python TLS server.
