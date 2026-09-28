@@ -19,8 +19,8 @@ def main() -> IO(Unit):
 
 ## Behaviour
 
-- **Config:** `Config{port, max_head_bytes, max_body_bytes, max_requests, idle_ms, request_ms, drain_ms}`. `default(port)` gives 16 KiB heads, 1 MiB bodies, 100 requests per connection, 5 s idle, 10 s per request and 10 s to drain.
-- **Environment:** `from_env(cfg)` overrides fields from `PORT`, `HTTP_MAX_HEAD_BYTES`, `HTTP_MAX_BODY_BYTES`, `HTTP_MAX_REQUESTS`, `HTTP_IDLE_MS`, `HTTP_REQUEST_MS` and `HTTP_DRAIN_MS`. A value that is not a number stops the program with its name.
+- **Config:** `Config{port, max_head_bytes, max_body_bytes, max_requests, idle_ms, request_ms, drain_ms, tls, trust_proxy}`. `default(port)` gives 16 KiB heads, 1 MiB bodies, 100 requests per connection, 5 s idle, 10 s per request and 10 s to drain. It serves plain HTTP unless `with_tls(cfg, cert, key)` supplies PEM file paths.
+- **Environment:** `from_env(cfg)` overrides fields from `PORT`, `HTTP_MAX_HEAD_BYTES`, `HTTP_MAX_BODY_BYTES`, `HTTP_MAX_REQUESTS`, `HTTP_IDLE_MS`, `HTTP_REQUEST_MS` and `HTTP_DRAIN_MS`. A value that is not a number stops the program with its name. `HTTP_TLS_CERT` and `HTTP_TLS_KEY` set TLS together; one missing, an unreadable file or a mismatched pair stops the server before it listens.
 - **Timeouts:** an idle connection closes after `idle_ms` without a byte. Once a request's first bytes arrive, its head and body must all arrive within `request_ms`, else it gets 408 and the connection closes. A client that trickles one byte at a time cannot hold a connection. Each response write must also go out within `request_ms`.
 - **Graceful stop:** on SIGTERM or SIGINT the server stops accepting and closes idle connections. Requests under way finish, and their responses say `connection: close`. `serve` returns once no connection is left. After `drain_ms` it exits anyway and says how many connections it cut.
 - **Bodies:** a request body can be framed by Content-Length or by chunked coding. A request with both is refused with 400, which prevents smuggling. Any other Transfer-Encoding gets 501.
@@ -28,6 +28,14 @@ def main() -> IO(Unit):
 - **Keep-alive:** a connection reads requests one after another, including pipelined ones. It closes on `Connection: close`, on HTTP/1.0 without `keep-alive`, after `max_requests`, when the client closes, or during a stop. The last response says `connection: close`.
 - **Refusals:** a malformed request gets its status (400, 413, 431, 501 or 505) with the reason as text, and the connection closes. The handler never sees it.
 - **Fuel:** Bend's termination check needs every loop bounded. The accept loop counts down 2^32 − 1 turns, and a connection counts down `max_requests`.
+
+## TLS and proxies
+
+`examples/tls.bend` serves HTTPS when `HTTP_TLS_CERT` and `HTTP_TLS_KEY` are set. The handshake must finish within `request_ms`. The OpenSSL 3 server requires TLS 1.2 or newer, disables 0-RTT and accepts only an `http/1.1` ALPN offer. It loads and checks the certificate and key before opening the port.
+
+`Server.secure(req)` reads the server's `x-forwarded-proto` marker. On a direct connection the server replaces every incoming copy with `https` or `http`, so a client cannot claim to be secure by sending that header. `with_trust_proxy(cfg, True{})` accepts the incoming value on a plain connection. Use that switch only behind a proxy that removes client-supplied copies and sets its own value.
+
+`Mw.hsts(~next)` adds `Strict-Transport-Security: max-age=31536000` to responses. Use it on an HTTPS listener; browsers ignore the header over plain HTTP. `Server.redirect_https(host, req)` returns a 308 redirect to a caller-supplied canonical host, keeping the request target. Serve it on a separate HTTP listener, as in `examples/redirect.bend`.
 
 ## Streaming
 
@@ -76,6 +84,7 @@ Server.serve(~Mw.logger(~Mw.request_id(~Mw.body_limit(~small, ~Mw.recover(~app))
 - `body_limit(~max, ~next)`: a body over `max` bytes gets 413; `max` is a def with no arguments.
 - `request_id`: adds `x-request-id`, 16 random hex digits.
 - `logger`: prints `GET /todos/2 200 0ms` per request.
+- `hsts`: adds a one-year Strict-Transport-Security header.
 
 ## Checks
 
@@ -88,4 +97,5 @@ Server.serve(~Mw.logger(~Mw.request_id(~Mw.body_limit(~small, ~Mw.recover(~app))
 6. Serves `examples/stack.bend` on 8082 and checks each wrapper.
 7. Serves `examples/stream.bend`: 3 server-sent events, heartbeats until the client goes (`examples/hb.py`), a 10 MiB streamed body, `/healthz`, `/readyz`, and a bad `HTTP_*` value.
 8. Runs `examples/stop.py`: SIGTERM with an idle and a slow connection open. The slow request must finish, the idle one must close, and a short `HTTP_DRAIN_MS` must cut.
-9. Runs the cold check on the examples.
+9. Serves the TLS and redirect examples: trusted curl, certificate and host rejection, ALPN, TLS 1.1 rejection, handshake deadline, protocol-header stripping, trusted proxy opt-in, HSTS and 308 redirect.
+10. Runs the cold check on all examples.

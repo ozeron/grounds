@@ -38,3 +38,21 @@ until grep -q ready "$tmp/tls.out"; do python3 -c 'import time; time.sleep(0.05)
 GROUNDS_TLS_CA="$tmp/cert.pem" "$tmp/tls" wronghost > /dev/null 2>&1 && { echo "tls: a wrong host name must fail"; exit 1; }
 "$tmp/tls" > /dev/null 2>&1 && { echo "tls: an untrusted certificate must fail"; exit 1; }
 echo "tls: a GET over TLS; a wrong host name and an untrusted certificate fail"
+kill "$tpid" 2>/dev/null || :
+wait "$tpid" 2>/dev/null || :
+
+bend tls_server.bend -o "$tmp/tls_server" > /dev/null
+TLS_CERT="$tmp/cert.pem" TLS_KEY="$tmp/key.pem" "$tmp/tls_server" > "$tmp/tls_server.out" &
+spid=$!
+trap 'kill "$spid" 2>/dev/null || :; rm -rf "$tmp"' EXIT
+tries=0
+until grep -q '^ready$' "$tmp/tls_server.out"; do
+  tries=$((tries + 1))
+  [ "$tries" -lt 100 ] && kill -0 "$spid" 2>/dev/null || { cat "$tmp/tls_server.out"; echo "tls server did not start"; exit 1; }
+  python3 -c 'import time; time.sleep(0.05)'
+done
+python3 tls_server.py "$tmp/cert.pem"
+wait "$spid"
+grep -q '^got first$' "$tmp/tls_server.out"
+grep -q '^got second$' "$tmp/tls_server.out"
+echo "tls server: two verified connections over the plain send/recv effects"

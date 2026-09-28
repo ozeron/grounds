@@ -243,6 +243,19 @@ function wire_tls_recv_timeout(socket, max, ms) {
   return io_tup(socket, io_fail(gw_nosys()));
 }
 
+function wire_tls_listen_ctx(cert, key) {
+  return io_fail(gw_nosys());
+}
+
+function wire_tls_accept(socket, ms) {
+  return io_tup(socket, io_fail(gw_nosys()));
+}
+
+function wire_close(socket) {
+  io_sys().close(socket);
+  return { $: "Unit" };
+}
+
 function wire_tls_close(socket) {
   io_sys().close(socket);
   return { $: "Unit" };

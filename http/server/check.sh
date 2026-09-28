@@ -83,4 +83,9 @@ out=$(python3 examples/stop.py "$tmp/stream" 8085 500)
 echo "$out" | grep -q "connections cut" || { echo "$out"; echo "stop: must cut at the drain deadline"; exit 1; }
 echo "stop: cut at a 500 ms drain deadline"
 
-python3 ../../json/scripts/cold.py "$PWD/examples/hello.bend" "$PWD/examples/stack.bend" "$PWD/examples/stream.bend"
+bend examples/tls.bend -o "$tmp/tls" > /dev/null
+bend examples/redirect.bend -o "$tmp/redirect" > /dev/null
+bend examples/trusted_proxy.bend -o "$tmp/trusted_proxy" > /dev/null
+python3 examples/tls_check.py "$tmp/tls" "$tmp/redirect" "$tmp/trusted_proxy"
+
+python3 ../../json/scripts/cold.py "$PWD/examples/hello.bend" "$PWD/examples/stack.bend" "$PWD/examples/stream.bend" "$PWD/examples/tls.bend" "$PWD/examples/redirect.bend" "$PWD/examples/trusted_proxy.bend"

@@ -97,6 +97,13 @@ def request_id(~next: Req.Request -> IO(Res.Response), r: Req.Request) -> IO(Res
     res : Res.Response <- next(r)
     return Res.header(res, "x-request-id", hex(random(a)) ++ hex(random(b)))
 
+# Add HSTS to responses from an HTTPS listener. Browsers disregard this
+# header over plain HTTP.
+def hsts(~next: Req.Request -> IO(Res.Response), r: Req.Request) -> IO(Res.Response):
+  do IO<Res.Response>:
+    res : Res.Response <- next(r)
+    return Res.header(res, "strict-transport-security", "max-age=31536000")
+
 # Logger
 # ------
 

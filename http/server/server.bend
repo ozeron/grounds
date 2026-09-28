@@ -6,6 +6,7 @@ import ../core/request.bend as Req
 import ../core/response.bend as Res
 import ../core/status.bend as S
 import ../core/headers.bend as H
+import ../core/text.bend as T
 import ../../utf8/utf8.bend as U
 import ../core/event.bend as Ev
 
@@ -25,11 +26,24 @@ import ../core/event.bend as Ev
 # connection: close), and returns once none is left, or exits after
 # drain_ms.
 
+type Tls is Data:
+  Tls{cert: String, key: String}
+
 type Config is Data:
-  Config{port: U32, max_head_bytes: U32, max_body_bytes: U32, max_requests: U32, idle_ms: U32, request_ms: U32, drain_ms: U32}
+  Config{port: U32, max_head_bytes: U32, max_body_bytes: U32, max_requests: U32, idle_ms: U32, request_ms: U32, drain_ms: U32, tls: Maybe<&2, Tls>, trust_proxy: Bool}
 
 def default(port: U32) -> Config:
-  Config{port, 16384, 1048576, 100, 5000, 10000, 10000}
+  Config{port, 16384, 1048576, 100, 5000, 10000, 10000, None{}, False{}}
+
+def with_tls(cfg: Config, cert: String, key: String) -> Config:
+  match cfg:
+    case Config{port, mh, mb, mr, ims, rms, dms, _, trust}:
+      Config{port, mh, mb, mr, ims, rms, dms, Some{Tls{cert, key}}, trust}
+
+def with_trust_proxy(cfg: Config, trust: Bool) -> Config:
+  match cfg:
+    case Config{port, mh, mb, mr, ims, rms, dms, tls, _}:
+      Config{port, mh, mb, mr, ims, rms, dms, tls, trust}
 
 # Config from the environment
 # ---------------------------
@@ -71,9 +85,24 @@ def env.u32(name: String, label: String, +d: U32) -> IO(U32):
 # cfg with what the environment sets: PORT, HTTP_MAX_HEAD_BYTES,
 # HTTP_MAX_BODY_BYTES, HTTP_MAX_REQUESTS, HTTP_IDLE_MS, HTTP_REQUEST_MS,
 # HTTP_DRAIN_MS
+def env.tls_pair(cert: Result<&1, &1, U32 & String, String>, key: Result<&1, &1, U32 & String, String>, fallback: Maybe<&2, Tls>) -> IO(Maybe<&2, Tls>):
+  match cert key:
+    case Done{c} Done{k}:
+      IO.pure(Maybe<&2, Tls>, Some{Tls{c, k}})
+    case Fail{_} Fail{_}:
+      IO.pure(Maybe<&2, Tls>, fallback)
+    case _ _:
+      IO.die(Maybe<&2, Tls>, 1, "HTTP_TLS_CERT and HTTP_TLS_KEY must be set together")
+
+def env.tls(fallback: Maybe<&2, Tls>) -> IO(Maybe<&2, Tls>):
+  do IO<Maybe<&2, Tls>>:
+    cert : Result<&1, &1, U32 & String, String> <- IO.get_env("HTTP_TLS_CERT")
+    key : Result<&1, &1, U32 & String, String> <- IO.get_env("HTTP_TLS_KEY")
+    env.tls_pair(cert, key, fallback)
+
 def from_env(cfg: Config) -> IO(Config):
   match cfg:
-    case Config{+port, +mh, +mb, +mr, +ims, +rms, +dms}:
+    case Config{+port, +mh, +mb, +mr, +ims, +rms, +dms, tls, trust}:
       do IO<Config>:
         +p : U32 <- env.u32("PORT", "PORT", port)
         +a : U32 <- env.u32("HTTP_MAX_HEAD_BYTES", "HTTP_MAX_HEAD_BYTES", mh)
@@ -82,7 +111,8 @@ def from_env(cfg: Config) -> IO(Config):
         +i : U32 <- env.u32("HTTP_IDLE_MS", "HTTP_IDLE_MS", ims)
         +q : U32 <- env.u32("HTTP_REQUEST_MS", "HTTP_REQUEST_MS", rms)
         +d : U32 <- env.u32("HTTP_DRAIN_MS", "HTTP_DRAIN_MS", dms)
-        return Config{p, a, b, c, i, q, d}
+        tls2 : Maybe<&2, Tls> <- env.tls(tls)
+        return Config{p, a, b, c, i, q, d, tls2, trust}
 
 # Streamed responses
 # ------------------
@@ -269,7 +299,7 @@ def sent(close, rest, m, next):
   match close:
     case True{}:
       (s, _) = m
-      W.close(s)
+      W.wire_close(s)
     case False{}:
       (s, _) = m
       next(rest, 0n, s)
@@ -279,14 +309,14 @@ def finish(k: Sink, close: Bool, rest: B.Bytes, next: B.Bytes -> Nat -> Socket -
     case Sink{s, True{}, +ms, _}:
       IO.bind(RU(), Unit, W.wire_send_timeout(s, B.to_list(H1.last_chunk()), ms), m => sent(close, rest, m, next))
     case Sink{s, False{}, _, _}:
-      W.close(s)
+      W.wire_close(s)
 
 def streamed.go(r: Result<&1, &1, U32 & String, Unit>, close: Bool, rest: B.Bytes, body: Sink -> IO(Sink), s: Socket, +ms: U32, next: B.Bytes -> Nat -> Socket -> IO(Unit)) -> IO(Unit):
   match r:
     case Done{_}:
       IO.bind(Sink, Unit, body(Sink{s, True{}, ms, 0n}), k => finish(k, close, rest, next))
     case Fail{_}:
-      W.close(s)
+      W.wire_close(s)
 
 # the head went out: the handler writes the body, then the last chunk
 law streamed:
@@ -312,7 +342,7 @@ def respond(out: Out, +close: Bool, s: Socket, +ms: U32, rest: B.Bytes, next: B.
 def got.go(done: Bool, acc: B.Bytes, bs: List<&2, U32>, +dl: Nat, s: Socket, next: B.Bytes -> Nat -> Socket -> IO(Unit)) -> IO(Unit):
   match done:
     case True{}:
-      W.close(s)
+      W.wire_close(s)
     case False{}:
       next(B.app(acc, B.of_list(bs)), dl, s)
 
@@ -329,7 +359,7 @@ law late:
 
 def late(m):
   (s, _) = m
-  W.close(s)
+  W.wire_close(s)
 
 # the deadline passed mid-request: 408, then close
 def timed_out(s: Socket, +ms: U32) -> IO(Unit):
@@ -344,7 +374,7 @@ def polled.fold(r: Result<&1, &1, U32 & String, Maybe<&1, List<&2, U32>>>, acc: 
     case Done{None{}}:
       timed_out(s, ms)
     case Fail{_}:
-      W.close(s)
+      W.wire_close(s)
 
 # more bytes of a request came: go on with them, or close if the client has
 law polled:
@@ -390,7 +420,7 @@ type Idle is Type:
   Gone{}
 
 def gone(s: Socket) -> IO(Idle):
-  IO.bind(Unit, Idle, W.close(s), u => IO.pure(Idle, Gone{}))
+  IO.bind(Unit, Idle, W.wire_close(s), u => IO.pure(Idle, Gone{}))
 
 def idle.more(over: Bool, +left: U32, s: Socket, again: U32 -> Socket -> IO(Idle)) -> IO(Idle):
   match over:
@@ -458,11 +488,44 @@ def closing(+close: Bool, +left: Nat, +stop: U32) -> Bool:
       Bool.or(close, Bool.not(U32.is_eq(stop, 0)))
 
 # one parse of what has come so far, and what to do with it
-def step(~h: Req.Request -> IO(Out), p: H1.Parsed, +acc: B.Bytes, s: Socket, +left: Nat, +ims: U32, +rms: U32, +dl: Nat, next: B.Bytes -> Nat -> Socket -> IO(Unit)) -> IO(Unit):
+def proto_headers(hs: List<&2, H.Header>, +tls: Bool, +trust: Bool) -> List<&2, H.Header>:
+  match tls trust:
+    case True{} _:
+      H.set(hs, "x-forwarded-proto", "https")
+    case False{} True{}:
+      hs
+    case False{} False{}:
+      H.set(hs, "x-forwarded-proto", "http")
+
+def request_proto(r: Req.Request, +tls: Bool, +trust: Bool) -> Req.Request:
+  match r:
+    case Req.Request{m, t, hs, b}:
+      Req.Request{m, t, proto_headers(hs, tls, trust), b}
+
+# only the server's protocol marker, or one accepted from a trusted proxy,
+# can make a request secure
+def secure_proto(proto: Maybe<&2, String>) -> Bool:
+  match proto:
+    case Some{value}:
+      T.same_ci(value, "https", True{})
+    case None{}:
+      False{}
+
+def secure(r: Req.Request) -> Bool:
+  secure_proto(Req.header(r, "x-forwarded-proto"))
+
+# Serve this handler on an HTTP listener to send clients to a canonical HTTPS
+# host. The caller supplies the host rather than trusting the request's Host.
+def redirect_https(host: String, r: Req.Request) -> Res.Response:
+  match r:
+    case Req.Request{_, target, _, _}:
+      Res.new(S.permanent_redirect(), [H.Header{"location", "https://" ++ host ++ target}], [])
+
+def step(~h: Req.Request -> IO(Out), p: H1.Parsed, +tls: Bool, +trust: Bool, +acc: B.Bytes, s: Socket, +left: Nat, +ims: U32, +rms: U32, +dl: Nat, next: B.Bytes -> Nat -> Socket -> IO(Unit)) -> IO(Unit):
   match p:
     case H1.Parsed{req, +close, rest}:
       do IO<Unit>:
-        out : Out <- h(req)
+        out : Out <- h(request_proto(req, tls, trust))
         +stop : U32 <- W.wire_stopping()
         respond(out, closing(close, left, stop), s, rms, rest, next)
     case H1.More{}:
@@ -474,12 +537,31 @@ def step(~h: Req.Request -> IO(Out), p: H1.Parsed, +acc: B.Bytes, s: Socket, +le
 
 # a connection: acc is what has come and is not yet a request; fuel counts
 # the requests it may still serve
-def conn(~h: Req.Request -> IO(Out), +fuel: Nat, +mh: U32, +mb: U32, +ims: U32, +rms: U32, +acc: B.Bytes, +dl: Nat, s: Socket) -> IO(Unit):
+def conn(~h: Req.Request -> IO(Out), +fuel: Nat, +mh: U32, +mb: U32, +ims: U32, +rms: U32, +tls: Bool, +trust: Bool, +acc: B.Bytes, +dl: Nat, s: Socket) -> IO(Unit):
   match fuel:
     case 0n:
-      W.close(s)
+      W.wire_close(s)
     case 1n+p:
-      step(~h, H1.parse(copy(acc, B.BNil{}), mh, mb), acc, s, p, ims, rms, dl, b => d => sk => conn(~h, p, mh, mb, ims, rms, b, d, sk))
+      step(~h, H1.parse(copy(acc, B.BNil{}), mh, mb), tls, trust, acc, s, p, ims, rms, dl, b => d => sk => conn(~h, p, mh, mb, ims, rms, tls, trust, b, d, sk))
+
+def handshake_done(~h: Req.Request -> IO(Out), r: Result<&1, &1, U32 & String, Unit>, +mr: Nat, +mh: U32, +mb: U32, +ims: U32, +rms: U32, +trust: Bool, s: Socket) -> IO(Unit):
+  match r:
+    case Done{_}:
+      conn(~h, mr, mh, mb, ims, rms, True{}, trust, B.BNil{}, 0n, s)
+    case Fail{_}:
+      W.wire_close(s)
+
+def handshook(~h: Req.Request -> IO(Out), +mr: Nat, +mh: U32, +mb: U32, +ims: U32, +rms: U32, +trust: Bool, m: RU()) -> IO(Unit):
+  match m:
+    case (s, r):
+      handshake_done(~h, r, mr, mh, mb, ims, rms, trust, s)
+
+def begin_conn(~h: Req.Request -> IO(Out), +tls: Bool, +trust: Bool, +mr: Nat, +mh: U32, +mb: U32, +ims: U32, +rms: U32, s: Socket) -> IO(Unit):
+  match tls:
+    case True{}:
+      IO.bind(RU(), Unit, W.wire_tls_accept(s, rms), m => handshook(~h, mr, mh, mb, ims, rms, trust, m))
+    case False{}:
+      conn(~h, mr, mh, mb, ims, rms, False{}, trust, B.BNil{}, 0n, s)
 
 # a connection, counted live while it runs
 def served(act: IO(Unit)) -> IO(Unit):
@@ -532,12 +614,12 @@ def check.stop(+stop: U32, l: Listener, +dms: U32, k: Listener -> IO(Unit)) -> I
 
 # an accepted connection runs on its own; the loop goes on accepting, and
 # between connections it looks for a stop
-def accepted(~h: Req.Request -> IO(Out), r: Result<&1, &1, U32 & String, Maybe<&1, Socket>>, l: Listener, +mh: U32, +mb: U32, +ims: U32, +rms: U32, +dms: U32, +mr: Nat, k: Listener -> IO(Unit)) -> IO(Unit):
+def accepted(~h: Req.Request -> IO(Out), r: Result<&1, &1, U32 & String, Maybe<&1, Socket>>, l: Listener, +mh: U32, +mb: U32, +ims: U32, +rms: U32, +dms: U32, +mr: Nat, +tls: Bool, +trust: Bool, k: Listener -> IO(Unit)) -> IO(Unit):
   match r:
     case Done{Some{s}}:
       do IO<Unit>:
         n : U32 <- W.wire_live(1)
-        x : Unit <- IO.spawn(Unit, served(conn(~h, mr, mh, mb, ims, rms, B.BNil{}, 0n, s)))
+        x : Unit <- IO.spawn(Unit, served(begin_conn(~h, tls, trust, mr, mh, mb, ims, rms, s)))
         k(l)
     case Done{None{}}:
       do IO<Unit>:
@@ -551,25 +633,35 @@ def accepted(~h: Req.Request -> IO(Out), r: Result<&1, &1, U32 & String, Maybe<&
 
 # fuel bounds the turns of the loop: a server's loop is bounded by the
 # outside world, which Bend's termination check sees as a count
-def accept.loop(~h: Req.Request -> IO(Out), +fuel: Nat, +mh: U32, +mb: U32, +ims: U32, +rms: U32, +dms: U32, +mr: Nat, m: RA()) -> IO(Unit):
+def accept.loop(~h: Req.Request -> IO(Out), +fuel: Nat, +mh: U32, +mb: U32, +ims: U32, +rms: U32, +dms: U32, +mr: Nat, +tls: Bool, +trust: Bool, m: RA()) -> IO(Unit):
   match fuel:
     case 0n:
       (l, _) = m
       W.close_listener(l)
     case 1n+p:
       (l, r) = m
-      accepted(~h, r, l, mh, mb, ims, rms, dms, mr, l2 => IO.bind(RA(), Unit, W.wire_accept_timeout(l2, 250), m2 => accept.loop(~h, p, mh, mb, ims, rms, dms, mr, m2)))
+      accepted(~h, r, l, mh, mb, ims, rms, dms, mr, tls, trust, l2 => IO.bind(RA(), Unit, W.wire_accept_timeout(l2, 250), m2 => accept.loop(~h, p, mh, mb, ims, rms, dms, mr, tls, trust, m2)))
+
+def listen_tls(tls: Maybe<&2, Tls>) -> IO(Bool):
+  match tls:
+    case Some{Tls{cert, key}}:
+      do IO<Bool>:
+        x : Unit <- IO.try(Unit, W.wire_tls_listen_ctx(cert, key))
+        return True{}
+    case None{}:
+      IO.pure(Bool, False{})
 
 # answer requests on cfg's port with h, one at a time per connection, many
 # connections at once; h may stream a body
 def serve_out(~h: Req.Request -> IO(Out), cfg: Config) -> IO(Unit):
   match cfg:
-    case Config{port, +mh, +mb, mr, +ims, +rms, +dms}:
+    case Config{port, +mh, +mb, mr, +ims, +rms, +dms, tls, +trust}:
       do IO<Unit>:
         x : Unit <- W.wire_on_stop()
+        +on : Bool <- listen_tls(tls)
         l : Listener <- IO.try(Listener, W.listen(port))
         m : RA() <- W.wire_accept_timeout(l, 250)
-        accept.loop(~h, 4294967295n, mh, mb, ims, rms, dms, U32.to_nat(mr), m)
+        accept.loop(~h, 4294967295n, mh, mb, ims, rms, dms, U32.to_nat(mr), on, trust, m)
 
 def whole(~h: Req.Request -> IO(Res.Response), r: Req.Request) -> IO(Out):
   IO.bind(Res.Response, Out, h(r), res => IO.pure(Out, Whole{res}))

@@ -22,6 +22,9 @@ def found() -> Status:
 def see_other() -> Status:
   Status{303}
 
+def permanent_redirect() -> Status:
+  Status{308}
+
 def not_modified() -> Status:
   Status{304}
 
@@ -86,6 +89,8 @@ def reason(s: Status) -> String:
       "See Other"
     case Status{304}:
       "Not Modified"
+    case Status{308}:
+      "Permanent Redirect"
     case Status{400}:
       "Bad Request"
     case Status{401}:

@@ -35,6 +35,18 @@ static char* gw_octets(Env e, Term xs, u64* len, bool* bad) {
   return buf;
 }
 
+// Set when the program links TLS: a socket with a TLS session (a server's
+// after wire_tls_accept) moves its bytes through the session, even by the
+// plain effects, and wire_close ends the session first.
+static void* (*gw_tls_sess)(int) = NULL;
+static Term (*gw_tls_recv_hook)(Env, Term*, IoWork*) = NULL;
+static Term (*gw_tls_send_hook)(Env, Term*, IoWork*) = NULL;
+static void (*gw_tls_end_hook)(int) = NULL;
+
+static bool gw_tls_on(Term sock) {
+  return gw_tls_sess != NULL && gw_tls_sess((int)io_hand_v(sock)) != NULL;
+}
+
 #endif
 
 #ifdef CID_WIRE_RECV
@@ -87,6 +99,9 @@ static Term gw_poll_more(Env e, IoWork* w) {
 }
 
 Term gw_poll_run(Env e, Term* f, IoWork* w) {
+  if (gw_tls_on(f[0]) && gw_tls_recv_hook != NULL) {
+    return gw_tls_recv_hook(e, f, w);
+  }
   w->hand = (intptr_t)io_hand_v(f[0]);
   w->made = f[1] < INT32_MAX ? (intptr_t)f[1] : INT32_MAX;
   w->data = io_mem(malloc((size_t)w->made + 1));
@@ -157,6 +172,9 @@ static Term gw_sendt_more(Env e, IoWork* w) {
 }
 
 Term gw_sendt_run(Env e, Term* f, IoWork* w) {
+  if (gw_tls_on(f[0]) && gw_tls_send_hook != NULL) {
+    return gw_tls_send_hook(e, f, w);
+  }
   bool bad;
   w->hand = (intptr_t)io_hand_v(f[0]);
   w->data = gw_octets(e, f[1], &w->size, &bad);
@@ -364,18 +382,37 @@ static void __attribute__((constructor)) gw_resolve_use(void) {
 // ===
 // OpenSSL 3, loaded at run time (bend links no extra libraries), after
 // bend-kit-wire's tls (MIT-0). The SSL object of a socket lives in a table
-// keyed by its fd. The peer is always verified, chain and host name; TLS
+// keyed by its fd. The client verifies the peer's chain and host name; TLS
 // 1.2 is the floor. GROUNDS_TLS_CA names a PEM file to trust as well as
 // the system's roots; BEND_LIBSSL overrides libssl's path.
 
-#if defined(CID_WIRE_TLS_CONNECT) || defined(CID_WIRE_TLS_SEND_TIMEOUT) || defined(CID_WIRE_TLS_RECV_TIMEOUT) || defined(CID_WIRE_TLS_CLOSE)
+#if defined(CID_WIRE_TLS_CONNECT) || defined(CID_WIRE_TLS_SEND_TIMEOUT) || defined(CID_WIRE_TLS_RECV_TIMEOUT) || defined(CID_WIRE_TLS_CLOSE) || defined(CID_WIRE_TLS_LISTEN_CTX) || defined(CID_WIRE_TLS_ACCEPT)
+#define GW_TLS_ANY
+#endif
+
+#ifdef GW_TLS_ANY
 #ifndef GROUNDS_TLS
 #define GROUNDS_TLS
 #include <dlfcn.h>
 
 typedef struct {
+  int   lib;
   int   state;
   void* ctx;
+  void* srv;
+  void* (*ctx_new)(void*);
+  void  (*ctx_free)(void*);
+  long  (*ctx_ctrl)(void*, int, long, void*);
+  void* (*server_method)(void);
+  int   (*use_chain)(void*, const char*);
+  int   (*use_key)(void*, const char*, int);
+  int   (*check_key)(const void*);
+  u64   (*set_options)(void*, u64);
+  int   (*set_ciphers)(void*, const char*);
+  void  (*set_level)(void*, int);
+  int   (*set_early)(void*, u32);
+  void  (*set_alpn)(void*, int (*)(void*, const unsigned char**, unsigned char*, const unsigned char*, unsigned int, void*), void*);
+  int   (*accept)(void*);
   void* (*ssl_new)(void*);
   int   (*set_fd)(void*, int);
   long  (*ctrl)(void*, int, long, void*);
@@ -407,21 +444,29 @@ static void* gw_tls_open(void) {
   return NULL;
 }
 
-static bool gw_tls_load(void) {
-  if (gw_tls.state != 0) {
-    return gw_tls.state > 0;
+// libssl and its functions, once
+static bool gw_tls_lib(void) {
+  if (gw_tls.lib != 0) {
+    return gw_tls.lib > 0;
   }
-  gw_tls.state = -1;
+  gw_tls.lib = -1;
   void* h = gw_tls_open();
   if (h == NULL) {
     return false;
   }
-  void* (*method)(void)                      = dlsym(h, "TLS_client_method");
-  void* (*ctx_new)(void*)                    = dlsym(h, "SSL_CTX_new");
-  int   (*paths)(void*)                      = dlsym(h, "SSL_CTX_set_default_verify_paths");
-  int   (*load)(void*, const char*, const char*) = dlsym(h, "SSL_CTX_load_verify_locations");
-  void  (*verify)(void*, int, void*)         = dlsym(h, "SSL_CTX_set_verify");
-  long  (*ctx_ctrl)(void*, int, long, void*) = dlsym(h, "SSL_CTX_ctrl");
+  gw_tls.ctx_new       = dlsym(h, "SSL_CTX_new");
+  gw_tls.ctx_free      = dlsym(h, "SSL_CTX_free");
+  gw_tls.ctx_ctrl      = dlsym(h, "SSL_CTX_ctrl");
+  gw_tls.server_method = dlsym(h, "TLS_server_method");
+  gw_tls.use_chain     = dlsym(h, "SSL_CTX_use_certificate_chain_file");
+  gw_tls.use_key       = dlsym(h, "SSL_CTX_use_PrivateKey_file");
+  gw_tls.check_key     = dlsym(h, "SSL_CTX_check_private_key");
+  gw_tls.set_options   = dlsym(h, "SSL_CTX_set_options");
+  gw_tls.set_ciphers   = dlsym(h, "SSL_CTX_set_cipher_list");
+  gw_tls.set_level     = dlsym(h, "SSL_CTX_set_security_level");
+  gw_tls.set_early     = dlsym(h, "SSL_CTX_set_max_early_data");
+  gw_tls.set_alpn      = dlsym(h, "SSL_CTX_set_alpn_select_cb");
+  gw_tls.accept        = dlsym(h, "SSL_accept");
   gw_tls.ssl_new       = dlsym(h, "SSL_new");
   gw_tls.set_fd        = dlsym(h, "SSL_set_fd");
   gw_tls.ctrl          = dlsym(h, "SSL_ctrl");
@@ -434,13 +479,37 @@ static bool gw_tls_load(void) {
   gw_tls.ssl_free      = dlsym(h, "SSL_free");
   gw_tls.verify_result = dlsym(h, "SSL_get_verify_result");
   gw_tls.verify_text   = dlsym(h, "X509_verify_cert_error_string");
-  if (!method || !ctx_new || !paths || !load || !verify || !ctx_ctrl
+  if (!gw_tls.ctx_new || !gw_tls.ctx_free || !gw_tls.ctx_ctrl || !gw_tls.server_method || !gw_tls.use_chain
+    || !gw_tls.use_key || !gw_tls.check_key || !gw_tls.set_options || !gw_tls.set_ciphers
+    || !gw_tls.set_level || !gw_tls.set_early || !gw_tls.set_alpn || !gw_tls.accept
     || !gw_tls.ssl_new || !gw_tls.set_fd || !gw_tls.ctrl || !gw_tls.set1_host
     || !gw_tls.connect || !gw_tls.read || !gw_tls.write || !gw_tls.get_error
     || !gw_tls.shutdown || !gw_tls.ssl_free || !gw_tls.verify_result || !gw_tls.verify_text) {
     return false;
   }
-  void* ctx = ctx_new(method());
+  gw_tls.lib = 1;
+  return true;
+}
+
+// the client context, once: the system's roots, GROUNDS_TLS_CA, the peer
+// verified, TLS 1.2 the floor
+static bool gw_tls_load(void) {
+  if (gw_tls.state != 0) {
+    return gw_tls.state > 0;
+  }
+  gw_tls.state = -1;
+  if (!gw_tls_lib()) {
+    return false;
+  }
+  void* h = gw_tls_open();
+  void* (*method)(void)                      = dlsym(h, "TLS_client_method");
+  int   (*paths)(void*)                      = dlsym(h, "SSL_CTX_set_default_verify_paths");
+  int   (*load)(void*, const char*, const char*) = dlsym(h, "SSL_CTX_load_verify_locations");
+  void  (*verify)(void*, int, void*)         = dlsym(h, "SSL_CTX_set_verify");
+  if (!method || !paths || !load || !verify) {
+    return false;
+  }
+  void* ctx = gw_tls.ctx_new(method());
   if (ctx == NULL || paths(ctx) != 1) {
     return false;
   }
@@ -448,8 +517,8 @@ static bool gw_tls_load(void) {
   if (ca != NULL && ca[0] != 0 && load(ctx, ca, NULL) != 1) {
     return false;
   }
-  verify(ctx, 1, NULL);              // SSL_VERIFY_PEER
-  ctx_ctrl(ctx, 123, 0x0303, NULL);  // SSL_CTRL_SET_MIN_PROTO_VERSION: TLS 1.2
+  verify(ctx, 1, NULL);                     // SSL_VERIFY_PEER
+  gw_tls.ctx_ctrl(ctx, 123, 0x0303, NULL);  // SSL_CTRL_SET_MIN_PROTO_VERSION: TLS 1.2
   gw_tls.ctx   = ctx;
   gw_tls.state = 1;
   return true;
@@ -465,6 +534,20 @@ static void gw_tls_drop(int fd) {
     gw_tls.ssl_free(ssl);
     gw_tls_ssl[fd] = NULL;
   }
+}
+
+// one close_notify, not waiting for the peer's, then the session is freed
+static void gw_tls_end(int fd) {
+  void* ssl = gw_tls_of(fd);
+  if (ssl != NULL) {
+    gw_tls.shutdown(ssl);
+    gw_tls_drop(fd);
+  }
+}
+
+static void __attribute__((constructor)) gw_tls_hooks(void) {
+  gw_tls_sess     = gw_tls_of;
+  gw_tls_end_hook = gw_tls_end;
 }
 
 #endif
@@ -532,7 +615,8 @@ static void __attribute__((constructor)) gw_tlsc_use(void) {
 
 #endif
 
-#ifdef CID_WIRE_TLS_SEND_TIMEOUT
+#if defined(GW_TLS_ANY) && !defined(GW_TLS_SEND)
+#define GW_TLS_SEND
 
 // SSL_write is retried with the same buffer, as OpenSSL requires.
 static Term gw_tlss_more(Env e, IoWork* w) {
@@ -578,12 +662,16 @@ Term gw_tlss_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) gw_tlss_use(void) {
+  gw_tls_send_hook = gw_tlss_run;
+#ifdef CID_WIRE_TLS_SEND_TIMEOUT
   io_eff(CID_WIRE_TLS_SEND_TIMEOUT, gw_tlss_run, 0);
+#endif
 }
 
 #endif
 
-#ifdef CID_WIRE_TLS_RECV_TIMEOUT
+#if defined(GW_TLS_ANY) && !defined(GW_TLS_RECV)
+#define GW_TLS_RECV
 
 // Some{bytes}; Some{[]} once the peer sends close_notify; None{} past the
 // deadline. A bare EOF, without close_notify, fails ECONNRESET: a body
@@ -621,7 +709,10 @@ Term gw_tlsr_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) gw_tlsr_use(void) {
+  gw_tls_recv_hook = gw_tlsr_run;
+#ifdef CID_WIRE_TLS_RECV_TIMEOUT
   io_eff(CID_WIRE_TLS_RECV_TIMEOUT, gw_tlsr_run, 0);
+#endif
 }
 
 #endif
@@ -630,18 +721,173 @@ static void __attribute__((constructor)) gw_tlsr_use(void) {
 
 // one close_notify, not waiting for the peer's, then the socket
 Term gw_tlsx_run(Env e, Term* f, IoWork* w) {
-  int   fd  = (int)io_hand_v(f[0]);
-  void* ssl = gw_tls_of(fd);
-  if (ssl != NULL) {
-    gw_tls.shutdown(ssl);
-    gw_tls_drop(fd);
-  }
+  int fd = (int)io_hand_v(f[0]);
+  gw_tls_end(fd);
   close(fd);
   return term_pak(CID_UNIT, 0);
 }
 
 static void __attribute__((constructor)) gw_tlsx_use(void) {
   io_eff(CID_WIRE_TLS_CLOSE, gw_tlsx_run, 0);
+}
+
+#endif
+
+#ifdef CID_WIRE_TLS_LISTEN_CTX
+
+// ALPN (RFC 7301): http/1.1 or nothing. A client that offers protocols but
+// not http/1.1 gets no_application_protocol
+static int gw_alpn(void* ssl, const unsigned char** out, unsigned char* outlen,
+  const unsigned char* in, unsigned int inlen, void* arg) {
+  unsigned int i = 0;
+  while (i < inlen) {
+    unsigned int n = in[i];
+    if (i + 1 + n > inlen) {
+      break;
+    }
+    if (n == 8 && memcmp(in + i + 1, "http/1.1", 8) == 0) {
+      *out    = in + i + 1;
+      *outlen = 8;
+      return 0;  // SSL_TLSEXT_ERR_OK
+    }
+    i += 1 + n;
+  }
+  return 2;  // SSL_TLSEXT_ERR_ALERT_FATAL
+}
+
+static Term gw_tlsl_end(Env e, char* cert, char* key, void* ctx, u32 code, const char* why) {
+  free(cert);
+  free(key);
+  if (code != 0) {
+    if (ctx != NULL) {
+      gw_tls.ctx_free(ctx);
+    }
+    return io_fail(e, code, why);
+  }
+  if (gw_tls.srv != NULL) {
+    gw_tls.ctx_free(gw_tls.srv);
+  }
+  gw_tls.srv = ctx;
+  return io_done(e, term_pak(CID_UNIT, 0));
+}
+
+// The server's context (RFC 9325): TLS 1.2 the floor, ECDHE with AES-GCM or
+// ChaCha20 for 1.2, OpenSSL's 1.3 suites, security level 2, no compression,
+// no renegotiation, no 0-RTT, ALPN http/1.1. The chain and key are loaded
+// and matched now, so a bad pair stops the server before it listens
+Term gw_tlsl_run(Env e, Term* f, IoWork* w) {
+  uint64_t cn = 0;
+  uint64_t kn = 0;
+  char* cert = io_cstr(e, f[0], &cn);
+  char* key  = io_cstr(e, f[1], &kn);
+  if (!gw_tls_lib()) {
+    return gw_tlsl_end(e, cert, key, NULL, ENOENT, "TLS needs OpenSSL 3 (libssl.3); set BEND_LIBSSL to its path");
+  }
+  if (io_nul(cert, cn) || io_nul(key, kn) || cn == 0 || kn == 0) {
+    return gw_tlsl_end(e, cert, key, NULL, EINVAL, "TLS: no certificate or key file named");
+  }
+  void* ctx = gw_tls.ctx_new(gw_tls.server_method());
+  if (ctx == NULL) {
+    return gw_tlsl_end(e, cert, key, NULL, ENOMEM, NULL);
+  }
+  if (gw_tls.ctx_ctrl(ctx, 123, 0x0303, NULL) != 1) {  // SSL_CTRL_SET_MIN_PROTO_VERSION
+    return gw_tlsl_end(e, cert, key, ctx, EPROTO, "TLS: cannot require TLS 1.2");
+  }
+  // SSL_OP_NO_COMPRESSION, SSL_OP_CIPHER_SERVER_PREFERENCE, SSL_OP_NO_RENEGOTIATION
+  u64 options = (1ull << 17) | (1ull << 22) | (1ull << 30);
+  if ((gw_tls.set_options(ctx, options) & options) != options) {
+    return gw_tlsl_end(e, cert, key, ctx, EPROTO, "TLS: cannot set server options");
+  }
+  gw_tls.set_level(ctx, 2);
+  if (gw_tls.set_early(ctx, 0) != 1) {
+    return gw_tlsl_end(e, cert, key, ctx, EPROTO, "TLS: cannot disable early data");
+  }
+  gw_tls.set_alpn(ctx, gw_alpn, NULL);
+  if (gw_tls.set_ciphers(ctx, "ECDHE+AESGCM:ECDHE+CHACHA20:!aNULL") != 1) {
+    return gw_tlsl_end(e, cert, key, ctx, EPROTO, "TLS: no cipher suite left");
+  }
+  if (gw_tls.use_chain(ctx, cert) != 1) {
+    return gw_tlsl_end(e, cert, key, ctx, ENOENT, "TLS: cannot load the certificate chain (PEM)");
+  }
+  if (gw_tls.use_key(ctx, key, 1) != 1) {  // SSL_FILETYPE_PEM
+    return gw_tlsl_end(e, cert, key, ctx, ENOENT, "TLS: cannot load the private key (PEM)");
+  }
+  if (gw_tls.check_key(ctx) != 1) {
+    return gw_tlsl_end(e, cert, key, ctx, EINVAL, "TLS: the private key does not match the certificate");
+  }
+  return gw_tlsl_end(e, cert, key, ctx, 0, NULL);
+}
+
+static void __attribute__((constructor)) gw_tlsl_use(void) {
+  io_eff(CID_WIRE_TLS_LISTEN_CTX, gw_tlsl_run, 0);
+}
+
+#endif
+
+#ifdef CID_WIRE_TLS_ACCEPT
+
+// The server's handshake on an accepted socket, by the deadline in w->size
+static Term gw_tlsa_end(Env e, IoWork* w, Term r) {
+  return io_tup(e, io_hand(w->hand), r);
+}
+
+static Term gw_tlsa_more(Env e, IoWork* w) {
+  int   fd  = (int)w->hand;
+  void* ssl = gw_tls_of(fd);
+  int   r   = gw_tls.accept(ssl);
+  if (r == 1) {
+    return gw_tlsa_end(e, w, io_done(e, term_pak(CID_UNIT, 0)));
+  }
+  int err = gw_tls.get_error(ssl, r);
+  if ((err == 2 || err == 3) && io_tick() < w->size) {
+    return io_wait_on(w, fd, err == 2 ? POLLIN : POLLOUT, w->size, gw_tlsa_more);
+  }
+  gw_tls_drop(fd);
+  return gw_tlsa_end(e, w, io_fail(e, err == 2 || err == 3 ? ETIMEDOUT : EPROTO, err == 2 || err == 3 ? NULL : "TLS handshake failed"));
+}
+
+Term gw_tlsa_run(Env e, Term* f, IoWork* w) {
+  w->hand = (intptr_t)io_hand_v(f[0]);
+  w->size = io_tick() + (u64)f[1] * 1000000ull;
+  int fd  = (int)w->hand;
+  if (gw_tls.srv == NULL) {
+    return gw_tlsa_end(e, w, io_fail(e, EINVAL, "TLS: no server context; call wire_tls_listen_ctx first"));
+  }
+  if (fd < 0 || fd >= GW_TLS_FDS) {
+    return gw_tlsa_end(e, w, io_fail(e, EBADF, NULL));
+  }
+  void* ssl = gw_tls.ssl_new(gw_tls.srv);
+  if (ssl == NULL) {
+    return gw_tlsa_end(e, w, io_fail(e, ENOMEM, NULL));
+  }
+  gw_tls_ssl[fd] = ssl;
+  if (gw_tls.set_fd(ssl, fd) != 1) {
+    gw_tls_drop(fd);
+    return gw_tlsa_end(e, w, io_fail(e, EPROTO, "TLS setup failed"));
+  }
+  return gw_tlsa_more(e, w);
+}
+
+static void __attribute__((constructor)) gw_tlsa_use(void) {
+  io_eff(CID_WIRE_TLS_ACCEPT, gw_tlsa_run, 0);
+}
+
+#endif
+
+#ifdef CID_WIRE_CLOSE
+
+// a socket's close: its TLS session first, if it has one
+Term gw_close_run(Env e, Term* f, IoWork* w) {
+  int fd = (int)io_hand_v(f[0]);
+  if (gw_tls_end_hook != NULL) {
+    gw_tls_end_hook(fd);
+  }
+  close(fd);
+  return term_pak(CID_UNIT, 0);
+}
+
+static void __attribute__((constructor)) gw_close_use(void) {
+  io_eff(CID_WIRE_CLOSE, gw_close_run, 0);
 }
 
 #endif
