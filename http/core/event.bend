@@ -2,12 +2,13 @@ import Base
 import ./text.bend as T
 
 # Server-sent events (WHATWG HTML, "Server-sent events", the event stream
-# format): the one Message type the server writes and the client reads, the
-# writer, and the parser.
+# format): the one Message type the server writes and the client reads,
+# the writer, and the parser.
 #
-# The parser reads chars and tests each with Bool predicates only, and it
-# joins data lines with the LF it read: a law can then follow any data
-# through write and back.
+# The parser reads chars one at a time and tests each with Bool
+# predicates only; a data char goes straight to the data, and a data line
+# ends with the LF that ended it on the wire. A law can then follow any
+# data through write and back.
 
 type Message is Data:
   Message{name: String, data: String, id: Maybe<&2, String>}
@@ -30,39 +31,39 @@ def id(e: Message) -> Maybe<&2, String>:
 # Writing
 # -------
 
-def data.char(lf: Bool, +x: U32, out: String) -> String:
+def data.fwd.c(lf: Bool, +x: U32, rest: String) -> String:
   match lf:
     case True{}:
-      String.reverse.go("data: ", SCon{Chr{x}, out})
+      SCon{Chr{x}, String.append("data: ", rest)}
     case False{}:
-      SCon{Chr{x}, out}
+      SCon{Chr{x}, rest}
 
-# data's lines as data: lines, reversed onto out: a LF in data ends one,
-# and is itself the line's end on the wire
-def data.go(s: String, out: String) -> String:
+# data's lines after the first data: , each LF in data ending one line and
+# starting the next; the last line ends with a LF of its own
+def data.fwd(s: String) -> String:
   match s:
     case SNil{}:
-      SCon{'\n', out}
+      "\n"
     case SCon{Chr{+x}, t}:
-      data.go(t, data.char(U32.is_eq(x, 10), x, out))
+      data.fwd.c(U32.is_eq(x, 10), x, data.fwd(t))
 
-def id.line(i: Maybe<&2, String>, out: String) -> String:
+def id.fwd(i: Maybe<&2, String>, rest: String) -> String:
   match i:
     case Some{s}:
-      String.reverse.go("\n", String.reverse.go(s, String.reverse.go("id: ", out)))
+      String.append("id: ", String.append(s, SCon{'\n', rest}))
     case None{}:
-      out
+      rest
 
-# one event, reversed onto out: its name, its data, its id, and the blank
-# line that sends it. A CR in data would end a line, so data should hold LF
-# only; a name or id holds neither
-def write.go(e: Message, out: String) -> String:
+# one event, then rest: its name, its data, its id, and the blank line
+# that sends it. data should hold no CR, which would end a line; a name
+# or an id holds neither CR nor LF
+def write.to(e: Message, rest: String) -> String:
   match e:
     case Message{n, d, i}:
-      String.reverse.go("\n", id.line(i, data.go(d, String.reverse.go("data: ", String.reverse.go("\n", String.reverse.go(n, String.reverse.go("event: ", out)))))))
+      String.append("event: ", String.append(n, SCon{'\n', String.append("data: ", String.append(data.fwd(d), id.fwd(i, SCon{'\n', rest})))}))
 
 def write(e: Message) -> String:
-  String.reverse(write.go(e, ""))
+  write.to(e, "")
 
 # a retry: line, and a comment line (a heartbeat)
 def retry(+ms: U32) -> String:
@@ -74,68 +75,77 @@ def ping() -> String:
 # Parsing
 # -------
 
-# where the parser is: the line so far, reversed; the data so far,
-# reversed, each line followed by the LF that ended it; whether a data line
-# came; the event's name so far; the last id seen; the last retry; whether
-# the char before was a CR; and whether a char has come yet (a BOM at the
-# very start is dropped)
+# the line so far: 0 in the field's name, 1 just after its colon, 2 in
+# its value; the name so far, reversed; the field, once its colon came (1
+# data, 2 event, 3 id, 4 retry, 5 a comment, 0 another); and the value of
+# an event, id or retry field, reversed
+type Ln is Data:
+  Ln{mode: U32, fname: String, fk: U32, v: String}
+
+# the event so far: its data, reversed, each line followed by the LF that
+# ended it; whether a data line came; its name; the last id; the last retry
+type Evs is Data:
+  Evs{d: String, any: Bool, name: String, last: Maybe<&2, String>, retry: Maybe<&2, Nat>}
+
+# where the parser is: the line, the event, whether the char before was a
+# CR, and whether a char has come yet (a BOM at the very start is dropped)
 type P is Data:
-  P{line: String, data: String, any: Bool, name: String, last: Maybe<&2, String>, retry: Maybe<&2, Nat>, cr: Bool, started: Bool}
+  P{ln: Ln, ev: Evs, cr: Bool, started: Bool}
+
+def ln0() -> Ln:
+  Ln{0, "", 0, ""}
 
 def start() -> P:
-  P{"", "", False{}, "", None{}, None{}, False{}, False{}}
+  P{ln0(), Evs{"", False{}, "", None{}, None{}}, False{}, False{}}
 
-# a line cut at its first colon: the field, and the value after it, one
-# space after the colon dropped
-type Fld is Data:
-  Fld{field: String, value: String, colon: Bool}
+# the field a name, reversed, is
+def kind.of(+f: String) -> U32:
+  Bool.pick(U32, T.same(f, "atad", True{}), 1,
+    Bool.pick(U32, T.same(f, "tneve", True{}), 2,
+      Bool.pick(U32, T.same(f, "di", True{}), 3,
+        Bool.pick(U32, T.same(f, "yrter", True{}), 4,
+          Bool.pick(U32, T.same(f, "", True{}), 5, 0)))))
 
-def fld.space(sp: Bool, +x: U32, t: String) -> String:
+# the line and the event after a char
+type Le is Data:
+  Le{ln: Ln, ev: Evs}
+
+def push(+fk: U32, +x: U32, v: String, e: Evs) -> Le:
+  match fk e:
+    case 1 Evs{d, _, n, l, r}:
+      Le{Ln{2, "", 1, v}, Evs{SCon{Chr{x}, d}, True{}, n, l, r}}
+    case 2 other:
+      Le{Ln{2, "", 2, SCon{Chr{x}, v}}, other}
+    case 3 other:
+      Le{Ln{2, "", 3, SCon{Chr{x}, v}}, other}
+    case 4 other:
+      Le{Ln{2, "", 4, SCon{Chr{x}, v}}, other}
+    case _ other:
+      Le{Ln{2, "", fk, v}, other}
+
+def at.colon(hit: Bool, +x: U32, f: String, e: Evs) -> Le:
+  match hit:
+    case True{}:
+      Le{Ln{1, "", kind.of(f), ""}, e}
+    case False{}:
+      Le{Ln{0, SCon{Chr{x}, f}, 0, ""}, e}
+
+def at.space(sp: Bool, +x: U32, +fk: U32, v: String, e: Evs) -> Le:
   match sp:
     case True{}:
-      t
+      Le{Ln{2, "", fk, v}, e}
     case False{}:
-      SCon{Chr{x}, t}
+      push(fk, x, v, e)
 
-def fld.value(s: String) -> String:
-  match s:
-    case SCon{Chr{+x}, t}:
-      fld.space(U32.is_eq(x, 32), x, t)
-    case SNil{}:
-      ""
-
-# a line's chars so far: the field, reversed; the value, reversed; and
-# whether the colon came
-type Fs is Data:
-  Fs{field: String, value: String, colon: Bool}
-
-def fld.step(s: Fs, hit: Bool, +x: U32) -> Fs:
-  match s hit:
-    case Fs{f, v, True{}} _:
-      Fs{f, SCon{Chr{x}, v}, True{}}
-    case Fs{f, v, False{}} True{}:
-      Fs{f, v, True{}}
-    case Fs{f, v, False{}} False{}:
-      Fs{SCon{Chr{x}, f}, v, False{}}
-
-def fld.end(s: Fs) -> Fld:
-  match s:
-    case Fs{f, v, c}:
-      Fld{String.reverse(f), fld.value(String.reverse(v)), c}
-
-def fld.go(s: String, st: Fs) -> Fld:
-  match s:
-    case SNil{}:
-      fld.end(st)
-    case SCon{Chr{+x}, t}:
-      fld.go(t, fld.step(st, U32.is_eq(x, 58), x))
-
-def digits(s: String, +n: Nat, ok: Bool) -> Maybe<&2, Nat>:
-  match s:
-    case SNil{}:
-      Bool.pick(Maybe<&2, Nat>, ok, Some{n}, None{})
-    case SCon{Chr{+x}, t}:
-      digits(t, Nat.add(Nat.mul(10n, n), Nat.sub(U32.to_nat(x), 48n)), Bool.and(ok, Bool.and(U32.is_ge(x, 48), U32.is_le(x, 57))))
+# a char that is not a line end
+def plain(+x: U32, l: Ln, e: Evs) -> Le:
+  match l:
+    case Ln{0, f, _, _}:
+      at.colon(U32.is_eq(x, 58), x, f, e)
+    case Ln{1, _, +fk, v}:
+      at.space(U32.is_eq(x, 32), x, fk, v, e)
+    case Ln{_, _, +fk, v}:
+      push(fk, x, v, e)
 
 def has_nul(s: String, found: Bool) -> Bool:
   match s:
@@ -143,6 +153,13 @@ def has_nul(s: String, found: Bool) -> Bool:
       found
     case SCon{Chr{+x}, t}:
       has_nul(t, Bool.or(found, U32.is_eq(x, 0)))
+
+def digits(s: String, +n: Nat, ok: Bool) -> Maybe<&2, Nat>:
+  match s:
+    case SNil{}:
+      Bool.pick(Maybe<&2, Nat>, ok, Some{n}, None{})
+    case SCon{Chr{+x}, t}:
+      digits(t, Nat.add(Nat.mul(10n, n), Nat.sub(U32.to_nat(x), 48n)), Bool.and(ok, Bool.and(U32.is_ge(x, 48), U32.is_le(x, 57))))
 
 def some.digits(s: String) -> Maybe<&2, Nat>:
   match s:
@@ -165,30 +182,23 @@ def keep.id(nul: Bool, v: String, old: Maybe<&2, String>) -> Maybe<&2, String>:
     case False{}:
       Some{v}
 
-# the parser's event fields, and what one line does to them
-type Acc is Data:
-  Acc{data: String, any: Bool, name: String, last: Maybe<&2, String>, retry: Maybe<&2, Nat>}
+def keep.id.of(+v: String, old: Maybe<&2, String>) -> Maybe<&2, String>:
+  keep.id(has_nul(v, False{}), v, old)
 
-def field.pick(dt: Bool, ev: Bool, i: Bool, rt: Bool, +v: String, +lf: U32, d: String, any: Bool, n: String, last: Maybe<&2, String>, r: Maybe<&2, Nat>) -> Acc:
-  match dt ev i rt:
-    case True{} _ _ _:
-      Acc{SCon{Chr{lf}, String.reverse.go(v, d)}, True{}, n, last, r}
-    case False{} True{} _ _:
-      Acc{d, any, v, last, r}
-    case False{} False{} True{} _:
-      Acc{d, any, n, keep.id(has_nul(v, False{}), v, last), r}
-    case False{} False{} False{} True{}:
-      Acc{d, any, n, last, keep.retry(some.digits(v), r)}
-    case False{} False{} False{} False{}:
-      Acc{d, any, n, last, r}
+# a field's line ended, with the char j that ended it
+def end.field(+fk: U32, v: String, +j: U32, e: Evs) -> Evs:
+  match fk e:
+    case 1 Evs{d, _, n, l, r}:
+      Evs{SCon{Chr{j}, d}, True{}, n, l, r}
+    case 2 Evs{d, a, _, l, r}:
+      Evs{d, a, String.reverse(v), l, r}
+    case 3 Evs{d, a, n, l, r}:
+      Evs{d, a, n, keep.id.of(String.reverse(v), l), r}
+    case 4 Evs{d, a, n, l, r}:
+      Evs{d, a, n, l, keep.retry(some.digits(String.reverse(v)), r)}
+    case _ other:
+      other
 
-def field(k: Fld, +lf: U32, e: Acc) -> Acc:
-  match k e:
-    case Fld{+f, v, _} Acc{d, any, n, last, r}:
-      field.pick(T.same(f, "data", True{}), T.same(f, "event", True{}), T.same(f, "id", True{}), T.same(f, "retry", True{}), v, lf, d, any, n, last, r)
-
-# a blank line: the event, when data came, named message when unnamed; the
-# data without the LF after its last line
 def drop1(s: String) -> String:
   match s:
     case SCon{_, t}:
@@ -202,9 +212,6 @@ def name.or(n: String) -> String:
       "message"
     case other:
       other
-
-type Out is Data:
-  Out{ev: Acc, sent: Maybe<&2, Message>}
 
 type M2 is Data:
   M2{a: Maybe<&2, String>, b: Maybe<&2, String>}
@@ -223,96 +230,96 @@ def m.dup(m: Maybe<&2, String>) -> M2:
     case None{}:
       M2{None{}, None{}}
 
+# the event so far, and the one a blank line sends, if a data line came
+type Out is Data:
+  Out{ev: Evs, sent: Maybe<&2, Message>}
+
 def dispatch.go(d: String, n: String, l: M2, r: Maybe<&2, Nat>) -> Out:
   match l:
     case M2{a, b}:
-      Out{Acc{"", False{}, "", a, r}, Some{Message{name.or(n), String.reverse(drop1(d)), b}}}
+      Out{Evs{"", False{}, "", a, r}, Some{Message{name.or(n), String.reverse(drop1(d)), b}}}
 
-def dispatch(e: Acc) -> Out:
+def dispatch(e: Evs) -> Out:
   match e:
-    case Acc{d, True{}, n, last, r}:
-      dispatch.go(d, n, m.dup(last), r)
-    case Acc{_, False{}, _, last, r}:
-      Out{Acc{"", False{}, "", last, r}, None{}}
+    case Evs{d, True{}, n, l, r}:
+      dispatch.go(d, n, m.dup(l), r)
+    case Evs{_, False{}, _, l, r}:
+      Out{Evs{"", False{}, "", l, r}, None{}}
 
-# a line, and what kind it is: blank, a comment, or a field
-type Lk is Data:
-  Lk{blank: Bool, note: Bool, line: String}
-
-def line.kind(l: String) -> Lk:
+# a line ended by j: a blank one sends the event; a field sets its part
+def line.end(l: Ln, +j: U32, e: Evs) -> Out:
   match l:
-    case SNil{}:
-      Lk{True{}, False{}, SNil{}}
-    case SCon{Chr{+x}, t}:
-      Lk{False{}, U32.is_eq(x, 58), SCon{Chr{x}, t}}
-
-# a whole line, ended by lf: a blank one sends the event, a comment is
-# skipped, another sets a field
-def line.do(k: Lk, +lf: U32, e: Acc) -> Out:
-  match k:
-    case Lk{True{}, _, _}:
+    case Ln{0, SNil{}, _, _}:
       dispatch(e)
-    case Lk{False{}, True{}, _}:
-      Out{e, None{}}
-    case Lk{False{}, False{}, l}:
-      Out{field(fld.go(l, Fs{"", "", False{}}), lf, e), None{}}
-
-def line(l: String, +lf: U32, e: Acc) -> Out:
-  line.do(line.kind(l), lf, e)
+    case Ln{0, +f, _, _}:
+      Out{end.field(kind.of(f), "", j, e), None{}}
+    case Ln{_, _, +fk, v}:
+      Out{end.field(fk, v, j, e), None{}}
 
 # the state and the events so far, newest first
 type Fed is Data:
   Fed{p: P, events: List<&2, Message>}
 
-def fed.out(o: Out, +cr: Bool, events: List<&2, Message>) -> Fed:
+def fed.out(o: Out, +cr: Bool, evs: List<&2, Message>) -> Fed:
   match o:
-    case Out{Acc{d, any, n, last, r}, Some{ev}}:
-      Fed{P{"", d, any, n, last, r, cr, True{}}, Con{ev, events}}
-    case Out{Acc{d, any, n, last, r}, None{}}:
-      Fed{P{"", d, any, n, last, r, cr, True{}}, events}
+    case Out{e, Some{m}}:
+      Fed{P{ln0(), e, cr, True{}}, Con{m, evs}}
+    case Out{e, None{}}:
+      Fed{P{ln0(), e, cr, True{}}, evs}
 
-# one char: a LF or a CR ends the line (a LF right after a CR does not
-# end another); a BOM at the very start is dropped
-def char(lf: Bool, cr: Bool, bom: Bool, +x: U32, p: P, events: List<&2, Message>) -> Fed:
-  match lf cr bom p:
-    case True{} _ _ P{l, d, any, n, last, r, True{}, _}:
-      Fed{P{l, d, any, n, last, r, False{}, True{}}, events}
-    case True{} _ _ P{l, d, any, n, last, r, False{}, _}:
-      fed.out(line(String.reverse(l), x, Acc{d, any, n, last, r}), False{}, events)
-    case False{} True{} _ P{l, d, any, n, last, r, _, _}:
-      fed.out(line(String.reverse(l), 10, Acc{d, any, n, last, r}), True{}, events)
-    case False{} False{} True{} P{l, d, any, n, last, r, c, False{}}:
-      Fed{P{l, d, any, n, last, r, False{}, True{}}, events}
-    case False{} False{} _ P{l, d, any, n, last, r, _, _}:
-      Fed{P{SCon{Chr{x}, l}, d, any, n, last, r, False{}, True{}}, events}
+def fed.le(le: Le, evs: List<&2, Message>) -> Fed:
+  match le:
+    case Le{l, e}:
+      Fed{P{l, e, False{}, True{}}, evs}
 
+def char.plain(bom: Bool, +x: U32, l: Ln, e: Evs, evs: List<&2, Message>) -> Fed:
+  match bom:
+    case True{}:
+      Fed{P{l, e, False{}, True{}}, evs}
+    case False{}:
+      fed.le(plain(x, l, e), evs)
+
+# one char: a LF or a CR ends the line (a LF right after a CR does not end
+# another); a BOM at the very start is dropped
+def char(lf: Bool, cr: Bool, +x: U32, p: P, evs: List<&2, Message>) -> Fed:
+  match lf cr p:
+    case True{} _ P{l, e, True{}, _}:
+      Fed{P{l, e, False{}, True{}}, evs}
+    case True{} _ P{l, e, False{}, _}:
+      fed.out(line.end(l, x, e), False{}, evs)
+    case False{} True{} P{l, e, _, _}:
+      fed.out(line.end(l, 10, e), True{}, evs)
+    case False{} False{} P{l, e, _, +st}:
+      char.plain(Bool.and(Bool.not(st), U32.is_eq(x, 65279)), x, l, e, evs)
+
+# the chars through the parser; events newest first
 def feed.go(s: String, f: Fed) -> Fed:
   match s f:
-    case SNil{} Fed{p, evs}:
-      Fed{p, List.reverse(&2, Message, evs)}
+    case SNil{} other:
+      other
     case SCon{Chr{+x}, t} Fed{p, evs}:
-      feed.go(t, char(U32.is_eq(x, 10), U32.is_eq(x, 13), U32.is_eq(x, 65279), x, p, evs))
+      feed.go(t, char(U32.is_eq(x, 10), U32.is_eq(x, 13), x, p, evs))
+
+def fed.order(f: Fed) -> Fed:
+  match f:
+    case Fed{p, evs}:
+      Fed{p, List.reverse(&2, Message, evs)}
 
 # the chars of a stream through the parser: its new state, and the events
 # they sent, in order
 def feed(s: String, p: P) -> Fed:
-  feed.go(s, Fed{p, []})
+  fed.order(feed.go(s, Fed{p, []}))
 
-def last(p: P) -> Maybe<&2, String>:
-  match p:
-    case P{_, _, _, _, l, _, _, _}:
-      l
-
-def retry.of(p: P) -> Maybe<&2, Nat>:
-  match p:
-    case P{_, _, _, _, _, r, _, _}:
-      r
-
-# the last id and the last retry, together
+# the last id and the last retry
 type Tail is Data:
   Tail{last: Maybe<&2, String>, retry: Maybe<&2, Nat>}
 
 def tail(p: P) -> Tail:
   match p:
-    case P{_, _, _, _, l, r, _, _}:
+    case P{_, Evs{_, _, _, l, r}, _, _}:
       Tail{l, r}
+
+def retry.of(p: P) -> Maybe<&2, Nat>:
+  match p:
+    case P{_, Evs{_, _, _, _, r}, _, _}:
+      r
