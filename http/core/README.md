@@ -29,6 +29,8 @@ def handle(r: Req.Request) -> Res.Response:
 | `cookie.bend` | `get(req, name)`, `set(res, name, value)`, `clear(res, name)`, and HMAC-SHA256 `sign(key, value)` / `verify(key, signed)` |
 | `auth.bend` | strict Bearer and UTF-8 Basic credentials, duplicate detection, `Principal{subject, claims}` |
 | `cors.bend` | CORS allowlist policy, origin decisions, request field inspection and preflight header validation |
+| `content_type.bend` | media type and parameter parsing, including quoted parameter values |
+| `multipart.bend` | binary `multipart/form-data` writer and parser with part and header limits |
 
 Bodies are bytes (`List<U32>`, 0..255). Text goes through `grounds-utf8`.
 
@@ -46,6 +48,12 @@ Bodies are bytes (`List<U32>`, 0..255). Text goes through `grounds-utf8`.
 
 `Cors.Policy{origins, credentials, methods, headers, max_age}` holds serialized allowed origins (or `"*"`), case-sensitive methods, case-insensitive allowed header names, and a preflight cache age in seconds. `Cors.decide` returns `Exact{origin}`, `Any{}` or `Deny{}`; it rejects unsafe Origin field values. `Cors.header_value` validates a requested header list and returns a normalized list from the configured names. The `cors_safe` law proves that exact results come from the allowlist and that wildcard results require an explicit `"*"` with credentials disabled.
 
+## Multipart forms
+
+`Ct.parse(value)` reads a media type and its parameters, including quoted values with semicolons. `Mp.parse(content_type, body, Mp.Limits{max_parts, max_header_bytes, max_headers})` returns parts with raw byte bodies. The header byte and field count limits apply to each part; the server's `max_body_bytes` caps the complete request before it reaches the parser. `Mp.parse` requires a valid `multipart/form-data` boundary, an initial delimiter at the start of the body, and `Content-Disposition: form-data` with one `name` parameter per part. It reports `BadContentType`, `BadBoundary`, `Malformed`, `TooManyParts`, `HeadersTooLarge` or `TooManyHeaders`.
+
+`Mp.write(boundary, parts)` creates the byte body. Use `Mp.make_boundary(value)` to validate a boundary before passing it to the [client builder](../client/README.md#building-a-request). Choose a fresh boundary whose complete delimiter line does not appear in any part body. The `multipart_reads_back` law proves a single canonical part round trips for arbitrary bytes under that condition. Live differential tests against Python's email parser cover multiple parts, optional filenames and content types, quoted boundaries and binary data.
+
 ## Design
 
 - **HTTP knows nothing about JSON.** It deals in bytes, headers, content types and lengths. `http_json` bridges the two, so the server serves protobuf, images or HTML just as well.
@@ -55,8 +63,8 @@ Bodies are bytes (`List<U32>`, 0..255). Text goes through `grounds-utf8`.
 - **Two error levels.** Protocol errors (a bad request line, a bad `Content-Length`, a bad chunk) stay inside HTTP/1.1 and become responses or a closed connection. Applications see only data errors: a JSON decode failure, no route, a bad query.
 - **Limits are explicit.** The server reads a body only up to its configured limit; nothing allocates without bound.
 - **A request is used once.** Bend values are single-use, so an accessor like `Req.path(r)` takes the request whole. To read several parts, match on `Request{method, target, headers, body}`.
-- **Cold baseline.** The basic HTTP helpers keep Strings free of reference counting in `examples/hello.bend`, as `check.sh` verifies. CORS policy lookups currently share Strings and Lists when one policy is checked against several names.
+- **Cold baseline.** The basic HTTP helpers keep Strings free of reference counting in `examples/hello.bend`, as `check.sh` verifies. CORS policy lookups and multipart parsing currently make some String and List constructors reference counted.
 
-`moon run http:check` runs the tests, examples, HMAC vectors checked against Python, and cold checks.
+`moon run http_core:check` runs the tests, examples, HMAC vectors checked against Python, and cold checks.
 
-**Laws.** `LAWS.bend`, proven in `PROOF.bend`: `same_ci` is equality of the lowercased Strings; a header is found under any spelling of its name, and its first value is the one read; a query key's first value is the one read. `set_cookie_clean`: every value `set` writes has no CR or LF. `cors_safe`: the CORS decision never selects an unlisted origin or a wildcard with credentials. `sse_reads_back`: events `write` makes, `feed` reads back as the same names, data and ids, for any name and id with no CR or LF and any data with no CR, `data:` or `id:` text inside it included. `write_joins`: events written one at a time make the same stream as written together.
+**Laws.** `LAWS.bend`, proven in `PROOF.bend`: `same_ci` is equality of the lowercased Strings; a header is found under any spelling of its name, and its first value is the one read; a query key's first value is the one read. `set_cookie_clean`: every value `set` writes has no CR or LF. `cors_safe`: the CORS decision never selects an unlisted origin or a wildcard with credentials. `multipart_reads_back`: one canonical part with arbitrary delimiter-free binary data reads back from its writer output. `sse_reads_back`: events `write` makes, `feed` reads back as the same names, data and ids, for any name and id with no CR or LF and any data with no CR, `data:` or `id:` text inside it included. `write_joins`: events written one at a time make the same stream as written together.

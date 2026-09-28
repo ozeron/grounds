@@ -6,6 +6,7 @@ import ./text.bend as T
 import ./event.bend as Ev
 import ./cookie.bend as Ck
 import ./cors.bend as Cors
+import ./multipart.bend as Mp
 import ../../utf8/utf8.bend as U
 import ./proof/text.bend as P
 
@@ -250,6 +251,88 @@ def cors_clean_safe(check, origins, credentials):
 
 def Laws.cors_safe(origins, credentials, origin):
   cors_clean_safe(Cors.clean.go(origin, True{}, False{}, ""), origins, credentials)
+
+law multipart_end:
+  for +acc: List<&2, U32>
+  {Mp.locate(U.encode("\r\n--b--\r\n"), U.encode("\r\n--b"), acc) == Mp.Located{List.reverse(&2, U32, acc), [], True{}} : Mp.Located}
+
+def multipart_end(acc):
+  {==}
+
+law multipart_absent:
+  for +mark: Mp.Marker
+  for e: {Mp.marker_absent(mark) == True{} : Bool}
+  {mark == Mp.NoMarker{} : Mp.Marker}
+
+def multipart_absent(mark, e):
+  match mark:
+    case Mp.NoMarker{}:
+      {==}
+    case Mp.Next{rest}:
+      P.absurd({Mp.Next{rest} == Mp.NoMarker{} : Mp.Marker}, e)
+    case Mp.Final{rest}:
+      P.absurd({Mp.Final{rest} == Mp.NoMarker{} : Mp.Marker}, e)
+
+law multipart_locate_body:
+  for +body: List<&2, U32>
+  for +acc: List<&2, U32>
+  for +e: {Mp.clean_prefixes(body, U.encode("\r\n--b--\r\n"), U.encode("\r\n--b")) == True{} : Bool}
+  {Mp.locate(List.append(&2, U32, body, U.encode("\r\n--b--\r\n")), U.encode("\r\n--b"), acc) == Mp.Located{List.reverse(&2, U32, List.reverse.go(&2, U32, body, acc)), [], True{}} : Mp.Located}
+
+def multipart_locate_body(body, acc, e):
+  match body:
+    case Nil{}:
+      multipart_end(acc)
+    case Con{+byte, tail}:
+      %Equal.sym(Mp.Marker, Mp.marker(Mp.prefix(U.encode("\r\n--b"), List.append(&2, U32, Con{byte, tail}, U.encode("\r\n--b--\r\n")))), Mp.NoMarker{},
+        multipart_absent(Mp.marker(Mp.prefix(U.encode("\r\n--b"), List.append(&2, U32, Con{byte, tail}, U.encode("\r\n--b--\r\n")))),
+          P.and_true_l(Mp.marker_absent(Mp.marker(Mp.prefix(U.encode("\r\n--b"), List.append(&2, U32, Con{byte, tail}, U.encode("\r\n--b--\r\n"))))),
+            Mp.clean_prefixes(tail, U.encode("\r\n--b--\r\n"), U.encode("\r\n--b")), e))) :
+        {Mp.locate.step(_, acc, Mp.locate(List.append(&2, U32, tail, U.encode("\r\n--b--\r\n")), U.encode("\r\n--b"), Con{byte, acc})) == Mp.Located{List.reverse(&2, U32, List.reverse.go(&2, U32, tail, Con{byte, acc})), [], True{}} : Mp.Located}
+      multipart_locate_body(tail, Con{byte, acc},
+        P.and_true_r(Mp.marker_absent(Mp.marker(Mp.prefix(U.encode("\r\n--b"), List.append(&2, U32, Con{byte, tail}, U.encode("\r\n--b--\r\n"))))),
+          Mp.clean_prefixes(tail, U.encode("\r\n--b--\r\n"), U.encode("\r\n--b")), e))
+
+law multipart_append_nil:
+  for +a: List<&2, U32>
+  {List.append(&2, U32, a, []) == a : List<&2, U32>}
+
+def multipart_append_nil(a):
+  match a:
+    case Nil{}:
+      {==}
+    case Con{+x, t}:
+      Equal.cong(List<&2, U32>, List<&2, U32>, y => Con{x, y}, List.append(&2, U32, t, []), t, multipart_append_nil(t))
+
+law multipart_reverse_go:
+  for +a: List<&2, U32>
+  for +b: List<&2, U32>
+  for +c: List<&2, U32>
+  {List.reverse.go(&2, U32, List.reverse.go(&2, U32, a, b), c) == List.reverse.go(&2, U32, b, List.append(&2, U32, a, c)) : List<&2, U32>}
+
+def multipart_reverse_go(a, b, c):
+  match a:
+    case Nil{}:
+      {==}
+    case Con{+x, t}:
+      multipart_reverse_go(t, Con{x, b}, c)
+
+law multipart_reverse_twice:
+  for +a: List<&2, U32>
+  {List.reverse(&2, U32, List.reverse.go(&2, U32, a, [])) == a : List<&2, U32>}
+
+def multipart_reverse_twice(a):
+  Equal.trans(List<&2, U32>, List.reverse.go(&2, U32, List.reverse.go(&2, U32, a, []), []), List.append(&2, U32, a, []), a,
+    multipart_reverse_go(a, [], []), multipart_append_nil(a))
+
+def Laws.multipart_reads_back(body, e):
+  %Equal.sym(Mp.Located, Mp.locate(List.append(&2, U32, body, U.encode("\r\n--b--\r\n")), U.encode("\r\n--b"), []), Mp.Located{body, [], True{}},
+    Equal.trans(Mp.Located, Mp.locate(List.append(&2, U32, body, U.encode("\r\n--b--\r\n")), U.encode("\r\n--b"), []),
+      Mp.Located{List.reverse(&2, U32, List.reverse.go(&2, U32, body, [])), [], True{}}, Mp.Located{body, [], True{}},
+      multipart_locate_body(body, [], e),
+      Equal.cong(List<&2, U32>, Mp.Located, x => Mp.Located{x, [], True{}}, List.reverse(&2, U32, List.reverse.go(&2, U32, body, [])), body, multipart_reverse_twice(body)))) :
+    {Mp.parse.step(Mp.piece.located(_, Mp.Headers{[H.Header{"content-disposition", "form-data; name=\"x\""}]}), [], rest => parts => Fail{Mp.TooManyParts{}}) == Done{[Mp.Part{"x", None{}, None{}, body}]} : Mp.Parsed}
+  {==}
 
 # Server-sent events
 # ------------------

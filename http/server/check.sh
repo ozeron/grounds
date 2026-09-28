@@ -94,4 +94,8 @@ python3 examples/auth_check.py "$tmp/auth"
 bend examples/cors.bend -o "$tmp/cors" > /dev/null
 python3 examples/cors_check.py "$tmp/cors"
 
+bend examples/multipart.bend -o "$tmp/multipart" > /dev/null
+bend ../client/examples/multipart.bend -o "$tmp/multipart_client" > /dev/null
+python3 examples/multipart_fuzz.py "$tmp/multipart" --count 200 --seed "${SEED:-1}" --client "$tmp/multipart_client"
+
 python3 ../../json/scripts/cold.py "$PWD/examples/hello.bend" "$PWD/examples/stack.bend" "$PWD/examples/stream.bend" "$PWD/examples/tls.bend" "$PWD/examples/redirect.bend" "$PWD/examples/trusted_proxy.bend" "$PWD/examples/auth.bend"

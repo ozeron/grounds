@@ -13,7 +13,7 @@ Specs in this folder: [RFC 9110](rfc9110.txt) (HTTP semantics), [RFC 9112](rfc91
 7. [ ] **http_middleware**: `BodyLimit`, `RequestId`, `Logger`, `Timeout`, `Recover`; later compression, rate limits and forwarded headers. Auth and CORS are complete.
 8. [x] **http_client** (`../client`): one deadline, size limits, a pool with keep-alive, retries, redirects, JSON, streamed downloads, TLS; laws against injection; a response fuzzer and a soak test.
 9. [x] Cookies (RFC 6265, SameSite per 6265bis).
-10. [ ] Later: forms, multipart, streamed request bodies, WebSockets, a cold pool and IPv6.
+10. [ ] Later: streamed request bodies, WebSockets, a cold pool and IPv6. Forms and multipart are available.
 
 ## http, against RFC 9110
 
@@ -31,7 +31,8 @@ Specs in this folder: [RFC 9110](rfc9110.txt) (HTTP semantics), [RFC 9112](rfc91
 - [ ] Field list values: split `a, b` into items for `all` where the header is a list (§5.6.1)
 - [ ] Target forms beyond origin-form: absolute-form, authority-form, asterisk-form (RFC 9112 §3.2)
 - [ ] Path percent-decoding and normalisation, dot segments (RFC 3986 §5.2.4)
-- [ ] `Content-Type` parsing: media type and parameters (§8.3)
+- [x] `Content-Type` parsing: media type and parameters (§8.3)
+- [x] Bounded `multipart/form-data` parsing and client body building (RFC 7578)
 - [ ] Laws: `get` finds the first of repeated names; `set` leaves exactly one; `parse(show(m)) == m`
 
 ## Measured (M1 tests 1 and 2)

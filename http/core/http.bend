@@ -9,6 +9,8 @@ import ./text.bend as T
 import ./cookie.bend as Ck
 import ./auth.bend as Auth
 import ./cors.bend as Cors
+import ./content_type.bend as Ct
+import ./multipart.bend as Mp
 
 # grounds-http-core's entry: publishing it bundles every module; import the one
 # you need, e.g. 0x…/http/request.bend

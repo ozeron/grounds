@@ -10,6 +10,7 @@ import ../core/text.bend as T
 import ../../utf8/utf8.bend as U
 import ../../json/json.bend as J
 import ../core/event.bend as Ev
+import ../core/multipart.bend as Mp
 
 # grounds-http-client: HTTP/1.1 requests to other services, over TCP or
 # TLS.
@@ -1060,6 +1061,16 @@ def empty() -> Body:
 # the pairs percent-encoded, as application/x-www-form-urlencoded
 def form(kv: Kv()) -> Body:
   Form{kv}
+
+def multipart.valid(+boundary: String, parts: List<&2, Mp.Part>) -> Body:
+  Bytes{"multipart/form-data; boundary=\"" ++ s.copy(boundary, "") ++ "\"", Mp.write(boundary, parts)}
+
+# Obtain a validated boundary with Mp.make_boundary. Choose a fresh random
+# value absent from part bodies; the explicit boundary keeps this builder pure.
+def multipart(boundary: Mp.Boundary, parts: List<&2, Mp.Part>) -> Body:
+  match boundary:
+    case Mp.Boundary{value}:
+      multipart.valid(value, parts)
 
 def show(e: Err) -> String:
   match e:

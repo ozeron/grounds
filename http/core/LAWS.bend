@@ -5,6 +5,8 @@ import ./text.bend as T
 import ./event.bend as Ev
 import ./cookie.bend as Ck
 import ./cors.bend as Cors
+import ./multipart.bend as Mp
+import ../../utf8/utf8.bend as U
 import ./proof/text.bend as P
 
 # Laws grounds-http-core must keep. `bend PROOF.bend` fails while any is open or false.
@@ -46,6 +48,14 @@ law cors_safe:
   for +credentials: Bool
   for +origin: String
   {Cors.safe(Cors.decide(origins, credentials, origin), origins, credentials) == True{} : Bool}
+
+# A canonical single-part form round trips for any binary body that does not
+# contain a complete delimiter line. Multi-part and metadata variation are
+# checked by the differential fuzzer.
+law multipart_reads_back:
+  for +body: List<&2, U32>
+  for e: {Mp.clean_prefixes(body, U.encode("\r\n--b--\r\n"), U.encode("\r\n--b")) == True{} : Bool}
+  {Mp.parse("multipart/form-data; boundary=b", Mp.write("b", [Mp.Part{"x", None{}, None{}, body}]), Mp.Limits{1n, 128n, 2n}) == Done{[Mp.Part{"x", None{}, None{}, body}]} : Mp.Parsed}
 
 # Server-sent events (WHATWG HTML, the event stream format)
 # ------------------

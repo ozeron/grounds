@@ -10,6 +10,8 @@ import ./text.bend as T
 import ./cookie.bend as Ck
 import ./auth.bend as Auth
 import ./cors.bend as Cors
+import ./content_type.bend as Ct
+import ./multipart.bend as Mp
 
 # each def is a test: it checks only if both sides compute to the same value
 
@@ -161,6 +163,36 @@ def cors_headers_reject_empty_member() -> {Cors.header_value("X-Token,", ["x-tok
   {==}
 
 def cors_observe_keeps_request() -> {Cors.observe(Req.Request{M.MGet{}, "/", [H.Header{"Origin", "https://a.example"}], []}) == Cors.Observed{Cors.One{"https://a.example"}, Cors.Absent{}, Cors.Absent{}, Req.Request{M.MGet{}, "/", [H.Header{"Origin", "https://a.example"}], []}} : Cors.Observed}:
+  {==}
+
+def content_type_parameters() -> {Ct.parse("multipart/form-data; boundary=\"a;b\"; CHARSET=UTF-8") == Some{Ct.Media{"multipart/form-data", [Ct.Param{"boundary", "a;b"}, Ct.Param{"charset", "UTF-8"}]}} : Maybe<&2, Ct.Media>}:
+  {==}
+
+def content_type_rejects_unclosed_quote() -> {Ct.parse("multipart/form-data; boundary=\"a;b") == None{} : Maybe<&2, Ct.Media>}:
+  {==}
+
+def multipart_one_part() -> {Mp.parse("multipart/form-data; boundary=abc", Mp.write("abc", [Mp.Part{"field", None{}, None{}, [65, 0, 66]}]), Mp.Limits{2n, 1024n, 8n}) == Done{[Mp.Part{"field", None{}, None{}, [65, 0, 66]}]} : Mp.Parsed}:
+  {==}
+
+def multipart_part_limit() -> {Mp.parse("multipart/form-data; boundary=abc", Mp.write("abc", [Mp.Part{"a", None{}, None{}, [49]}, Mp.Part{"b", None{}, None{}, [50]}]), Mp.Limits{1n, 1024n, 8n}) == Fail{Mp.TooManyParts{}} : Mp.Parsed}:
+  {==}
+
+def multipart_quoted_boundary() -> {Mp.parse("multipart/form-data; boundary=\"abc\"", Mp.write("abc", [Mp.Part{"a", None{}, None{}, [49]}]), Mp.Limits{2n, 1024n, 8n}) == Done{[Mp.Part{"a", None{}, None{}, [49]}]} : Mp.Parsed}:
+  {==}
+
+def multipart_header_byte_limit() -> {Mp.parse("multipart/form-data; boundary=abc", Mp.write("abc", [Mp.Part{"a", None{}, None{}, [49]}]), Mp.Limits{2n, 10n, 8n}) == Fail{Mp.HeadersTooLarge{}} : Mp.Parsed}:
+  {==}
+
+def multipart_header_count_limit() -> {Mp.parse("multipart/form-data; boundary=abc", Mp.write("abc", [Mp.Part{"a", None{}, None{}, [49]}]), Mp.Limits{2n, 1024n, 0n}) == Fail{Mp.TooManyHeaders{}} : Mp.Parsed}:
+  {==}
+
+def multipart_marker_like_body() -> {Mp.parse("multipart/form-data; boundary=abc", Mp.write("abc", [Mp.Part{"a", None{}, None{}, [13, 10, 45, 45, 97, 98, 99, 88, 13, 10]}]), Mp.Limits{2n, 1024n, 8n}) == Done{[Mp.Part{"a", None{}, None{}, [13, 10, 45, 45, 97, 98, 99, 88, 13, 10]}]} : Mp.Parsed}:
+  {==}
+
+def multipart_unicode_name() -> {Mp.parse("multipart/form-data; boundary=abc", Mp.write("abc", [Mp.Part{"café", Some{"cup ☕.txt"}, Some{"application/octet-stream"}, [0, 255]}]), Mp.Limits{2n, 1024n, 8n}) == Done{[Mp.Part{"café", Some{"cup ☕.txt"}, Some{"application/octet-stream"}, [0, 255]}]} : Mp.Parsed}:
+  {==}
+
+def multipart_rejects_bad_boundary() -> {Mp.parse("multipart/form-data; boundary=\"a;b\"", [], Mp.Limits{2n, 1024n, 8n}) == Fail{Mp.BadBoundary{}} : Mp.Parsed}:
   {==}
 
 # DevX helpers

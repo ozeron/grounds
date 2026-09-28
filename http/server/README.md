@@ -24,6 +24,7 @@ def main() -> IO(Unit):
 - **Timeouts:** an idle connection closes after `idle_ms` without a byte. Once a request's first bytes arrive, its head and body must all arrive within `request_ms`, else it gets 408 and the connection closes. A client that trickles one byte at a time cannot hold a connection. Each response write must also go out within `request_ms`.
 - **Graceful stop:** on SIGTERM or SIGINT the server stops accepting and closes idle connections. Requests under way finish, and their responses say `connection: close`. `serve` returns once no connection is left. After `drain_ms` it exits anyway and says how many connections it cut.
 - **Bodies:** a request body can be framed by Content-Length or by chunked coding. A request with both is refused with 400, which prevents smuggling. Any other Transfer-Encoding gets 501.
+- **Multipart:** `core/multipart.bend` parses a completed `multipart/form-data` body into byte-exact parts. Pass `Mp.Limits{max_parts, max_header_bytes, max_headers}`; the server's `max_body_bytes` limits the total body before parsing. `examples/multipart.bend` shows the handler.
 - **Concurrency:** each connection runs on its own (`IO.spawn`), so a slow client does not hold up the others.
 - **Keep-alive:** a connection reads requests one after another, including pipelined ones. It closes on `Connection: close`, on HTTP/1.0 without `keep-alive`, after `max_requests`, when the client closes, or during a stop. The last response says `connection: close`.
 - **Refusals:** a malformed request gets its status (400, 413, 431, 501 or 505) with the reason as text, and the connection closes. The handler never sees it.
@@ -105,4 +106,5 @@ Server.serve(~Mw.logger(~Mw.request_id(~Mw.body_limit(~small, ~Mw.recover(~app))
 9. Serves the TLS and redirect examples: trusted curl, certificate and host rejection, ALPN, TLS 1.1 rejection, handshake deadline, protocol-header stripping, trusted proxy opt-in, HSTS and 308 redirect.
 10. Serves `examples/auth.bend` and checks Bearer and Basic success, challenges, malformed credentials, duplicate fields and removal of Authorization before the handler.
 11. Serves `examples/cors.bend` and checks exact and denied origins, credentials, 204 preflight, `Vary`, method and header allowlists.
-12. Runs the cold check on the existing examples and auth. CORS's repeated policy lookups currently make String and List constructors reference counted.
+12. Serves `examples/multipart.bend`, compares 200 generated requests with Python's email parser, checks part and header limits, and sends a binary part from the client builder.
+13. Runs the cold check on the existing examples and auth. CORS policy lookups and multipart parsing currently make some String and List constructors reference counted.

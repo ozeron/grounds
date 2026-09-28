@@ -46,8 +46,11 @@ A request is a value. Build it, then send it.
 | `json(j)` | `J.encode(j)`, as `application/json`, with `accept: application/json` |
 | `form(kv)` | the pairs percent-encoded, as `application/x-www-form-urlencoded` |
 | `bytes(kind, bs)` | the bytes as they are, with Content-Type `kind` |
+| `multipart(boundary, parts)` | binary `multipart/form-data`, with a validated `Mp.Boundary` |
 
 `kv` is a list of `(name, value)` pairs. A body's Content-Type, and `json`'s Accept, are added only when the headers have none.
+
+For multipart, import `../core/multipart.bend as Mp`, construct parts as `Mp.Part{name, filename, kind, body}`, and pass a boundary returned by `Mp.make_boundary(value)` to `C.multipart`. Each part body is a byte list; `filename` and `kind` are optional. Choose a fresh boundary whose delimiter line does not occur in a body. `examples/multipart.bend` sends a binary file part to the server example.
 
 ## Sending
 
@@ -92,7 +95,7 @@ x <- Pool.with(C.R(Item), cfg, 8, p => Pool.send_json(Item, p, C.get("http://ite
 - **TLS:** `https://` urls use OpenSSL 3, loaded at run time. The certificate chain and the host name are always checked, and TLS 1.2 is the floor. `GROUNDS_TLS_CA` names a PEM file to trust as well as the system's roots.
 - **Framing:** a response is read by Content-Length, chunked coding, or to the close when it has neither. Up to 8 1xx responses are skipped. There is no body after HEAD, or on a 204 or 304.
 - **Safety:** you cannot set Host, Content-Length, Transfer-Encoding or Connection; the client writes them. A header with CR, LF or NUL in its name or value is dropped. A url whose target or host has one is `BadUrl`.
-- **Counting:** programs that use only `C` are cold: no value is reference counted. A pool passes its connections through a channel, and a channel counts what it carries, so a program that uses `Pool` is partly counted. Measured on 5000 local GETs: one-shot requests run 1–14% slower in a program that also uses a pool, and the pool is about 1.8× faster than one-shot, from keep-alive.
+- **Counting:** the basic one-shot request examples are cold: no value is reference counted. The multipart builder makes some String constructors reference counted. A pool passes its connections through a channel, and a channel counts what it carries, so a program that uses `Pool` is partly counted. Measured on 5000 local GETs: one-shot requests run 1–14% slower in a program that also uses a pool, and the pool is about 1.8× faster than one-shot, from keep-alive.
 
 ## Laws
 
