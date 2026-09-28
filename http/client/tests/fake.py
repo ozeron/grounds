@@ -252,6 +252,62 @@ def tls_serve(dirname):
 
 KEPT = [(7311, keep), (7312, one_each), (7313, flaky), (7314, redirects), (7316, jsons)]
 
+
+# An event stream, for events and events_retry
+# --------------------------------------------
+
+def sse_head(conn, ctype=b"text/event-stream", code=b"200 OK"):
+    conn.sendall(b"HTTP/1.1 " + code + b"\r\nContent-Type: " + ctype + b"\r\nCache-Control: no-cache\r\n\r\n")
+
+
+def trickle(conn, data):
+    for i in range(len(data)):
+        conn.sendall(data[i:i + 1])
+
+
+def events(conn):
+    try:
+        head = read_head(conn)
+        target = head.split(b" ")[1].decode()
+        last = None
+        for l in head.split(b"\r\n"):
+            if l.lower().startswith(b"last-event-id:"):
+                last = l.split(b":", 1)[1].strip().decode()
+        accept = b"accept: text/event-stream" in head.lower()
+        if target == "/ev":
+            sse_head(conn)
+            trickle(conn, ("\ufeff: hello\n\nevent: greet\r\ndata: h\u00e9llo \u20ac\r\ndata: line two\r\nid: 1\r\n\r\n"
+                           "data: no name\rid: 2\r\r: ping\n\n"
+                           "data: carries id 2\n\n"
+                           "event: x\ndata\n\n"
+                           "data: accept " + ("yes" if accept else "no") + "\n\n").encode())
+        elif target == "/stop":
+            sse_head(conn)
+            n = 0
+            while n < 100:
+                n += 1
+                conn.sendall(f"id: {n}\ndata: {n}\n\n".encode())
+                time.sleep(0.02)
+        elif target == "/html":
+            conn.sendall(b"HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: 2\r\n\r\nhi")
+        elif target == "/404":
+            conn.sendall(b"HTTP/1.1 404 Not Found\r\nContent-Length: 4\r\n\r\nnope")
+        elif target == "/drop":
+            sse_head(conn)
+            if last is None:
+                conn.sendall(b"retry: 50\nid: 1\ndata: one\n\nid: 2\ndata: two\n\n")
+            else:
+                k = int(last) + 1
+                conn.sendall(f"id: {k}\ndata: resumed after {last}\n\n".encode())
+        conn.shutdown(socket.SHUT_WR)
+        time.sleep(0.2)
+    except OSError:
+        pass
+    conn.close()
+
+
+KEPT.append((7317, events))
+
 for i, (name, fault) in enumerate(FAULTS):
     threading.Thread(target=serve, args=(BASE + i, fault), daemon=True).start()
 for port, fault in KEPT:

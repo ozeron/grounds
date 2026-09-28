@@ -1,4 +1,5 @@
 import Base
+import ./event.bend as Ev
 import ./method.bend as M
 import ./status.bend as S
 import ./headers.bend as H
@@ -119,4 +120,51 @@ def round_trip_patch() -> {M.parse(M.show(M.MPatch{})) == M.MPatch{} : M.Method}
   {==}
 
 def other_name() -> {M.show(M.MOther{"BREW"}) == "BREW" : String}:
+  {==}
+
+# server-sent events
+
+def fed.es(f: Ev.Fed) -> List<&2, Ev.Message>:
+  match f:
+    case Ev.Fed{_, es}:
+      es
+
+def evs(s: String) -> List<&2, Ev.Message>:
+  fed.es(Ev.feed(s, Ev.start()))
+
+def ev_round_trip() -> {evs(Ev.write(Ev.Message{"tick", "a\nb", Some{"7"}})) == [Ev.Message{"tick", "a\nb", Some{"7"}}] : List<&2, Ev.Message>}:
+  {==}
+
+def ev_data_like_fields() -> {evs(Ev.write(Ev.Message{"x", "data: y\nid: 9", None{}})) == [Ev.Message{"x", "data: y\nid: 9", None{}}] : List<&2, Ev.Message>}:
+  {==}
+
+def ev_defaults() -> {evs("data: hi\n\n") == [Ev.Message{"message", "hi", None{}}] : List<&2, Ev.Message>}:
+  {==}
+
+def ev_crlf_cr() -> {evs("data: a\r\ndata: b\rid: 1\r\n\r\n") == [Ev.Message{"message", "a\nb", Some{"1"}}] : List<&2, Ev.Message>}:
+  {==}
+
+def ev_bom_comment() -> {evs("\u{feff}: ping\n\ndata:x\n\n") == [Ev.Message{"message", "x", None{}}] : List<&2, Ev.Message>}:
+  {==}
+
+def ev_id_carries() -> {evs("id: 5\ndata: a\n\ndata: b\n\n") == [Ev.Message{"message", "a", Some{"5"}}, Ev.Message{"message", "b", Some{"5"}}] : List<&2, Ev.Message>}:
+  {==}
+
+def ev_no_data() -> {evs("event: x\n\ndata\n\n") == [Ev.Message{"message", "", None{}}] : List<&2, Ev.Message>}:
+  {==}
+
+def rest.evs(f: Ev.Fed) -> List<&2, Ev.Message>:
+  match f:
+    case Ev.Fed{p, _}:
+      fed.es(Ev.feed("b\n\n", p))
+
+def ev_split() -> {rest.evs(Ev.feed("data: a", Ev.start())) == [Ev.Message{"message", "ab", None{}}] : List<&2, Ev.Message>}:
+  {==}
+
+def fed.p(f: Ev.Fed) -> Ev.P:
+  match f:
+    case Ev.Fed{p, _}:
+      p
+
+def ev_retry() -> {Ev.retry.of(fed.p(Ev.feed("retry: 250\n\n", Ev.start()))) == Some{250n} : Maybe<&2, Nat>}:
   {==}

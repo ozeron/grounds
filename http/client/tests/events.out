@@ -1,0 +1,36 @@
+a stream, a byte at a time
+  greet | héllo €\nline two | 1
+  message | no name | 2
+  message | carries id 2 | 2
+  x |  | 2
+  message | accept yes | 2
+ended: last id 2, 0 reconnects
+stop at the third
+  message | 1 | 1
+  message | 2 | 2
+  message | 3 | 3
+ended: last id 3, 0 reconnects
+not an event stream
+error: not an event stream: text/html
+a 404
+error: status 404: nope
+reconnecting, twice
+  message | one | 1
+  message | two | 2
+  message | resumed after 2 | 3
+  message | resumed after 3 | 4
+ended: last id 4, 2 reconnects
+no reconnect after a 404
+error: status 404: nope
+through a pool
+  greet | héllo €\nline two | 1
+  message | no name | 2
+  message | carries id 2 | 2
+  x |  | 2
+  message | accept yes | 2
+ended: last id 2, 0 reconnects
+through a pool, reconnecting
+  message | one | 1
+  message | two | 2
+  message | resumed after 2 | 3
+ended: last id 3, 1 reconnects

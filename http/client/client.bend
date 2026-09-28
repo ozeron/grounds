@@ -9,6 +9,7 @@ import ../core/response.bend as Res
 import ../core/text.bend as T
 import ../../utf8/utf8.bend as U
 import ../../json/json.bend as J
+import ../core/event.bend as Ev
 
 # grounds-http-client: HTTP/1.1 requests to other services, over TCP or
 # TLS.
@@ -94,6 +95,7 @@ type Out is Type:
   Keep{acc: List<&2, B.Bytes>}
   Each{}
   Stopped{}
+  Sse{st: Ev.P, pend: List<&2, U32>, stop: Bool}
 
 # a request, as a value: send runs it. key marks it safe to retry, and is
 # sent as idempotency-key
@@ -700,6 +702,8 @@ def done(o: Out, s: Socket, +tls: Bool, m: Meta) -> IO(Ex):
   match o:
     case Stopped{}:
       IO.pure(Ex, Got{s, tls, done.meta(m, True{}), Stopped{}})
+    case Sse{st, p, True{}}:
+      IO.pure(Ex, Got{s, tls, done.meta(m, True{}), Sse{st, p, True{}}})
     case other:
       IO.pure(Ex, Got{s, tls, m, other})
 
@@ -733,6 +737,8 @@ def is_cut.keep(o: Out) -> Cutq:
   match o:
     case Stopped{}:
       Cutq{True{}, Stopped{}}
+    case Sse{st, p, True{}}:
+      Cutq{True{}, Sse{st, p, True{}}}
     case other:
       Cutq{False{}, other}
 
@@ -1766,3 +1772,381 @@ def spec.origin(sp: Spec) -> Orig:
       origin.of(s.dup(h), v, tls, port, t, au, hs, b, pl)
     case Spec{v, UBad{e}, hs, b, pl}:
       Orig{"", Spec{v, UBad{e}, hs, b, pl}}
+
+# Server-sent events
+# ------------------
+
+# the end of an event stream: the last id it sent, and how many times it
+# was reconnected
+type Ended is Data:
+  Ended{last_id: Maybe<&2, String>, reconnects: U32}
+
+def event.name(e: Ev.Message) -> String:
+  Ev.name(e)
+
+def event.data(e: Ev.Message) -> String:
+  Ev.data(e)
+
+def event.id(e: Ev.Message) -> Maybe<&2, String>:
+  Ev.id(e)
+
+# the bytes up to the last line end, and the rest: a line end byte is
+# never inside a UTF-8 char, so the first part decodes whole
+type Cutb is Data:
+  Cutb{done: List<&2, U32>, rest: List<&2, U32>}
+
+def cut.into(found: Bool, +b: U32, rest: List<&2, U32>, done: List<&2, U32>) -> Cutb:
+  match found:
+    case True{}:
+      Cutb{Con{b, done}, rest}
+    case False{}:
+      Cutb{done, Con{b, rest}}
+
+# walking back from the last byte: those before the last line end, and it,
+# are done; those after it are the rest
+def cut.go(rev: List<&2, U32>, c: Cutb, +found: Bool) -> Cutb:
+  match rev c:
+    case Nil{} _:
+      c
+    case Con{+b, t} Cutb{done, rest}:
+      cut.go(t, cut.into(Bool.or(found, Bool.or(U32.is_eq(b, 10), U32.is_eq(b, 13))), b, rest, done), Bool.or(found, Bool.or(U32.is_eq(b, 10), U32.is_eq(b, 13))))
+
+def cut.back(rev: List<&2, U32>, rest: List<&2, U32>) -> Cutb:
+  cut.go(rev, Cutb{[], rest}, False{})
+
+def decoded(t: U.Text) -> String:
+  match t:
+    case U.TOk{s}:
+      s
+    case U.TBad{_, before}:
+      String.reverse(before)
+
+# each event to on, in order, until on answers False
+def sse.each(~on: Ev.Message -> IO(Bool), es: List<&2, Ev.Message>, go: Bool) -> IO(Bool):
+  match es go:
+    case Nil{} g:
+      IO.pure(Bool, g)
+    case Con{e, t} True{}:
+      IO.bind(Bool, Bool, on(e), g => sse.each(~on, t, g))
+    case Con{_, _} False{}:
+      IO.pure(Bool, False{})
+
+def sse.sent(go: Bool, st: Ev.P, rest: List<&2, U32>) -> Out:
+  Sse{st, rest, Bool.not(go)}
+
+def sse.fed(~on: Ev.Message -> IO(Bool), f: Ev.Fed, rest: List<&2, U32>) -> IO(Out):
+  match f:
+    case Ev.Fed{st, es}:
+      IO.bind(Bool, Out, sse.each(~on, es, True{}), go => IO.pure(Out, sse.sent(go, st, rest)))
+
+def sse.cut(~on: Ev.Message -> IO(Bool), c: Cutb, st: Ev.P) -> IO(Out):
+  match c:
+    case Cutb{done, rest}:
+      sse.fed(~on, Ev.feed(decoded(U.decode(done)), st), rest)
+
+# data through the event parser, its events to on
+def sse(~on: Ev.Message -> IO(Bool), o: Out, bs: B.Bytes) -> IO(Out):
+  match o:
+    case Sse{st, pend, False{}}:
+      sse.cut(~on, cut.back(List.reverse(&2, U32, List.append(&2, U32, pend, B.to_list(bs))), []), st)
+    case other:
+      IO.pure(Out, other)
+
+# a head's Content-Type, copied, and the headers back
+type Ct is Data:
+  Ct{hs: List<&2, H.Header>, kind: Maybe<&2, String>}
+
+def ct.step(hit: Bool, n: String, v: Str2, c: Ct) -> Ct:
+  match hit v c:
+    case True{} Str2{a, b} Ct{acc, None{}}:
+      Ct{Con{H.Header{n, a}, acc}, Some{b}}
+    case _ Str2{a, _} Ct{acc, k}:
+      Ct{Con{H.Header{n, a}, acc}, k}
+
+def ct.end(c: Ct) -> Ct:
+  match c:
+    case Ct{acc, k}:
+      Ct{List.reverse(&2, H.Header, acc), k}
+
+def ct.scan(hs: List<&2, H.Header>, c: Ct) -> Ct:
+  match hs:
+    case Nil{}:
+      ct.end(c)
+    case Con{H.Header{+n, v}, t}:
+      ct.scan(t, ct.step(T.same_ci(n, "content-type", True{}), n, s.dup(v), c))
+
+def starts.ci(s: String, p: String) -> Bool:
+  match s p:
+    case _ SNil{}:
+      True{}
+    case SCon{Chr{+x}, st} SCon{Chr{+y}, pt}:
+      Bool.and(U32.is_eq(H1.lower(x), H1.lower(y)), starts.ci(st, pt))
+    case SNil{} SCon{_, _}:
+      False{}
+
+type Ck is Data:
+  Ck{ok: Bool, kind: String}
+
+def ck.of(k: Maybe<&2, String>) -> Ck:
+  match k:
+    case Some{+s}:
+      Ck{starts.ci(s, "text/event-stream"), s}
+    case None{}:
+      Ck{False{}, "(none)"}
+
+def ev.typed(~on: Ev.Message -> IO(Bool), k: Ck, hs: List<&2, H.Header>, fr: H1.Framing, s: Socket, +tls: Bool, rest: B.Bytes, +code: U32, +reuse: Bool, +lim: Lim) -> IO(Ex):
+  match k:
+    case Ck{True{}, _}:
+      body(~sse(~on), fr, s, tls, rest, Sse{Ev.start(), [], False{}}, Meta{code, hs, reuse}, lim)
+    case Ck{False{}, kind}:
+      lost(tls, s, NotEvents{kind}, False{}, Keep{[]})
+
+def ev.body(~on: Ev.Message -> IO(Bool), ok: Bool, c: Ct, fr: H1.Framing, s: Socket, +tls: Bool, rest: B.Bytes, +code: U32, +reuse: Bool, +lim: Lim) -> IO(Ex):
+  match ok c:
+    case False{} Ct{hs, _}:
+      body(~keep, fr, s, tls, rest, Keep{[]}, Meta{code, hs, reuse}, lim.with_max(lim, 1048576n))
+    case True{} Ct{hs, k}:
+      ev.typed(~on, ck.of(k), hs, fr, s, tls, rest, code, reuse, lim)
+
+def ev.hx(~on: Ev.Message -> IO(Bool), h: Hd, +lim: Lim) -> IO(Ex):
+  match h:
+    case HGot{s, +tls, H1.Head{+code, hs, fr, +reuse, rest}}:
+      ev.body(~on, Bool.and(U32.is_ge(code, 200), U32.is_lt(code, 300)), ct.scan(hs, Ct{[], None{}}), fr, s, tls, rest, code, reuse, lim)
+    case HGot{s, +tls, _}:
+      lost(tls, s, BadResponse{}, False{}, Keep{[]})
+    case HLost{e, st}:
+      IO.pure(Ex, Lost{e, st, Keep{[]}})
+
+# one event stream on an open connection
+def ev.x(~on: Ev.Message -> IO(Bool), s: Socket, +tls: Bool, req: B.Bytes, +lim: Lim) -> IO(Ex):
+  do IO<Ex>:
+    +now : Nat <- IO.now()
+    m : RU() <- send.of(tls, s, B.to_list(req), lim.left(lim, now))
+    h : Hd <- stream.polled(tls, lim, m)
+    ev.hx(~on, h, lim)
+
+# how one try at an event stream ended: an error or None when the stream
+# ended; the last id and retry it sent; whether on asked to stop
+type Try is Data:
+  Try{err: Maybe<&2, Err>, last: Maybe<&2, String>, retry: Maybe<&2, Nat>, stopped: Bool}
+
+type EvPart is Type:
+  EvPart{try: Try, conn: Conn}
+
+def ok.err(r: RR()) -> Maybe<&2, Err>:
+  match r:
+    case Done{_}:
+      Some{BadResponse{}}
+    case Fail{e}:
+      Some{e}
+
+def ev.try(t: Ev.Tail, e: Maybe<&2, Err>, +stop: Bool) -> Try:
+  match t:
+    case Ev.Tail{l, r}:
+      Try{e, l, r, stop}
+
+def ev.part(e: Ex) -> EvPart:
+  match e:
+    case Got{s, tls, Meta{_, _, r}, Sse{st, _, +stop}}:
+      EvPart{ev.try(Ev.tail(st), None{}, stop), Conn{s, tls, Bool.and(r, Bool.not(stop))}}
+    case Got{s, tls, Meta{c, hs, _}, o}:
+      EvPart{Try{ok.err(ok.of(Done{response(Meta{c, hs, False{}}, o)})), None{}, None{}, False{}}, Conn{s, tls, False{}}}
+    case Lost{err, _, Sse{st, _, _}}:
+      EvPart{ev.try(Ev.tail(st), Some{err}, False{}), NoConn{}}
+    case Lost{err, _, _}:
+      EvPart{Try{Some{err}, None{}, None{}, False{}}, NoConn{}}
+
+def ev.done(p: EvPart) -> IO(Try):
+  match p:
+    case EvPart{t, c}:
+      IO.bind(Unit, Try, conn.close(c), u => IO.pure(Try, t))
+
+def ev.opened(~on: Ev.Message -> IO(Bool), o: Opened, req: B.Bytes, +lim: Lim) -> IO(Try):
+  match o:
+    case Opened{s, +tls}:
+      IO.bind(Ex, Try, ev.x(~on, s, tls, req, lim), e => ev.done(ev.part(e)))
+    case NotOpened{e}:
+      IO.pure(Try, Try{Some{e}, None{}, None{}, False{}})
+
+# the request an event stream sends: text/event-stream, no cache, and the
+# id to resume from
+def ev.hs(last: Maybe<&2, String>) -> List<&2, H.Header>:
+  match last:
+    case Some{i}:
+      [H.Header{"accept", "text/event-stream"}, H.Header{"cache-control", "no-cache"}, H.Header{"last-event-id", i}]
+    case None{}:
+      [H.Header{"accept", "text/event-stream"}, H.Header{"cache-control", "no-cache"}]
+
+def ev.spec(~on: Ev.Message -> IO(Bool), sp: Spec, last: Maybe<&2, String>, +ms: U32, mh: U32, +dl: Nat) -> IO(Try):
+  match sp:
+    case Spec{Verb{name, +head, sized, _}, Url{+tls, host, +port, target, auth}, hs, b, _}:
+      IO.bind(Opened, Try, open(tls, host, port, dl), o => ev.opened(~on, o, H1.write_request(name, target, auth, List.append(&2, H.Header, hs.clean(hs, []), ev.hs(last)), b, sized, True{}), lim.stream(dl, ms, mh, head)))
+    case Spec{_, UBad{e}, _, _, _}:
+      IO.pure(Try, Try{Some{e}, None{}, None{}, False{}})
+
+def ev.end(t: Try, +n: U32) -> R(Ended):
+  match t:
+    case Try{None{}, last, _, _}:
+      Done{Ended{last, n}}
+    case Try{Some{e}, _, _, _}:
+      Fail{e}
+
+def ev.once(~on: Ev.Message -> IO(Bool), s: Result<&2, &2, Err, Spec>, +ms: U32, mh: U32) -> IO(R(Ended)):
+  match s:
+    case Done{sp}:
+      do IO<R(Ended)>:
+        +now : Nat <- IO.now()
+        t : Try <- ev.spec(~on, sp, None{}, ms, mh, Nat.add(now, U32.to_nat(ms)))
+        return ev.end(t, 0)
+    case Fail{e}:
+      IO.pure(R(Ended), Fail{e})
+
+# the request's event stream, each event to on, until the stream ends or
+# on answers False. A status other than 2xx is Status{code, body}, and a
+# Content-Type other than text/event-stream is NotEvents; on is not called
+# then. timeout_ms is per read
+def events(~on: Ev.Message -> IO(Bool), c: Config, r: Req) -> IO(R(Ended)):
+  match c:
+    case Config{+ms, mh, _, _, _, _, _}:
+      ev.once(~on, spec.of(r), ms, mh)
+
+def keep.last(new: Maybe<&2, String>, old: Maybe<&2, String>) -> Maybe<&2, String>:
+  match new:
+    case Some{s}:
+      Some{s}
+    case None{}:
+      old
+
+def wait.of(r: Maybe<&2, Nat>, +w: U32) -> U32:
+  match r:
+    case Some{n}:
+      U32.from_nat(n)
+    case None{}:
+      w
+
+type Rt is Data:
+  Rt{last: Maybe<&2, String>, n: U32, wait: U32}
+
+def rt.step(t: Try, rt: Rt, left: Bool) -> Rt:
+  match t rt:
+    case Try{_, l, r, _} Rt{last, +n, +w}:
+      Rt{keep.last(l, last), (n + 1 : U32), wait.of(r, w)}
+
+def rt.done(t: Try, rt: Rt) -> R(Ended):
+  match t rt:
+    case Try{Some{e}, _, _, _} _:
+      Fail{e}
+    case Try{None{}, l, _, _} Rt{last, +n, _}:
+      Done{Ended{keep.last(l, last), n}}
+
+def rt.last(rt: Rt) -> Maybe<&2, String>:
+  match rt:
+    case Rt{last, _, _}:
+      last
+
+type RtK is Data:
+  RtK{rt: Rt, last: Maybe<&2, String>}
+
+type Mm is Data:
+  Mm{a: Maybe<&2, String>, b: Maybe<&2, String>}
+
+def rt.split.go(m: Mm, +n: U32, +w: U32) -> RtK:
+  match m:
+    case Mm{a, b}:
+      RtK{Rt{a, n, w}, b}
+
+def m.dup.of(d: Str2) -> Mm:
+  match d:
+    case Str2{a, b}:
+      Mm{Some{a}, Some{b}}
+
+def m.dup.s(m: Maybe<&2, String>) -> Mm:
+  match m:
+    case Some{s}:
+      m.dup.of(s.dup(s))
+    case None{}:
+      Mm{None{}, None{}}
+
+def rt.split(rt: Rt) -> RtK:
+  match rt:
+    case Rt{last, +n, +w}:
+      rt.split.go(m.dup.s(last), n, w)
+
+def rt.wait(rt: Rt, again: Rt -> IO(R(Ended))) -> IO(R(Ended)):
+  match rt:
+    case Rt{last, n, +w}:
+      IO.bind(Unit, R(Ended), IO.sleep(w), u => again(Rt{last, n, wait.more(w)}))
+
+def rt.decide(t: Try, go: Bool, +left: U32, rt: Rt, again: Rt -> IO(R(Ended))) -> IO(R(Ended)):
+  match go:
+    case True{}:
+      rt.wait(rt.step(t, rt, True{}), again)
+    case False{}:
+      IO.pure(R(Ended), rt.done(t, rt))
+
+type TryQ is Data:
+  TryQ{go: Bool, try: Try}
+
+type ErrGo is Data:
+  ErrGo{go: Bool, err: Maybe<&2, Err>}
+
+def try.q(+stop: Bool, q: ErrGo, l: Maybe<&2, String>, r: Maybe<&2, Nat>) -> TryQ:
+  match q:
+    case ErrGo{go, e}:
+      TryQ{Bool.and(Bool.not(stop), go), Try{e, l, r, stop}}
+
+def again.err.keep(m: Maybe<&2, Err>) -> ErrGo:
+  match m:
+    case None{}:
+      ErrGo{True{}, None{}}
+    case Some{Closed{}}:
+      ErrGo{True{}, Some{Closed{}}}
+    case Some{Timeout{}}:
+      ErrGo{True{}, Some{Timeout{}}}
+    case Some{Refused{c}}:
+      ErrGo{True{}, Some{Refused{c}}}
+    case Some{NoHost{}}:
+      ErrGo{True{}, Some{NoHost{}}}
+    case Some{other}:
+      ErrGo{False{}, Some{other}}
+
+def try.go(t: Try) -> TryQ:
+  match t:
+    case Try{e, l, r, +stop}:
+      try.q(stop, again.err.keep(e), l, r)
+
+def rt.tried(q: TryQ, +left: U32, rt: Rt, again: Rt -> IO(R(Ended))) -> IO(R(Ended)):
+  match q:
+    case TryQ{go, t}:
+      rt.decide(t, Bool.and(go, U32.is_gt(left, 0)), left, rt, again)
+
+def ev.retry.try(~on: Ev.Message -> IO(Bool), sp2: Spec2, k: RtK, +left: U32, +ms: U32, +mh: U32, again: Spec -> Rt -> IO(R(Ended))) -> IO(R(Ended)):
+  match sp2 k:
+    case Spec2{a, b} RtK{rt, last}:
+      do IO<R(Ended)>:
+        +now : Nat <- IO.now()
+        t : Try <- ev.spec(~on, a, last, ms, mh, Nat.add(now, U32.to_nat(ms)))
+        rt.tried(try.go(t), left, rt, r => again(b, r))
+
+def ev.retry.go(~on: Ev.Message -> IO(Bool), fuel: Nat, sp: Spec, rt: Rt, +left: U32, +ms: U32, +mh: U32) -> IO(R(Ended)):
+  match fuel:
+    case 0n:
+      IO.pure(R(Ended), Done{Ended{rt.last(rt), 0}})
+    case 1n+f:
+      ev.retry.try(~on, spec.dup(sp), rt.split(rt), left, ms, mh, s => r => ev.retry.go(~on, f, s, r, (left - 1 : U32), ms, mh))
+
+def ev.retry(~on: Ev.Message -> IO(Bool), s: Result<&2, &2, Err, Spec>, +n: U32, +ms: U32, mh: U32, +bo: U32) -> IO(R(Ended)):
+  match s:
+    case Done{sp}:
+      ev.retry.go(~on, Nat.add(U32.to_nat(n), 1n), sp, Rt{None{}, 0, bo}, n, ms, mh)
+    case Fail{e}:
+      IO.pure(R(Ended), Fail{e})
+
+# as events, reconnecting up to n times when the stream ends or the
+# connection fails, with Last-Event-ID; it waits the server's retry:, or
+# backoff_ms doubling up to 5 s. No reconnect after on answers False, a
+# status, or a wrong Content-Type
+def events_retry(~on: Ev.Message -> IO(Bool), c: Config, r: Req, +n: U32) -> IO(R(Ended)):
+  match c:
+    case Config{+ms, mh, _, _, +bo, _, _}:
+      ev.retry(~on, spec.of(r), n, ms, mh, bo)

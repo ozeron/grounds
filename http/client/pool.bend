@@ -6,6 +6,7 @@ import ../wire/bytes.bend as B
 import ../core/headers.bend as H
 import ../core/text.bend as T
 import ../../json/json.bend as J
+import ../core/event.bend as Ev
 
 # grounds-http-client's pool: kept connections, for any origin, and the
 # same verbs as the client's
@@ -449,3 +450,76 @@ def with(-A: Type, cfg: C.Config, +n: U32, f: Pool -> IO(A)) -> IO(A):
     a : A <- f(p)
     x : Unit <- close(p)
     return a
+
+# Event streams
+# -------------
+
+def ev.back(p2: C.EvPart, +key: String, +p: Pool) -> IO(C.Try):
+  match p2:
+    case C.EvPart{t, c}:
+      IO.bind(Unit, C.Try, stream.back(c, key, p), u => IO.pure(C.Try, t))
+
+def ev.opened(~on: Ev.Message -> IO(Bool), o: C.Opened, req: B.Bytes, +key: String, +p: Pool, +lim: C.Lim) -> IO(C.Try):
+  match o:
+    case C.Opened{s, +tls}:
+      IO.bind(C.Ex, C.Try, C.ev.x(~on, s, tls, req, lim), e => ev.back(C.ev.part(e), key, p))
+    case C.NotOpened{e}:
+      IO.bind(Unit, C.Try, release(p), u => IO.pure(C.Try, C.Try{Some{e}, None{}, None{}, False{}}))
+
+def ev.taken(~on: Ev.Message -> IO(Bool), t: Taken, req: B.Bytes, tls0: Bool, host: String, +port: U32, +key: String, +p: Pool, +lim: C.Lim) -> IO(C.Try):
+  match t:
+    case Kept{s, +tls}:
+      IO.bind(C.Ex, C.Try, C.ev.x(~on, s, tls, req, lim), e => ev.back(C.ev.part(e), key, p))
+    case Room{}:
+      IO.bind(C.Opened, C.Try, C.open(tls0, host, port, C.lim.dl(lim)), o => ev.opened(~on, o, req, key, p, lim))
+    case Shut{}:
+      IO.pure(C.Try, C.Try{Some{C.Closed{}}, None{}, None{}, False{}})
+
+# one try at an event stream through the pool
+def ev.try(~on: Ev.Message -> IO(Bool), o: C.Orig, last: Maybe<&2, String>, +p: Pool, +dl: Nat) -> IO(C.Try):
+  match o p:
+    case C.Orig{+key, C.Spec{C.Verb{name, +head, sized, _}, C.Url{+tls, host, +port, target, auth}, hs, b, _}} Pool{C.Config{+ms, mh, _, _, _, _, _}, _, _, _}:
+      IO.bind(Taken, C.Try, take(4294967295n, p, key), t => ev.taken(~on, t, H1.write_request(name, target, auth, List.append(&2, H.Header, C.hs.clean(hs, []), C.ev.hs(last)), b, sized, False{}), tls, host, port, key, p, C.lim.stream(dl, ms, mh, head)))
+    case C.Orig{_, C.Spec{_, C.UBad{e}, _, _, _}} _:
+      IO.pure(C.Try, C.Try{Some{e}, None{}, None{}, False{}})
+
+def ev.now(~on: Ev.Message -> IO(Bool), sp: C.Spec, last: Maybe<&2, String>, +p: Pool) -> IO(C.Try):
+  match p:
+    case Pool{C.Config{+ms, _, _, _, _, _, _}, _, _, _}:
+      do IO<C.Try>:
+        +now : Nat <- IO.now()
+        ev.try(~on, C.spec.origin(sp), last, p, Nat.add(now, U32.to_nat(ms)))
+
+def ev.once(~on: Ev.Message -> IO(Bool), s: Result<&2, &2, C.Err, C.Spec>, +p: Pool) -> IO(C.R(C.Ended)):
+  match s:
+    case Done{sp}:
+      IO.bind(C.Try, C.R(C.Ended), ev.now(~on, sp, None{}, p), t => IO.pure(C.R(C.Ended), C.ev.end(t, 0)))
+    case Fail{e}:
+      IO.pure(C.R(C.Ended), Fail{e})
+
+# as C.events, through the pool
+def events(~on: Ev.Message -> IO(Bool), +p: Pool, r: C.Req) -> IO(C.R(C.Ended)):
+  ev.once(~on, C.spec.of(r), p)
+
+def ev.retry.try(~on: Ev.Message -> IO(Bool), sp2: C.Spec2, k: C.RtK, +left: U32, +p: Pool, again: C.Spec -> C.Rt -> IO(C.R(C.Ended))) -> IO(C.R(C.Ended)):
+  match sp2 k:
+    case C.Spec2{a, b} C.RtK{rt, last}:
+      IO.bind(C.Try, C.R(C.Ended), ev.now(~on, a, last, p), t => C.rt.tried(C.try.go(t), left, rt, r => again(b, r)))
+
+def ev.retry.go(~on: Ev.Message -> IO(Bool), fuel: Nat, sp: C.Spec, rt: C.Rt, +left: U32, +p: Pool) -> IO(C.R(C.Ended)):
+  match fuel:
+    case 0n:
+      IO.pure(C.R(C.Ended), Done{C.Ended{C.rt.last(rt), 0}})
+    case 1n+f:
+      ev.retry.try(~on, C.spec.dup(sp), C.rt.split(rt), left, p, s => r => ev.retry.go(~on, f, s, r, (left - 1 : U32), p))
+
+def ev.retry(~on: Ev.Message -> IO(Bool), s: Result<&2, &2, C.Err, C.Spec>, +n: U32, +p: Pool) -> IO(C.R(C.Ended)):
+  match s p:
+    case Done{sp} Pool{C.Config{_, _, _, _, +bo, _, _}, _, _, _}:
+      ev.retry.go(~on, Nat.add(U32.to_nat(n), 1n), sp, C.Rt{None{}, 0, bo}, n, p)
+    case Fail{e} _:
+      IO.pure(C.R(C.Ended), Fail{e})
+
+# as C.events_retry, through the pool
+def events_retry(~on: Ev.Message -> IO(Bool), +p: Pool, r: C.Req, +n: U32) -> IO(C.R(C.Ended)):
+  ev.retry(~on, C.spec.of(r), n, p)
