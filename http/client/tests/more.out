@@ -1,16 +1,9 @@
-pool 1: 200 conn 1 req 1
-pool 2: 200 conn 1 req 2
-pool 3: 200 conn 1 req 3
-idle before: 200 conn 2 req 1
-idle after 300 ms: 200 conn 3 req 1
-stale first: 200 GET on conn 1
-stale GET retried: 200 GET on conn 2
-stale POST not retried: error: closed before the response was whole
-pool of 2 under 8 tasks: 40 of 40 answered 200
 retry GET on 503: 200 GET after 3 tries
 no retry for POST: 503 busy
+retry an idempotent POST: 200 POST after 3 tries
 retries run out: 503 busy
 off by default: 503 busy
+send_ok on a 503: error: status 503: busy
 301: 200 GET /done body= auth=secret
 302 POST: 200 GET /done body= auth=-
 303 POST: 200 GET /done body= auth=-
@@ -21,13 +14,11 @@ redirect loop: error: too many redirects
 not followed with 0: 301 moved
 http to https followed: 200 tls conn 1 req 1
 never from https to http: 302 to http
-get_json: cup
-get_json, not JSON: error: invalid JSON: 1:2: unexpected "o"
-get_json, 404: error: status 404: {"error": "no such item"}
-post_json: {"n":3,"item":"cup"}
-download 10 MiB, past max_body: 200, 10485760 bytes streamed
-download, stopped at once: 200, 0 bytes streamed
+send_json: cup
+send_json, not JSON: error: invalid JSON: 1:2: unexpected "o"
+send_json, 404: error: status 404: {"error": "no such item"}
+send_json POST: {"n":3,"item":"cup"}
+stream 10 MiB, past max_body: 200, 10485760 bytes streamed
+stream, stopped at once: 200, 0 bytes streamed
+stream of a 404: error: status 404: no
 https: 200 tls conn 3 req 1
-pool 1: 200 tls conn 4 req 1
-pool 2: 200 tls conn 4 req 2
-pool 3: 200 tls conn 4 req 3

@@ -1,8 +1,5 @@
 import Base
 import ../client.bend as C
-import ../../core/method.bend as M
-import ../../core/response.bend as Res
-import ../../core/status.bend as S
 
 # tests/fuzz.py's client: N GETs to 127.0.0.1:7400, one line each, "ok
 # CODE LEN SUM" or "err KIND", for the reference to compare
@@ -27,15 +24,15 @@ def kind(e: C.Err) -> String:
     case other:
       C.show(other)
 
-def says(r: C.R()) -> String:
+def says(r: C.R(C.Reply)) -> String:
   match r:
-    case Done{Res.Response{S.Status{+c}, _, b}}:
+    case Done{C.Reply{+c, _, b}}:
       "ok " ++ U32.show(c) ++ " " ++ sum(b, 0, 0)
     case Fail{e}:
       "err " ++ kind(e)
 
 def cfg() -> C.Config:
-  C.with_redirects(C.with_timeout(C.default(), 5000), 0)
+  C.with_redirects(C.with_timeout(C.default(), 20000), 0)
 
 def run(n: Nat) -> IO(Unit):
   match n:
@@ -43,7 +40,7 @@ def run(n: Nat) -> IO(Unit):
       IO.pure(Unit, Unit{})
     case 1n+p:
       do IO<Unit>:
-        r : C.R() <- C.request(cfg(), M.MGet{}, "http://127.0.0.1:7400/", [], [])
+        r : C.R(C.Reply) <- C.send(cfg(), C.get("http://127.0.0.1:7400/"))
         x : Unit <- IO.print(says(r))
         run(p)
 

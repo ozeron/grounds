@@ -28,8 +28,8 @@ diff "$tmp/got" tests/live.out || { echo "live: differs from tests/live.out"; ex
 echo "live: every case as tests/live.out"
 GROUNDS_TLS_CA="$tmp/cert.pem" "$tmp/more" | tr -d '\r' > "$tmp/more.got"
 diff "$tmp/more.got" tests/more.out || { echo "more: differs from tests/more.out"; exit 1; }
-echo "more: the pool, retries, redirects, JSON, downloads and TLS, as tests/more.out"
+echo "more: retries, redirects, JSON, streams and TLS, as tests/more.out"
 python3 tests/fuzz.py "$tmp/fuzz" 2000 "${SEED:-1}"
 # one-shot requests stay uncounted; a pool shares its connections
 # through a channel, which counts what it carries
-python3 ../../json/scripts/cold.py "$PWD/tests/live.bend" "$PWD/examples/get.bend" "$PWD/examples/json.bend" "$PWD/examples/download.bend"
+python3 ../../json/scripts/cold.py "$PWD/tests/live.bend" "$PWD/examples/get.bend" "$PWD/examples/json.bend" "$PWD/examples/stream.bend"

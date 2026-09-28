@@ -7,6 +7,7 @@ continue: 201 after
 echo: 200 PUT /p?q=1 HTTP/1.1
 host: localhost:7307
 x-a: 1
+content-type: application/octet-stream
 content-length: 2
 connection: close
 

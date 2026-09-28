@@ -1,16 +1,15 @@
 import Base
-import ../client.bend as Client
+import ../client.bend as C
 import ../../core/text.bend as T
 
-# bend examples/get.bend -o get && ./get: GETs URL, or the local server,
-# and prints the body
+# GETs the local server and prints the body
 
-def said(r: Client.R()) -> String:
+def said(r: C.R(C.Reply)) -> String:
   match r:
-    case Done{res}:
-      T.or(Client.text(res), "(not UTF-8)")
+    case Done{rep}:
+      T.or(C.utf8(rep), "(not UTF-8)")
     case Fail{e}:
-      Client.show(e)
+      C.show(e)
 
 def main() -> IO(Unit):
-  IO.bind(Client.R(), Unit, Client.get("http://localhost:8080/?name=client"), r => IO.print(said(r)))
+  IO.bind(C.R(C.Reply), Unit, C.fetch("http://localhost:8080/?name=client"), r => IO.print(said(r)))
