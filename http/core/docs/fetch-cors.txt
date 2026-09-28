@@ -1,0 +1,519 @@
+Fetch Standard (WHATWG), section 3.3 "CORS protocol", extracted as text from
+https://fetch.spec.whatwg.org/ on 2026-09-28. The living standard is authoritative.
+
+## 3.3. CORS protocol
+ 
+To allow sharing responses cross-origin and allow for more versatile
+fetches than possible with HTML’s
+form element, the CORS protocol exists. It
+is layered on top of HTTP and allows responses to declare they can be shared with other
+origins.
+
+It needs to be an opt-in mechanism to prevent leaking data from responses behind a
+firewall (intranets). Additionally, for requests including
+credentials it needs to be opt-in to prevent leaking potentially-sensitive data.
+
+This section explains the CORS protocol as it pertains to server developers.
+Requirements for user agents are part of the fetch algorithm,
+except for the new HTTP header syntax.
+
+## 3.3.1. General
+ 
+The CORS protocol consists of a set of headers that indicates whether a response can
+be shared cross-origin.
+
+For requests that are more involved than what is possible with HTML’s form
+element, a CORS-preflight request is performed, to ensure request’s
+current URL supports the CORS protocol.
+
+## 3.3.2. HTTP requests
+ 
+A CORS request is an HTTP request that includes an
+`Origin` header. It cannot be reliably identified as participating
+in the CORS protocol as the `Origin` header is also included
+for all requests whose method is neither `GET` nor
+`HEAD`.
+
+A CORS-preflight request is a CORS request
+that checks to see if the CORS protocol is understood. It uses `OPTIONS` as
+method and includes the following header:
+
+`Access-Control-Request-Method`
+
+Indicates which method a future
+ CORS request to the same resource might use.
+
+A CORS-preflight request can also include the following header:
+
+`Access-Control-Request-Headers`
+
+Indicates which headers a future
+ CORS request to the same resource might use.
+
+## 3.3.3. HTTP responses
+ 
+An HTTP response to a CORS request can include the following
+headers:
+
+`Access-Control-Allow-Origin`
+
+Indicates whether the response can be shared, via returning the literal
+ value of the
+ `Origin` request header
+ (which can be `null`) or `*` in a response.
+
+`Access-Control-Allow-Credentials`
+
+Indicates whether the response can be shared when request’s
+ credentials mode is
+ "include".
+
+For a CORS-preflight request, request’s
+ credentials mode is always "same-origin", i.e., it excludes
+ credentials, but for any subsequent CORS requests it might not be. Support therefore needs
+ to be indicated as part of the HTTP response to the CORS-preflight request as well.
+
+An HTTP response to a CORS-preflight request can include the following
+headers:
+
+`Access-Control-Allow-Methods`
+
+Indicates which methods are supported by the response’s
+ URL for the purposes of the CORS protocol.
+
+The `Allow` header is
+ not relevant for the purposes of the CORS protocol.
+
+`Access-Control-Allow-Headers`
+
+Indicates which headers are supported by the response’s
+ URL for the purposes of the CORS protocol.
+
+`Access-Control-Max-Age`
+
+Indicates the number of seconds (5 by default) the information provided by the
+ `Access-Control-Allow-Methods` and
+ `Access-Control-Allow-Headers` headers can be cached.
+
+An HTTP response to a CORS request that is not a
+CORS-preflight request can also include the following
+header:
+
+`Access-Control-Expose-Headers`
+
+Indicates which headers can be exposed as part
+ of the response by listing their names.
+
+A successful HTTP response, i.e., one where the server developer intends to share it, to a
+CORS request can use any status, as long as it includes the headers
+stated above with values matching up with the request.
+
+A successful HTTP response to a CORS-preflight request is similar, except it is restricted
+to an ok status, e.g., 200 or 204.
+
+Any other kind of HTTP response is not successful and will either end up not being shared or fail
+the CORS-preflight request. Be aware that any work the server performs might nonetheless leak
+through side channels, such as timing. If server developers wish to denote this explicitly, the 403
+status can be used, coupled with omitting the relevant headers.
+
+If desired, “failure” could also be shared, but that would make it a successful HTTP
+response. That is why for a successful HTTP response to a CORS request that is not a
+CORS-preflight request the status can be anything, including 403.
+
+Ultimately server developers have a lot of freedom in how they handle HTTP responses and these
+tactics can differ between the response to the CORS-preflight request and the
+CORS request that follows it:
+
+They can provide a static response. This can be helpful when working with caching
+ intermediaries. A static response can both be successful and not successful depending on the
+ CORS request. This is okay.
+
+They can provide a dynamic response, tuned to CORS request. This can be helpful when
+ the response body is to be tailored to a specific origin or a response needs to have credentials
+ and be successful for a set of origins.
+
+## 3.3.4. HTTP new-header syntax
+ 
+ABNF for the values of the
+headers used by the CORS protocol:
+
+Access-Control-Request-Method = method
+Access-Control-Request-Headers = 1#field-name
+
+wildcard = "*"
+Access-Control-Allow-Origin = origin-or-null / wildcard
+
+Access-Control-Allow-Credentials = %s"true" ; case-sensitive
+Access-Control-Expose-Headers = #field-name
+Access-Control-Max-Age = delta-seconds
+Access-Control-Allow-Methods = #method
+Access-Control-Allow-Headers = #field-name
+ 
+For `Access-Control-Expose-Headers`,
+`Access-Control-Allow-Methods`, and `Access-Control-Allow-Headers`
+response headers, the value `*` counts as a wildcard for
+requests without credentials. For such requests there is no
+way to solely match a header name or method that is `*`.
+
+## 3.3.5. CORS protocol and credentials
+ 
+When request’s
+credentials mode is "include" it
+has an impact on the functioning of the CORS protocol other than including
+credentials in the fetch.
+
+In the old days, XMLHttpRequest could be used to set
+ request’s
+ credentials mode to "include":
+
+var client = new XMLHttpRequest()
+client.open("GET", "./")
+client.withCredentials = true
+/* … */
+
+Nowadays, fetch("./", { credentials:"include" }).then(/* … */)
+ suffices.
+
+A request’s
+credentials mode is not necessarily observable
+on the server; only when credentials exist for a
+request can it be observed by virtue of the
+credentials being included. Note that even so, a CORS-preflight request
+never includes credentials.
+
+The server developer therefore needs to decide whether or not responses "tainted" with
+credentials can be shared. And also needs to decide if
+requests necessitating a CORS-preflight request can
+include credentials. Generally speaking, both sharing responses and allowing requests
+with credentials is rather unsafe, and extreme care has to be taken to avoid the
+confused deputy problem.
+
+To share responses with credentials, the
+`Access-Control-Allow-Origin` and
+`Access-Control-Allow-Credentials` headers are
+important. The following table serves to illustrate the various legal and illegal combinations for a
+request to https://rabbit.invalid/:
+
+ Request’s credentials mode
+ 
+ `Access-Control-Allow-Origin`
+ 
+ `Access-Control-Allow-Credentials`
+ 
+ Shared?
+ 
+ Notes
+
+ "omit"
+ 
+ `*`
+ 
+ Omitted
+ 
+ ✅
+ 
+ —​
+
+ "omit"
+ 
+ `*`
+ 
+ `true`
+ 
+ ✅
+ 
+ If credentials mode is not "include", then
+ `Access-Control-Allow-Credentials` is ignored.
+
+ "omit"
+ 
+ `https://rabbit.invalid/`
+ 
+ Omitted
+ 
+ ❌
+ 
+ A serialized origin has no trailing slash.
+
+ "omit"
+ 
+ `https://rabbit.invalid`
+ 
+ Omitted
+ 
+ ✅
+ 
+ —​
+
+ "include"
+ 
+ `*`
+ 
+ `true`
+ 
+ ❌
+ 
+ If credentials mode is "include", then
+ `Access-Control-Allow-Origin` cannot be
+ `*`.
+
+ "include"
+ 
+ `https://rabbit.invalid`
+ 
+ `true`
+ 
+ ✅
+ 
+ —​
+
+ "include"
+ 
+ `https://rabbit.invalid`
+ 
+ `True`
+ 
+ ❌
+ 
+ `true` is (byte) case-sensitive.
+
+Similarly, `Access-Control-Expose-Headers`,
+`Access-Control-Allow-Methods`, and
+`Access-Control-Allow-Headers` response headers can only use
+`*` as value when request’s credentials mode is not
+"include".
+
+## 3.3.6. Examples
+
+A script at https://foo.invalid/ wants to fetch some data from
+ https://bar.invalid/. (Neither credentials nor response header access is
+ important.)
+
+var url = "https://bar.invalid/api?key=730d67a37d7f3d802e96396d00280768773813fbe726d116944d814422fc1a45&data=about:unicorn";
+fetch(url).then(success, failure)
+
+This will use the CORS protocol, though this is entirely transparent to the
+ developer from foo.invalid. As part of the CORS protocol, the user agent
+ will include the `Origin` header in the request:
+
+Origin: https://foo.invalid
+
+Upon receiving a response from bar.invalid, the user agent will verify the
+ `Access-Control-Allow-Origin` response header. If its value is
+ either `https://foo.invalid` or `*`, the user agent will invoke the
+ success callback. If it has any other value, or is missing, the user agent will invoke
+ the failure callback.
+
+The developer of foo.invalid is back, and now wants to fetch some data from
+ bar.invalid while also accessing a response header.
+
+fetch(url).then(response => {
+ var hsts = response.headers.get("strict-transport-security"),
+ csp = response.headers.get("content-security-policy")
+ log(hsts, csp)
+})
+
+bar.invalid provides a correct
+ `Access-Control-Allow-Origin` response header per the earlier
+ example. The values of hsts and csp will depend on the
+ `Access-Control-Expose-Headers` response header. For example, if
+ the response included the following headers
+
+Content-Security-Policy: default-src 'self'
+Strict-Transport-Security: max-age=31536000; includeSubdomains; preload
+Access-Control-Expose-Headers: Content-Security-Policy
+
+then hsts would be null and csp would be
+ "default-src 'self'", even though the response did include both headers. This is
+ because bar.invalid needs to explicitly share each header by listing their names in
+ the `Access-Control-Expose-Headers` response header.
+
+Alternatively, if bar.invalid wanted to share all its response headers, for
+ requests that do not include credentials, it could use `*` as value for
+ the `Access-Control-Expose-Headers` response header. If the request
+ would have included credentials, the response header names would have to be listed
+ explicitly and `*` could not be used.
+
+The developer of foo.invalid returns, now fetching some data from
+ bar.invalid while including credentials. This time around the
+ CORS protocol is no longer transparent to the developer as credentials
+ require an explicit opt-in:
+
+fetch(url, { credentials:"include" }).then(success, failure)
+
+This also makes any `Set-Cookie` response headers bar.invalid
+ includes fully functional (they are ignored otherwise).
+
+The user agent will make sure to include any relevant credentials in the request.
+ It will also put stricter requirements on the response. Not only will bar.invalid need
+ to list `https://foo.invalid` as value for the
+ `Access-Control-Allow-Origin` header (`*` is not
+ allowed when credentials are involved), the
+ `Access-Control-Allow-Credentials` header has to be present too:
+
+Access-Control-Allow-Origin: https://foo.invalid
+Access-Control-Allow-Credentials: true
+
+If the response does not include those two headers with those values, the failure
+ callback will be invoked. However, any `Set-Cookie` response headers will be
+ respected.
+
+## 3.3.7. CORS protocol exceptions
+ 
+Specifications have allowed limited exceptions to the CORS safelist for non-safelisted
+`Content-Type` header values. These exceptions are made for requests that can be
+triggered by web content but whose headers and bodies can be only minimally controlled by the web
+content. Therefore, servers should expect cross-origin web content to be allowed to trigger
+non-preflighted requests with the following non-safelisted `Content-Type` header
+values:
+
+`application/csp-report` [CSP]
+
+`application/expect-ct-report+json` [RFC9163]
+
+`application/xss-auditor-report`
+
+`application/ocsp-request` [RFC6960]
+
+Specifications should avoid introducing new exceptions and should only do so with careful
+consideration for the security consequences. New exceptions can be proposed by
+filing an issue.
+
+## 3.4. `Content-Length` header
+ 
+The `Content-Length` header is largely defined in HTTP. Its processing model is
+defined here as the model defined in HTTP is not compatible with web content. [HTTP]
+
+To extract a length
+from a header list headers, run these steps:
+
+Let values be the result of
+ getting, decoding, and splitting `Content-Length` from
+ headers.
+
+If values is null, then return null.
+
+Let candidateValue be null.
+
+For each value of values:
+
+If candidateValue is null, then set candidateValue to
+ value.
+
+Otherwise, if value is not candidateValue, return failure.
+
+If candidateValue is the empty string or has a code point that is
+ not an ASCII digit, then return null.
+
+Return candidateValue, interpreted as decimal number.
+
+## 3.5. `Content-Type` header
+ 
+The `Content-Type` header is largely defined in HTTP. Its processing model is
+defined here as the model defined in HTTP is not compatible with web content. [HTTP]
+
+To
+extract a MIME type
+from a header list headers, run these steps. They return failure or a
+MIME type.
+
+Let charset be null.
+
+Let essence be null.
+
+Let mimeType be null.
+
+Let values be the result of
+ getting, decoding, and splitting `Content-Type` from
+ headers.
+
+If values is null, then return failure.
+
+For each value of values:
+
+Let temporaryMimeType be the result of parsing
+ value.
+
+If temporaryMimeType is failure or its essence is
+ "*/*", then continue.
+
+Set mimeType to temporaryMimeType.
+
+If mimeType’s essence is not essence, then:
+
+Set charset to null.
+
+If mimeType’s parameters["charset"]
+ exists, then set charset to mimeType’s
+ parameters["charset"].
+
+Set essence to mimeType’s essence.
+
+Otherwise, if mimeType’s
+ parameters["charset"] does not exist, and
+ charset is non-null, set mimeType’s
+ parameters["charset"] to charset.
+
+If mimeType is null, then return failure.
+
+Return mimeType.
+
+When extract a MIME type returns failure or a MIME type whose
+essence is incorrect for a given format, treat this as a fatal error.
+Existing web platform features have not always followed this pattern, which has been a major source
+of security vulnerabilities in those features over the years. In contrast, a
+MIME type’s parameters can typically be safely ignored.
+
+This is how extract a MIME type functions in practice:
+
+ Headers (as on the network)
+ 
+ Output (serialized)
+
+Content-Type: text/plain;charset=gbk, text/html
+
+ text/html
+
+Content-Type: text/html;charset=gbk;a=b, text/html;x=y
+
+ text/html;x=y;charset=gbk
+
+Content-Type: text/html;charset=gbk;a=b
+Content-Type: text/html;x=y
+
+Content-Type: text/html;charset=gbk
+Content-Type: x/x
+Content-Type: text/html;x=y
+
+ text/html;x=y
+
+Content-Type: text/html
+Content-Type: cannot-parse
+
+ text/html
+
+Content-Type: text/html
+Content-Type: */*
+
+Content-Type: text/html
+Content-Type:
+
+To legacy extract an encoding given failure or a MIME type
+mimeType and an encoding fallbackEncoding, run these steps:
+
+If mimeType is failure, then return fallbackEncoding.
+
+If mimeType["charset"] does not exist, then return
+ fallbackEncoding.
+
+Let tentativeEncoding be the result of getting an encoding from
+ mimeType["charset"].
+
+If tentativeEncoding is failure, then return fallbackEncoding.
+
+Return tentativeEncoding.
+
+This algorithm allows mimeType to be failure so it can be more easily combined with
+ extract a MIME type.
+
+It is denoted as legacy as modern formats are to exclusively use UTF-8.
