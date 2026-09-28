@@ -174,41 +174,11 @@ def verb.check(v: Verb) -> Maybe<&2, Verb>:
     case Verb{+n, +h, +z, +g}:
       verb.final(Bool.and(Bool.not(H1.unsafe(n, False{})), H1.is_token.s(n)), n, h, z, g)
 
-# an idle connection, with TLS or not, and when it was last used; or room
-# for one to be opened
-type Idle is Type:
-  Idle{sock: Socket, tls: Bool, last: Nat}
-
-def Slot() -> Type:
-  Maybe<&1, Idle>
-
-# connections to one origin, kept open between requests: size at most,
-# each idle up to cfg's idle_ms
-type Pool is Data:
-  Pool{cfg: Config, tls: Bool, host: String, port: U32, authority: String, slots: Chan(Slot()), size: U32}
-
-def pool.fill(n: Nat, +ch: Chan(Slot())) -> IO(Unit):
-  match n:
-    case 0n:
-      IO.pure(Unit, Unit{})
-    case 1n+m:
-      IO.bind(Bool, Unit, Chan.send(Slot(), ch, None{}), x => pool.fill(m, ch))
-
 # whether to use TLS, the host, port, the target to send (origin-form:
 # /path?query), and the Host header's value
 type Url is Data:
   Url{tls: Bool, host: String, port: U32, target: String, authority: String}
   UBad{err: Err}
-
-def pool.made(u: Url, cfg: Config, +n: U32) -> IO(Result<&1, &1, Err, Pool>):
-  match u:
-    case Url{tls, h, port, _, au}:
-      do IO<Result<&1, &1, Err, Pool>>:
-        +ch : Chan(Slot()) <- Chan.new(Slot(), n)
-        x : Unit <- pool.fill(U32.to_nat(n), ch)
-        return Done{Pool{cfg, tls, h, port, au, ch, n}}
-    case UBad{e}:
-      IO.pure(Result<&1, &1, Err, Pool>, Fail{e})
 
 def host.char(+x: U32) -> Bool:
   Bool.or(Bool.or(Bool.and(U32.is_ge(x, 97), U32.is_le(x, 122)), Bool.and(U32.is_ge(x, 65), U32.is_le(x, 90))),
@@ -344,11 +314,6 @@ def url.check(u: Url) -> Url:
 # info, no IPv6 literal, no fragment
 def url(s: String) -> Url:
   url.check(url.raw(s))
-
-# a pool of up to n connections to base's origin (http[s]://host[:port]),
-# opened as they are first needed
-def pool(cfg: Config, base: String, n: U32) -> IO(Result<&1, &1, Err, Pool>):
-  pool.made(url(base), cfg, n)
 
 # a request as the client holds it between attempts; pool: its url is the
 # pool's origin, so a Pool may carry it
@@ -715,24 +680,6 @@ def ok.of(r: RR()) -> RR():
     case Fail{e}:
       Fail{e}
 
-def ok.head(r: RR()) -> R(Head):
-  match r:
-    case Done{Reply{c, hs, _}}:
-      Done{Head{c, hs}}
-    case Fail{e}:
-      Fail{e}
-
-def stream.end(e: Ex) -> IO(R(Head)):
-  match e:
-    case Got{s, tls, Meta{c, hs, _}, Each{}}:
-      IO.bind(Unit, R(Head), shut(tls, s), u => IO.pure(R(Head), Done{Head{c, hs.kv(hs, [])}}))
-    case Got{s, tls, Meta{c, _, _}, Stopped{}}:
-      IO.bind(Unit, R(Head), shut(tls, s), u => IO.pure(R(Head), Done{Head{c, []}}))
-    case Got{s, tls, m, o}:
-      IO.bind(Unit, R(Head), shut(tls, s), u => IO.pure(R(Head), ok.head(ok.of(Done{response(m, o)}))))
-    case Lost{err, _, _}:
-      IO.pure(R(Head), Fail{err})
-
 def lim.max(l: Lim) -> Nat:
   match l:
     case Lim{_, _, _, _, max, _}:
@@ -941,22 +888,6 @@ def body(~dv: Out -> B.Bytes -> IO(Out), fr: H1.Framing, s: Socket, +tls: Bool, 
     case H1.FClose{}:
       bd(~dv, Nat.add(lim.max(lim), 131074n), s, tls, BClose{}, rest, o, 0n, m, lim)
 
-def stream.body(~f: List<&2, U32> -> IO(Bool), ok: Bool, fr: H1.Framing, s: Socket, +tls: Bool, rest: B.Bytes, m: Meta, +lim: Lim) -> IO(R(Head)):
-  match ok:
-    case True{}:
-      IO.bind(Ex, R(Head), body(~each(~f), fr, s, tls, rest, Each{}, m, lim), e => stream.end(e))
-    case False{}:
-      IO.bind(Ex, R(Head), body(~keep, fr, s, tls, rest, Keep{[]}, m, lim.with_max(lim, 1048576n)), e => stream.end(e))
-
-def stream.head(~f: List<&2, U32> -> IO(Bool), h: Hd, +lim: Lim) -> IO(R(Head)):
-  match h:
-    case HGot{s, +tls, H1.Head{+code, hs, fr, _, rest}}:
-      stream.body(~f, Bool.and(U32.is_ge(code, 200), U32.is_lt(code, 300)), fr, s, tls, rest, Meta{code, hs, False{}}, lim)
-    case HGot{s, +tls, _}:
-      IO.bind(Unit, R(Head), shut(tls, s), u => IO.pure(R(Head), Fail{BadResponse{}}))
-    case HLost{e, _}:
-      IO.pure(R(Head), Fail{e})
-
 def hd.lost(tls: Bool, s: Socket, e: Err, stale: Bool) -> IO(Hd):
   IO.bind(Unit, Hd, shut(tls, s), u => IO.pure(Hd, HLost{e, stale}))
 
@@ -1061,36 +992,6 @@ def stream.polled(+tls: Bool, +lim: Lim, m: RU()) -> IO(Hd):
   match m:
     case (s, r):
       stream.sent(r, s, tls, lim)
-
-def stream.opened(~f: List<&2, U32> -> IO(Bool), o: Opened, req: B.Bytes, +lim: Lim) -> IO(R(Head)):
-  match o:
-    case Opened{s, +tls}:
-      do IO<R(Head)>:
-        m : RU() <- send.of(tls, s, B.to_list(req), lim.left(lim, 0n))
-        h : Hd <- stream.polled(tls, lim, m)
-        stream.head(~f, h, lim)
-    case NotOpened{e}:
-      IO.pure(R(Head), Fail{e})
-
-def stream.spec(~f: List<&2, U32> -> IO(Bool), s: Result<&2, &2, Err, Spec>, +ms: U32, mh: U32, +dl: Nat) -> IO(R(Head)):
-  match s:
-    case Done{Spec{Verb{name, head, sized, _}, Url{+tls, host, +port, target, auth}, hs, b, _}}:
-      IO.bind(Opened, R(Head), open(tls, host, port, dl), o => stream.opened(~f, o, H1.write_request(name, target, auth, hs.clean(hs, []), b, sized, True{}), Lim{dl, ms, True{}, mh, Nat.mul(256n, 4294967295n), head}))
-    case Done{Spec{_, UBad{e}, _, _, _}}:
-      IO.pure(R(Head), Fail{e})
-    case Fail{e}:
-      IO.pure(R(Head), Fail{e})
-
-# the request, its body handed to f as it is read, a piece at a time: for
-# bodies too large to hold. f answers True to go on, False to stop. A
-# status other than 2xx is Status{code, body}, and f is not called. No
-# body limit; timeout_ms is per read, and redirects are not followed
-def stream(~f: List<&2, U32> -> IO(Bool), c: Config, r: Req) -> IO(R(Head)):
-  match c:
-    case Config{+ms, mh, _, _, _, _, _}:
-      do IO<R(Head)>:
-        +now : Nat <- IO.now()
-        stream.spec(~f, spec.of(r), ms, mh, Nat.add(now, U32.to_nat(ms)))
 
 # any method by name; one that is not a token fails send with BadMethod
 def method(name: String, u: String, b: Body) -> Req:
@@ -1366,28 +1267,6 @@ def once(sp: Spec, +lim: Lim) -> IO(Hop):
 # Pools
 # -----
 
-def give.keep(reuse: Bool, s: Socket, +tls: Bool, +ch: Chan(Slot())) -> IO(Unit):
-  match reuse:
-    case True{}:
-      do IO<Unit>:
-        +now : Nat <- IO.now()
-        x : Bool <- Chan.send(Slot(), ch, Some{Idle{s, tls, now}})
-        return Unit{}
-    case False{}:
-      do IO<Unit>:
-        x : Unit <- shut(tls, s)
-        y : Bool <- Chan.send(Slot(), ch, None{})
-        return Unit{}
-
-# the exchange's connection back to the pool if it may carry another
-# request, else closed and its room given back
-def give(e: Ex, +ch: Chan(Slot())) -> IO(Hop):
-  match e:
-    case Got{s, tls, Meta{c, hs, +reuse}, o}:
-      IO.bind(Unit, Hop, give.keep(reuse, s, tls, ch), u => IO.pure(Hop, HopGot{Meta{c, hs, reuse}, o}))
-    case Lost{err, _, _}:
-      IO.bind(Bool, Hop, Chan.send(Slot(), ch, None{}), x => IO.pure(Hop, HopLost{err}))
-
 def req.of(sp: Spec, keep: Bool) -> B.Bytes:
   match sp:
     case Spec{Verb{name, _, sized, _}, Url{_, _, _, target, auth}, hs, b, _}:
@@ -1400,13 +1279,6 @@ def head.of(sp: Spec) -> Bool:
     case Spec{Verb{_, h, _, _}, _, _, _, _}:
       h
 
-def fresh.opened(o: Opened, req: B.Bytes, +ch: Chan(Slot()), lim: Lim) -> IO(Hop):
-  match o:
-    case Opened{s, tls}:
-      IO.bind(Ex, Hop, exchange(s, tls, req, lim, Keep{[]}), e => give(e, ch))
-    case NotOpened{e}:
-      IO.bind(Bool, Hop, Chan.send(Slot(), ch, None{}), x => IO.pure(Hop, HopLost{e}))
-
 type HSpec is Data:
   HSpec{head: Bool, spec: Spec}
 
@@ -1415,98 +1287,10 @@ def head.of.keep(sp: Spec) -> HSpec:
     case Spec{Verb{n, +h, z, g}, u, hs, b, pl}:
       HSpec{h, Spec{Verb{n, h, z, g}, u, hs, b, pl}}
 
-def fresh.go(hsp: HSpec, tls: Bool, host: String, port: U32, ch: Chan(Slot()), +lim: Lim) -> IO(Hop):
-  match hsp:
-    case HSpec{h, sp}:
-      IO.bind(Opened, Hop, open(tls, host, port, lim.dl(lim)), o => fresh.opened(o, req.of(sp, True{}), ch, lim.with_head(lim, h)))
-
-# on a new connection, holding the pool's room for it
-def fresh(sp: Spec, p: Pool, lim: Lim) -> IO(Hop):
-  match p:
-    case Pool{_, tls, h, port, _, ch, _}:
-      fresh.go(head.of.keep(sp), tls, s.copy(h, ""), port, ch, lim)
-
-def pool.give(e: Ex, p: Pool) -> IO(Hop):
-  match p:
-    case Pool{_, _, _, _, _, ch, _}:
-      give(e, ch)
-
-# after a try on a kept connection: a connection the server had closed is
-# tried once more on a new one, if the request is safe to repeat
-def reused.after(e: Ex, spare: Spec, again: Bool, +p: Pool, lim: Lim) -> IO(Hop):
-  match e again:
-    case Lost{_, True{}, _} True{}:
-      fresh(spare, p, lim)
-    case other _:
-      pool.give(other, p)
-
 def verb.again(sp: Spec) -> HSpec:
   match sp:
     case Spec{Verb{n, h, z, +g}, u, hs, b, pl}:
       HSpec{g, Spec{Verb{n, h, z, g}, u, hs, b, pl}}
-
-def reused.run(ha: HSpec, gb: HSpec, s: Socket, tls: Bool, p: Pool, +lim: Lim) -> IO(Hop):
-  match ha gb:
-    case HSpec{h, a} HSpec{g, b}:
-      IO.bind(Ex, Hop, exchange(s, tls, req.of(a, True{}), lim.with_head(lim, h), Keep{[]}), e => reused.after(e, b, g, p, lim))
-
-def reused.go(sp2: Spec2, s: Socket, tls: Bool, p: Pool, lim: Lim) -> IO(Hop):
-  match sp2:
-    case Spec2{a, b}:
-      reused.run(head.of.keep(a), verb.again(b), s, tls, p, lim)
-
-def idle(now: Nat, last: Nat, ms: U32) -> Bool:
-  Bool.not(Nat.is_le(now, Nat.add(last, U32.to_nat(ms))))
-
-def pool.idle_ms(p: Pool) -> U32:
-  match p:
-    case Pool{Config{_, _, _, _, _, _, id}, _, _, _, _, _, _}:
-      id
-
-def pooled.kept(old: Bool, s: Socket, +tls: Bool, sp: Spec, +p: Pool, +lim: Lim) -> IO(Hop):
-  match old:
-    case True{}:
-      IO.bind(Unit, Hop, shut(tls, s), u => fresh(sp, p, lim))
-    case False{}:
-      reused.go(spec.dup(sp), s, tls, p, lim)
-
-def pooled.slot(sl: Maybe<&1, Slot()>, sp: Spec, +p: Pool, +lim: Lim) -> IO(Hop):
-  match sl:
-    case Some{Some{Idle{s, tls, last}}}:
-      do IO<Hop>:
-        +now : Nat <- IO.now()
-        pooled.kept(idle(now, last, pool.idle_ms(p)), s, tls, sp, p, lim)
-    case Some{None{}}:
-      fresh(sp, p, lim)
-    case None{}:
-      IO.pure(Hop, HopLost{Closed{}})
-
-# a request through the pool: a kept connection, or a new one when none
-# is free and there is room, else waiting for one to come back
-def pooled(sp: Spec, +p: Pool, lim: Lim) -> IO(Hop):
-  match p:
-    case Pool{_, _, _, _, _, ch, _}:
-      IO.bind(Maybe<&1, Slot()>, Hop, Chan.recv(Slot(), ch), sl => pooled.slot(sl, sp, p, lim))
-
-def pool.drain.slot(s: Maybe<&1, Slot()>, k: Unit -> IO(Unit)) -> IO(Unit):
-  match s:
-    case Some{Some{Idle{sk, tls, _}}}:
-      IO.bind(Unit, Unit, shut(tls, sk), k)
-    case _:
-      k(Unit{})
-
-def pool.drain(n: Nat, +ch: Chan(Slot())) -> IO(Unit):
-  match n:
-    case 0n:
-      Chan.close(Slot(), ch)
-    case 1n+m:
-      IO.bind(Maybe<&1, Slot()>, Unit, Chan.recv(Slot(), ch), s => pool.drain.slot(s, x => pool.drain(m, ch)))
-
-# close the pool and its connections, once each one in use comes back
-def pool.close(p: Pool) -> IO(Unit):
-  match p:
-    case Pool{_, _, _, _, _, ch, n}:
-      pool.drain(U32.to_nat(n), ch)
 
 # Redirects and retries
 # ---------------------
@@ -1750,27 +1534,6 @@ def drive(fuel: Nat, sp: Spec, l: Left, +lim: Lim) -> IO(RR()):
     case 1n+p:
       drive.go(spec.dup(sp), l, lim, s => l2 => drive(p, s, l2, lim))
 
-def hop.via(sp: HSpec, +p: Pool, +lim: Lim) -> IO(Hop):
-  match sp:
-    case HSpec{True{}, s}:
-      pooled(s, p, lim)
-    case HSpec{False{}, s}:
-      once(s, lim)
-
-def drive.p.go(sp2: Spec2, l: Left, +p: Pool, +lim: Lim, k: DK()) -> IO(RR()):
-  match sp2:
-    case Spec2{a, b}:
-      IO.bind(Hop, RR(), hop.via(pool.of(a), p, lim), h => hopped(h, verb.again(b), l, k))
-
-# drive through a pool. A drive of its own: sharing the pool shares its
-# Strings, and a program without one keeps them uncounted
-def drive.p(fuel: Nat, sp: Spec, l: Left, +p: Pool, +lim: Lim) -> IO(RR()):
-  match fuel:
-    case 0n:
-      IO.pure(RR(), Fail{Redirects{}})
-    case 1n+n:
-      drive.p.go(spec.dup(sp), l, p, lim, s => l2 => drive.p(n, s, l2, p, lim))
-
 def left.of(+rt: U32, +rd: U32, bo: U32) -> Left:
   Left{rt, rd, bo, U32.is_gt(rd, 0)}
 
@@ -1787,13 +1550,6 @@ def start(cfg: Config, sp: Spec) -> IO(RR()):
         +now : Nat <- IO.now()
         drive(fuel.of(rt, rd), sp, left.of(rt, rd, bo), lim.of(now, ms, mh, mb))
 
-def start.p(cfg: Config, sp: Spec, +p: Pool) -> IO(RR()):
-  match cfg:
-    case Config{+ms, mh, mb, +rt, bo, +rd, _}:
-      do IO<RR()>:
-        +now : Nat <- IO.now()
-        drive.p(fuel.of(rt, rd), sp, left.of(rt, rd, bo), p, lim.of(now, ms, mh, mb))
-
 def url.tls(u: Url) -> Bool:
   match u:
     case Url{t, _, _, _, _}:
@@ -1805,30 +1561,6 @@ def tries.dec(l: Left) -> Left:
   match l:
     case Left{t, r, w, f}:
       Left{(t - 1 : U32), r, wait.more(w), f}
-
-def pool.url(tls: Bool, h: String, port: U32, au: String, g: Tgt) -> Url:
-  match g:
-    case Tgt{t, True{}}:
-      url.check(Url{tls, h, port, t, au})
-    case Tgt{_, False{}}:
-      UBad{BadUrl{}}
-
-def pool.path(p: String) -> Tgt:
-  match p:
-    case SCon{Chr{47}, r}:
-      target.go(r, "/", True{})
-    case _:
-      Tgt{"", False{}}
-
-def send.spec(p: Pool, v: Verb, path: String, hs: List<&2, H.Header>, body: B.Bytes) -> Spec:
-  match p:
-    case Pool{_, tls, h, port, au, _, _}:
-      Spec{v, pool.url(tls, s.copy(h, ""), port, s.copy(au, ""), pool.path(path)), hs, body, True{}}
-
-def pool.cfg(p: Pool) -> Config:
-  match p:
-    case Pool{Config{a, b, c, d, e, f, g}, _, _, _, _, _, _}:
-      Config{a, b, c, d, e, f, g}
 
 # Sending
 # -------
@@ -1916,3 +1648,121 @@ def header(kv: Kv(), +name: String) -> Maybe<&2, String>:
 
 # Streaming
 # ---------
+
+# Streaming
+# ---------
+
+# an exchange's connection, if it is still open, and whether it may carry
+# another request
+type Conn is Type:
+  Conn{sock: Socket, tls: Bool, reuse: Bool}
+  NoConn{}
+
+type Part is Type:
+  Part{res: R(Head), conn: Conn}
+
+def ok.head(r: RR()) -> R(Head):
+  match r:
+    case Done{Reply{c, hs, _}}:
+      Done{Head{c, hs}}
+    case Fail{e}:
+      Fail{e}
+
+# a streamed exchange's end: its Head, or why not, and its connection
+def stream.part(e: Ex) -> Part:
+  match e:
+    case Got{s, tls, Meta{c, hs, r}, Each{}}:
+      Part{Done{Head{c, hs.kv(hs, [])}}, Conn{s, tls, r}}
+    case Got{s, tls, Meta{c, hs, r}, Stopped{}}:
+      Part{Done{Head{c, hs.kv(hs, [])}}, Conn{s, tls, r}}
+    case Got{s, tls, Meta{c, hs, r}, o}:
+      Part{ok.head(ok.of(Done{response(Meta{c, hs, False{}}, o)})), Conn{s, tls, r}}
+    case Lost{err, _, _}:
+      Part{Fail{err}, NoConn{}}
+
+# a 2xx body goes to f; another's is kept, up to 1 MiB, for Status
+def stream.body(~f: List<&2, U32> -> IO(Bool), ok: Bool, fr: H1.Framing, s: Socket, +tls: Bool, rest: B.Bytes, m: Meta, +lim: Lim) -> IO(Ex):
+  match ok:
+    case True{}:
+      body(~each(~f), fr, s, tls, rest, Each{}, m, lim)
+    case False{}:
+      body(~keep, fr, s, tls, rest, Keep{[]}, m, lim.with_max(lim, 1048576n))
+
+def stream.hx(~f: List<&2, U32> -> IO(Bool), h: Hd, +lim: Lim) -> IO(Ex):
+  match h:
+    case HGot{s, +tls, H1.Head{+code, hs, fr, reuse, rest}}:
+      stream.body(~f, Bool.and(U32.is_ge(code, 200), U32.is_lt(code, 300)), fr, s, tls, rest, Meta{code, hs, reuse}, lim)
+    case HGot{s, +tls, _}:
+      lost(tls, s, BadResponse{}, False{}, Keep{[]})
+    case HLost{e, st}:
+      IO.pure(Ex, Lost{e, st, Keep{[]}})
+
+# one streamed request on an open connection
+def stream.x(~f: List<&2, U32> -> IO(Bool), s: Socket, +tls: Bool, req: B.Bytes, +lim: Lim) -> IO(Ex):
+  do IO<Ex>:
+    +now : Nat <- IO.now()
+    m : RU() <- send.of(tls, s, B.to_list(req), lim.left(lim, now))
+    h : Hd <- stream.polled(tls, lim, m)
+    stream.hx(~f, h, lim)
+
+def conn.close(c: Conn) -> IO(Unit):
+  match c:
+    case Conn{s, tls, _}:
+      shut(tls, s)
+    case NoConn{}:
+      IO.pure(Unit, Unit{})
+
+def stream.done(p: Part) -> IO(R(Head)):
+  match p:
+    case Part{res, c}:
+      IO.bind(Unit, R(Head), conn.close(c), u => IO.pure(R(Head), res))
+
+def stream.opened(~f: List<&2, U32> -> IO(Bool), o: Opened, req: B.Bytes, +lim: Lim) -> IO(R(Head)):
+  match o:
+    case Opened{s, +tls}:
+      IO.bind(Ex, R(Head), stream.x(~f, s, tls, req, lim), e => stream.done(stream.part(e)))
+    case NotOpened{e}:
+      IO.pure(R(Head), Fail{e})
+
+# a streamed request's limits: timeout_ms per read, no body limit
+def lim.stream(+dl: Nat, +ms: U32, mh: U32, +head: Bool) -> Lim:
+  Lim{dl, ms, True{}, mh, Nat.mul(256n, 4294967295n), head}
+
+def stream.spec(~f: List<&2, U32> -> IO(Bool), s: Result<&2, &2, Err, Spec>, +ms: U32, mh: U32, +dl: Nat) -> IO(R(Head)):
+  match s:
+    case Done{Spec{Verb{name, +head, sized, _}, Url{+tls, host, +port, target, auth}, hs, b, _}}:
+      IO.bind(Opened, R(Head), open(tls, host, port, dl), o => stream.opened(~f, o, H1.write_request(name, target, auth, hs.clean(hs, []), b, sized, True{}), lim.stream(dl, ms, mh, head)))
+    case Done{Spec{_, UBad{e}, _, _, _}}:
+      IO.pure(R(Head), Fail{e})
+    case Fail{e}:
+      IO.pure(R(Head), Fail{e})
+
+# the request, its body handed to f as it is read, a piece at a time: for
+# bodies too large to hold. f answers True to go on, False to stop. A
+# status other than 2xx is Status{code, body}, and f is not called. No
+# body limit; timeout_ms is per read, and redirects are not followed
+def stream(~f: List<&2, U32> -> IO(Bool), c: Config, r: Req) -> IO(R(Head)):
+  match c:
+    case Config{+ms, mh, _, _, _, _, _}:
+      do IO<R(Head)>:
+        +now : Nat <- IO.now()
+        stream.spec(~f, spec.of(r), ms, mh, Nat.add(now, U32.to_nat(ms)))
+
+# a spec's origin, as a pool keys its connections, and the spec back
+type Orig is Data:
+  Orig{key: String, spec: Spec}
+
+def origin.key(+tls: Bool, h: String, +port: U32) -> String:
+  Bool.pick(String, tls, "https://", "http://") ++ h ++ ":" ++ U32.show(port)
+
+def origin.of(k: Str2, v: Verb, +tls: Bool, +port: U32, t: String, au: String, hs: List<&2, H.Header>, b: B.Bytes, +pl: Bool) -> Orig:
+  match k:
+    case Str2{a, h}:
+      Orig{origin.key(tls, a, port), Spec{v, Url{tls, h, port, t, au}, hs, b, pl}}
+
+def spec.origin(sp: Spec) -> Orig:
+  match sp:
+    case Spec{v, Url{+tls, h, +port, t, au}, hs, b, +pl}:
+      origin.of(s.dup(h), v, tls, port, t, au, hs, b, pl)
+    case Spec{v, UBad{e}, hs, b, pl}:
+      Orig{"", Spec{v, UBad{e}, hs, b, pl}}

@@ -1,3 +1,21 @@
+pool 1: 200 conn 1 req 1
+pool 2: 200 conn 1 req 2
+pool 3: 200 conn 1 req 3
+idle before: 200 conn 2 req 1
+idle after 300 ms: 200 conn 3 req 1
+stale first: 200 GET on conn 1
+stale GET retried: 200 GET on conn 2
+stale POST not retried: error: closed before the response was whole
+pool of 2 under 8 tasks: 40 of 40 answered 200
+two origins, first: 200 conn 6 req 1
+two origins, second: cup
+two origins, first again: 200 conn 6 req 2
+pool of 1, first: 200 conn 7 req 1
+pool of 1, another origin: cup
+pool of 1, first again: 200 conn 8 req 1
+pool stream: 200, 131072 bytes streamed
+pool, after a stream: 200 ok
+
 retry GET on 503: 200 GET after 3 tries
 no retry for POST: 503 busy
 retry an idempotent POST: 200 POST after 3 tries
@@ -22,3 +40,6 @@ stream 10 MiB, past max_body: 200, 10485760 bytes streamed
 stream, stopped at once: 200, 0 bytes streamed
 stream of a 404: error: status 404: no
 https: 200 tls conn 3 req 1
+pool 1: 200 tls conn 4 req 1
+pool 2: 200 tls conn 4 req 2
+pool 3: 200 tls conn 4 req 3
