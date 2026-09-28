@@ -85,6 +85,9 @@ Server.serve(~Mw.logger(~Mw.request_id(~Mw.body_limit(~small, ~Mw.recover(~app))
 - `request_id`: adds `x-request-id`, 16 random hex digits.
 - `logger`: prints `GET /todos/2 200 0ms` per request.
 - `hsts`: adds a one-year Strict-Transport-Security header.
+- `auth(~verify, ~next)`: parses Bearer or Basic Authorization, calls `verify(credential) -> IO(Maybe<Principal>)`, then calls `next(principal, request)` only for `Some{principal}`. The request passed to `next` has Authorization removed. `Principal{subject, claims}` and `Claim{name, value}` come from `core/auth.bend`.
+
+`auth` sends 401 and `WWW-Authenticate` for missing, unsupported or rejected credentials. Missing credentials offer both Bearer and Basic challenges. A rejected Bearer token includes `error="invalid_token"`; malformed Bearer syntax or repeated Authorization fields get 400 with `error="invalid_request"`. The realm is `grounds`; Basic challenges advertise UTF-8. Use Basic only with TLS. The verifier decides token validity, password checking, claims and authorization policy; the middleware does not retain secrets.
 
 ## Checks
 
@@ -98,4 +101,5 @@ Server.serve(~Mw.logger(~Mw.request_id(~Mw.body_limit(~small, ~Mw.recover(~app))
 7. Serves `examples/stream.bend`: 3 server-sent events, heartbeats until the client goes (`examples/hb.py`), a 10 MiB streamed body, `/healthz`, `/readyz`, and a bad `HTTP_*` value.
 8. Runs `examples/stop.py`: SIGTERM with an idle and a slow connection open. The slow request must finish, the idle one must close, and a short `HTTP_DRAIN_MS` must cut.
 9. Serves the TLS and redirect examples: trusted curl, certificate and host rejection, ALPN, TLS 1.1 rejection, handshake deadline, protocol-header stripping, trusted proxy opt-in, HSTS and 308 redirect.
-10. Runs the cold check on all examples.
+10. Serves `examples/auth.bend` and checks Bearer and Basic success, challenges, malformed credentials, duplicate fields and removal of Authorization before the handler.
+11. Runs the cold check on all examples.

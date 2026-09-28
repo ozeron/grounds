@@ -4,6 +4,7 @@ import ../core/status.bend as S
 import ../core/request.bend as Req
 import ../core/headers.bend as H
 import ../core/response.bend as Res
+import ../core/auth.bend as Auth
 
 # middleware as compile-time wrappers: each takes the next handler as a
 # template, so a stack is one expression the compiler inlines:
@@ -103,6 +104,66 @@ def hsts(~next: Req.Request -> IO(Res.Response), r: Req.Request) -> IO(Res.Respo
   do IO<Res.Response>:
     res : Res.Response <- next(r)
     return Res.header(res, "strict-transport-security", "max-age=31536000")
+
+# Authentication
+# --------------
+
+def auth.bearer_missing() -> Res.Response:
+  Res.header(Res.text(S.unauthorized(), "Unauthorized"), "www-authenticate", "Bearer realm=\"grounds\"")
+
+def auth.basic_missing() -> Res.Response:
+  Res.header(Res.text(S.unauthorized(), "Unauthorized"), "www-authenticate", "Basic realm=\"grounds\", charset=\"UTF-8\"")
+
+def auth.missing() -> Res.Response:
+  Res.header(auth.bearer_missing(), "www-authenticate", "Basic realm=\"grounds\", charset=\"UTF-8\"")
+
+def auth.bearer_invalid() -> Res.Response:
+  Res.header(Res.text(S.unauthorized(), "Unauthorized"), "www-authenticate", "Bearer realm=\"grounds\", error=\"invalid_token\"")
+
+def auth.bearer_bad() -> Res.Response:
+  Res.header(Res.text(S.bad_request(), "Bad Request"), "www-authenticate", "Bearer realm=\"grounds\", error=\"invalid_request\"")
+
+def auth.rejected(bearer: Bool) -> IO(Res.Response):
+  match bearer:
+    case True{}:
+      IO.pure(Res.Response, auth.bearer_invalid())
+    case False{}:
+      IO.pure(Res.Response, auth.basic_missing())
+
+def auth.checked(~next: Auth.Principal -> Req.Request -> IO(Res.Response), principal: Maybe<&2, Auth.Principal>, r: Req.Request, bearer: Bool) -> IO(Res.Response):
+  match principal:
+    case Some{p}:
+      next(p, r)
+    case None{}:
+      auth.rejected(bearer)
+
+def auth.attempt(~verify: Auth.Credential -> IO(Maybe<&2, Auth.Principal>), ~next: Auth.Principal -> Req.Request -> IO(Res.Response), attempt: Auth.Attempt, r: Req.Request) -> IO(Res.Response):
+  match attempt:
+    case Auth.Got{Auth.Bearer{token}}:
+      IO.bind(Maybe<&2, Auth.Principal>, Res.Response, verify(Auth.Bearer{token}), p => auth.checked(~next, p, r, True{}))
+    case Auth.Got{Auth.Basic{user, password}}:
+      IO.bind(Maybe<&2, Auth.Principal>, Res.Response, verify(Auth.Basic{user, password}), p => auth.checked(~next, p, r, False{}))
+    case Auth.BadBearer{}:
+      IO.pure(Res.Response, auth.bearer_bad())
+    case Auth.BadBasic{}:
+      IO.pure(Res.Response, auth.basic_missing())
+    case Auth.Duplicate{}:
+      IO.pure(Res.Response, auth.bearer_bad())
+    case Auth.Missing{}:
+      IO.pure(Res.Response, auth.missing())
+    case Auth.Unsupported{}:
+      IO.pure(Res.Response, auth.missing())
+
+def auth.taken(~verify: Auth.Credential -> IO(Maybe<&2, Auth.Principal>), ~next: Auth.Principal -> Req.Request -> IO(Res.Response), taken: Auth.Taken) -> IO(Res.Response):
+  match taken:
+    case Auth.Taken{attempt, req}:
+      auth.attempt(~verify, ~next, attempt, req)
+
+# Verifier returns Some{principal} to admit the request; next receives that
+# principal and a request with Authorization removed. Rejection has a 401
+# challenge; malformed Bearer credentials and duplicates have a 400 challenge.
+def auth(~verify: Auth.Credential -> IO(Maybe<&2, Auth.Principal>), ~next: Auth.Principal -> Req.Request -> IO(Res.Response), r: Req.Request) -> IO(Res.Response):
+  auth.taken(~verify, ~next, Auth.take(r))
 
 # Logger
 # ------

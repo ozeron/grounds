@@ -88,4 +88,7 @@ bend examples/redirect.bend -o "$tmp/redirect" > /dev/null
 bend examples/trusted_proxy.bend -o "$tmp/trusted_proxy" > /dev/null
 python3 examples/tls_check.py "$tmp/tls" "$tmp/redirect" "$tmp/trusted_proxy"
 
-python3 ../../json/scripts/cold.py "$PWD/examples/hello.bend" "$PWD/examples/stack.bend" "$PWD/examples/stream.bend" "$PWD/examples/tls.bend" "$PWD/examples/redirect.bend" "$PWD/examples/trusted_proxy.bend"
+bend examples/auth.bend -o "$tmp/auth" > /dev/null
+python3 examples/auth_check.py "$tmp/auth"
+
+python3 ../../json/scripts/cold.py "$PWD/examples/hello.bend" "$PWD/examples/stack.bend" "$PWD/examples/stream.bend" "$PWD/examples/tls.bend" "$PWD/examples/redirect.bend" "$PWD/examples/trusted_proxy.bend" "$PWD/examples/auth.bend"

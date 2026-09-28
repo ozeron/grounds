@@ -27,6 +27,7 @@ def handle(r: Req.Request) -> Res.Response:
 | `text.bend` | compares and cuts Strings by reading only; `or(maybe, default)`, `u32(digits)` |
 | `event.bend` | server-sent events: `Message{name, data, id}`, which the server writes and the client reads; `write`, `retry`, `ping`, and the WHATWG parser `feed` |
 | `cookie.bend` | `get(req, name)`, `set(res, name, value)`, `clear(res, name)`, and HMAC-SHA256 `sign(key, value)` / `verify(key, signed)` |
+| `auth.bend` | strict Bearer and UTF-8 Basic credentials, duplicate detection, `Principal{subject, claims}` |
 
 Bodies are bytes (`List<U32>`, 0..255). Text goes through `grounds-utf8`.
 
@@ -35,6 +36,10 @@ Bodies are bytes (`List<U32>`, 0..255). Text goes through `grounds-utf8`.
 `Ck.set(res, name, value)` adds a separate `Set-Cookie` header with `Path=/; HttpOnly; Secure; SameSite=Lax`. `Ck.clear(res, name)` uses the same scope and `Max-Age=0`. An empty name leaves the response alone. Names and values are percent-encoded from UTF-8 where needed to fit the cookie grammar; `Ck.get(req, name)` reads the first matching pair across `Cookie` headers, decodes that format and returns `None{}` for malformed encoding. The name match is case-sensitive. [RFC 6265](docs/rfc6265.txt) defines the original cookie grammar; [6265bis](https://datatracker.ietf.org/doc/html/draft-ietf-httpbis-rfc6265bis) defines `SameSite`.
 
 `Ck.sign(key, value)` returns `IO(Result)` with `value.<64 lowercase hex digits>`; `Ck.verify(key, signed)` returns `IO(Result)` containing `Some{value}` only for a valid HMAC-SHA256 signature. A malformed or incorrect signature gives `Done{None{}}`; an unavailable crypto library gives `Fail`. The native target loads OpenSSL 3 `libcrypto` at run time (`BEND_LIBCRYPTO` overrides its path); the JS target returns ENOSYS. Use a random secret key of at least 32 bytes and separate keys or signed purpose tags when several cookie types share an application.
+
+## Authentication credentials
+
+`Auth.parse_header(value)` parses an RFC 6750 Bearer token or RFC 7617 Basic user/password pair into `Got{Credential}`. Bearer tokens must follow the RFC token grammar; Basic uses strict, canonical Base64 and UTF-8, rejects control characters and requires the first colon to divide user from password. Malformed values have `BadBearer{}` or `BadBasic{}`; unknown schemes have `Unsupported{}`. `Auth.take(req)` also rejects repeated Authorization fields and returns the request with Authorization removed. `Principal{subject, claims}` is supplied only by an application verifier, through [server middleware](../server/README.md#middleware). Serve Basic credentials over TLS. The verifier can apply any required Unicode normalization or account policy.
 
 ## Design
 

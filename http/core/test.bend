@@ -8,6 +8,7 @@ import ./request.bend as Req
 import ./response.bend as Res
 import ./text.bend as T
 import ./cookie.bend as Ck
+import ./auth.bend as Auth
 
 # each def is a test: it checks only if both sides compute to the same value
 
@@ -93,6 +94,42 @@ def cookie_clear() -> {Ck.clear(Res.empty(S.ok()), "sid") == Res.Response{S.Stat
   {==}
 
 def cookie_empty_name_ignored() -> {Ck.set(Res.empty(S.ok()), "", "x") == Res.empty(S.ok()) : Res.Response}:
+  {==}
+
+def bearer_case_and_token() -> {Auth.parse_header("bEaReR mF_9.B5f-4.1JqM") == Auth.Got{Auth.Bearer{"mF_9.B5f-4.1JqM"}} : Auth.Attempt}:
+  {==}
+
+def bearer_rejects_bad_token() -> {Auth.parse_header("Bearer abc?") == Auth.BadBearer{} : Auth.Attempt}:
+  {==}
+
+def bearer_rejects_payload_after_padding() -> {Auth.parse_header("Bearer a=b") == Auth.BadBearer{} : Auth.Attempt}:
+  {==}
+
+def bearer_requires_token() -> {Auth.parse_header("Bearer ") == Auth.BadBearer{} : Auth.Attempt}:
+  {==}
+
+def basic_example() -> {Auth.parse_header("Basic QWxhZGRpbjpvcGVuIHNlc2FtZQ==") == Auth.Got{Auth.Basic{"Aladdin", "open sesame"}} : Auth.Attempt}:
+  {==}
+
+def basic_utf8() -> {Auth.parse_header("Basic dGVzdDoxMjPCow==") == Auth.Got{Auth.Basic{"test", "123£"}} : Auth.Attempt}:
+  {==}
+
+def basic_rejects_bad_padding() -> {Auth.parse_header("Basic QWxhZGRpbjpvcGVuIHNlc2FtZQ=A") == Auth.BadBasic{} : Auth.Attempt}:
+  {==}
+
+def basic_requires_colon() -> {Auth.parse_header("Basic dGVzdA==") == Auth.BadBasic{} : Auth.Attempt}:
+  {==}
+
+def basic_rejects_controls() -> {Auth.parse_header("Basic dGUAc3Q6cA==") == Auth.BadBasic{} : Auth.Attempt}:
+  {==}
+
+def basic_rejects_bad_utf8() -> {Auth.parse_header("Basic dGVzdDr/") == Auth.BadBasic{} : Auth.Attempt}:
+  {==}
+
+def auth_strips_authorization() -> {Auth.take(Req.Request{M.MGet{}, "/", [H.Header{"Host", "x"}, H.Header{"Authorization", "Bearer t"}], []}) == Auth.Taken{Auth.Got{Auth.Bearer{"t"}}, Req.Request{M.MGet{}, "/", [H.Header{"Host", "x"}], []}} : Auth.Taken}:
+  {==}
+
+def auth_rejects_duplicate() -> {Auth.take(Req.Request{M.MGet{}, "/", [H.Header{"Authorization", "Bearer a"}, H.Header{"authorization", "Bearer b"}], []}) == Auth.Taken{Auth.Duplicate{}, Req.Request{M.MGet{}, "/", [], []}} : Auth.Taken}:
   {==}
 
 # DevX helpers
