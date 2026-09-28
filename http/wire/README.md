@@ -45,5 +45,6 @@ The parser works on its own `Bytes` list (`B.BNil`, `B.BCon{head, tail}`); `B.of
 - **Response splitting:** whatever headers a handler sets, the written lines hold CR, LF or NUL only as line ends, and no framing header of theirs is written.
 - **Request injection:** `request_head` holds for any headers and any method, target and host without CR, LF or NUL. The head the client writes has one empty line, at its end, and CR or LF only where a line ends.
 - **Chunked bodies:** `chunked_reads_back` holds for pieces within the body limit and a framing budget at least what they take. Pieces written as chunks, then the last chunk, decode to the pieces joined, and the bytes after the body are left.
+- **Body length:** `body_length`: the Content-Length the client writes parses back, with the Content-Length reader that frames every request and response, as the number of body bytes, for bodies up to 2^32 − 1 bytes. `writes_count` ties it to `write_request`: the length in the head is counted from the very bytes that follow it.
 
 Content-Length and chunk sizes are written from digit counters (`Dec`, `Hc`), so the proofs can see each digit.

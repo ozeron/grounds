@@ -25,6 +25,7 @@ def handle(r: Req.Request) -> Res.Response:
 | `request.bend` | `Request{method, target, headers, body}`; `path`, `query`, `param` (a query value), `header`, `body` |
 | `response.bend` | `Response{status, headers, body}`; `new`, `empty`, `ok`, `bytes`, `text`, `html`, `redirect`, `not_found`, `bad_request`, `header` |
 | `text.bend` | compares and cuts Strings by reading only; `or(maybe, default)`, `u32(digits)` |
+| `event.bend` | server-sent events: `Message{name, data, id}`, which the server writes and the client reads; `write`, `retry`, `ping`, and the WHATWG parser `feed` |
 
 Bodies are bytes (`List<U32>`, 0..255). Text goes through `grounds-utf8`.
 
@@ -41,4 +42,4 @@ Bodies are bytes (`List<U32>`, 0..255). Text goes through `grounds-utf8`.
 
 `moon run http:check` runs the tests, the example and the cold check.
 
-**Laws.** `LAWS.bend`, proven in `PROOF.bend`: `same_ci` is equality of the lowercased Strings; a header is found under any spelling of its name, and its first value is the one read; a query key's first value is the one read.
+**Laws.** `LAWS.bend`, proven in `PROOF.bend`: `same_ci` is equality of the lowercased Strings; a header is found under any spelling of its name, and its first value is the one read; a query key's first value is the one read. `sse_reads_back`: events `write` makes, `feed` reads back as the same names, data and ids, for any name and id with no CR or LF and any data with no CR, `data:` or `id:` text inside it included. `write_joins`: events written one at a time make the same stream as written together.

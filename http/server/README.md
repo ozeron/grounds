@@ -31,14 +31,28 @@ def main() -> IO(Unit):
 
 ## Streaming
 
-`serve_out` takes a handler that returns `Out`: either `Whole{response}` or `Stream{status, headers, body}`. `body` gets a `Sink` and writes the body in chunks with `send(sink, bytes)` and `send_text(sink, text)`. `sse(body)` is a 200 `text/event-stream`, written with `event(sink, data)` or `named(sink, name, data)`. `examples/stream.bend` streams server-sent events and a 10 MiB download.
+`serve_out` takes a handler that returns `Out`: either `Whole{response}` or `Stream{status, headers, body}`. `body` gets a `Sink` and writes the body in chunks with `send(sink, bytes)` and `send_text(sink, text)`. `examples/stream.bend` streams server-sent events and a 10 MiB download.
+
+`sse(body)` is a 200 `text/event-stream`. Its body writes events with these calls:
+
+| Call | Does |
+|---|---|
+| `emit(k, Ev.Message{name, data, id})` | writes one event; data with LFs becomes several `data:` lines |
+| `event(k, data)`, `named(k, name, data)` | `emit` with no id |
+| `retry(k, ms)` | tells clients to wait `ms` before they reconnect |
+| `ping(k)` | writes a `:` comment line, a heartbeat |
+| `last_id(req)` | the request's `Last-Event-ID`, to resume after |
+| `live(k)` | `Live{ok, sink}`: `ok` is False once a write has failed, as the client is gone |
+| `sse.every(~tick, ms, k)` | calls `tick(k)` every `ms`, with a heartbeat when it writes nothing, until a write fails |
+
+`Ev` is `../core/event.bend`. The client reads the same `Ev.Message`, so a service can relay events as they are. `http/core` proves `sse_reads_back`: what `emit` writes, the client's parser reads back as the same event, for any name and id with no CR or LF and any data with no CR.
 
 ```python
 def ticks(k: Server.Sink) -> IO(Server.Sink):
-  Server.event(k, "hello")
+  Server.emit(k, Ev.Message{"price", "42", Some{"7"}})
 
 def app(r: Req.Request) -> IO(Server.Out):
-  IO.pure(Server.Out, Server.sse(ticks))
+  IO.pure(Server.Out, Server.sse(k => Server.sse.every(~ticks, 1000, k)))
 ```
 
 If a write fails, the rest are dropped and the connection closes after the body function returns. HTTP/1.0 clients also get chunked coding.
@@ -72,6 +86,6 @@ Server.serve(~Mw.logger(~Mw.request_id(~Mw.body_limit(~small, ~Mw.recover(~app))
 4. Runs `examples/timeouts.py`: an idle, a half-sent and a trickling connection each close in time (about 11 s).
 5. Runs `ab -c 100 -n 2000`, with and without keep-alive; no request may fail.
 6. Serves `examples/stack.bend` on 8082 and checks each wrapper.
-7. Serves `examples/stream.bend`: 3 server-sent events, a 10 MiB streamed body, `/healthz`, `/readyz`, and a bad `HTTP_*` value.
+7. Serves `examples/stream.bend`: 3 server-sent events, heartbeats until the client goes (`examples/hb.py`), a 10 MiB streamed body, `/healthz`, `/readyz`, and a bad `HTTP_*` value.
 8. Runs `examples/stop.py`: SIGTERM with an idle and a slow connection open. The slow request must finish, the idle one must close, and a short `HTTP_DRAIN_MS` must cut.
 9. Runs the cold check on the examples.

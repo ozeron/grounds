@@ -1,6 +1,6 @@
 # grounds-http-client: API v2
 
-The target API for the client, with POST and server-sent events. It replaces the v1 calls in `client.bend`. Nothing here is built yet. Build order is at the end.
+The client's API, with POST and server-sent events. It replaced the v1 calls. It is built as specified, with the changes noted under **As built**.
 
 ## Goals
 
@@ -14,7 +14,7 @@ The target API for the client, with POST and server-sent events. It replaces the
 
 - There are no named fields and no defaults. Records stay small, and setters add the rest.
 - There are no pipes and no methods. Calls nest, so a common call needs at most two levels.
-- A function value can be used only once. A callback is a template (`~f`), and a template cannot take a type parameter. So a callback's argument types are fixed: `Event`, `Head`, bytes.
+- A function value can be used only once. A callback is a template (`~f`), and a template cannot take a type parameter. So a callback's argument types are fixed: `Ev.Message` and bytes.
 - A pool passes connections through a channel, and a channel counts what it carries. So the pool has its own module. That keeps pool code out of programs that do not use it.
 
 ## Modules
@@ -22,6 +22,7 @@ The target API for the client, with POST and server-sent events. It replaces the
 ```python
 import ../http/client/client.bend as C     # one-shot requests, the shared types
 import ../http/client/pool.bend as Pool    # the same verbs through a pool
+import ../http/core/event.bend as Ev       # Ev.Message, shared with the server
 ```
 
 ## Types
@@ -48,8 +49,9 @@ type Reply is Type:
 type Head is Type:
   Head{status: U32, headers: Kv()}
 
-type Event is Type:
-  Event{name: String, data: String, id: Maybe<&2, String>}
+# in http/core/event.bend, shared with the server
+type Message is Data:
+  Message{name: String, data: String, id: Maybe<&2, String>}
 
 type Err is Data:
   BadUrl{}             # not http[s]://host[:port][/path][?query]
@@ -136,8 +138,8 @@ Retry rules stay the same: GET, HEAD, PUT, DELETE, OPTIONS and TRACE, plus any r
 ## Server-sent events, client side
 
 ```python
-def on(ev: C.Event) -> IO(Bool):
-  IO.bind(Unit, Bool, IO.print(C.event.data(ev)), u => IO.pure(Bool, True{}))
+def on(ev: Ev.Message) -> IO(Bool):
+  IO.bind(Unit, Bool, IO.print(Ev.data(ev)), u => IO.pure(Bool, True{}))
 
 r <- C.events(~on, cfg, C.get(u))          # R(C.Ended)
 ```
@@ -148,7 +150,7 @@ r <- C.events(~on, cfg, C.get(u))          # R(C.Ended)
 | `events_retry(~on, c, req, n)` | as `events`, reconnecting up to `n` times, with `Last-Event-ID` |
 
 ```python
-type Ended is Type:
+type Ended is Data:
   Ended{last_id: Maybe<&2, String>, reconnects: U32}
 ```
 
@@ -165,8 +167,8 @@ Behaviour:
   - A line that starts with `:` is a comment, as heartbeats are, and is skipped.
   - One space after the colon is dropped.
 - `timeout_ms` applies to each read, not to the whole stream.
-- `events_retry` waits the server's `retry:` value, or `backoff_ms` doubling up to 5 s. It sends the last id as `Last-Event-ID`. It does not reconnect after `on` answers `False`, after `Status`, or after `NotEvents`.
-- Accessors: `C.event.name(ev)`, `C.event.data(ev)` and `C.event.id(ev)` read one field each. Match `Event{name, data, id}` to read several.
+- `events_retry` waits the server's `retry:` value, or `backoff_ms` doubling up to 5 s. It sends the last id a blank line confirmed as `Last-Event-ID`, as WHATWG says. It does not reconnect after `on` answers `False`, after `Status`, or after `NotEvents`.
+- Accessors: `Ev.name(ev)`, `Ev.data(ev)` and `Ev.id(ev)` read one field each. Match `Ev.Message{name, data, id}` to read several.
 
 ## Server-sent events, server side
 
@@ -174,14 +176,14 @@ Additions to `http/server`, with the current `event` and `named` kept as wrapper
 
 | Call | Does |
 |---|---|
-| `Server.emit(k, Event{name, data, id})` | writes one event; data with LFs becomes several `data:` lines |
+| `Server.emit(k, Ev.Message{name, data, id})` | writes one event; data with LFs becomes several `data:` lines |
 | `Server.retry(k, ms)` | writes `retry: ms` |
 | `Server.ping(k)` | writes a `:` comment line, a heartbeat |
 | `Server.last_id(req)` | the request's `Last-Event-ID`, if any |
 | `Server.live(k)` | False once a write has failed: the client is gone |
 | `Server.sse.every(~tick, ms, k)` | calls `tick(k)` every `ms`, sending a heartbeat when it writes nothing, until `live(k)` is False |
 
-The server and the client share one `Event` type, from `http/core`, so a service can relay events without converting them.
+The server and the client share one `Ev.Message` type, from `http/core/event.bend`, so a service can relay events without converting them.
 
 ## Pools
 
@@ -231,8 +233,8 @@ The v1 laws are kept:
 - `chunked_reads_back` still covers streamed bodies.
 
 New laws:
-- `sse_reads_back`: the events `Server.emit` writes parse back, with `C.events`' parser, to the same names, data and ids. This holds for data with LFs, and for data that holds text such as `data:` or `id:`.
-- `form_reads_back`: `C.form(kv)` decodes, with core's query parser, to the same pairs.
+- `sse_reads_back`: the events `Server.emit` writes parse back, with `C.events`' parser, to the same names, data and ids. This holds for data with LFs, and for data that holds text such as `data:` or `id:`. Names and ids hold no CR or LF, and data no CR.
+- `form_reads_back`: `C.form(kv)` decodes, with core's query parser, to the same pairs. It is proven for unreserved chars; escapes are covered by tests.
 - `body_length`: the Content-Length that `send` writes is the length of the body bytes it sends.
 
 ## Build order
@@ -245,3 +247,11 @@ New laws:
 6. `sse_reads_back`, `form_reads_back` and `body_length`, proven. Then extend the fuzzer to event streams.
 
 Remove v1's `get`, `post`, `request`, `get_json`, `post_json`, `download`, `pool.get` and `send` in step 1. Only tests and examples use them.
+
+## As built
+
+- `Event` is `Ev.Message`, in `http/core/event.bend`: `Base` already has a type named `Event`.
+- `Status{code, body}` also covers `stream`.
+- `Pool.with(A, cfg, n, f)` takes `A: Type`, so `f` can give a `C.R(...)`.
+- `Server.live(k)` gives `Live{ok, sink}`, the sink back with the answer, as a sink is used once.
+- A `retry:` value past 2^32 − 1 ms is read as 2^32 − 1.

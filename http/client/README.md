@@ -1,66 +1,118 @@
 # grounds-http-client
 
-HTTP/1.1 requests from [Bend 2](https://github.com/bendlang/bend) to other services, over TCP or TLS. It is built on `grounds-wire` sockets and `grounds-http-wire` framing.
+HTTP/1.1 requests from [Bend 2](https://github.com/bendlang/bend) to other services, over TCP or TLS, with JSON, forms, streamed bodies and server-sent events. It is built on `grounds-wire` sockets and `grounds-http-wire` framing. `docs/API.md` is the design this API follows.
 
 ```python
-import ../http/client/client.bend as Client
+import ../http/client/client.bend as C
 import ../http/core/text.bend as T
 
-def said(r: Client.R()) -> String:
+def said(r: C.R(C.Reply)) -> String:
   match r:
-    case Done{res}:
-      T.or(Client.text(res), "(not UTF-8)")
+    case Done{rep}:
+      T.or(C.utf8(rep), "(not UTF-8)")
     case Fail{e}:
-      Client.show(e)
+      C.show(e)
 
 def main() -> IO(Unit):
-  IO.bind(Client.R(), Unit, Client.get("http://orders:8080/orders/7"), r => IO.print(said(r)))
+  IO.bind(C.R(C.Reply), Unit, C.fetch("http://orders:8080/orders/7"), r => IO.print(said(r)))
 ```
 
-## API
+## Modules
 
-| Call | Does |
+| Module | Has |
 |---|---|
-| `get(url)`, `post(url, content_type, body)` | one request with `default()` |
-| `request(cfg, method, url, headers, body)` | any method, your config and headers |
-| `get_json(A, url, decoder)` | GET, then decode the JSON body into `A` |
-| `post_json(A, url, encode, value)` | POST `value` as JSON, read the JSON reply |
-| `pool(cfg, base, n)` | a pool of up to `n` kept connections to `base` (`http[s]://host[:port]`) |
-| `send(pool, method, path, headers, body)`, `pool.get(pool, path)` | a request through the pool |
-| `pool.close(pool)` | close the pool once each connection in use comes back |
-| `download(~f, cfg, url, headers)` | GET, handing the body to `f(status, bytes)` as it is read |
-| `text(res)`, `show(err)`, `jshow(jerr)` | a body as text; an error as text |
+| `client.bend` (`C`) | one-shot requests, and the types every call shares |
+| `pool.bend` (`Pool`) | the same verbs through a pool of kept connections |
+| `../core/event.bend` (`Ev`) | `Ev.Message{name, data, id}`, the event type the server writes too |
 
-A result is `Done{Res.Response}` or `Fail{Err}`. `Err` is one of `BadUrl`, `BadMethod`, `NoHost`, `Refused{errno}`, `Tls{why}`, `Timeout`, `Closed`, `TooLarge`, `BadResponse` and `Redirects`. The JSON calls fail with `JErr`: `JHttp{err}`, `JStatus{code, body}` for a status other than 2xx, `JBad` for a body that is not JSON, or `JValue` for JSON the decoder refuses.
+## Building a request
+
+A request is a value. Build it, then send it.
+
+| Call | Gives |
+|---|---|
+| `get(url)`, `head(url)`, `delete(url)` | a request with no body |
+| `post(url, body)`, `put(url, body)`, `patch(url, body)` | a request with that body |
+| `method(name, url, body)` | any method; a name that is not a token fails with `BadMethod` |
+| `with(req, kv)` | these headers added, in order |
+| `bearer(req, token)` | `authorization: Bearer token` added |
+| `query(req, kv)` | the pairs added to the url's query, percent-encoded |
+| `idempotent(req, key)` | `idempotency-key: key` added, and the request marked safe to retry |
+
+| Body | Sends |
+|---|---|
+| `empty()` | nothing; `content-length: 0` for POST, PUT and PATCH |
+| `text(s)` | `s` in UTF-8, as `text/plain; charset=utf-8` |
+| `json(j)` | `J.encode(j)`, as `application/json`, with `accept: application/json` |
+| `form(kv)` | the pairs percent-encoded, as `application/x-www-form-urlencoded` |
+| `bytes(kind, bs)` | the bytes as they are, with Content-Type `kind` |
+
+`kv` is a list of `(name, value)` pairs. A body's Content-Type, and `json`'s Accept, are added only when the headers have none.
+
+## Sending
+
+The same calls exist in `C`, taking a `Config`, and in `Pool`, taking a pool.
+
+| Call | Gives |
+|---|---|
+| `send(c, req)` | `R(Reply)`, whatever the status |
+| `send_ok(c, req)` | `R(Reply)`; a status other than 2xx is `Status{code, body}` |
+| `send_json(A, c, req, dec)` | `R(A)`: a 2xx body decoded by `dec`; an empty body reads as `null` |
+| `stream(~f, c, req)` | `R(Head)`; `f(bytes)` gets the body as it is read, and answers `True` to go on |
+| `events(~on, c, req)` | `R(Ended)`; `on(message)` gets each event, and answers `True` to go on |
+| `events_retry(~on, c, req, n)` | as `events`, reconnecting up to `n` times with `Last-Event-ID` |
+| `fetch(url)`, `fetch_json(A, url, dec)` | `send_ok` and `send_json` of a GET, with `default()` |
+
+`R(A)` is `Done{A}` or `Fail{Err}`. `Reply{status, headers, body}` has the body as bytes: read it with `utf8(reply)`, and a header with `header(headers, name)`. `Ended{last_id, reconnects}` says where a stream stopped. `show(err)` says why a call failed.
+
+`Err` is one of `BadUrl`, `BadMethod`, `NoHost`, `Refused{errno}`, `Tls{why}`, `Timeout`, `Closed`, `TooLarge`, `BadResponse`, `Redirects`, `Status{code, body}`, `BadJson`, `BadValue` and `NotEvents{kind}`.
+
+```python
+# JSON in, JSON out, typed
+r <- C.send_json(Order, cfg, C.post(u, C.json(enc(order))), dec_order)
+
+# a form, with a token
+r <- C.send_ok(cfg, C.bearer(C.post(u, C.form([("q", "cups"), ("n", "2")])), token))
+
+# events, resumed after a drop
+r <- C.events_retry(~on, cfg, C.get("https://feed/prices"), 10)
+
+# through a pool, closed on every path
+x <- Pool.with(C.R(Item), cfg, 8, p => Pool.send_json(Item, p, C.get("http://items/7"), dec_item))
+```
 
 ## Behaviour
 
 - **Config:** `Config{timeout_ms, max_head_bytes, max_body_bytes, retries, backoff_ms, redirects, idle_ms}`. `default()` gives 10 s, 16 KiB of head, 8 MiB of body, no retries, 5 redirects and a 4 s idle limit. Change it with `with_timeout`, `with_max_body`, `with_retries(n, backoff_ms)`, `with_redirects(n)` and `with_idle(ms)`.
-- **Timeout:** one deadline covers the whole call: resolving the host, connecting, the TLS handshake, sending, reading, and every redirect and retry.
-- **Pool:** idle connections to one origin, at most `n`. A request takes an idle connection, opens a new one when there is room, or waits for one to come back. An idle connection older than `idle_ms` is closed, not used. A response with `connection: close`, from HTTP/1.0, or read to the close gives its connection up. If the server has closed a kept connection, the request is tried once more on a new one, but only for a method safe to repeat: GET, HEAD, PUT, DELETE, OPTIONS or TRACE.
-- **Retries:** off by default. `with_retries(n, ms)` tries a request that is safe to repeat up to `n` more times. It retries on a failed connection (`Refused`, `Timeout`, `Closed`) and on 502, 503 or 504. The first wait is `ms`, and each wait doubles, up to 5 s.
-- **Redirects:** 301, 302, 303, 307 and 308 are followed, up to `redirects` times; one more fails with `Redirects`. A 303, or a 301 or 302 answering a POST, is followed with a GET and no body; otherwise the method and body stay. A redirect from http to https is followed; one from https to http never is, as it would send the next request in clear text, and the 3xx comes back as it is. A redirect to another url drops `Authorization` and `Cookie`. With `redirects` 0, every 3xx comes back as it is.
-- **Downloads:** `download` hands the body to `f` a piece at a time, however large: there is no body limit. `f` answers `True` to go on or `False` to stop. `timeout_ms` applies to each read. Redirects are not followed.
+- **Timeout:** one deadline covers the whole call: resolving the host, connecting, the TLS handshake, sending, reading, and every redirect and retry. `stream` and `events` apply it to each read instead.
+- **Retries:** off by default. `with_retries(n, ms)` tries a request up to `n` more times on `Refused`, `Timeout` or `Closed`, and on 502, 503 or 504. Only GET, HEAD, PUT, DELETE, OPTIONS, TRACE and `idempotent` requests are retried. The first wait is `ms`, and each wait doubles, up to 5 s.
+- **Redirects:** 301, 302, 303, 307 and 308 are followed, up to `redirects` times; one more fails with `Redirects`. A 303, or a 301 or 302 answering a POST, is followed with a GET and no body; otherwise the method and body stay. A redirect from http to https is followed. One from https to http never is, as it would send the next request in clear text, and the 3xx comes back as it is. A redirect to another url drops `Authorization` and `Cookie`. `stream` and `events` do not follow redirects.
+- **Pool:** `Pool.open(cfg, n)` keeps up to `n` connections, to any origin; `Pool.close(p)` closes them once each one in use comes back, and `Pool.with` does both. A request takes an idle connection to its own origin, opens one while there is room, closes another origin's oldest idle one when the pool is full, or waits. An idle connection older than `idle_ms` is closed, not used. If the server has closed a kept connection, the request is tried once more on a new one, when it is safe to retry.
+- **Events:** `events` adds `accept: text/event-stream` and `cache-control: no-cache`. A status other than 2xx is `Status`, and a Content-Type other than `text/event-stream` is `NotEvents`; `on` is not called in either case. Parsing follows WHATWG's event stream format: CR, LF or CRLF lines, a leading BOM dropped, `data:` lines joined with LF, `message` when there is no `event:`, ids carried to later events, `:` comments skipped. `events_retry` waits the server's `retry:` value, or `backoff_ms` doubling up to 5 s. It sends the last id a blank line confirmed, and does not reconnect after `on` answers `False`, `Status` or `NotEvents`.
 - **TLS:** `https://` urls use OpenSSL 3, loaded at run time. The certificate chain and the host name are always checked, and TLS 1.2 is the floor. `GROUNDS_TLS_CA` names a PEM file to trust as well as the system's roots.
 - **Framing:** a response is read by Content-Length, chunked coding, or to the close when it has neither. Up to 8 1xx responses are skipped. There is no body after HEAD, or on a 204 or 304.
-- **Safety:** you cannot set Host, Content-Length, Transfer-Encoding or Connection; the client writes these itself. A header with CR, LF or NUL in its name or value is dropped. A url whose target or host has one is `BadUrl`, and a method name that is not a token is `BadMethod`.
-- **Counting:** `get`, `post`, `request`, the JSON calls and `download` are cold: no value is reference counted. A pool passes its connections through a channel, and a channel counts what it carries, so a program that uses a pool is partly counted. Measured on 5000 local GETs: one-shot requests run 1–14% slower in a program that also uses a pool, and the pool itself is about 1.8× faster than one-shot, from keep-alive.
+- **Safety:** you cannot set Host, Content-Length, Transfer-Encoding or Connection; the client writes them. A header with CR, LF or NUL in its name or value is dropped. A url whose target or host has one is `BadUrl`.
+- **Counting:** programs that use only `C` are cold: no value is reference counted. A pool passes its connections through a channel, and a channel counts what it carries, so a program that uses `Pool` is partly counted. Measured on 5000 local GETs: one-shot requests run 1–14% slower in a program that also uses a pool, and the pool is about 1.8× faster than one-shot, from keep-alive.
 
 ## Laws
 
 `LAWS.bend`, proven in `PROOF.bend`:
-- `url_target`, `url_authority`: a url the client takes has no CR, LF or NUL in its target or its Host.
-- `check_target`, `check_authority`: the same holds for every url that passes `url.check`, including pool paths and redirects.
+- `url_target`, `url_authority`, `check_target`, `check_authority`: a url the client takes, or follows in a redirect, has no CR, LF or NUL in its target or its Host.
 - `method_clean`: a method the client sends has none either.
-- `request_safe`: combined with http/wire's `request_head`, the head the client writes for any method, url and headers has one empty line, at its end, and CR or LF only where a line ends. No header value, url or method can add a header or start a second request.
+- `request_safe`: combined with http/wire's `request_head`, the head the client writes for any method, url and headers has one empty line, at its end, and CR or LF only where a line ends. `with`, `bearer`, `query` and `idempotent` reach the same writer.
+- `form_reads_back`: `form(kv)` decodes, with core's query parser, to the same pairs, for names and values of unreserved chars. Escaped chars are covered by the unit tests.
+
+`http/core` proves `sse_reads_back`: the events the server writes parse back, with the parser `events` uses, to the same names, data and ids. `http/wire` proves `body_length` and `chunked_reads_back`.
 
 ## Checks
 
 `moon run http_client:check`:
 1. The URL unit tests and the proofs.
-2. `tests/live.bend` against `tests/fake.py` and the server's `examples/stream`: framing and faults.
-3. `tests/more.bend`: the pool, keep-alive and stale connections, retries, each redirect code, JSON, downloads and TLS. Every case must print its line from `tests/more.out`.
-4. `tests/fuzz.py`: 2000 random responses, valid and mutated, sent in random pieces. Each must read as a reference parser written from http1.bend's rules says.
-5. The cold check on the one-shot examples.
+2. `tests/live.bend` against `tests/fake.py` and the server's `examples/stream`: framing, faults and every builder.
+3. `tests/more.bend`: the pool, keep-alive and stale connections, retries, each redirect code, JSON, streams and TLS. Every case must print its line from `tests/more.out`.
+4. `tests/events.bend`: event streams, stops, errors and reconnects, as `tests/events.out`.
+5. `tests/fuzz.py`: 2000 random responses, valid and mutated, sent in random pieces. Each must read as a reference parser written from http1.bend's rules says.
+6. `tests/fuzz_events.py`: 1000 random event streams, chunked or to the close, in pieces that split UTF-8 chars. Each must read as a reference parser written from WHATWG's rules says.
+7. The cold check on `tests/live.bend` and the four examples: `get`, `json`, `stream` and `events`.
 
-`tests/soak.py` is a longer run, by hand: rounds of every kind of request, while it watches the memory and sockets of the client and of the server.
+`tests/soak.py` is a longer run, by hand: rounds of every kind of request through a pool, while it watches the memory and sockets of the client and of the server.
