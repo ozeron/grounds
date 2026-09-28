@@ -77,9 +77,10 @@ def big(n: Nat, acc: List<&2, U32>) -> List<&2, U32>:
     case 1n+m:
       big(m, Con{120, acc})
 
-# 20 MB to a server that reads nothing: the send must time out
+# 4 MB fills the local socket while keeping list construction below the
+# 3-second assertion, whose clock starts before the command is built.
 def flood_send(c: Redis.Client()) -> IO(Redis.Got(R.Reply)):
-  Redis.command_bytes(c, [[83, 69, 84], [107], big(20000000n, [])])
+  Redis.command_bytes(c, [[83, 69, 84], [107], big(4000000n, [])])
 
 def replied.shown(name: String, +want: String, +got: String, c: Redis.Client(), k: Redis.Client() -> IO(Unit)) -> IO(Unit):
   verdict(same(got, want), name, got, u => k(c))
@@ -179,7 +180,7 @@ def pipe.opened(r: Result<&1, &1, Redis.Down, Redis.Client()>, k: Unit -> IO(Uni
       verdict(False{}, "push between", Redis.down.show(d), k)
 
 def big_pipe(c: Redis.Client()) -> IO(Redis.Got(R.Reply)):
-  Redis.command_bytes(c, [[83, 69, 84], [107], big(20000000n, [])])
+  Redis.command_bytes(c, [[83, 69, 84], [107], big(4000000n, [])])
 
 def RP() -> Type:
   Result<&1, &1, Redis.Down, R.Reply>
@@ -219,7 +220,7 @@ def f17(u: Unit) -> IO(Unit):
     pool.down("after pool.close", r3, "closed", f18)
 
 def f16(u: Unit) -> IO(Unit):
-  expect_down("20 MB to a server that closes at once: an error, not a crash", 7015, "io", 3000n, big_pipe, f17)
+  expect_down("4 MB to a server that closes at once: an error, not a crash", 7015, "io", 3000n, big_pipe, f17)
 
 def f15(u: Unit) -> IO(Unit):
   IO.bind(Result<&1, &1, Redis.Down, Redis.Client()>, Unit, Redis.open(cfg(7014)), r => pipe.opened(r, f16))
