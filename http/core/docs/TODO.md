@@ -12,7 +12,8 @@ Specs in this folder: [RFC 9110](rfc9110.txt) (HTTP semantics), [RFC 9112](rfc91
 6. [x] **http_router** (`../http_router`): routes as data, `route_req(routes, req)` gives `Found{route, params}`, `NotFound` or `MethodNotAllowed{allowed}`.
 7. [ ] **http_middleware**: `BodyLimit`, `RequestId`, `Logger`, `Timeout`, `Cors`, `Recover`; later compression, rate limits, auth, forwarded headers.
 8. [x] **http_client** (`../client`): one deadline, size limits, a pool with keep-alive, retries, redirects, JSON, streamed downloads, TLS; laws against injection; a response fuzzer and a soak test.
-9. [ ] Later: cookies (RFC 6265), forms, multipart, streamed request bodies, WebSockets, a cold pool and IPv6.
+9. [x] Cookies (RFC 6265, SameSite per 6265bis).
+10. [ ] Later: forms, multipart, streamed request bodies, WebSockets, a cold pool and IPv6.
 
 ## http, against RFC 9110
 
@@ -23,6 +24,7 @@ Specs in this folder: [RFC 9110](rfc9110.txt) (HTTP semantics), [RFC 9112](rfc91
 - [x] Query pairs with repeats, `%XX` and `+` decoded, UTF-8 checked (RFC 3986 §2.1, application/x-www-form-urlencoded)
 - [x] Request: method, target, headers, body bytes; `path`, `query`, `header`
 - [x] Response: status, headers, body bytes; `text`, `html`, `bytes`, `empty`, `redirect` (303), `not_found`, `bad_request`, `header`
+- [x] Cookies: first matching `Cookie` pair; safe `Set-Cookie` and clear defaults; HMAC-SHA256 signatures
 - [ ] Header value rules: trim optional white space, reject CR, LF and NUL (§5.5)
 - [ ] Field list values: split `a, b` into items for `all` where the header is a list (§5.6.1)
 - [ ] Target forms beyond origin-form: absolute-form, authority-form, asterisk-form (RFC 9112 §3.2)

@@ -15,3 +15,5 @@
 .moon/docker
 !/wire/effs/*.c
 !/wire/effs/*.js
+!/http/core/effs/*.c
+!/http/core/effs/*.js

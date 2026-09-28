@@ -7,6 +7,7 @@ import ./query.bend as Q
 import ./request.bend as Req
 import ./response.bend as Res
 import ./text.bend as T
+import ./cookie.bend as Ck
 
 # each def is a test: it checks only if both sides compute to the same value
 
@@ -65,6 +66,33 @@ def res_text() -> {Res.text(S.ok(), "hi") == Res.Response{S.Status{200}, [H.Head
   {==}
 
 def res_header() -> {Res.header(Res.empty(S.no_content()), "cache-control", "no-store") == Res.Response{S.Status{204}, [H.Header{"cache-control", "no-store"}], []} : Res.Response}:
+  {==}
+
+def cookie_defaults() -> {Ck.set(Res.empty(S.ok()), "sid", "abc") == Res.Response{S.Status{200}, [H.Header{"set-cookie", "sid=abc; Path=/; HttpOnly; Secure; SameSite=Lax"}], []} : Res.Response}:
+  {==}
+
+def cookie_injection_escaped() -> {Ck.set(Res.empty(S.ok()), "s\nid", "x\r\nSet-Cookie: injected=1;") == Res.Response{S.Status{200}, [H.Header{"set-cookie", "s%0Aid=x%0D%0ASet-Cookie:%20injected=1%3B; Path=/; HttpOnly; Secure; SameSite=Lax"}], []} : Res.Response}:
+  {==}
+
+def cookie_first_pair() -> {Ck.get(Req.Request{M.MGet{}, "/", [H.Header{"Cookie", "theme=dark; sid=abc"}, H.Header{"cookie", "sid=other"}], []}, "sid") == Some{"abc"} : Maybe<&2, String>}:
+  {==}
+
+def cookie_decodes_value() -> {Ck.get(Req.Request{M.MGet{}, "/", [H.Header{"cookie", "message=x%20y%3B%E2%82%AC"}], []}, "message") == Some{"x y;€"} : Maybe<&2, String>}:
+  {==}
+
+def cookie_rejects_bad_encoding() -> {Ck.get(Req.Request{M.MGet{}, "/", [H.Header{"cookie", "sid=%FF"}], []}, "sid") == None{} : Maybe<&2, String>}:
+  {==}
+
+def cookie_first_bad_does_not_skip() -> {Ck.get(Req.Request{M.MGet{}, "/", [H.Header{"cookie", "sid=%FF; sid=valid"}], []}, "sid") == None{} : Maybe<&2, String>}:
+  {==}
+
+def cookie_quoted_value() -> {Ck.get(Req.Request{M.MGet{}, "/", [H.Header{"cookie", "sid=\"abc\""}], []}, "sid") == Some{"abc"} : Maybe<&2, String>}:
+  {==}
+
+def cookie_clear() -> {Ck.clear(Res.empty(S.ok()), "sid") == Res.Response{S.Status{200}, [H.Header{"set-cookie", "sid=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax"}], []} : Res.Response}:
+  {==}
+
+def cookie_empty_name_ignored() -> {Ck.set(Res.empty(S.ok()), "", "x") == Res.empty(S.ok()) : Res.Response}:
   {==}
 
 # DevX helpers

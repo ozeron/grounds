@@ -26,8 +26,15 @@ def handle(r: Req.Request) -> Res.Response:
 | `response.bend` | `Response{status, headers, body}`; `new`, `empty`, `ok`, `bytes`, `text`, `html`, `redirect`, `not_found`, `bad_request`, `header` |
 | `text.bend` | compares and cuts Strings by reading only; `or(maybe, default)`, `u32(digits)` |
 | `event.bend` | server-sent events: `Message{name, data, id}`, which the server writes and the client reads; `write`, `retry`, `ping`, and the WHATWG parser `feed` |
+| `cookie.bend` | `get(req, name)`, `set(res, name, value)`, `clear(res, name)`, and HMAC-SHA256 `sign(key, value)` / `verify(key, signed)` |
 
 Bodies are bytes (`List<U32>`, 0..255). Text goes through `grounds-utf8`.
+
+## Cookies
+
+`Ck.set(res, name, value)` adds a separate `Set-Cookie` header with `Path=/; HttpOnly; Secure; SameSite=Lax`. `Ck.clear(res, name)` uses the same scope and `Max-Age=0`. An empty name leaves the response alone. Names and values are percent-encoded from UTF-8 where needed to fit the cookie grammar; `Ck.get(req, name)` reads the first matching pair across `Cookie` headers, decodes that format and returns `None{}` for malformed encoding. The name match is case-sensitive. [RFC 6265](docs/rfc6265.txt) defines the original cookie grammar; [6265bis](https://datatracker.ietf.org/doc/html/draft-ietf-httpbis-rfc6265bis) defines `SameSite`.
+
+`Ck.sign(key, value)` returns `IO(Result)` with `value.<64 lowercase hex digits>`; `Ck.verify(key, signed)` returns `IO(Result)` containing `Some{value}` only for a valid HMAC-SHA256 signature. A malformed or incorrect signature gives `Done{None{}}`; an unavailable crypto library gives `Fail`. The native target loads OpenSSL 3 `libcrypto` at run time (`BEND_LIBCRYPTO` overrides its path); the JS target returns ENOSYS. Use a random secret key of at least 32 bytes and separate keys or signed purpose tags when several cookie types share an application.
 
 ## Design
 
@@ -40,6 +47,6 @@ Bodies are bytes (`List<U32>`, 0..255). Text goes through `grounds-utf8`.
 - **A request is used once.** Bend values are single-use, so an accessor like `Req.path(r)` takes the request whole. To read several parts, match on `Request{method, target, headers, body}`.
 - **Shares no String.** Every helper reads Strings without keeping them, so a program using http keeps Strings free of reference counting; `check.sh` verifies it on `examples/hello.bend`.
 
-`moon run http:check` runs the tests, the example and the cold check.
+`moon run http:check` runs the tests, examples, HMAC vectors checked against Python, and cold checks.
 
-**Laws.** `LAWS.bend`, proven in `PROOF.bend`: `same_ci` is equality of the lowercased Strings; a header is found under any spelling of its name, and its first value is the one read; a query key's first value is the one read. `sse_reads_back`: events `write` makes, `feed` reads back as the same names, data and ids, for any name and id with no CR or LF and any data with no CR, `data:` or `id:` text inside it included. `write_joins`: events written one at a time make the same stream as written together.
+**Laws.** `LAWS.bend`, proven in `PROOF.bend`: `same_ci` is equality of the lowercased Strings; a header is found under any spelling of its name, and its first value is the one read; a query key's first value is the one read. `set_cookie_clean`: every value `set` writes has no CR or LF. `sse_reads_back`: events `write` makes, `feed` reads back as the same names, data and ids, for any name and id with no CR or LF and any data with no CR, `data:` or `id:` text inside it included. `write_joins`: events written one at a time make the same stream as written together.

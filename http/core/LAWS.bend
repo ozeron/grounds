@@ -3,6 +3,7 @@ import ./headers.bend as H
 import ./query.bend as Q
 import ./text.bend as T
 import ./event.bend as Ev
+import ./cookie.bend as Ck
 import ./proof/text.bend as P
 
 # Laws grounds-http-core must keep. `bend PROOF.bend` fails while any is open or false.
@@ -30,6 +31,12 @@ law query_first:
   for +v: String
   for +ps: List<&2, Q.Param>
   {Q.get(Con{Q.Param{k, v}, ps}, k) == Some{v} : Maybe<&2, String>}
+
+# Set-Cookie's value never contains CR or LF, even with arbitrary input text.
+law set_cookie_clean:
+  for +name: String
+  for +value: String
+  {Ck.no_crlf(Ck.set_value(name, value)) == True{} : Bool}
 
 # Server-sent events (WHATWG HTML, the event stream format)
 # ------------------

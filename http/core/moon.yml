@@ -10,4 +10,5 @@ tasks:
     command: "./check.sh"
     inputs:
       - "*.bend"
-      - "examples/*.bend"
+      - "examples/*"
+      - "effs/*"

@@ -6,6 +6,7 @@ import ./query.bend as Q
 import ./request.bend as Req
 import ./response.bend as Res
 import ./text.bend as T
+import ./cookie.bend as Ck
 
 # grounds-http-core's entry: publishing it bundles every module; import the one
 # you need, e.g. 0x…/http/request.bend

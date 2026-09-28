@@ -4,6 +4,8 @@ import ./headers.bend as H
 import ./query.bend as Q
 import ./text.bend as T
 import ./event.bend as Ev
+import ./cookie.bend as Ck
+import ../../utf8/utf8.bend as U
 import ./proof/text.bend as P
 
 law keep_found:
@@ -86,6 +88,37 @@ def q_get_found(ps, k, v):
 def Laws.query_first(k, v, ps):
   %Equal.sym(Bool, Q.same(k, k, True{}), True{}, q_same_refl(k, True{})) : {Q.get.go(ps, k, Q.get.keep(_, v, None{})) == Some{v} : Maybe<&2, String>}
   q_get_found(ps, k, v)
+
+law line_safe_clean:
+  for +bad: Bool
+  for +b: U32
+  for +tail: String
+  for same: {Ck.line_byte(b) == bad : Bool}
+  for clean: {Ck.no_crlf(tail) == True{} : Bool}
+  {Ck.no_crlf(Ck.line_safe(bad, b, tail)) == True{} : Bool}
+
+def line_safe_clean(bad, b, tail, same, clean):
+  match bad:
+    case True{}:
+      clean
+    case False{}:
+      %Equal.sym(Bool, Ck.line_byte(b), False{}, same) : {Bool.and(Bool.not(_), Ck.no_crlf(tail)) == True{} : Bool}
+      %Equal.sym(Bool, Ck.no_crlf(tail), True{}, clean) : {Bool.and(Bool.not(False{}), _) == True{} : Bool}
+      {==}
+
+law without_lines_clean:
+  for +s: String
+  {Ck.no_crlf(Ck.without_lines(s)) == True{} : Bool}
+
+def without_lines_clean(s):
+  match s:
+    case SNil{}:
+      {==}
+    case SCon{Chr{+b}, t}:
+      line_safe_clean(Ck.line_byte(b), b, Ck.without_lines(t), {==}, without_lines_clean(t))
+
+def Laws.set_cookie_clean(name, value):
+  without_lines_clean(Ck.escape.to(U.encode(name), True{}, SCon{'=', Ck.escape.to(U.encode(value), False{}, "; Path=/; HttpOnly; Secure; SameSite=Lax")}))
 
 # Server-sent events
 # ------------------
