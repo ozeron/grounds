@@ -7,6 +7,7 @@ trap 'rm -rf "$tmp"' EXIT
 bend test.bend
 bend integrity_test.bend
 bend fingerprint_test.bend
+bend sign_test.bend
 bend examples/binding.bend -o "$tmp/binding" > /dev/null
 python3 examples/binding_check.py "$tmp/binding"
 bend examples/stress.bend -o "$tmp/stress" > /dev/null
@@ -15,6 +16,8 @@ bend examples/integrity.bend -o "$tmp/integrity" > /dev/null
 "$tmp/integrity"
 bend examples/fingerprint.bend -o "$tmp/fingerprint" > /dev/null
 "$tmp/fingerprint"
+bend examples/sign.bend -o "$tmp/sign" > /dev/null
+"$tmp/sign"
 
 if command -v bun > /dev/null 2>&1; then
   bend examples/binding.bend -o "$tmp/binding.js" > /dev/null
@@ -25,6 +28,8 @@ if command -v bun > /dev/null 2>&1; then
   bun "$tmp/integrity.js"
   bend examples/fingerprint.bend -o "$tmp/fingerprint.js" > /dev/null
   bun "$tmp/fingerprint.js"
+  bend examples/sign.bend -o "$tmp/sign.js" > /dev/null
+  bun "$tmp/sign.js"
 else
   echo "RTC JS target: Bun unavailable; skipped"
 fi

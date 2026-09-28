@@ -6,6 +6,8 @@ Early pure Bend WebRTC protocol work. `stun.bend` parses RFC 8489 STUN datagrams
 
 `stun_fingerprint.bend` validates an optional final `FINGERPRINT` attribute with the RFC 8489 CRC-32/XOR calculation. It rejects duplicate, misplaced, incorrectly sized, and incorrect fingerprints. FINGERPRINT distinguishes packet types; it does not authenticate a peer.
 
+`stun_sign.bend` appends legacy HMAC-SHA1 `MESSAGE-INTEGRITY` and a final `FINGERPRINT` to a parsed STUN message. It adjusts the header length separately for the HMAC and CRC and rejects packets that already contain an integrity or fingerprint attribute. The caller must construct the required credential and ICE attributes before signing. SHA-256 integrity and a complete ICE request builder remain to be implemented.
+
 ```python
 import ../rtc/stun_client.bend as Stun
 import ../rtc/stun.bend as Packet
@@ -15,4 +17,4 @@ reply : Maybe<&2, Packet.IPv4> <- Stun.request("127.0.0.1", 3478, 1000)
 
 Pass an IPv4 address as the host, rather than a DNS name: the current client compares the response source directly. A timeout, malformed response, wrong transaction, or wrong source returns `None{}`. This is a single request with no retransmission. It does not validate MESSAGE-INTEGRITY or FINGERPRINT and is not yet an ICE connectivity check or a full STUN client. Do not use its unauthenticated result as proof of peer identity.
 
-`moon run rtc:check --force` checks the RFC 5769 IPv4 Binding response and malformed inputs in Bend, then uses a separate Python UDP responder to verify two random Binding requests, source port mapping, and rejection of wrong transaction IDs and sources. RFC 5769 request and response HMAC and FINGERPRINT values pass on native and Bun JS; changed content, MAC, key, and CRC fail. A 65,532-byte attribute section also parses on both targets, checking the maximum STUN header length without overflowing the JS stack. Request signing and SHA-256 integrity are separate work.
+`moon run rtc:check --force` checks the RFC 5769 IPv4 Binding response and malformed inputs in Bend, then uses a separate Python UDP responder to verify two random Binding requests, source port mapping, and rejection of wrong transaction IDs and sources. RFC 5769 request and response HMAC and FINGERPRINT values pass on native and Bun JS; changed content, MAC, key, and CRC fail. The signer reproduces the RFC 5769 request byte for byte on both targets. A 65,532-byte attribute section also parses on both targets, checking the maximum STUN header length without overflowing the JS stack. SHA-256 integrity and authenticated live ICE checks are separate work.
