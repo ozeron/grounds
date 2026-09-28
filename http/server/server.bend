@@ -127,6 +127,7 @@ type Sink is Type:
 type Out is Type:
   Whole{res: Res.Response}
   Stream{status: S.Status, headers: List<&2, H.Header>, body: Sink -> IO(Sink)}
+  Upgrade{accept: String, session: Socket -> B.Bytes -> IO(Unit)}
 
 def RP() -> Type:
   Socket & Result<&1, &1, U32 & String, Maybe<&1, List<&2, U32>>>
@@ -332,12 +333,48 @@ def streamed(close, rest, body, ms, m, next):
   (s, r) = m
   streamed.go(r, close, rest, body, s, ms, next)
 
-def respond(out: Out, +close: Bool, s: Socket, +ms: U32, rest: B.Bytes, next: B.Bytes -> Nat -> Socket -> IO(Unit)) -> IO(Unit):
+def upgraded(r: Result<&1, &1, U32 & String, Unit>, s: Socket,
+             rest: B.Bytes, session: Socket -> B.Bytes -> IO(Unit)) -> IO(Unit):
+  match r:
+    case Done{_}:
+      session(s, rest)
+    case Fail{_}:
+      W.wire_close(s)
+
+def upgrade_sent(rest: B.Bytes, session: Socket -> B.Bytes -> IO(Unit), m: RU()) -> IO(Unit):
+  (s, r) = m
+  upgraded(r, s, rest, session)
+
+def upgrade_closed(m: RU()) -> IO(Unit):
+  (s, _) = m
+  W.wire_close(s)
+
+def upgrade.checked(ok: Bool, accept: String, session: Socket -> B.Bytes -> IO(Unit),
+                    s: Socket, +ms: U32, rest: B.Bytes) -> IO(Unit):
+  match ok:
+    case True{}:
+      IO.bind(RU(), Unit, W.wire_send_timeout(s, B.to_list(H1.websocket_head(accept)), ms),
+        m => upgrade_sent(rest, session, m))
+    case False{}:
+      IO.bind(RU(), Unit, W.wire_send_timeout(s, B.to_list(H1.write(refuse(S.bad_request()), True{})), ms),
+        m => upgrade_closed(m))
+
+def upgrade.run(+accept: String, session: Socket -> B.Bytes -> IO(Unit),
+                upgrade_close: Bool, raw: B.Bytes, +max_head: U32,
+                s: Socket, +ms: U32, rest: B.Bytes) -> IO(Unit):
+  upgrade.checked(Bool.and(Bool.and(H1.request_is_11(raw, max_head), Bool.not(upgrade_close)),
+    Bool.not(H1.unsafe(accept, False{}))), accept, session, s, ms, rest)
+
+def respond(out: Out, +close: Bool, upgrade_close: Bool, s: Socket, +ms: U32,
+            rest: B.Bytes, raw: B.Bytes, +max_head: U32,
+            next: B.Bytes -> Nat -> Socket -> IO(Unit)) -> IO(Unit):
   match out:
     case Whole{res}:
       IO.bind(RU(), Unit, W.wire_send_timeout(s, B.to_list(H1.write(res, close)), ms), m => sent(close, rest, m, next))
     case Stream{S.Status{+c}, hs, body}:
       IO.bind(RU(), Unit, W.wire_send_timeout(s, B.to_list(H1.write_head(c, hs, close)), ms), m => streamed(close, rest, body, ms, m, next))
+    case Upgrade{accept, session}:
+      upgrade.run(accept, session, upgrade_close, raw, max_head, s, ms, rest)
 
 def got.go(done: Bool, acc: B.Bytes, bs: List<&2, U32>, +dl: Nat, s: Socket, next: B.Bytes -> Nat -> Socket -> IO(Unit)) -> IO(Unit):
   match done:
@@ -521,13 +558,14 @@ def redirect_https(host: String, r: Req.Request) -> Res.Response:
     case Req.Request{_, target, _, _}:
       Res.new(S.permanent_redirect(), [H.Header{"location", "https://" ++ host ++ target}], [])
 
-def step(~h: Req.Request -> IO(Out), p: H1.Parsed, +tls: Bool, +trust: Bool, +acc: B.Bytes, s: Socket, +left: Nat, +ims: U32, +rms: U32, +dl: Nat, next: B.Bytes -> Nat -> Socket -> IO(Unit)) -> IO(Unit):
+def step(~h: Req.Request -> IO(Out), p: H1.Parsed, +mh: U32, +tls: Bool, +trust: Bool, +acc: B.Bytes, s: Socket, +left: Nat, +ims: U32, +rms: U32, +dl: Nat, next: B.Bytes -> Nat -> Socket -> IO(Unit)) -> IO(Unit):
   match p:
     case H1.Parsed{req, +close, rest}:
       do IO<Unit>:
         out : Out <- h(request_proto(req, tls, trust))
         +stop : U32 <- W.wire_stopping()
-        respond(out, closing(close, left, stop), s, rms, rest, next)
+        respond(out, closing(close, left, stop), Bool.or(close, Bool.not(U32.is_eq(stop, 0))),
+          s, rms, rest, acc, mh, next)
     case H1.More{}:
       reading(Bool.not(B.nonempty(acc)), ims, rms, dl, acc, s, next)
     case H1.Bad{e}:
@@ -542,7 +580,7 @@ def conn(~h: Req.Request -> IO(Out), +fuel: Nat, +mh: U32, +mb: U32, +ims: U32, 
     case 0n:
       W.wire_close(s)
     case 1n+p:
-      step(~h, H1.parse(copy(acc, B.BNil{}), mh, mb), tls, trust, acc, s, p, ims, rms, dl, b => d => sk => conn(~h, p, mh, mb, ims, rms, tls, trust, b, d, sk))
+      step(~h, H1.parse(copy(acc, B.BNil{}), mh, mb), mh, tls, trust, acc, s, p, ims, rms, dl, b => d => sk => conn(~h, p, mh, mb, ims, rms, tls, trust, b, d, sk))
 
 def handshake_done(~h: Req.Request -> IO(Out), r: Result<&1, &1, U32 & String, Unit>, +mr: Nat, +mh: U32, +mb: U32, +ims: U32, +rms: U32, +trust: Bool, s: Socket) -> IO(Unit):
   match r:

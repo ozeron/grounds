@@ -724,6 +724,24 @@ def req.lines(s: Split, +max: Nat) -> Parsed:
 def parse(buf: B.Bytes, +max_head: U32, +max_body: U32) -> Parsed:
   req.lines(split.go(buf, B.BNil{}, [], 0, max_head, False{}), U32.to_nat(max_body))
 
+def request_is_11.line(line: Line) -> Bool:
+  match line:
+    case Line{_, _, V11{}}:
+      True{}
+    case _:
+      False{}
+
+def request_is_11.split(parts: Split) -> Bool:
+  match parts:
+    case Lines{Con{first, _}, _}:
+      request_is_11.line(request_line(split_sp.go(first, B.BNil{}, [])))
+    case _:
+      False{}
+
+# A protocol upgrade requires HTTP/1.1; Parsed itself keeps its stable API.
+def request_is_11(buf: B.Bytes, max_head: U32) -> Bool:
+  request_is_11.split(split.go(buf, B.BNil{}, [], 0, max_head, False{}))
+
 # Responses
 # ---------
 
@@ -779,6 +797,11 @@ def closing(close: Bool) -> String:
 # for both would share Strings
 def head_bytes(s: String) -> B.Bytes:
   bytes.go(s, B.BNil{})
+
+# The WebSocket upgrade has no HTTP body framing. The caller supplies only
+# the base64 challenge response produced by the WebSocket handshake module.
+def websocket_head(accept: String) -> B.Bytes:
+  head_bytes("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: " ++ accept ++ "\r\n\r\n")
 
 def write.go(+c: U32, hs: List<&2, H.Header>, +body: B.Bytes, close: Bool) -> B.Bytes:
   B.app(head_bytes(String.reverse(String.reverse.go("\r\n", String.reverse.go(closing(close), String.reverse.go("\r\n", String.reverse.go(U32.show(count(body, 0)), String.reverse.go("content-length: ", heads(hs, String.reverse.go("\r\n", String.reverse.go(S.reason(S.Status{c}), String.reverse.go(" ", String.reverse.go(U32.show(c), String.reverse.go("HTTP/1.1 ", ""))))))))))))), body)

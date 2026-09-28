@@ -94,6 +94,21 @@ python3 examples/auth_check.py "$tmp/auth"
 bend examples/cors.bend -o "$tmp/cors" > /dev/null
 python3 examples/cors_check.py "$tmp/cors"
 
+bend websocket_test.bend
+bend websocket_frame_test.bend
+bend examples/websocket.bend -o "$tmp/websocket" > /dev/null
+"$tmp/websocket" > "$tmp/websocket.log" 2>&1 &
+wspid=$!
+trap '[ -n "$pid" ] && kill "$pid" 2>/dev/null; kill "$spid" "$tpid" "$wspid" 2>/dev/null; rm -rf "$tmp"' EXIT
+tries=0
+until curl -s -o /dev/null "localhost:8088/"; do
+  tries=$((tries + 1))
+  [ "$tries" -lt 100 ] || { echo "WebSocket server did not start"; exit 1; }
+  python3 -c 'import time; time.sleep(0.05)'
+done
+python3 examples/websocket_check.py 8088
+kill "$wspid"
+
 bend examples/multipart.bend -o "$tmp/multipart" > /dev/null
 bend ../client/examples/multipart.bend -o "$tmp/multipart_client" > /dev/null
 python3 examples/multipart_fuzz.py "$tmp/multipart" --count 200 --seed "${SEED:-1}" --client "$tmp/multipart_client"

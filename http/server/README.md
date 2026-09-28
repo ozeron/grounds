@@ -40,7 +40,7 @@ def main() -> IO(Unit):
 
 ## Streaming
 
-`serve_out` takes a handler that returns `Out`: either `Whole{response}` or `Stream{status, headers, body}`. `body` gets a `Sink` and writes the body in chunks with `send(sink, bytes)` and `send_text(sink, text)`. `examples/stream.bend` streams server-sent events and a 10 MiB download.
+`serve_out` takes a handler that returns `Out`: `Whole{response}`, `Stream{status, headers, body}`, or `Upgrade{accept, session}`. A streamed `body` gets a `Sink` and writes chunks with `send(sink, bytes)` and `send_text(sink, text)`. `examples/stream.bend` streams server-sent events and a 10 MiB download.
 
 `sse(body)` is a 200 `text/event-stream`. Its body writes events with these calls:
 
@@ -65,6 +65,12 @@ def app(r: Req.Request) -> IO(Server.Out):
 ```
 
 If a write fails, the rest are dropped and the connection closes after the body function returns. HTTP/1.0 clients also get chunked coding.
+
+## WebSocket
+
+`websocket.bend` validates the RFC 6455 HTTP handshake and computes `Sec-WebSocket-Accept` with Bend SHA-1. An HTTP handler can return `Server.Upgrade{accept, session}`. The server sends a bare 101 response, then gives the socket and any bytes received after the HTTP headers to `session`. A session owns and must close the socket. `websocket_conn.bend` supplies a bounded session that handles masked client frames, fragmented messages, ping/pong, close, UTF-8 text, and one optional text or binary reply per message. It caps each frame and completed message at 1 MiB and uses a receive timeout supplied by the caller. `examples/websocket.bend` is an echo server on port 8088.
+
+`websocket_frame.bend` is the pure incremental frame codec. The connection rejects unmasked and malformed frames. This initial API does not negotiate extensions or subprotocols. The application must check `Origin` and authenticate before upgrading when browser credentials or private data are involved. The example is an unauthenticated echo endpoint.
 
 ## Health
 
@@ -106,5 +112,6 @@ Server.serve(~Mw.logger(~Mw.request_id(~Mw.body_limit(~small, ~Mw.recover(~app))
 9. Serves the TLS and redirect examples: trusted curl, certificate and host rejection, ALPN, TLS 1.1 rejection, handshake deadline, protocol-header stripping, trusted proxy opt-in, HSTS and 308 redirect.
 10. Serves `examples/auth.bend` and checks Bearer and Basic success, challenges, malformed credentials, duplicate fields and removal of Authorization before the handler.
 11. Serves `examples/cors.bend` and checks exact and denied origins, credentials, 204 preflight, `Vary`, method and header allowlists.
-12. Serves `examples/multipart.bend`, compares 200 generated requests with Python's email parser, checks part and header limits, and sends a binary part from the client builder.
-13. Runs the cold check on the existing examples and auth. CORS policy lookups and multipart parsing currently make some String and List constructors reference counted.
+12. Proves the WebSocket handshake and frame examples, then serves `examples/websocket.bend` to check upgrade, frame echo, fragmentation, ping/pong, close, and protocol refusals with raw sockets.
+13. Serves `examples/multipart.bend`, compares 200 generated requests with Python's email parser, checks part and header limits, and sends a binary part from the client builder.
+14. Runs the cold check on the existing examples and auth. CORS policy lookups and multipart parsing currently make some String and List constructors reference counted.

@@ -4,6 +4,8 @@ dependsOn:
   - "http_core"
   - "http_wire"
   - "wire"
+  - "crypto"
+  - "utf8"
 
 tasks:
   check:

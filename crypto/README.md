@@ -1,9 +1,10 @@
 # grounds-crypto
 
-Pure Bend cryptographic primitives. This package implements SHA-256, HMAC-SHA-256, HKDF-SHA-256, ChaCha20, Poly1305, ChaCha20-Poly1305 AEAD, and X25519. They are **experimental**: cookie signing and TLS still use OpenSSL while the Bend implementation is verified and its generated code is reviewed for timing behavior.
+Pure Bend cryptographic primitives. This package implements SHA-1, SHA-256, HMAC-SHA-256, HKDF-SHA-256, ChaCha20, Poly1305, ChaCha20-Poly1305 AEAD, and X25519. They are **experimental**: cookie signing and TLS still use OpenSSL while the Bend implementation is verified and its generated code is reviewed for timing behavior. SHA-1 is used only for the WebSocket handshake challenge, not for a security decision.
 
 | Module | Public calls | Source |
 |---|---|---|
+| `sha1.bend` | `digest(bytes)` | RFC 3174 / WebSocket RFC 6455 challenge |
 | `sha256.bend` | `digest(bytes)`, `digest_hex(bytes)` | FIPS 180-4 / RFC 6234 |
 | `hmac.bend` | `digest(key, bytes)`, `digest_hex(key, bytes)` | RFC 2104 / RFC 4231 |
 | `hkdf.bend` | `extract(salt, ikm)`, `expand(length, prk, info)` | RFC 5869 |
@@ -14,11 +15,13 @@ Pure Bend cryptographic primitives. This package implements SHA-256, HMAC-SHA-25
 | `field25519.bend` | Internal `add`, `sub`, `mul`, `square`, `decode`, `encode` | GF(2^255-19) arithmetic used by X25519 |
 | `bytes.bend` | `length`, `valid`, `append`, `hex` | Tail-recursive byte-list helpers |
 
-Byte input and output use `List<U32>` with values 0–255. The public calls return `None{}` for an out-of-range byte; `expand` also rejects a PRK other than 32 bytes or a requested length over 8160 bytes. The hash and HMAC calls return 32 bytes. The hex helpers are for diagnostics and tests; protocols should use raw bytes.
+Byte input and output use `List<U32>` with values 0–255. The public calls return `None{}` for an out-of-range byte; `expand` also rejects a PRK other than 32 bytes or a requested length over 8160 bytes. SHA-1 returns 20 bytes; SHA-256 and HMAC-SHA-256 return 32 bytes. The hex helpers are for diagnostics and tests; protocols should use raw bytes.
 
 ChaCha20 requires a 32-byte key and 12-byte nonce. `block` returns 64 keystream bytes; `crypt` XORs a message with successive blocks and rejects a request that would wrap the 32-bit counter. It does **not** authenticate ciphertext. Poly1305 requires a fresh 32-byte one-time key per message. AEAD derives that key from ChaCha20 block zero, encrypts from counter one, authenticates the associated data and ciphertext, and returns plaintext only after checking all 16 tag bytes. The caller must ensure a unique nonce for every message under a key; these calls do not manage nonce allocation.
 
 Run `moon run crypto:check --force`. The check proves that SHA-256 state output is always 32 bytes, compiles the native adapters, tests invalid-byte handling, compares SHA-256 against four published vectors and boundary/binary cases, compares HMAC against RFC 4231 and Python, and checks three RFC 5869 extract/expand vectors plus output-length boundaries. The million-`a` SHA-256 vector exercises a multi-block message.
+
+SHA-1 is checked against published vectors and Python's `hashlib` on native and Bun JS, including a 64 KiB message on both targets and the million-`a` vector on native. Its sole protocol use here is `Sec-WebSocket-Accept`.
 
 The check also proves the RFC 8439 quarter-round example, compares the ChaCha20 block and stream functions with RFC 8439 vectors, and checks additional block and stream cases against OpenSSL on native and, when Bun is installed, JS targets. It checks malformed key/nonce lengths and counter limits.
 
