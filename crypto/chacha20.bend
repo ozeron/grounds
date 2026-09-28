@@ -1,5 +1,5 @@
 import Base
-import ./sha256.bend as S
+import ./bytes.bend as B
 
 # RFC 8439 IETF ChaCha20: 256-bit key, 96-bit nonce, 32-bit block counter.
 # This is the block primitive. A caller must never reuse a (key, nonce) pair.
@@ -142,8 +142,8 @@ def block.checked(ok: Bool, key: List<&2, U32>, nonce: List<&2, U32>, counter: U
       Some{block.raw(key, nonce, counter)}
 
 def block(+key: List<&2, U32>, +nonce: List<&2, U32>, counter: U32) -> Maybe<&2, List<&2, U32>>:
-  ok = Bool.and(Bool.and(Nat.is_eq(List.length(&2, U32, key), 32n), S.valid(key)),
-                Bool.and(Nat.is_eq(List.length(&2, U32, nonce), 12n), S.valid(nonce)))
+  ok = Bool.and(Bool.and(Nat.is_eq(B.length(key), 32n), B.valid(key)),
+                Bool.and(Nat.is_eq(B.length(nonce), 12n), B.valid(nonce)))
   block.checked(ok, key, nonce, counter)
 
 type Xored is Type:
@@ -206,8 +206,8 @@ def within_limit(+counter: U32, blocks: Nat) -> Bool:
 # XOR a message with the ChaCha20 stream. This also decrypts. A request that
 # would wrap the 32-bit block counter is rejected rather than reusing stream.
 def crypt(+key: List<&2, U32>, +nonce: List<&2, U32>, +counter: U32, +bytes: List<&2, U32>) -> Maybe<&2, List<&2, U32>>:
-  +blocks = block_count(List.length(&2, U32, bytes))
-  ok = Bool.and(Bool.and(Nat.is_eq(List.length(&2, U32, key), 32n), S.valid(key)),
-                Bool.and(Bool.and(Nat.is_eq(List.length(&2, U32, nonce), 12n), S.valid(nonce)),
-                  Bool.and(S.valid(bytes), within_limit(counter, blocks))))
+  +blocks = block_count(B.length(bytes))
+  ok = Bool.and(Bool.and(Nat.is_eq(B.length(key), 32n), B.valid(key)),
+                Bool.and(Bool.and(Nat.is_eq(B.length(nonce), 12n), B.valid(nonce)),
+                  Bool.and(B.valid(bytes), within_limit(counter, blocks))))
   crypt.checked(ok, key, nonce, counter, bytes, blocks)

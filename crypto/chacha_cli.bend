@@ -1,13 +1,13 @@
 import Base
 import ./chacha20.bend as ChaCha
-import ./sha256.bend as Sha
+import ./bytes.bend as B
 import ../io/io.bend as Io
 
 # Test adapter: print one 64-byte RFC 8439 block as lowercase hex.
 def emit(result: Maybe<&2, List<&2, U32>>) -> IO(Unit):
   match result:
     case Some{bytes}:
-      IO.print(Sha.hex(bytes))
+      IO.print(B.hex(bytes))
     case None{}:
       IO.die(Unit, 1, "invalid ChaCha20 key or nonce")
 
