@@ -1,0 +1,12 @@
+# grounds-rtc: early STUN and WebRTC protocols
+language: "bend"
+dependsOn:
+  - "crypto"
+  - "wire"
+
+tasks:
+  check:
+    command: "./check.sh"
+    inputs:
+      - "*.bend"
+      - "examples/*"

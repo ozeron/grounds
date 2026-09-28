@@ -10,6 +10,7 @@ projects:
   io: "io"
   json: "json"
   redis: "redis"
+  rtc: "rtc"
   utf8: "utf8"
   wire: "wire"
 

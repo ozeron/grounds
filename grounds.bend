@@ -10,6 +10,8 @@ import ./http/server/http_server.bend as Server
 import ./http/client/client.bend as Client
 import ./http/json/http_json.bend as HJ
 import ./redis/redis.bend as Redis
+import ./crypto/sha256.bend as Crypto
+import ./rtc/stun.bend as Stun
 
 # every grounds package in one bundle. A module's identity is its bundle's
 # hash and its path, so a program that uses two packages imports both from
