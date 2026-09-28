@@ -168,3 +168,15 @@ def fed.p(f: Ev.Fed) -> Ev.P:
 
 def ev_retry() -> {Ev.retry.of(fed.p(Ev.feed("retry: 250\n\n", Ev.start()))) == Some{250n} : Maybe<&2, Nat>}:
   {==}
+
+def last.of(f: Ev.Fed) -> Maybe<&2, String>:
+  match f:
+    case Ev.Fed{p, _}:
+      Ev.tail.last(Ev.tail(p))
+
+# a reconnect sends only an id a blank line confirmed
+def ev_id_unconfirmed() -> {last.of(Ev.feed("id: 1\n\ndata: a\nid: 2\n", Ev.start())) == Some{"1"} : Maybe<&2, String>}:
+  {==}
+
+def ev_id_no_data() -> {last.of(Ev.feed("id: 3\n\n", Ev.start())) == Some{"3"} : Maybe<&2, String>}:
+  {==}

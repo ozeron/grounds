@@ -83,9 +83,10 @@ type Ln is Data:
   Ln{mode: U32, fname: String, fk: U32, v: String}
 
 # the event so far: its data, reversed, each line followed by the LF that
-# ended it; whether a data line came; its name; the last id; the last retry
+# ended it; whether a data line came; its name; the last id; the last
+# retry; and the last id a blank line confirmed, which a reconnect sends
 type Evs is Data:
-  Evs{d: String, any: Bool, name: String, last: Maybe<&2, String>, retry: Maybe<&2, Nat>}
+  Evs{d: String, any: Bool, name: String, last: Maybe<&2, String>, retry: Maybe<&2, Nat>, sent: Maybe<&2, String>}
 
 # where the parser is: the line, the event, whether the char before was a
 # CR, and whether a char has come yet (a BOM at the very start is dropped)
@@ -96,7 +97,7 @@ def ln0() -> Ln:
   Ln{0, "", 0, ""}
 
 def start() -> P:
-  P{ln0(), Evs{"", False{}, "", None{}, None{}}, False{}, False{}}
+  P{ln0(), Evs{"", False{}, "", None{}, None{}, None{}}, False{}, False{}}
 
 # the field a name, reversed, is
 def kind.of(+f: String) -> U32:
@@ -112,8 +113,8 @@ type Le is Data:
 
 def push(+fk: U32, +x: U32, v: String, e: Evs) -> Le:
   match fk e:
-    case 1 Evs{d, _, n, l, r}:
-      Le{Ln{2, "", 1, v}, Evs{SCon{Chr{x}, d}, True{}, n, l, r}}
+    case 1 Evs{d, _, n, l, r, i}:
+      Le{Ln{2, "", 1, v}, Evs{SCon{Chr{x}, d}, True{}, n, l, r, i}}
     case 2 other:
       Le{Ln{2, "", 2, SCon{Chr{x}, v}}, other}
     case 3 other:
@@ -154,12 +155,16 @@ def has_nul(s: String, found: Bool) -> Bool:
     case SCon{Chr{+x}, t}:
       has_nul(t, Bool.or(found, U32.is_eq(x, 0)))
 
+# a long retry: stops at 2^32-1 ms, as a Nat past 2^48 would stop the program
+def cap(+n: Nat) -> Nat:
+  Bool.pick(Nat, Nat.is_le(n, 4294967295n), n, 4294967295n)
+
 def digits(s: String, +n: Nat, ok: Bool) -> Maybe<&2, Nat>:
   match s:
     case SNil{}:
       Bool.pick(Maybe<&2, Nat>, ok, Some{n}, None{})
     case SCon{Chr{+x}, t}:
-      digits(t, Nat.add(Nat.mul(10n, n), Nat.sub(U32.to_nat(x), 48n)), Bool.and(ok, Bool.and(U32.is_ge(x, 48), U32.is_le(x, 57))))
+      digits(t, cap(Nat.add(Nat.mul(10n, n), Nat.sub(U32.to_nat(x), 48n))), Bool.and(ok, Bool.and(U32.is_ge(x, 48), U32.is_le(x, 57))))
 
 def some.digits(s: String) -> Maybe<&2, Nat>:
   match s:
@@ -188,14 +193,14 @@ def keep.id.of(+v: String, old: Maybe<&2, String>) -> Maybe<&2, String>:
 # a field's line ended, with the char j that ended it
 def end.field(+fk: U32, v: String, +j: U32, e: Evs) -> Evs:
   match fk e:
-    case 1 Evs{d, _, n, l, r}:
-      Evs{SCon{Chr{j}, d}, True{}, n, l, r}
-    case 2 Evs{d, a, _, l, r}:
-      Evs{d, a, String.reverse(v), l, r}
-    case 3 Evs{d, a, n, l, r}:
-      Evs{d, a, n, keep.id.of(String.reverse(v), l), r}
-    case 4 Evs{d, a, n, l, r}:
-      Evs{d, a, n, l, keep.retry(some.digits(String.reverse(v)), r)}
+    case 1 Evs{d, _, n, l, r, i}:
+      Evs{SCon{Chr{j}, d}, True{}, n, l, r, i}
+    case 2 Evs{d, a, _, l, r, i}:
+      Evs{d, a, String.reverse(v), l, r, i}
+    case 3 Evs{d, a, n, l, r, i}:
+      Evs{d, a, n, keep.id.of(String.reverse(v), l), r, i}
+    case 4 Evs{d, a, n, l, r, i}:
+      Evs{d, a, n, l, keep.retry(some.digits(String.reverse(v)), r), i}
     case _ other:
       other
 
@@ -234,17 +239,28 @@ def m.dup(m: Maybe<&2, String>) -> M2:
 type Out is Data:
   Out{ev: Evs, sent: Maybe<&2, Message>}
 
+def dispatch.to(d: String, n: String, a: Maybe<&2, String>, l: M2, r: Maybe<&2, Nat>) -> Out:
+  match l:
+    case M2{b, c}:
+      Out{Evs{"", False{}, "", a, r, b}, Some{Message{name.or(n), String.reverse(drop1(d)), c}}}
+
 def dispatch.go(d: String, n: String, l: M2, r: Maybe<&2, Nat>) -> Out:
   match l:
     case M2{a, b}:
-      Out{Evs{"", False{}, "", a, r}, Some{Message{name.or(n), String.reverse(drop1(d)), b}}}
+      dispatch.to(d, n, a, m.dup(b), r)
 
+def dispatch.none(l: M2, r: Maybe<&2, Nat>) -> Out:
+  match l:
+    case M2{a, b}:
+      Out{Evs{"", False{}, "", a, r, b}, None{}}
+
+# a blank line confirms the last id, and sends the event if a data line came
 def dispatch(e: Evs) -> Out:
   match e:
-    case Evs{d, True{}, n, l, r}:
+    case Evs{d, True{}, n, l, r, _}:
       dispatch.go(d, n, m.dup(l), r)
-    case Evs{_, False{}, _, l, r}:
-      Out{Evs{"", False{}, "", l, r}, None{}}
+    case Evs{_, False{}, _, l, r, _}:
+      dispatch.none(m.dup(l), r)
 
 # a line ended by j: a blank one sends the event; a field sets its part
 def line.end(l: Ln, +j: U32, e: Evs) -> Out:
@@ -310,16 +326,21 @@ def fed.order(f: Fed) -> Fed:
 def feed(s: String, p: P) -> Fed:
   fed.order(feed.go(s, Fed{p, []}))
 
-# the last id and the last retry
+# the last id a blank line confirmed, and the last retry
 type Tail is Data:
   Tail{last: Maybe<&2, String>, retry: Maybe<&2, Nat>}
 
 def tail(p: P) -> Tail:
   match p:
-    case P{_, Evs{_, _, _, l, r}, _, _}:
-      Tail{l, r}
+    case P{_, Evs{_, _, _, _, r, i}, _, _}:
+      Tail{i, r}
+
+def tail.last(t: Tail) -> Maybe<&2, String>:
+  match t:
+    case Tail{l, _}:
+      l
 
 def retry.of(p: P) -> Maybe<&2, Nat>:
   match p:
-    case P{_, Evs{_, _, _, _, r}, _, _}:
+    case P{_, Evs{_, _, _, _, r, _}, _, _}:
       r

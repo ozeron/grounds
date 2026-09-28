@@ -12,6 +12,7 @@ bend PROOF.bend
 bend tests/live.bend -o "$tmp/live" > /dev/null
 bend tests/more.bend -o "$tmp/more" > /dev/null
 bend tests/fuzz.bend -o "$tmp/fuzz" > /dev/null
+bend tests/fuzz_events.bend -o "$tmp/fuzz_events" > /dev/null
 bend tests/events.bend -o "$tmp/events" > /dev/null
 bend ../server/examples/stream.bend -o "$tmp/stream" > /dev/null
 python3 tests/fake.py "$tmp" > "$tmp/fake.out" &
@@ -34,6 +35,7 @@ echo "more: the pool, retries, redirects, JSON, streams and TLS, as tests/more.o
 diff "$tmp/events.got" tests/events.out || { echo "events: differs from tests/events.out"; exit 1; }
 echo "events: streams, stops, errors and reconnects, as tests/events.out"
 python3 tests/fuzz.py "$tmp/fuzz" 2000 "${SEED:-1}"
+python3 tests/fuzz_events.py "$tmp/fuzz_events" 1000 "${SEED:-1}"
 # one-shot requests stay uncounted; a pool shares its connections
 # through a channel, which counts what it carries
 python3 ../../json/scripts/cold.py "$PWD/tests/live.bend" "$PWD/examples/get.bend" "$PWD/examples/json.bend" "$PWD/examples/stream.bend" "$PWD/examples/events.bend"
