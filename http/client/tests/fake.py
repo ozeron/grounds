@@ -237,7 +237,10 @@ def tls_serve(dirname):
                 conns["tls"] = conns.get("tls", 0) + 1
                 me = conns["tls"]
             for i, (m, tg, hs, body) in enumerate(requests(t)):
-                reply(t, 200, f"tls conn {me} req {i + 1}".encode())
+                if tg == "/down":
+                    reply(t, 302, b"to http", b"Location: http://127.0.0.1:7314/done\r\n")
+                else:
+                    reply(t, 200, f"tls conn {me} req {i + 1}".encode())
         except (OSError, ssl.SSLError):
             pass
         c.close()

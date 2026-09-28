@@ -1217,8 +1217,9 @@ def spec.tls(sp: Spec) -> TSpec:
     case other:
       TSpec{False{}, other}
 
-# where a redirect goes: a path on the same origin, a url of its own on the
-# same scheme, or nowhere the client follows (another scheme, or not a url)
+# where a redirect goes: a path on the same origin, a url of its own, or
+# nowhere the client follows: from https to http, which would send the
+# next request in clear text, or not a url
 type Next is Data:
   Same{target: String}
   Away{url: Url}
@@ -1227,7 +1228,7 @@ type Next is Data:
 def next.away(u: Url, +tls: Bool) -> Next:
   match u:
     case Url{+t, h, p, tg, au}:
-      Bool.pick(Next, Bool.and(t, Bool.not(tls)), Stay{}, Away{Url{t, h, p, tg, au}})
+      Bool.pick(Next, Bool.and(tls, Bool.not(t)), Stay{}, Away{Url{t, h, p, tg, au}})
     case UBad{_}:
       Stay{}
 
