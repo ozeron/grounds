@@ -1,5 +1,6 @@
 # grounds: a monorepo of Bend packages
 projects:
+  crypto: "crypto"
   http_client: "http/client"
   http_core: "http/core"
   http_json: "http/json"

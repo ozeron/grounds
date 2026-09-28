@@ -1,0 +1,9 @@
+# grounds-crypto: Bend cryptographic primitives
+language: "bend"
+
+tasks:
+  check:
+    command: "./check.sh"
+    inputs:
+      - "*.bend"
+      - "*.py"
