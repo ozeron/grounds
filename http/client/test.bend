@@ -44,3 +44,14 @@ def https_port() -> {C.url("https://h:8443") == C.Url{True{}, "h", 8443, "/", "h
 
 def ftp() -> {C.url("ftp://h/") == C.UBad{C.BadUrl{}} : C.Url}:
   {==}
+
+# forms
+
+def form_plain() -> {C.form.enc([("a", "1"), ("b", "x-y_z.~")]) == "a=1&b=x-y_z.~" : String}:
+  {==}
+
+def form_escaped() -> {C.form.enc([("q", "a b&c=d"), ("x", "\u{e9}")]) == "q=a+b%26c%3Dd&x=%C3%A9" : String}:
+  {==}
+
+def form_empty() -> {C.form.enc([]) == "" : String}:
+  {==}

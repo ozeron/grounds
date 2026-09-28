@@ -27,3 +27,67 @@ data: tick 3
 
 server head: 200, 0 bytes
 too large for the config: error: response too large
+form: 200 POST /f HTTP/1.1
+host: localhost:7307
+content-type: application/x-www-form-urlencoded
+content-length: 19
+connection: close
+
+q=cups+%26+mugs&n=2
+query: 200 GET /p?x=1&a+b=%C3%BC&k=%3D%26 HTTP/1.1
+host: localhost:7307
+connection: close
+
+
+query on a bare path: 200 GET /p?a=1 HTTP/1.1
+host: localhost:7307
+connection: close
+
+
+bearer: 200 GET /b HTTP/1.1
+host: localhost:7307
+authorization: Bearer t0ken
+connection: close
+
+
+method PURGE: 200 PURGE /c HTTP/1.1
+host: localhost:7307
+connection: close
+
+
+bad method: error: bad method: not a token
+text: 200 POST /t HTTP/1.1
+host: localhost:7307
+content-type: text/plain; charset=utf-8
+content-length: 6
+connection: close
+
+héllo
+json: 200 PATCH /j HTTP/1.1
+host: localhost:7307
+content-type: application/json
+accept: application/json
+content-length: 10
+connection: close
+
+{"a":true}
+json, the caller's Accept: 200 PUT /j HTTP/1.1
+host: localhost:7307
+Accept: text/plain
+Content-Type: application/vnd.x+json
+content-length: 4
+connection: close
+
+null
+delete: 200 DELETE /d HTTP/1.1
+host: localhost:7307
+connection: close
+
+
+idempotency key: 200 POST /i HTTP/1.1
+host: localhost:7307
+idempotency-key: k-42
+content-length: 0
+connection: close
+
+

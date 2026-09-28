@@ -1,5 +1,6 @@
 import Base
 import ../client.bend as C
+import ../../../json/json.bend as J
 
 # the client against tests/fake.py (7301 on) and examples/stream (8086):
 # one line per case, which check.sh compares with tests/live.out
@@ -57,4 +58,15 @@ def main() -> IO(Unit):
     o : Unit <- one("server stream", True{}, get("http://127.0.0.1:8086/big?n=64"))
     p : Unit <- one("server sse", False{}, get("http://localhost:8086/events"))
     q : Unit <- one("server head", True{}, C.send(cfg(), C.head("http://127.0.0.1:8086/healthz")))
-    one("too large for the config", False{}, C.send(C.with_max_body(C.default(), 1000), C.get("http://127.0.0.1:8086/big?n=1")))
+    r : Unit <- one("too large for the config", False{}, C.send(C.with_max_body(C.default(), 1000), C.get("http://127.0.0.1:8086/big?n=1")))
+    s : Unit <- one("form", False{}, C.send(cfg(), C.post("http://localhost:7307/f", C.form([("q", "cups & mugs"), ("n", "2")]))))
+    t : Unit <- one("query", False{}, C.send(cfg(), C.query(C.get("http://localhost:7307/p?x=1"), [("a b", "\u{fc}"), ("k", "=&")])))
+    u : Unit <- one("query on a bare path", False{}, C.send(cfg(), C.query(C.get("http://localhost:7307/p"), [("a", "1")])))
+    v : Unit <- one("bearer", False{}, C.send(cfg(), C.bearer(C.get("http://localhost:7307/b"), "t0ken")))
+    w : Unit <- one("method PURGE", False{}, C.send(cfg(), C.method("PURGE", "http://localhost:7307/c", C.empty())))
+    x : Unit <- one("bad method", False{}, C.send(cfg(), C.method("BAD METHOD", "http://localhost:7307/c", C.empty())))
+    y : Unit <- one("text", False{}, C.send(cfg(), C.post("http://localhost:7307/t", C.text("h\u{e9}llo"))))
+    z : Unit <- one("json", False{}, C.send(cfg(), C.patch("http://localhost:7307/j", C.json(J.JObj{[J.Field{"a", J.JBool{True{}}}]}))))
+    za : Unit <- one("json, the caller's Accept", False{}, C.send(cfg(), C.with(C.put("http://localhost:7307/j", C.json(J.JNull{})), [("Accept", "text/plain"), ("Content-Type", "application/vnd.x+json")])))
+    zb : Unit <- one("delete", False{}, C.send(cfg(), C.delete("http://localhost:7307/d")))
+    one("idempotency key", False{}, C.send(cfg(), C.idempotent(C.post("http://localhost:7307/i", C.empty()), "k-42")))
