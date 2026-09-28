@@ -26,18 +26,60 @@ def pct.push(m: Maybe<&2, U32>, +x: U32, +y: U32, out: List<&2, U32>) -> List<&2
     case None{}:
       Con{y, Con{x, Con{37, out}}}
 
+# where a component's bytes are: at a char, just after a %, or after a %
+# and one char
+type BS is Data:
+  N{}
+  P1{}
+  P2{a: U32}
+
+type BO is Data:
+  BO{st: BS, out: List<&2, U32>}
+
+# a char not after a %: a % starts an escape, a + is a space
+def b.norm(pc: Bool, plus: Bool, +x: U32, out: List<&2, U32>) -> BO:
+  match pc plus:
+    case True{} _:
+      BO{P1{}, out}
+    case False{} True{}:
+      BO{N{}, Con{32, out}}
+    case False{} False{}:
+      BO{N{}, U.enc.push(x, out)}
+
+def b.step(st: BS, +x: U32, out: List<&2, U32>) -> BO:
+  match st:
+    case N{}:
+      b.norm(U32.is_eq(x, 37), U32.is_eq(x, 43), x, out)
+    case P1{}:
+      BO{P2{x}, out}
+    case P2{+a}:
+      BO{N{}, pct.push(pct.byte(hex(a), hex(x)), a, x, out)}
+
+def b.last(o: BO) -> List<&2, U32>:
+  match o:
+    case BO{P1{}, out}:
+      List.reverse(&2, U32, Con{37, out})
+    case BO{_, out}:
+      List.reverse(&2, U32, out)
+
+# a % with fewer than two chars after it stays as it is
+def b.flush(st: BS, out: List<&2, U32>) -> List<&2, U32>:
+  match st:
+    case N{}:
+      List.reverse(&2, U32, out)
+    case P1{}:
+      List.reverse(&2, U32, Con{37, out})
+    case P2{+a}:
+      b.last(b.norm(U32.is_eq(a, 37), U32.is_eq(a, 43), a, Con{37, out}))
+
 # the bytes of a component: %XX is a byte, + a space; a % not followed by
 # two hex digits stays as it is
-def bytes.go(s: String, out: List<&2, U32>) -> List<&2, U32>:
-  match s:
-    case SNil{}:
-      List.reverse(&2, U32, out)
-    case SCon{Chr{37}, SCon{Chr{+x}, SCon{Chr{+y}, t}}}:
-      bytes.go(t, pct.push(pct.byte(hex(x), hex(y)), x, y, out))
-    case SCon{Chr{43}, t}:
-      bytes.go(t, Con{32, out})
-    case SCon{Chr{x}, t}:
-      bytes.go(t, U.enc.push(x, out))
+def bytes.go(s: String, o: BO) -> List<&2, U32>:
+  match s o:
+    case SNil{} BO{st, out}:
+      b.flush(st, out)
+    case SCon{Chr{+x}, t} BO{st, out}:
+      bytes.go(t, b.step(st, x, out))
 
 def text.of(t: U.Text) -> String:
   match t:
@@ -48,33 +90,49 @@ def text.of(t: U.Text) -> String:
 
 # a component decoded: bytes that are not UTF-8 end it where they start
 def decode(s: String) -> String:
-  text.of(U.decode(bytes.go(s, [])))
+  text.of(U.decode(bytes.go(s, BO{N{}, []})))
 
-def pair(c: T.Cut) -> Param:
-  match c:
-    case T.Cut{k, Some{v}}:
-      Param{decode(k), decode(v)}
-    case T.Cut{k, None{}}:
-      Param{decode(k), ""}
+# the query so far: the key and the value of the pair it is in, reversed;
+# whether it is past the pair's =; whether the pair has a char yet; and
+# the pairs before it, newest first
+type QS is Data:
+  QS{k: String, v: String, inv: Bool, any: Bool, acc: List<&2, Param>}
 
-def add(p: String, acc: List<&2, Param>) -> List<&2, Param>:
-  match p:
-    case SNil{}:
+# a pair ended: kept unless it was empty, as && makes
+def emit(any: Bool, k: String, v: String, acc: List<&2, Param>) -> List<&2, Param>:
+  match any:
+    case True{}:
+      Con{Param{decode(String.reverse(k)), decode(String.reverse(v))}, acc}
+    case False{}:
       acc
-    case SCon{c, t}:
-      Con{pair(T.cut(SCon{c, t}, 61)), acc}
 
-# c is the query cut at its first &: the pair before it, and what follows
-def parse.go(fuel: Nat, c: T.Cut, acc: List<&2, Param>) -> List<&2, Param>:
-  match fuel c:
-    case 1n+f T.Cut{p, Some{rest}}:
-      parse.go(f, T.cut(rest, 38), add(p, acc))
-    case _ T.Cut{p, _}:
-      List.reverse(&2, Param, add(p, acc))
+def step.key(eq: Bool, +x: U32, k: String, v: String, acc: List<&2, Param>) -> QS:
+  match eq:
+    case True{}:
+      QS{k, v, True{}, True{}, acc}
+    case False{}:
+      QS{SCon{Chr{x}, k}, v, False{}, True{}, acc}
+
+# a & ends a pair; the first = in a pair ends its key
+def step(amp: Bool, eq: Bool, +x: U32, q: QS) -> QS:
+  match amp q:
+    case True{} QS{k, v, _, any, acc}:
+      QS{"", "", False{}, False{}, emit(any, k, v, acc)}
+    case False{} QS{k, v, True{}, _, acc}:
+      QS{k, SCon{Chr{x}, v}, True{}, True{}, acc}
+    case False{} QS{k, v, False{}, _, acc}:
+      step.key(eq, x, k, v, acc)
+
+def parse.go(s: String, q: QS) -> List<&2, Param>:
+  match s q:
+    case SNil{} QS{k, v, _, any, acc}:
+      List.reverse(&2, Param, emit(any, k, v, acc))
+    case SCon{Chr{+x}, t} other:
+      parse.go(t, step(U32.is_eq(x, 38), U32.is_eq(x, 61), x, other))
 
 # the pairs of a query string, without its ?
-def parse(+q: String) -> List<&2, Param>:
-  parse.go(String.length(q), T.cut(q, 38), [])
+def parse(q: String) -> List<&2, Param>:
+  parse.go(q, QS{"", "", False{}, False{}, []})
 
 # query's own compare: one shared with callers that pass literals would
 # make it an owner, and a name used for every pair would then be shared
