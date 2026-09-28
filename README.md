@@ -13,7 +13,7 @@ A monorepo of [Bend 2](https://github.com/bendlang/bend) packages: JSON, UTF-8, 
 | [`crypto`](crypto/) | pure Bend SHA-1, SHA-256, HMAC-SHA1/SHA256, HKDF-SHA-256, ChaCha20-Poly1305 AEAD and X25519; experimental, not yet used by TLS or cookies |
 | [`http`](http/) | HTTP/1.1: messages, parsing, server, client, router, JSON bodies and WebSocket server transport |
 | [`redis`](redis/) | Redis client: RESP2 and RESP3, pipelining, a pool; proven framing |
-| [`rtc`](rtc/) | STUN parser, legacy MESSAGE-INTEGRITY verifier and UDP Binding discovery; ICE, DTLS, SCTP and media remain |
+| [`rtc`](rtc/) | STUN parser, legacy MESSAGE-INTEGRITY and FINGERPRINT verifiers, and UDP Binding discovery; ICE, DTLS, SCTP and media remain |
 
 ```sh
 mise install        # pinned bend and moon
