@@ -7,6 +7,7 @@ import ../core/response.bend as Res
 import ../core/status.bend as S
 import ../core/headers.bend as H
 import ../../utf8/utf8.bend as U
+import ../core/event.bend as Ev
 
 # grounds-http-server: serve(handler, config) answers HTTP/1.1 requests on a
 # port. Each connection runs on its own (IO.spawn), reads requests one after
@@ -87,9 +88,9 @@ def from_env(cfg: Config) -> IO(Config):
 # ------------------
 
 # where a streamed body goes: the connection, whether every write so far
-# went through, and how long a write may wait
+# went through, how long a write may wait, and how many writes went out
 type Sink is Type:
-  Sink{sock: Socket, ok: Bool, ms: U32}
+  Sink{sock: Socket, ok: Bool, ms: U32, n: Nat}
 
 # what a handler answers: a whole response, or a status and headers whose
 # body the function writes through a Sink, in chunks
@@ -103,56 +104,99 @@ def RP() -> Type:
 def RU() -> Type:
   Socket & Result<&1, &1, U32 & String, Unit>
 
-def sink.of(r: Result<&1, &1, U32 & String, Unit>, s: Socket, +ms: U32) -> IO(Sink):
+def sink.of(r: Result<&1, &1, U32 & String, Unit>, s: Socket, +ms: U32, +n: Nat) -> IO(Sink):
   match r:
     case Done{_}:
-      IO.pure(Sink, Sink{s, True{}, ms})
+      IO.pure(Sink, Sink{s, True{}, ms, Nat.add(n, 1n)})
     case Fail{_}:
-      IO.pure(Sink, Sink{s, False{}, ms})
+      IO.pure(Sink, Sink{s, False{}, ms, n})
 
-law sink.sent:
-  for +ms: U32
-  for m: RU()
-  IO(Sink)
+def sink.sent(+ms: U32, +n: Nat, m: RU()) -> IO(Sink):
+  match m:
+    case (s, r):
+      sink.of(r, s, ms, n)
 
-def sink.sent(ms, m):
-  (s, r) = m
-  sink.of(r, s, ms)
-
-def send.go(ok: Bool, s: Socket, +ms: U32, bs: B.Bytes) -> IO(Sink):
+def send.go(ok: Bool, s: Socket, +ms: U32, +n: Nat, bs: B.Bytes) -> IO(Sink):
   match ok:
     case True{}:
-      IO.bind(RU(), Sink, W.wire_send_timeout(s, B.to_list(H1.chunk(bs)), ms), m => sink.sent(ms, m))
+      IO.bind(RU(), Sink, W.wire_send_timeout(s, B.to_list(H1.chunk(bs)), ms), m => sink.sent(ms, n, m))
     case False{}:
-      IO.pure(Sink, Sink{s, False{}, ms})
+      IO.pure(Sink, Sink{s, False{}, ms, n})
 
 # bytes as the next part of the body; once a write fails, the rest are
 # dropped and the connection closes after the handler returns
 def send(k: Sink, bs: List<&2, U32>) -> IO(Sink):
   match k:
-    case Sink{s, ok, +ms}:
-      send.go(ok, s, ms, B.of_list(bs))
+    case Sink{s, ok, +ms, +n}:
+      send.go(ok, s, ms, n, B.of_list(bs))
 
 # text as the next part of the body, in UTF-8
 def send_text(k: Sink, t: String) -> IO(Sink):
   send(k, U.encode(t))
 
-def sse.go(s: String, acc: String) -> String:
-  match s:
-    case SNil{}:
-      String.reverse(String.reverse.go("\n\n", acc))
-    case SCon{Chr{10}, t}:
-      sse.go(t, String.reverse.go("\ndata: ", acc))
-    case SCon{c, t}:
-      sse.go(t, SCon{c, acc})
+# one server-sent event, as http/core's Message writes it
+def emit(k: Sink, m: Ev.Message) -> IO(Sink):
+  send_text(k, Ev.write(m))
 
-# a server-sent event: each line of data as a data: line, then a blank line
+# a retry: line: how long a client should wait before it reconnects
+def retry(k: Sink, +ms: U32) -> IO(Sink):
+  send_text(k, Ev.retry(ms))
+
+# a comment line, a heartbeat: it keeps proxies from closing an idle stream
+def ping(k: Sink) -> IO(Sink):
+  send_text(k, Ev.ping())
+
+# a server-sent event named message
 def event(k: Sink, data: String) -> IO(Sink):
-  send_text(k, sse.go(data, String.reverse("data: ")))
+  emit(k, Ev.Message{"message", data, None{}})
 
-# a server-sent event with a name: an event: line first
+# a server-sent event with a name
 def named(k: Sink, name: String, data: String) -> IO(Sink):
-  send_text(k, "event: " ++ name ++ "\n" ++ sse.go(data, String.reverse("data: ")))
+  emit(k, Ev.Message{name, data, None{}})
+
+# the Last-Event-ID a reconnecting client sent, to resume after
+def last_id(r: Req.Request) -> Maybe<&2, String>:
+  Req.header(r, "last-event-id")
+
+# whether every write went through, and the sink back: once one has
+# failed, the client is gone
+type Live is Type:
+  Live{ok: Bool, sink: Sink}
+
+def live(k: Sink) -> Live:
+  match k:
+    case Sink{s, +ok, ms, n}:
+      Live{ok, Sink{s, ok, ms, n}}
+
+def every.idle(same: Bool, k: Sink) -> IO(Sink):
+  match same:
+    case True{}:
+      ping(k)
+    case False{}:
+      IO.pure(Sink, k)
+
+def every.after(k: Sink, +before: Nat) -> IO(Sink):
+  match k:
+    case Sink{s, ok, ms, +n}:
+      every.idle(Nat.is_eq(n, before), Sink{s, ok, ms, n})
+
+def every.go(~tick: Sink -> IO(Sink), fuel: Nat, +ms: U32, k: Sink) -> IO(Sink):
+  match fuel k:
+    case 0n _:
+      IO.pure(Sink, k)
+    case 1n+f Sink{s, True{}, m2, +n}:
+      do IO<Sink>:
+        k2 : Sink <- tick(Sink{s, True{}, m2, n})
+        k3 : Sink <- every.after(k2, n)
+        x : Unit <- IO.sleep(ms)
+        every.go(~tick, f, ms, k3)
+    case 1n+_ other:
+      IO.pure(Sink, other)
+
+# tick every ms, a heartbeat when a tick writes nothing, until a write
+# fails: the client has gone
+def sse.every(~tick: Sink -> IO(Sink), +ms: U32, k: Sink) -> IO(Sink):
+  every.go(~tick, 4294967295n, ms, k)
 
 # 200 with a text/event-stream body the function writes, event by event
 def sse(body: Sink -> IO(Sink)) -> Out:
@@ -232,15 +276,15 @@ def sent(close, rest, m, next):
 
 def finish(k: Sink, close: Bool, rest: B.Bytes, next: B.Bytes -> Nat -> Socket -> IO(Unit)) -> IO(Unit):
   match k:
-    case Sink{s, True{}, +ms}:
+    case Sink{s, True{}, +ms, _}:
       IO.bind(RU(), Unit, W.wire_send_timeout(s, B.to_list(H1.last_chunk()), ms), m => sent(close, rest, m, next))
-    case Sink{s, False{}, _}:
+    case Sink{s, False{}, _, _}:
       W.close(s)
 
 def streamed.go(r: Result<&1, &1, U32 & String, Unit>, close: Bool, rest: B.Bytes, body: Sink -> IO(Sink), s: Socket, +ms: U32, next: B.Bytes -> Nat -> Socket -> IO(Unit)) -> IO(Unit):
   match r:
     case Done{_}:
-      IO.bind(Sink, Unit, body(Sink{s, True{}, ms}), k => finish(k, close, rest, next))
+      IO.bind(Sink, Unit, body(Sink{s, True{}, ms, 0n}), k => finish(k, close, rest, next))
     case Fail{_}:
       W.close(s)
 

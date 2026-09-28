@@ -78,6 +78,7 @@ out=$(python3 examples/stop.py "$tmp/stream" 8084 5000)
 echo "$out"
 echo "$out" | grep -q "slow answered: True | connection: close: True" || { echo "stop: the slow request must finish"; exit 1; }
 echo "$out" | grep -q "every connection done" || { echo "stop: must drain"; exit 1; }
+python3 examples/hb.py "$tmp/stream" 8087 || { echo "hb: heartbeats must flow and end with the client"; exit 1; }
 out=$(python3 examples/stop.py "$tmp/stream" 8085 500)
 echo "$out" | grep -q "connections cut" || { echo "$out"; echo "stop: must cut at the drain deadline"; exit 1; }
 echo "stop: cut at a 500 ms drain deadline"

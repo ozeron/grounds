@@ -77,4 +77,5 @@ def main() -> IO(Unit):
     d : Unit <- one("a 404", C.events(~show, cfg(), C.get("http://127.0.0.1:7317/404")))
     e : Unit <- one("reconnecting, twice", C.events_retry(~show, C.with_retries(cfg(), 0, 2000), C.get("http://127.0.0.1:7317/drop"), 2))
     f : Unit <- one("no reconnect after a 404", C.events_retry(~show, cfg(), C.get("http://127.0.0.1:7317/404"), 3))
+    g : Unit <- one("the server's feed, resuming", C.events_retry(~show, cfg(), C.get("http://127.0.0.1:8086/feed"), 1))
     Pool.with(Unit, cfg(), 2, p => pooled(p))

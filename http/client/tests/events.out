@@ -22,6 +22,14 @@ reconnecting, twice
 ended: last id 4, 2 reconnects
 no reconnect after a 404
 error: status 404: nope
+the server's feed, resuming
+  feed | item 1\nsecond line | 1
+  feed | item 2\nsecond line | 2
+  feed | item 3\nsecond line | 3
+  feed | item 4\nsecond line | 4
+  feed | item 5\nsecond line | 5
+  feed | item 6\nsecond line | 6
+ended: last id 6, 1 reconnects
 through a pool
   greet | héllo €\nline two | 1
   message | no name | 2

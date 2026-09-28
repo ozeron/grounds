@@ -18,10 +18,13 @@ split head: 404 no
 refused: error: connection failed: errno N
 no host: error: host not found
 server stream: 200, 4194304 bytes
-server sse: 200 data: tick 1
+server sse: 200 event: message
+data: tick 1
 
+event: message
 data: tick 2
 
+event: message
 data: tick 3
 
 
