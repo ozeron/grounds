@@ -109,3 +109,25 @@ def host(address: Stun.IPv4) -> String:
 def port(address: Stun.IPv4) -> U32:
   match address:
     case Stun.IPv4{_, _, _, _, p}: p
+
+def address_checked(valid: Bool, address: Stun.IPv4) -> Maybe<&2, Stun.IPv4>:
+  match valid:
+    case True{}: Some{address}
+    case False{}: None{}
+
+def address_numbers(a: Maybe<&2, U32>, b: Maybe<&2, U32>, c: Maybe<&2, U32>, d: Maybe<&2, U32>,
+                    +port: U32, +text: String) -> Maybe<&2, Stun.IPv4>:
+  match a b c d:
+    case Some{+a} Some{+b} Some{+c} Some{+d}:
+      address_checked(Bool.and(address_valid(Stun.IPv4{a, b, c, d, port}), String.eq(host(Stun.IPv4{a, b, c, d, port}), text)), Stun.IPv4{a, b, c, d, port})
+    case _ _ _ _: None{}
+
+def address_parts(parts: List<&2, String>, port: U32, text: String) -> Maybe<&2, Stun.IPv4>:
+  match parts:
+    case [a, b, c, d]: address_numbers(U32.read(a), U32.read(b), U32.read(c), U32.read(d), port, text)
+    case _: None{}
+
+# Canonical IPv4 literal from the UDP effect. It never accepts DNS names or
+# relies on a source address claimed inside an unauthenticated datagram.
+def address_read(+text: String, port: U32) -> Maybe<&2, Stun.IPv4>:
+  address_parts(String.split(text, '.'), port, text)

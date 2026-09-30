@@ -146,9 +146,53 @@ Base's native recursive Nat.min/max reconstruction at large monotonic clock
 values. `examples/ice_shared.bend` demonstrates two checklist checks over one
 socket; it is a local fixture, not a complete ICE agent.
 
-The next agent integration includes authenticated incoming Binding requests,
-ordinary/triggered selection, role-conflict resolution and priority recomputation,
-valid-pair construction, nomination, consent/restart, candidate gathering, TURN,
+`ice_incoming.bend` handles incoming Binding requests through
+`receive(raw, Secret{ufrag, password}, local_role, observed_source)`. The secret
+contains the local session password, separate from outgoing remote credentials.
+It validates local credential syntax and the observed IPv4 endpoint, requires a
+valid final FINGERPRINT, processes only protected ordinary attributes and checks
+that USERNAME has the local fragment followed by a valid remote fragment.
+This permits a response before receiving the peer's answer. SHA-256 takes
+precedence over SHA-1, with no fallback after a failed SHA-256. Only a successfully
+authenticated request can expose metadata or request a role switch.
+
+`Accepted{reply, request, role, switched}` contains a signed IPv4 mapping response
+and the authenticated transaction, remote fragment, priority, peer role,
+USE-CANDIDATE flag and selected algorithm. `Rejected{reply, code, authenticated}`
+contains an error response; missing credential fields produce unsigned 400,
+unknown usernames/bad MACs produce unsigned 401, and authenticated malformed
+ICE fields, unsupported required attributes and role conflicts produce signed
+400/420/487. Error 420 includes UNKNOWN-ATTRIBUTES. Ordinary duplicates use the
+first value; unknown required attribute types are reported in wire order,
+including repeats. Unknown optional and known-but-unexpected base attributes are
+ignored. Responses omit USERNAME, use exactly one integrity algorithm when
+signed, and end with FINGERPRINT. Malformed envelopes, invalid/missing CRC and
+non-Binding-request classes/methods return `Ignored{}`; invalid local configuration
+or observed endpoints return `InvalidInput{}` without a reply.
+
+`ice_roles.bend` compares tie-breakers as two U32 words and resolves incoming
+role conflicts, including equality, according to [RFC 8445 section 7.3.1.1](https://www.rfc-editor.org/rfc/rfc8445.html#section-7.3.1.1).
+A server-side role switch retains its own tie-breaker and is reported with the
+accepted request. The session owner must apply it and recompute pair priorities
+before scheduling another check. The interface makes no checklist/session
+mutation, valid-pair or nomination claim. USE-CANDIDATE is authenticated intent;
+receiving it alone does not nominate a full-agent pair.
+
+The caller owns session lookup, credential expiry/restart and signaling binding,
+uses the actual observed source for the XOR mapping, sends replies from the same
+bound socket, and handles only accepted metadata as trusted ICE input. A valid
+request's remote fragment is exposed even before an answer; binding deferred
+triggered work to the later peer credentials remains agent work. This stateless
+receiver produces byte-identical responses to identical retransmissions; the
+agent must deduplicate triggered work and manage replay/lifecycle state.
+`ice_candidates.address_read` accepts canonical dotted IPv4 UDP source strings
+and rejects DNS, IPv6, noncanonical octets and invalid ports. Relay observations
+must eventually come from TURN's authenticated peer metadata, rather than a
+relay server's UDP address.
+
+The next agent integration includes stable pair identities and ordinary/triggered
+selection, role-switch priority recomputation and client-side 487 retries,
+dynamic/valid pairs, nomination, consent/restart, candidate gathering, TURN,
 IPv6, DTLS/SCTP, media protocols and browser interoperability. Generated-code
 timing safety is unproven; live checks use synthetic local credentials.
 Formation and initial state rules follow [RFC 8445 sections 5.1.2 and 6.1.2](https://www.rfc-editor.org/rfc/rfc8445.html#section-6.1.2).
@@ -186,3 +230,16 @@ requests/media/invalid or wrong-source packets. The large raw UDP case is 8 KiB
 because macOS defaults `net.inet.udp.maxdgram` to 9216 bytes; format-maximum STUN
 checks remain in the authentication suite. These are foundation tests; they do
 not complete full checklist scheduling, role handling, nomination or browser ICE.
+
+Incoming processing runs 308 independent compiled cases per target for
+legacy/SHA-256/dual authentication, exact success/error response bytes, credential
+and field rejection, integrity-boundary filtering, large protected payloads,
+64-bit role/equality cases, nomination syntax, source mapping and canonical
+source parsing. The independent duplex UDP test keeps an outgoing check active
+on the same socket while handling invalid CRC, unsigned authentication errors,
+a protected role conflict, pre-answer success, duplicate requests and both role
+switches. Incoming traffic cannot consume the outgoing response: its correct
+MAC from the wrong source stays raw, its 500 ms retry preserves bytes/port, and
+the correct source completes it. Both targets close and release the bound port.
+This verifies incoming authentication and role decisions; triggered queues,
+priority changes, valid pairs and nomination state still need agent integration.
