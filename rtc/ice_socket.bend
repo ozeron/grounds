@@ -62,6 +62,8 @@ def fail_all_go(entries: List<&2, Tx.Entry>, +code: U32, reversed: List<&2, Tx.N
     case Nil{}: List.reverse(&2, Tx.Notice, reversed)
     case Con{Tx.Entry{token, _, _, _, _}, tail}:
       fail_all_go(tail, code, Con{Tx.Finished{token, Reliable.TransportError{code}}, reversed})
+    case Con{Tx.Listening{token, _, _}, tail}:
+      fail_all_go(tail, code, Con{Tx.Retired{token}, reversed})
 
 def fail_all(state: Tx.State, +code: U32) -> Tx.Step:
   match state:

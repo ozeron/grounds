@@ -51,8 +51,9 @@ def evaluate(scenario):
             local_port = reserved.getsockname()[1]
         output_path = Path(tmp) / "stdout"
         with output_path.open("w") as output:
+            mode = scenario if scenario in ("cancel", "queued-cancel", "queued-stop") else "stop" if scenario.startswith("stop-") else "normal"
             process = subprocess.Popen(COMMAND + [str(local_port), str(a.getsockname()[1]),
-                                      str(b.getsockname()[1]), scenario if scenario in ("cancel", "queued-cancel") else "normal"],
+                                      str(b.getsockname()[1]), mode],
                                        stdout=output, stderr=subprocess.PIPE, text=True)
             requests = [[], []]
             expected_raw = []
@@ -93,7 +94,7 @@ def evaluate(scenario):
                         prior.append((raw, now))
                         attempt = len(prior)
                         if token == 1 and attempt == 1:
-                            assert scenario == "queued-cancel" or (requests[0] and now - requests[0][0][1] >= 0.043), "Ta pacing missing"
+                            assert scenario in ("queued-cancel", "queued-stop") or (requests[0] and now - requests[0][0][1] >= 0.043), "Ta pacing missing"
                         good = response(raw, address, "legacy" if token == 1 else "sha256")
                         if scenario == "out-of-order":
                             if token == 1:
@@ -120,6 +121,21 @@ def evaluate(scenario):
                                 # cancelling A must not reset or cancel B.
                                 send(a, response(requests[0][0][0] if requests[0] else packet(b"", transaction=struct.pack("!III", 1, 2, 3)), address), observed=True)
                                 send(b, good, now + 0.05)
+                        elif scenario in ("stop-late", "queued-stop", "stop-timeout", "stop-bad", "stop-error"):
+                            if token == 1 and attempt == 1:
+                                old = requests[0][0][0] if requests[0] else packet(b"", transaction=struct.pack("!III", 1, 2, 3))
+                                old_good = response(old, address)
+                                # Even a valid retained transaction MAC from a
+                                # different transport peer remains untrusted.
+                                send(other, old_good, observed=True)
+                                if scenario == "stop-bad":
+                                    repeated_bad = response(old, address, key=b"wrong key")
+                                    bad_at = now
+                                elif scenario not in ("stop-timeout",):
+                                    send(a, response(old, address, code=487) if scenario == "stop-error" else old_good, now + 0.075)
+                                # B loses one response while A is listening.
+                            elif token == 1 and attempt == 2:
+                                send(b, good)
                         elif scenario == "raw":
                             if token == 1:
                                 assert len(requests[0]) == 1
@@ -144,13 +160,26 @@ def evaluate(scenario):
                 process.communicate()
         lines = output_path.read_text().splitlines()
         assert all(line in lines for line in expected_raw), (scenario, [line[:100] for line in expected_raw if line not in lines])
-        assert len(requests[0]) == (0 if scenario == "queued-cancel" else 3 if scenario in ("loss-both", "bad-A", "timeout") else 2 if scenario == "loss-A" else 1)
-        assert len(requests[1]) == (3 if scenario in ("loss-both", "timeout") else 2 if scenario == "loss-B" else 1)
-        expected_checks = "checks:4:4" if scenario == "timeout" else "checks:4:3" if scenario in ("bad-A", "error-A", "cancel", "queued-cancel") else "checks:3:3"
+        stopped = scenario.startswith("stop-") or scenario == "queued-stop"
+        assert len(requests[0]) == (0 if scenario in ("queued-cancel", "queued-stop") else 3 if scenario in ("loss-both", "bad-A", "timeout") else 2 if scenario == "loss-A" else 1)
+        assert len(requests[1]) == (3 if scenario in ("loss-both", "timeout") else 2 if scenario == "loss-B" or stopped else 1)
+        expected_checks = "checks:2:3" if scenario in ("stop-timeout", "stop-bad", "stop-error") else "checks:4:4" if scenario == "timeout" else "checks:4:3" if scenario in ("bad-A", "error-A", "cancel", "queued-cancel") else "checks:3:3"
         assert lines[-1] == expected_checks, (scenario, lines[-8:])
         for token in (0, 1):
             if scenario in ("cancel", "queued-cancel") and token == 0:
                 assert "cancelled:0" in lines
+                continue
+            if stopped and token == 0:
+                assert "stopped:0" in lines and not any(s.startswith("finished:0:") for s in lines), lines[-8:]
+                if scenario in ("stop-timeout", "stop-bad"):
+                    assert "retired:0" in lines, lines[-8:]
+                    if scenario == "stop-bad":
+                        assert sum(s.startswith(f"datagram:127.0.0.1:{a.getsockname()[1]}:") for s in lines) > 30
+                    elapsed = time.monotonic() - requests[0][0][1]
+                    assert 1.97 <= elapsed <= 2.8, elapsed
+                else:
+                    result = "error:487" if scenario == "stop-error" else f"success:127.0.0.1/{local_port}"
+                    assert f"late:0:{result}" in lines, lines[-8:]
                 continue
             result = "timeout" if scenario == "timeout" else "integrity-violation" if scenario == "bad-A" and token == 0 else "error:487" if scenario == "error-A" and token == 0 else f"success:127.0.0.1/{local_port}"
             assert f"finished:{token}:{result}" in lines, (scenario, lines[-8:])
@@ -159,9 +188,13 @@ def evaluate(scenario):
         if scenario == "timeout":
             elapsed = time.monotonic() - requests[1][0][1]
             assert 1.97 <= elapsed <= 2.8, elapsed
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as rebound:
+            rebound.bind(("127.0.0.1", local_port))
         COUNT += 1
 
 
 for scenario in ("out-of-order", "loss-A", "loss-B", "loss-both", "bad-A", "error-A", "timeout", "cancel", "queued-cancel", "raw"):
+    evaluate(scenario)
+for scenario in ("stop-late", "queued-stop", "stop-timeout", "stop-bad", "stop-error"):
     evaluate(scenario)
 print(f"ICE shared socket: {COUNT} overlapping/loss/pacing/raw-delivery/cancellation/checklist cases passed")

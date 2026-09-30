@@ -132,12 +132,37 @@ These notices are untrusted input; no incoming ICE server authentication is
 implied. Completed results include the negotiated response algorithm, which
 the caller must retain for subsequent requests to that peer.
 
+`stop_retries(state, token)` implements the response-retention part of
+[RFC 8445 triggered-check interruption](https://www.rfc-editor.org/rfc/rfc8445.html#section-7.3.1.4).
+It changes an active entry to `Listening`, emits `Stopped` once and suppresses
+both retries and already queued sends. The final deadline is the current
+scheduled wait plus all remaining retry waits, frozen at interruption; delayed
+retries already reflected in the schedule stay reflected. Repeated interruption
+cannot move that deadline. Default immediate interruption retains responses for
+39.5 seconds. The original source, transaction ID, credential key and permitted
+algorithms remain required. Authenticated success/error/malformed response results
+received before the deadline become `LateResponse{token, response, algorithm}`,
+separate from active-check `Finished` outcomes. Invalid traffic stays raw and
+cannot extend the window or turn retirement into an integrity failure. At the
+deadline, `Retired{token}` releases the entry without reporting pair failure;
+late correlated packets are returned raw. Unrelated packets do not route to the
+entry, so the next timer tick performs its retirement.
+
+Listening entries still count against capacity and reserve their token and
+transaction ID. The session owner must budget retained transactions, keep pending
+triggered work queued under capacity pressure, and explicitly discard listeners
+on restart/cleanup using `cancel`. `failed` and socket-wide failures retire
+listeners without manufacturing active-check failure outcomes. The caller must
+bind late response metadata to its original pair, generation and sent role;
+none of these notices resets or completes a checklist automatically.
+
 `ice_socket.bend` executes `Send` notices with OS UDP effects, acknowledges the
 actual send completion timestamp, and suppresses commands invalidated before
 execution. `execute(socket, step)` and `poll(socket, state, cap_ms)` each return
 the owned socket and a `Step{state, events}`. Successful sends become `Sent`
 notices; send failures terminate only the affected transaction. A receive
-failure emits `SocketFailure` and terminates every active transaction; an
+failure emits `SocketFailure`, terminates every active transaction and retires
+response-only listeners; an
 oversize datagram error is consumed without changing them. The caller handles
 notices between bounded turns and closes the socket on every terminal path.
 Pacing is shared by transactions in one engine; coordinating multiple engines
@@ -235,9 +260,13 @@ The checklist model runs 132 independent full-sort reference fixtures per
 target, including candidate/pair priority bounds and bigint ranks, reflexive
 pruning, multi-stream/component foundation states, tight caps, malformed input,
 seeded randomized sets and the maximum 16×64×64 candidate combinations. The
-clock fixture runs 32 cases per target for exact Ta/RTO gates, large timestamps,
+clock fixture runs 296 cases per target for exact Ta/RTO gates, large timestamps,
 final response boundaries, send acknowledgement, duplicate tokens/transaction
-IDs, cancellation and transport failures. Ten independent real UDP cases per
+IDs, cancellation, transport failures and interrupted response retention. Cases
+cover default 39.5-second retention, repeated stops, capacity and identity
+reservation, queued initial/retry suppression, late authenticated success/errors,
+invalid replies, deadline boundaries, invalid traffic and mixed socket failure.
+Fifteen independent real UDP cases per
 target run overlapping checks over one bound socket, including reordered
 responses, loss, authentication failures, error 487 reporting, timeouts,
 cancellation before/after sending, and byte-exact delivery of interleaved
@@ -245,6 +274,9 @@ requests/media/invalid or wrong-source packets. The large raw UDP case is 8 KiB
 because macOS defaults `net.inet.udp.maxdgram` to 9216 bytes; format-maximum STUN
 checks remain in the authentication suite. These are foundation tests; they do
 not complete full checklist scheduling, role handling, nomination or browser ICE.
+The interrupted UDP cases verify authenticated late replies, timeout and
+bad-traffic retirement without pair failure, queued send suppression, independent
+loss/retry of another check on the same socket, and released-port rebinding.
 
 Incoming processing runs 308 independent compiled cases per target for
 legacy/SHA-256/dual authentication, exact success/error response bytes, credential

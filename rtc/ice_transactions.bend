@@ -10,6 +10,7 @@ import ./stun_retry.bend as Retry
 # appear here; the caller executes Send events and supplies monotonic timestamps.
 type Entry is Data:
   Entry{token: U32, context: Reliable.Context, deadline: Nat, next: List<&2, U32>, violated: Bool}
+  Listening{token: U32, context: Reliable.Context, deadline: Nat}
 
 type State is Data:
   State{entries: List<&2, Entry>, ta: U32, capacity: U32, next_start: Nat, next_send: Nat}
@@ -19,6 +20,9 @@ type Notice is Data:
   Sent{token: U32}
   Finished{token: U32, outcome: Reliable.Outcome}
   Cancelled{token: U32}
+  Stopped{token: U32}
+  LateResponse{token: U32, response: Response.Response, algorithm: Auth.Mode}
+  Retired{token: U32}
   SocketFailure{code: U32}
   Datagram{host: String, port: U32, bytes: List<&2, U32>}
 
@@ -57,11 +61,15 @@ def duplicate(entries: List<&2, Entry>, +token: U32, +transaction: List<&2, U32>
     case Con{Entry{+id, Reliable.Context{_, _, got, _, _, _}, _, _, _}, tail}:
       duplicate(tail, token, transaction, Bool.or(found,
         Bool.or(U32.is_eq(id, token), Stun.same(got, transaction, True{}))))
+    case Con{Listening{+id, Reliable.Context{_, _, got, _, _, _}, _}, tail}:
+      duplicate(tail, token, transaction, Bool.or(found,
+        Bool.or(U32.is_eq(id, token), Stun.same(got, transaction, True{}))))
 
 def sending(entry: Entry, fresh: Bool) -> Notice:
   match entry:
     case Entry{token, Reliable.Context{host, port, _, _, _, bytes}, _, _, _}:
       Send{token, host, port, bytes, fresh}
+    case Listening{token, _, _}: Retired{token}
 
 def added(+entry: Entry, entries: List<&2, Entry>, +ta: U32, capacity: U32, +now: Nat) -> Start:
   Ready{Step{State{List.reverse.go(&2, Entry, List.reverse(&2, Entry, entries), [entry]),
@@ -107,6 +115,7 @@ def start(+state: State, token: U32, host: String, port: U32, transaction: List<
 
 def expired(entry: Entry, +now: Nat) -> Maybe<&2, Entry> & Notice:
   match entry:
+    case Listening{token, _, _}: (None{}, Retired{token})
     case Entry{token, _, _, Nil{}, violated}:
       (None{}, Finished{token, Bool.pick(Reliable.Outcome, violated, Reliable.IntegrityViolation{}, Reliable.TimedOut{})})
     case Entry{+token, +context, _, Con{+interval, tail}, violated}:
@@ -141,6 +150,10 @@ def tick_go(fuel: Nat, entries: List<&2, Entry>, reversed: List<&2, Entry>, +now
       tick_entry(Bool.and(Nat.is_le(deadline, now), Bool.or(empty(next), Nat.is_le(next_send, now))),
         Entry{token, context, deadline, next, violated}, tail, reversed, now, ta, capacity, next_start, next_send,
         rest => rev => tick_go(p, rest, rev, now, ta, capacity, next_start, next_send))
+    case 1n+p Con{Listening{+token, +context, +deadline}, tail}:
+      tick_entry(Nat.is_le(deadline, now), Listening{token, context, deadline}, tail, reversed,
+        now, ta, capacity, next_start, next_send,
+        rest => rev => tick_go(p, rest, rev, now, ta, capacity, next_start, next_send))
 
 # At most one send per step; caller repeats after >= 5 ms even if several RTOs
 # coincide. Initial checks additionally follow Ta (50 ms by default).
@@ -151,6 +164,10 @@ def tick(state: State, now: Nat) -> Step:
 
 def response_found(response: Maybe<&2, Response.Reply>, entry: Entry, +raw: List<&2, U32>) -> Maybe<&2, Entry> & List<&2, Notice>:
   match response entry:
+    case Some{Response.Reply{r, mode}} Listening{token, _, _}:
+      (None{}, [LateResponse{token, r, mode}])
+    case None{} Listening{token, Reliable.Context{+host, +port, transaction, key, mode, bytes}, deadline}:
+      (Some{Listening{token, Reliable.Context{host, port, transaction, key, mode, bytes}, deadline}}, [Datagram{host, port, raw}])
     case Some{Response.Reply{r, mode}} Entry{token, _, _, _, _}:
       (None{}, [Finished{token, Reliable.Received{r, mode}}])
     case None{} Entry{token, Reliable.Context{+host, +port, +transaction, +key, +mode, +bytes}, deadline, next, violated}:
@@ -159,6 +176,11 @@ def response_found(response: Maybe<&2, Response.Reply>, entry: Entry, +raw: List
 
 def response_timed(expired: Bool, +entry: Entry, +raw: List<&2, U32>) -> Maybe<&2, Entry> & List<&2, Notice>:
   match expired entry:
+    case True{} Listening{token, Reliable.Context{host, port, _, _, _, _}, _}:
+      (None{}, [Retired{token}, Datagram{host, port, raw}])
+    case False{} Listening{+token, Reliable.Context{+host, +port, +transaction, +key, +mode, +bytes}, +deadline}:
+      response_found(Response.parse(raw, transaction, key, mode),
+        Listening{token, Reliable.Context{host, port, transaction, key, mode, bytes}, deadline}, raw)
     case True{} Entry{token, Reliable.Context{host, port, _, _, _, _}, _, _, violated}:
       (None{}, [Finished{token, Bool.pick(Reliable.Outcome, violated, Reliable.IntegrityViolation{}, Reliable.TimedOut{})}, Datagram{host, port, raw}])
     case False{} Entry{+token, Reliable.Context{+host, +port, +transaction, +key, +mode, +bytes}, +deadline, +next, +violated}:
@@ -167,6 +189,8 @@ def response_timed(expired: Bool, +entry: Entry, +raw: List<&2, U32>) -> Maybe<&
 
 def response_entry(entry: Entry, raw: List<&2, U32>, now: Nat) -> Maybe<&2, Entry> & List<&2, Notice>:
   match entry:
+    case Listening{+token, +context, +deadline}:
+      response_timed(Nat.is_le(deadline, now), Listening{token, context, deadline}, raw)
     case Entry{+token, +context, +deadline, +next, +violated}:
       response_timed(Bool.and(empty(next), Nat.is_le(deadline, now)), Entry{token, context, deadline, next, violated}, raw)
 
@@ -197,6 +221,11 @@ def route_go(fuel: Nat, entries: List<&2, Entry>, reversed: List<&2, Entry>, +ho
         Entry{token, Reliable.Context{peer, peer_port, got, key, mode, bytes}, deadline, next, violated}, tail, reversed,
         raw, now, ta, capacity, next_start, next_send,
         rest => rev => route_go(p, rest, rev, host, port, transaction, raw, now, ta, capacity, next_start, next_send))
+    case 1n+p Con{Listening{+token, Reliable.Context{+peer, +peer_port, +got, +key, +mode, +bytes}, +deadline}, tail}:
+      route_checked(Bool.and(Bool.and(String.eq(host, peer), U32.is_eq(port, peer_port)), Stun.same(got, transaction, True{})),
+        Listening{token, Reliable.Context{peer, peer_port, got, key, mode, bytes}, deadline}, tail, reversed,
+        raw, now, ta, capacity, next_start, next_send,
+        rest => rev => route_go(p, rest, rev, host, port, transaction, raw, now, ta, capacity, next_start, next_send))
 
 def packet(packet: Maybe<&2, Stun.Packet>, state: State, host: String, port: U32, raw: List<&2, U32>, now: Nat) -> Step:
   match packet state:
@@ -212,6 +241,11 @@ def packet(packet: Maybe<&2, Stun.Packet>, state: State, host: String, port: U32
 def receive(state: State, host: String, port: U32, +raw: List<&2, U32>, now: Nat) -> Step:
   packet(Stun.parse(raw), state, host, port, raw, now)
 
+def retirement(event: Notice, token: U32) -> Notice:
+  match event:
+    case Finished{_, _}: Retired{token}
+    case e: e
+
 def remove_go(entries: List<&2, Entry>, +reversed: List<&2, Entry>, +token: U32,
               +ta: U32, +capacity: U32, +next_start: Nat, +next_send: Nat, +event: Notice) -> Step:
   match entries:
@@ -220,6 +254,10 @@ def remove_go(entries: List<&2, Entry>, +reversed: List<&2, Entry>, +token: U32,
       Bool.pick(Step, U32.is_eq(id, token),
         Step{State{List.reverse.go(&2, Entry, reversed, tail), ta, capacity, next_start, next_send}, [event]},
         remove_go(tail, Con{Entry{id, context, deadline, next, violated}, reversed}, token, ta, capacity, next_start, next_send, event))
+    case Con{Listening{+id, +context, +deadline}, +tail}:
+      Bool.pick(Step, U32.is_eq(id, token),
+        Step{State{List.reverse.go(&2, Entry, reversed, tail), ta, capacity, next_start, next_send}, [retirement(event, token)]},
+        remove_go(tail, Con{Listening{id, context, deadline}, reversed}, token, ta, capacity, next_start, next_send, event))
 
 def cancel(state: State, +token: U32) -> Step:
   match state:
@@ -231,12 +269,41 @@ def failed(state: State, +token: U32, code: U32) -> Step:
     case State{entries, ta, capacity, next_start, next_send}:
       remove_go(entries, [], token, ta, capacity, next_start, next_send, Finished{token, Reliable.TransportError{code}})
 
+def final_deadline(waits: List<&2, U32>, deadline: Nat) -> Nat:
+  match waits:
+    case Nil{}: deadline
+    case Con{wait, tail}: final_deadline(tail, Nat.add(deadline, U32.to_nat(wait)))
+
+def stop_go(entries: List<&2, Entry>, +reversed: List<&2, Entry>, +token: U32,
+            +ta: U32, +capacity: U32, +next_start: Nat, +next_send: Nat) -> Step:
+  match entries:
+    case Nil{}: Step{State{List.reverse(&2, Entry, reversed), ta, capacity, next_start, next_send}, []}
+    case Con{Entry{+id, +context, +deadline, +waits, +violated}, +tail}:
+      Bool.pick(Step, U32.is_eq(id, token),
+        Step{State{List.reverse.go(&2, Entry, reversed, Con{Listening{id, context, final_deadline(waits, deadline)}, tail}),
+          ta, capacity, next_start, next_send}, [Stopped{token}]},
+        stop_go(tail, Con{Entry{id, context, deadline, waits, violated}, reversed}, token, ta, capacity, next_start, next_send))
+    case Con{Listening{+id, +context, +deadline}, +tail}:
+      Bool.pick(Step, U32.is_eq(id, token),
+        Step{State{List.reverse.go(&2, Entry, reversed, Con{Listening{id, context, deadline}, tail}),
+          ta, capacity, next_start, next_send}, []},
+        stop_go(tail, Con{Listening{id, context, deadline}, reversed}, token, ta, capacity, next_start, next_send))
+
+# RFC 8445 triggered-check interruption. Freeze the remaining response window,
+# stop retries/queued sends, reserve identity/capacity and never report failure
+# for missing/invalid late traffic. A repeated call cannot extend the window.
+def stop_retries(state: State, token: U32) -> Step:
+  match state:
+    case State{entries, ta, capacity, next_start, next_send}:
+      stop_go(entries, [], token, ta, capacity, next_start, next_send)
+
 def current_go(entries: List<&2, Entry>, +token: U32, +host: String, +port: U32, +raw: List<&2, U32>, found: Bool) -> Bool:
   match entries:
     case Nil{}: found
     case Con{Entry{id, Reliable.Context{peer, peer_port, _, _, _, bytes}, _, _, _}, tail}:
       current_go(tail, token, host, port, raw, Bool.or(found, Bool.and(Bool.and(U32.is_eq(id, token), String.eq(peer, host)),
         Bool.and(U32.is_eq(port, peer_port), Stun.same(raw, bytes, True{})))))
+    case Con{Listening{_, _, _}, tail}: current_go(tail, token, host, port, raw, found)
 
 # Suppress queued commands invalidated by cancellation/completion before IO.
 def current_send(state: State, notice: Notice) -> Bool:
@@ -249,6 +316,7 @@ def wake_go(entries: List<&2, Entry>, +next_send: Nat, +wake: Nat) -> Nat:
     case Nil{}: wake
     case Con{Entry{_, _, +deadline, next, _}, tail}:
       wake_go(tail, next_send, earlier(wake, Bool.pick(Nat, empty(next), deadline, later(deadline, next_send))))
+    case Con{Listening{_, _, deadline}, tail}: wake_go(tail, next_send, earlier(wake, deadline))
 
 def timeout(state: State, +now: Nat, cap: U32) -> U32:
   match state:

@@ -42,6 +42,13 @@ def settled(result: Maybe<&2, List<&2, Check.Checklist>>, transactions: Tx.State
     case None{}: IO.die(Driver, 3, "invalid checklist transition")
     case Some{lists}: IO.pure(Driver, Driver{transactions, lists, next, Nat.add(done, 1n), deadline, cancel})
 
+def late_settled(success: Bool, +token: U32, driver: Driver) -> IO(Driver):
+  match success driver:
+    case True{} Driver{tx, lists, next, done, deadline, cancel}:
+      settled(Check.finish_check(lists, 1, U32.to_nat(token), True{}), tx, next, done, deadline, cancel)
+    case False{} Driver{tx, lists, next, done, deadline, cancel}:
+      IO.pure(Driver, Driver{tx, lists, next, Nat.add(done, 1n), deadline, cancel})
+
 def notice(notice: Tx.Notice, driver: Driver) -> IO(Driver):
   match notice driver:
     case Tx.Sent{token} d:
@@ -56,6 +63,18 @@ def notice(notice: Tx.Notice, driver: Driver) -> IO(Driver):
       do IO<Driver>:
         x : Unit <- IO.print("cancelled:" ++ U32.show(token))
         settled(Check.finish_check(lists, 1, U32.to_nat(token), False{}), tx, next, done, deadline, cancel)
+    case Tx.Stopped{token} d:
+      do IO<Driver>:
+        x : Unit <- IO.print("stopped:" ++ U32.show(token))
+        return d
+    case Tx.LateResponse{+token, +response, mode} d:
+      do IO<Driver>:
+        x : Unit <- IO.print("late:" ++ U32.show(token) ++ ":" ++ outcome(Reliable.Received{response, mode}))
+        late_settled(succeeded(Reliable.Received{response, Auth.Dual{}}), token, d)
+    case Tx.Retired{token} Driver{tx, lists, next, done, deadline, cancel}:
+      do IO<Driver>:
+        x : Unit <- IO.print("retired:" ++ U32.show(token))
+        return Driver{tx, lists, next, Nat.add(done, 1n), deadline, cancel}
     case Tx.Datagram{host, port, bytes} d:
       do IO<Driver>:
         x : Unit <- IO.print("datagram:" ++ host ++ ":" ++ U32.show(port) ++ ":" ++ B.hex(bytes))
@@ -104,10 +123,11 @@ def cancelled_step(step: Tx.Step, saved: List<&2, Tx.Notice>) -> Tx.Step:
     case Tx.Step{state, events}:
       Tx.Step{state, List.reverse.go(&2, Tx.Notice, List.reverse(&2, Tx.Notice, saved), events)}
 
-def before_send(cancel: Bool, step: Tx.Step) -> Tx.Step:
+def before_send(cancel: U32, step: Tx.Step) -> Tx.Step:
   match cancel step:
-    case True{} Tx.Step{state, events}: cancelled_step(Tx.cancel(state, 0), events)
-    case False{} s: s
+    case 2 Tx.Step{state, events}: cancelled_step(Tx.cancel(state, 0), events)
+    case 4 Tx.Step{state, events}: cancelled_step(Tx.stop_retries(state, 0), events)
+    case _ s: s
 
 def applied_begin(result: Maybe<&2, List<&2, Check.Checklist>>, step: Tx.Step, socket: Socket,
                   +next: Nat, done: Nat, deadline: Nat, +cancel: U32,
@@ -115,7 +135,7 @@ def applied_begin(result: Maybe<&2, List<&2, Check.Checklist>>, step: Tx.Step, s
   match result:
     case None{}: IO.die(Unit, 3, "cannot begin pair")
     case Some{lists}:
-      IO.bind(SocketIO.Reply(), Unit, SocketIO.execute(socket, before_send(Bool.and(U32.is_eq(cancel, 2), Nat.is_eq(next, 0n)), step)),
+      IO.bind(SocketIO.Reply(), Unit, SocketIO.execute(socket, before_send(Bool.pick(U32, Nat.is_eq(next, 0n), cancel, 0), step)),
         reply => handled(reply, lists, Nat.add(next, 1n), done, deadline, cancel, again))
 
 def started(result: Tx.Start, socket: Socket, driver: Driver,
@@ -147,8 +167,8 @@ def continuing(finished: Bool, late: Bool, start_more: Bool, cancel_first: Bool,
       do IO<Unit>:
         x : Unit <- Socket.close(socket)
         IO.die(Unit, 3, "fixture deadline exceeded")
-    case False{} False{} _ True{} Driver{tx, lists, next, done, deadline, _}:
-      IO.bind(SocketIO.Reply(), Unit, SocketIO.execute(socket, Tx.cancel(tx, 0)),
+    case False{} False{} _ True{} Driver{+tx, lists, next, done, deadline, cancel}:
+      IO.bind(SocketIO.Reply(), Unit, SocketIO.execute(socket, Bool.pick(Tx.Step, U32.is_eq(cancel, 3), Tx.stop_retries(tx, 0), Tx.cancel(tx, 0))),
         reply => handled(reply, lists, next, done, deadline, 0, again))
     case False{} False{} True{} False{} Driver{+tx, +lists, +next, +done, +deadline, +cancel}:
       selected(Check.get_stream(lists, 1, next), socket, Driver{tx, lists, next, done, deadline, cancel}, now, again)
@@ -160,7 +180,7 @@ def tick_driver(socket: Socket, driver: Driver, +now: Nat, again: Socket -> Driv
   match driver:
     case Driver{+tx, +lists, +next, +done, +deadline, +cancel}:
       continuing(Nat.is_eq(done, 2n), Nat.is_le(deadline, now), Nat.is_lt(next, 2n),
-        Bool.and(U32.is_eq(cancel, 1), Nat.is_eq(next, 1n)), socket, Driver{tx, lists, next, done, deadline, cancel}, now, again)
+        Bool.and(Bool.or(U32.is_eq(cancel, 1), U32.is_eq(cancel, 3)), Nat.is_eq(next, 1n)), socket, Driver{tx, lists, next, done, deadline, cancel}, now, again)
 
 def loop(fuel: Nat, socket: Socket, driver: Driver) -> IO(Unit):
   match fuel driver:
@@ -194,6 +214,8 @@ def parsed(local: Maybe<&2, U32>, a: Maybe<&2, U32>, b: Maybe<&2, U32>, scenario
     case Some{l} Some{a} Some{b} "normal": run(l, a, b, 0)
     case Some{l} Some{a} Some{b} "cancel": run(l, a, b, 1)
     case Some{l} Some{a} Some{b} "queued-cancel": run(l, a, b, 2)
+    case Some{l} Some{a} Some{b} "stop": run(l, a, b, 3)
+    case Some{l} Some{a} Some{b} "queued-stop": run(l, a, b, 4)
     case _ _ _ _: IO.die(Unit, 2, "invalid fixture arguments")
 
 def dispatch(args: List<String>) -> IO(Unit):
