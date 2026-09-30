@@ -2,6 +2,8 @@
 
 Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and RTC protocols authored in Bend. C/JS should only implement OS and device effects. `bounty/` is unrelated and must never be staged.
 
+The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
+
 | Layer | Current state | Next proof of progress |
 |---|---|---|
 | `wire` | Byte TCP and IPv4 UDP effects; OpenSSL TLS effects. UDP handles all octets, zero datagrams, timeout and oversize errors. Bend Base already supplies `IO.random_u32` from the host RNG and monotonic `IO.now`. | Build a bulk random-byte helper and efficient byte storage; benchmark UDP throughput. |
