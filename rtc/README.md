@@ -190,8 +190,23 @@ and rejects DNS, IPv6, noncanonical octets and invalid ports. Relay observations
 must eventually come from TURN's authenticated peer metadata, rather than a
 relay server's UDP address.
 
-The next agent integration includes stable pair identities and ordinary/triggered
-selection, role-switch priority recomputation and client-side 487 retries,
+`ice_pairs.bend` gives checklists formed by `Check.build` transport references
+`Ref{stream, component, base, remote}` that do not depend on priority, foundation
+or list position. `lookup` resolves the current pair and index only when the
+endpoint match is unique; missing or ambiguous matches return `None`.
+`begin` and `finish_check` use these references with the existing state guards
+and foundation thawing. Saved references continue to target the same pair after
+`reorder(checklists, controlling)` recomputes ranks from advertised candidate
+priorities and sorts each stream for a role change. Reordering retains every
+candidate and check state; it does not prune, reset initial states or mutate
+queues. Reflexive advertised priorities remain distinct from their sending
+bases. References belong to one ICE generation and must be discarded on restart.
+If distinct remote candidate records alias an endpoint, the owner must resolve
+that ambiguity before using the reference; these helpers cannot choose a record
+on its behalf. Existing index-based checklist interfaces remain available.
+
+The next agent integration includes ordinary/triggered selection and client-side
+487 retries,
 dynamic/valid pairs, nomination, consent/restart, candidate gathering, TURN,
 IPv6, DTLS/SCTP, media protocols and browser interoperability. Generated-code
 timing safety is unproven; live checks use synthetic local credentials.
@@ -242,4 +257,10 @@ switches. Incoming traffic cannot consume the outgoing response: its correct
 MAC from the wrong source stays raw, its 500 ms retry preserves bytes/port, and
 the correct source completes it. Both targets close and release the bound port.
 This verifies incoming authentication and role decisions; triggered queues,
-priority changes, valid pairs and nomination state still need agent integration.
+role changes, valid pairs and nomination state still need agent integration.
+
+Pair-reference checks compare role reversal and full-sort bigint ranks with an
+independent Python model, including mirror priorities that exchange positions,
+checks completed through a saved reference after reordering, success/failure and
+guard rejection, reflexive bases, cross-stream foundation thawing, ambiguous
+endpoint refusal and randomized candidates. Both targets run the same fixtures.

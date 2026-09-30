@@ -12,6 +12,7 @@ bend sha256_test.bend
 bend ice_test.bend
 bend retry_test.bend
 bend ice_incoming.bend --check-only
+bend ice_pairs.bend --check-only
 bend examples/auth.bend -o "$tmp/auth" > /dev/null
 python3 examples/auth_check.py "$tmp/auth"
 bend examples/ice_build.bend -o "$tmp/ice_build" > /dev/null
@@ -24,6 +25,8 @@ bend examples/ice_retry.bend -o "$tmp/ice_retry" > /dev/null
 python3 examples/ice_retry_check.py "$tmp/ice_retry"
 bend examples/ice_model.bend -o "$tmp/ice_model" > /dev/null
 python3 examples/ice_model_check.py "$tmp/ice_model"
+bend examples/ice_pairs.bend -o "$tmp/ice_pairs" > /dev/null
+python3 examples/ice_pairs_check.py "$tmp/ice_pairs"
 bend examples/ice_clock.bend -o "$tmp/ice_clock" > /dev/null
 python3 examples/ice_clock_check.py "$tmp/ice_clock"
 bend examples/ice_shared.bend -o "$tmp/ice_shared" > /dev/null
@@ -56,6 +59,8 @@ if command -v bun > /dev/null 2>&1; then
   python3 examples/ice_retry_check.py bun "$tmp/ice_retry.js"
   bend examples/ice_model.bend -o "$tmp/ice_model.js" > /dev/null
   python3 examples/ice_model_check.py bun "$tmp/ice_model.js"
+  bend examples/ice_pairs.bend -o "$tmp/ice_pairs.js" > /dev/null
+  python3 examples/ice_pairs_check.py bun "$tmp/ice_pairs.js"
   bend examples/ice_clock.bend -o "$tmp/ice_clock.js" > /dev/null
   python3 examples/ice_clock_check.py bun "$tmp/ice_clock.js"
   bend examples/ice_shared.bend -o "$tmp/ice_shared.js" > /dev/null
