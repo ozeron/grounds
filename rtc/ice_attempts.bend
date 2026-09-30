@@ -23,6 +23,7 @@ type State is Data:
 
 type Notice is Data:
   Transaction{record: Maybe<&2, Record>, event: Tx.Notice}
+  NonSymmetric{record: Record, observed: Pairs.Ref, failed: Bool}
   Waiting{at: Nat}
   AtCapacity{}
   Idle{}
@@ -228,27 +229,93 @@ def repair(+state: State, +token: U32, gen: U32, high: U32, low: U32) -> Maybe<&
     case State{+schedule, +engine, +records, +policies}:
       repair_record(get(records, token), State{schedule, engine, records, policies}, token, gen, high, low)
 
-def matches(records: List<&2, Record>, +observed: Pairs.Ref, +transaction: List<&2, U32>, found: Bool) -> Bool:
+def transaction_record(records: List<&2, Record>, +transaction: List<&2, U32>) -> Maybe<&2, Record>:
   match records:
-    case Nil{}: found
-    case Con{Record{S.Flight{_, ref, _}, _, got, conflict}, tail}:
-      matches(tail, observed, transaction, Bool.or(found, Bool.and(Bool.not(conflict), Bool.and(Pairs.same(ref, observed), Stun.same(got, transaction, True{})))))
+    case Nil{}: None{}
+    case Con{Record{flight, gen, +got, +conflict}, tail}:
+      Bool.pick(Maybe<&2, Record>, Bool.and(Bool.not(conflict), Stun.same(got, transaction, True{})),
+        Some{Record{flight, gen, got, conflict}}, transaction_record(tail, transaction))
 
-def received_allowed(allowed: Bool, state: State, observed: Pairs.Ref, raw: List<&2, U32>, now: Nat) -> Step:
-  match allowed state observed:
-    case True{} State{schedule, engine, records, +policies} Pairs.Ref{_, _, _, +remote}:
+def transaction_entry(entries: List<&2, Tx.Entry>, +token: U32) -> Maybe<&2, Tx.Entry>:
+  match entries:
+    case Nil{}: None{}
+    case Con{Tx.Entry{+got, +context, +deadline, +next, +violated}, tail}:
+      Bool.pick(Maybe<&2, Tx.Entry>, U32.is_eq(got, token), Some{Tx.Entry{got, context, deadline, next, violated}}, transaction_entry(tail, token))
+    case Con{Tx.Listening{+got, +context, +deadline}, tail}:
+      Bool.pick(Maybe<&2, Tx.Entry>, U32.is_eq(got, token), Some{Tx.Listening{got, context, deadline}}, transaction_entry(tail, token))
+
+def raw_datagram(state: State, observed: Pairs.Ref, raw: List<&2, U32>) -> Step:
+  match observed:
+    case Pairs.Ref{_, _, _, +remote}: Step{state, [Transaction{None{}, Tx.Datagram{C.host(remote), C.port(remote), raw}}]}
+
+def transports_same(a: Pairs.Ref, b: Pairs.Ref) -> Bool:
+  match a b:
+    case Pairs.Ref{_, _, base, remote} Pairs.Ref{_, _, got_base, got_remote}:
+      Bool.and(C.address_same(base, got_base), C.address_same(remote, got_remote))
+
+def mismatch_policy(record: Record, observed: Pairs.Ref, +values: List<&2, PeerMode>, mode: Auth.Mode) -> List<&2, PeerMode>:
+  match record observed:
+    case Record{S.Flight{_, Pairs.Ref{_, _, _, +remote}, _}, _, _, _} Pairs.Ref{_, _, _, peer}:
+      # A different receiving base does not change the authenticated server's
+      # IP/port. A response from a different peer cannot select the original's mode.
+      Bool.pick(List<&2, PeerMode>, C.address_same(remote, peer), remember(values, remote, mode), values)
+
+def mismatch_completed(value: Maybe<&2, S.State>, +previous: S.State, engine: Tx.State, records: List<&2, Record>,
+                       policies: List<&2, PeerMode>, record: Record, observed: Pairs.Ref) -> Step:
+  match value:
+    case None{}: Step{State{previous, engine, records, policies}, [NonSymmetric{record, observed, False{}}]}
+    case Some{s}: Step{State{s, engine, records, policies}, [NonSymmetric{record, observed, True{}}]}
+
+def mismatch_cancelled(step: Tx.Step, +record: Record, +schedule: S.State, records: List<&2, Record>,
+                       policies: List<&2, PeerMode>, observed: Pairs.Ref) -> Step:
+  match step record:
+    case Tx.Step{engine, _} Record{S.Flight{+token, _, _}, gen, _, _}:
+      mismatch_completed(S.complete(schedule, token, gen, False{}), schedule, engine, remove(records, token, []), policies, record, observed)
+
+def mismatch_authenticated(response: Maybe<&2, Response.Reply>, expired: Bool, +state: State, +record: Record,
+                           +observed: Pairs.Ref, +raw: List<&2, U32>, now: Nat) -> Step:
+  match response expired state record:
+    case None{} _ s _: raw_datagram(s, observed, raw)
+    case Some{_} True{} State{schedule, engine, records, policies} Record{S.Flight{_, Pairs.Ref{_, _, _, +remote}, _}, _, _, _}:
+      # Preserve the engine's final-deadline precedence. The authenticated packet
+      # cannot revive an expired attempt, even when it arrived on another base.
       engine_step(Tx.receive(engine, C.host(remote), C.port(remote), raw, now), schedule, records, policies)
-    case False{} s Pairs.Ref{_, _, _, +remote}: Step{s, [Transaction{None{}, Tx.Datagram{C.host(remote), C.port(remote), raw}}]}
+    case Some{Response.Reply{_, mode}} False{} State{schedule, engine, records, policies} Record{S.Flight{token, _, _}, _, _, _}:
+      mismatch_cancelled(Tx.cancel(engine, token), record, schedule, records, mismatch_policy(record, observed, policies, mode), observed)
 
-def received_packet(packet: Maybe<&2, Stun.Packet>, +state: State, +observed: Pairs.Ref, raw: List<&2, U32>, now: Nat) -> Step:
+def mismatch_entry(entry: Maybe<&2, Tx.Entry>, state: State, record: Record, observed: Pairs.Ref,
+                   +raw: List<&2, U32>, +now: Nat) -> Step:
+  match entry:
+    case None{}: raw_datagram(state, observed, raw)
+    case Some{Tx.Entry{_, Reliable.Context{_, _, transaction, key, mode, _}, deadline, next, _}}:
+      mismatch_authenticated(Response.parse(raw, transaction, key, mode), Bool.and(Tx.empty(next), Nat.is_le(deadline, now)), state, record, observed, raw, now)
+    case Some{Tx.Listening{_, Reliable.Context{_, _, transaction, key, mode, _}, deadline}}:
+      mismatch_authenticated(Response.parse(raw, transaction, key, mode), Nat.is_le(deadline, now), state, record, observed, raw, now)
+
+def received_record(record: Maybe<&2, Record>, state: State, observed: Pairs.Ref, +raw: List<&2, U32>, +now: Nat) -> Step:
+  match record state observed:
+    case None{} s r: raw_datagram(s, r, raw)
+    case Some{Record{S.Flight{+token, +reference, +role}, +gen, +transaction, +conflict}}
+         State{+schedule, Tx.State{+entries, +ta, +capacity, +next_start, +next_send}, +records, +policies}
+         Pairs.Ref{+id, +component, +base, +remote}:
+      +engine : Tx.State = Tx.State{entries, ta, capacity, next_start, next_send}
+      +observed : Pairs.Ref = Pairs.Ref{id, component, base, remote}
+      Bool.pick(Step, Pairs.same(reference, observed),
+        engine_step(Tx.receive(engine, C.host(remote), C.port(remote), raw, now), schedule, records, policies),
+        Bool.pick(Step, transports_same(reference, observed), raw_datagram(State{schedule, engine, records, policies}, observed, raw),
+          mismatch_entry(transaction_entry(entries, token), State{schedule, engine, records, policies},
+            Record{S.Flight{token, reference, role}, gen, transaction, conflict}, observed, raw, now)))
+
+def received_packet(packet: Maybe<&2, Stun.Packet>, +state: State, +observed: Pairs.Ref, +raw: List<&2, U32>, +now: Nat) -> Step:
   match packet state:
     case Some{Stun.Packet{+kind, transaction, _}} State{+schedule, +engine, +records, +policies}:
-      received_allowed(Bool.and(Bool.or(U32.is_eq(kind, 257), U32.is_eq(kind, 273)), matches(records, observed, transaction, False{})),
-        State{schedule, engine, records, policies}, observed, raw, now)
-    case None{} s: received_allowed(False{}, s, observed, raw, now)
+      Bool.pick(Step, Bool.or(U32.is_eq(kind, 257), U32.is_eq(kind, 273)),
+        received_record(transaction_record(records, transaction), State{schedule, engine, records, policies}, observed, raw, now),
+        raw_datagram(State{schedule, engine, records, policies}, observed, raw))
+    case None{} s: raw_datagram(s, observed, raw)
 
-# observed contains the actual receiving local base and OS/relay peer source;
-# matching remote source/ID alone cannot complete a check on another local base.
+# Authenticate a correlated response before acting on non-symmetric transports.
+# The current flight may fail; a retained old listener cannot fail its replacement.
 def receive(state: State, observed: Pairs.Ref, +raw: List<&2, U32>, now: Nat) -> Step:
   received_packet(Stun.parse(raw), state, observed, raw, now)
 

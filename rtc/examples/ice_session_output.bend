@@ -36,6 +36,8 @@ def verdict(outcome: Reliable.Outcome) -> String:
 
 def event(value: Session.Notice) -> IO(Unit):
   match value:
+    case Session.Attempt{A.NonSymmetric{r, observed, failed}}:
+      IO.print("non-symmetric:" ++ Format.flag(failed) ++ ":" ++ record(r) ++ ":observed:" ++ Scheduler.ref_text(observed))
     case Session.Attempt{A.Transaction{r, Tx.Send{token, _, _, bytes, fresh}}}:
       IO.print("send:" ++ U32.show(token) ++ ":" ++ Format.flag(fresh) ++ ":" ++ maybe_record(r) ++ ":" ++ B.hex(bytes))
     case Session.Attempt{A.Transaction{r, Tx.Finished{token, outcome}}}:

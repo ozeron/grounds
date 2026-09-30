@@ -8,7 +8,7 @@ import sys
 import tempfile
 import time
 from pathlib import Path
-from stun_reference import COOKIE, attr, attributes, packet, sign, validate
+from stun_reference import COOKIE, attr, attributes, fingerprint, packet, sign, validate
 
 COMMAND = sys.argv[1:]
 LOCAL_KEY = b"LocalFixturePassword123456"
@@ -133,24 +133,61 @@ with driver(known=0, delay=350, duration=1200) as d:
     assert not any(s.startswith("record:") for s in log)
 COUNT += 1
 
-# Correlate actual receiving socket as well as peer source and transaction ID.
-# A response on second base cannot finish first base; second checks/replies are
-# independent, while the first retry preserves its original dual bytes and port.
+# A signed response at the wrong registered local base immediately fails only
+# the original pair. The second pair succeeds; no first-base retry is sent and
+# a later symmetric copy cannot revive the old attempt. The original peer still
+# selects its authenticated integrity algorithm for future requests.
 with driver() as d:
-    first, address, began = d.recv()
+    first, address, _ = d.recv()
     assert address == d.first
     wrong_local_reply = response(first, address)
     d.peer.sendto(wrong_local_reply, d.second)
-    second, address2, _ = d.recv()
+    second, address2, _ = d.recv("legacy")
     assert address2 == d.second and second[8:20] != first[8:20]
     d.peer.sendto(response(second, address2), address2)
-    retry, retry_source, retried = d.recv()
-    assert retry == first and retry_source == address and 0.44 <= retried - began <= 1.4
+    d.peer.sendto(response(first, address), address)
+    assert not select.select([d.peer], [], [], 0.75)[0], "non-symmetric failed attempt retransmitted"
+    log = d.finish()
+    assert any(s.startswith("non-symmetric:1:0:7:") and f":observed:1:1:127.0.0.1/{d.second[1]}:" in s for s in log)
+    assert any(s.startswith("policy:") and s.endswith(":legacy") for s in log)
+    assert not any(s.startswith("finished:0:") for s in log)
+    assert sum(s.startswith("send:0:") for s in log) == 1 and sum(s.startswith("finished:1:") for s in log) == 1
+    assert sum(s.startswith("pair:") and s.endswith(":3") for s in log) == 1
+    assert sum(s.startswith("pair:") and s.endswith(":4") for s in log) == 1
+COUNT += 1
+
+# An independently bound peer source with valid credentials also triggers the
+# failure transition. Its signed 487 cannot instead repair roles/requeue a check.
+with driver() as d, socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as other:
+    other.bind(("127.0.0.1", 0))
+    first, address, _ = d.recv()
+    other.sendto(response(first, address, error=487), address)
+    second, address2, _ = d.recv()
+    assert address2 == d.second
+    d.peer.sendto(response(second, address2), address2)
+    assert not select.select([d.peer], [], [], 0.75)[0]
+    log = d.finish()
+    assert any(s.startswith("non-symmetric:1:0:7:") and s.endswith(f"127.0.0.1/{other.getsockname()[1]}") for s in log)
+    assert sum(s.startswith("send:") for s in log) == 2 and not any(s.startswith("finished:0:") for s in log)
+    assert "schedule:controlling:0:1:0:2:7" in log
+COUNT += 1
+
+# A damaged MAC at another receiving base remains raw. It cannot fail or poison
+# the original attempt; the exact first-base request retries and succeeds later.
+with driver() as d:
+    first, address, began = d.recv()
+    bad = bytearray(response(first, address))
+    mac_offset = next(pos for k, _, pos in attributes(bad) if k == 8)
+    bad[mac_offset + 4] ^= 1
+    bad = fingerprint(bytes(bad[:-8]))
+    d.peer.sendto(bad, d.second)
+    second, address2, _ = d.recv()
+    d.peer.sendto(response(second, address2), address2)
+    retry, source, retried = d.recv()
+    assert retry == first and source == address and 0.44 <= retried - began <= 1.4
     d.peer.sendto(response(first, address), address)
     log = d.finish()
-    assert "raw:" + wrong_local_reply.hex() in log
-    assert f"datagram:1:1:127.0.0.1/{d.second[1]}:127.0.0.1/{d.peer.getsockname()[1]}" in log
-    assert sum(s.startswith("finished:0:") for s in log) == 1 and sum(s.startswith("finished:1:") for s in log) == 1
+    assert "raw:" + bad.hex() in log and not any(s.startswith("non-symmetric:") for s in log)
     assert sum(s.startswith("pair:") and s.endswith(":3") for s in log) == 2
 COUNT += 1
 
@@ -180,6 +217,31 @@ with driver(duration=1450) as d:
     assert any(s.startswith("late:0:success-sha256:") and ":controlling:0:1:" in s for s in log)
     assert any(s.startswith("stopped:0:") for s in log) and sum(s.startswith("send:0:") for s in log) == 1
     assert not any(s.startswith("record:") for s in log)
+COUNT += 1
+
+# A signed non-symmetric old response retires the listener without touching the
+# triggered replacement or the other base's active check, both of which retry.
+with driver(duration=1450) as d:
+    first, address, _ = d.recv()
+    second, address2, _ = d.recv()
+    d.incoming()
+    replacement, replacement_source, replaced = d.recv()
+    assert replacement_source == address
+    d.peer.sendto(response(first, address, "sha256"), address2)
+    retried = set()
+    while len(retried) < 2:
+        retry, source, stamp = d.recv()
+        assert retry[8:20] != first[8:20]
+        if retry[8:20] == second[8:20]:
+            assert retry == second and source == address2
+        else:
+            assert retry == replacement and source == address and 0.44 <= stamp-replaced <= 1.4
+        d.peer.sendto(response(retry, source), source)
+        retried.add(retry[8:20])
+    log = d.finish()
+    assert any(s.startswith("non-symmetric:0:0:7:") for s in log)
+    assert not any(s.startswith("finished:0:") or s.startswith("late:0:") or s.startswith("record:") for s in log)
+    assert sum(s.startswith("pair:") and s.endswith(":3") for s in log) == 2
 COUNT += 1
 
 # A signed 487 repairs from the role used in its request after another incoming

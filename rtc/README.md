@@ -334,11 +334,25 @@ RTO calculation, alternate priority formula or nondefault Ta negotiation yet.
 generation, sent role and original transaction ID separately from current
 scheduler flights. Interrupting a flight stops its retries while preserving its
 record and response correlation through the original final deadline. Responses
-must match the actual receiving base, stream/component, peer source, transaction,
-authentication policy and fingerprint. Late responses and retirement are
-annotated with the original record and cannot complete/fail a replacement.
-Current success/error/timeout/integrity/transport outcomes update only the
-current flight; none declares whole-session success or failure.
+are correlated by transaction ID and authenticated with that original attempt's
+key, algorithm and FINGERPRINT. A valid response at a different registered local
+base or peer IP/port emits `NonSymmetric{record, observed, failed}` and immediately
+fails only the original current pair, suppressing its retries and queued sends.
+It cannot authorize 487 role repair. When the peer IP/port matches the original
+destination, its first authenticated algorithm is still selected for subsequent
+requests, even though ICE fails the pair. A different peer IP/port cannot select
+or overwrite the original destination's policy. An
+interrupted old listener is retired with `failed=False` and cannot fail its
+replacement. Unauthenticated or unrelated mismatched traffic remains raw and
+cannot mark an integrity violation, move a deadline or mutate any attempt. Final
+timeout/retirement still wins at its exact boundary. This implements the
+transport-symmetry requirement of [RFC 8445 section 7.2.5.2.1](https://www.rfc-editor.org/rfc/rfc8445.html#section-7.2.5.2.1)
+without changing the existing low-level STUN source-filtering APIs. The caller
+must supply registered receiving stream/component context; an unregistered base
+is invalid input. Symmetric late responses and retirement are annotated with the
+original record and cannot complete/fail a replacement. Current success/error/
+timeout/integrity/transport outcomes update only the current flight; none declares
+whole-session success or failure.
 
 An authenticated current 487 leaves a repairable record after the network
 transaction finishes. `repair(state, token, generation, high, low)` accepts only
@@ -359,17 +373,16 @@ successfully; it updates pacing from actual OS send time. Send notices carry
 their retained record so an effects owner routes them from the registered base;
 Reply notices carry the receiving reference. The two-socket UDP example shows
 this loop, host RNG conflict repair and cleanup using local synthetic fixtures.
-It binds loopback ports and is not a production gathering/relay driver.
+It advertises loopback bases but uses Base's wildcard `UDP.bind(port)` on both
+targets. The receive effect exposes only peer IP/port, so the fixture's socket-to-
+base mapping verifies port identity, not arbitrary local destination-IP identity.
+Production integration must first provide address-specific UDP binding or actual
+local destination metadata. The pure owner relies on the actual receiving base
+supplied by that effects owner. This is not a production gathering/relay driver.
 
-The next integration must first authenticate correlated responses received on
-a non-symmetric endpoint and immediately fail the original current pair as
-required by [RFC 8445 section 7.2.5.2.1](https://www.rfc-editor.org/rfc/rfc8445.html#section-7.2.5.2.1).
-This foundation currently leaves those packets raw and the original attempt
-active until a symmetric response or timeout; its source guards prevent false
-completion but do not implement that required failure transition. Unauthenticated
-traffic must not gain authority to fail a pair, and an interrupted old attempt
-must not fail its replacement. Then add valid pairs and nomination, including
-preserving nomination intent through the triggered check. Dynamic pair-cap pruning,
+The next integration first supplies reliable local UDP address identity, then
+adds valid pairs and nomination, including preserving sent
+PRIORITY and nomination intent through the triggered check. Dynamic pair-cap pruning,
 deferred-item expiry, consent/restart, PAC terminal-state handling, candidate
 gathering, real-browser ICE, IPv6/TURN, Bend TLS/DTLS, SCTP/data channels and media
 remain open. Generated-code timing safety is unproven; checks use synthetic
@@ -446,16 +459,21 @@ capacity and input rejection, and 60 seeded interleaved schedules of 55 turns.
 The JSON adapter is a fixture interface, not signaling or a complete ICE agent.
 
 Session checks use independently signed Python input packets and verify all
-outgoing request/reply authentication and fields. Native and Bun each run 80
+outgoing request/reply authentication and fields. Native and Bun each run 129
 compiled cases for pre-answer/immutable credential binding, pending nomination
 request deduplication, observed-only learned pairs, full-registry alias/base
 checks, source/receiving-base/ID guards, speculative pacing/capacity behavior,
 interrupted records and late responses, current/pending 487 repair, integrity and
 transport outcomes, endpoint algorithm pinning, registry rollback and 30 seeded
-signed arrival sets. Six independent real-UDP cases per target own two actual
+signed arrival sets. Tests also cover authenticated non-symmetric failure versus
+unauthenticated raw traffic, exact final deadlines, frozen-foundation preservation,
+independent active pairs, completed outcomes, late listener retirement, stale sends
+and old replies after replacement. Nine independent real-UDP cases per target own two actual
 local sockets: pre-answer replies, no learned-candidate cross-products,
-wrong-local-base response rejection, ordinary overlap/loss and unchanged retries,
-incoming interruption and late success, fresh host-random role-conflict retries,
+wrong-local-base and independently bound wrong-source authenticated failure,
+bad-MAC raw forwarding with unchanged retry bytes, ordinary overlap/loss,
+incoming interruption and late success/non-symmetric retirement without
+replacement failure, fresh host-random role-conflict retries,
 per-endpoint modes, retained-listener capacity/expiry and both-port cleanup.
 Failed second bind and invalid session construction also release opened ports.
 Raw notices expose the actual receiving base and peer source. These tests verify

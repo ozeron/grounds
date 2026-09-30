@@ -181,16 +181,124 @@ assert one(frames[4], "schedule:").endswith(":1:7")
 assert lines(frames[5], "retired:") and not lines(frames[5], "finished:") and pair_states(frames[5]) == [1]
 assert sends(frames[6])[0][8:20] == tx(2) and records(frames[6]).keys() == {1}
 
-# No response can complete from another source, stream, component, registered
-# local base or an unregistered endpoint. Correct source then completes exactly once.
-for sid, comp, base, source in ((2, 1, BASE, SOURCE), (1, 2, BASE, SOURCE), (1, 1, LB[4], SOURCE),
-                              (1, 1, [127, 0, 0, 1, 10003], SOURCE), (1, 1, BASE, RB[4])):
-    streams = [[1, [[LA, LA], [LB, LB]], [RA]]]
-    frames = run([BIND, ["start", 0, 1, 3], receive(response(1), 1, source, base, sid, comp), receive(response(1), 2)], streams=streams)
-    assert not lines(frames[3], "finished:") and records(frames[3]).keys() == {0}
-    if sid == 1 and comp == 1 and base == LB[4]:
-        assert one(frames[3], "datagram:") == "datagram:1:1:127.0.0.1/10002:127.0.0.1/20001"
+# An unregistered base/stream/component remains invalid context; a response
+# correlated and authenticated at another registered transport fails its ORIGINAL
+# current pair immediately. Later symmetric traffic cannot revive that attempt.
+streams = [[1, [[LA, LA], [LB, LB]], [RA]]]
+for sid, comp, base in ((2, 1, BASE), (1, 2, BASE), (1, 1, [127, 0, 0, 1, 10003])):
+    frames = run([BIND, ["start", 0, 1, 3], receive(response(1), 1, base=base, sid=sid, component=comp),
+                  receive(response(1), 2)], streams=streams)
+    assert "invalid" in frames[3] and records(frames[3]).keys() == {0}
     assert lines(frames[4], "finished:") and not records(frames[4]) and 3 in pair_states(frames[4])
+
+for mode in ("legacy", "sha256"):
+    for base, source in ((LB[4], SOURCE), (BASE, RB[4]), (BASE, [127, 0, 0, 2, 20001]), (LB[4], RB[4])):
+        for error in (0, 487, 500):
+            frames = run([BIND, ["start", 0, 1, 3], receive(response(1, mode, error), 1, source, base),
+                          ["ack", 20], receive(response(1, mode), 21), ["repair", 0, 7, 0, 3], ["tick", 500]], streams=streams)
+            assert one(frames[3], "non-symmetric:").startswith("non-symmetric:1:0:7:1:1:127.0.0.1/10001:127.0.0.1/20001:")
+            assert one(frames[3], "non-symmetric:").endswith(f":observed:1:1:{'.'.join(map(str, base[:4]))}/{base[4]}:{'.'.join(map(str, source[:4]))}/{source[4]}")
+            assert 4 in pair_states(frames[3]) and not records(frames[3]) and not lines(frames[3], "flight:")
+            assert not lines(frames[3], "raw:")
+            if source == SOURCE:
+                assert one(frames[3], "policy:").endswith(":" + mode)
+            else:
+                assert not lines(frames[3], "policy:")
+            assert not lines(frames[4], "sent:") and not lines(frames[5], "finished:")
+            assert one(frames[5], "raw:") == "raw:" + response(1, mode).hex()
+            assert frames[6][0] == "rejected" and not sends(frames[7])
+
+# Authentication, algorithm, fingerprint, transaction and method checks precede
+# the failure transition. Wrong-endpoint bad traffic cannot poison integrity state,
+# negotiate an algorithm, stop queued sends or prevent a later symmetric success.
+invalid = [response(1, key=b"bad"), response(1)[:-1] + bytes([response(1)[-1]^1]), response(999),
+           fingerprint(packet(mapping(BASE), kind=0x101, transaction=tx(1))), response(1, "dual"),
+           sign(packet(mapping(BASE), kind=0x102, transaction=tx(1)), REMOTE_KEY, "legacy"),
+           sign(packet(mapping(BASE) + attr(6, b"unexpected"), kind=0x101, transaction=tx(1)), REMOTE_KEY, "legacy")]
+for raw in invalid:
+    frames = run([BIND, ["start", 0, 1, 3], receive(raw, base=LB[4]), ["ack", 20], receive(response(1), 21)], streams=streams)
+    assert records(frames[3]).keys() == {0} and 2 in pair_states(frames[3])
+    assert not lines(frames[3], "non-symmetric:") and not lines(frames[3], "policy:")
+    assert one(frames[3], "datagram:") == "datagram:1:1:127.0.0.1/10002:127.0.0.1/20001"
+    assert one(frames[3], "raw:") == "raw:" + raw.hex() and lines(frames[4], "sent:")
+    assert lines(frames[5], "finished:") and 3 in pair_states(frames[5])
+for configured in ("legacy", "sha256"):
+    opposite = "sha256" if configured == "legacy" else "legacy"
+    frames = run([BIND, ["start", 0, 1, 3], receive(response(1, opposite), source=RB[4]),
+                  receive(response(1, configured))], mode=configured)
+    assert not lines(frames[3], "non-symmetric:") and records(frames[3]).keys() == {0}
+    assert lines(frames[4], "finished:") and 3 in pair_states(frames[4])
+frames = run([BIND, ["start", 0, 1, 1], receive(response(1, key=b"bad"), source=RB[4]), ["tick", 500]])
+assert one(frames[4], "finished:").startswith("finished:0:timeout:")
+
+# Final timeout wins at its exact boundary; overdue intermediate retry deadlines
+# still accept a response, matching the transaction engine's existing behavior.
+for now, rc, outcome in ((499, 1, "non-symmetric:"), (500, 1, "finished:"), (501, 3, "non-symmetric:")):
+    frames = run([BIND, ["start", 0, 1, rc], receive(response(1), now, base=LB[4])], streams=streams)
+    assert lines(frames[3], outcome) and not records(frames[3]) and 4 in pair_states(frames[3])
+    if outcome == "finished:":
+        assert one(frames[3], outcome).startswith("finished:0:timeout:") and not lines(frames[3], "policy:")
+
+# Authenticated non-symmetric late replies retire ONLY their old retained attempt.
+# A replacement and another active base keep their records, roles, state and bytes.
+for error in (0, 487, 500):
+    frames = run([BIND, ["start", 0, 1, 3], receive(request()), ["start", 50, 2, 3], ["start", 100, 3, 3],
+                  receive(response(1, "sha256", error), 101, base=LB[4]), receive(response(1), 102),
+                  ["repair", 0, 7, 0, 3], ["tick", 550]], streams=streams)
+    assert one(frames[6], "non-symmetric:").startswith("non-symmetric:0:0:7:")
+    assert records(frames[6]).keys() == {1, 2} and pair_states(frames[6]) == [2, 2]
+    assert one(frames[6], "policy:").endswith(":sha256") and not lines(frames[6], "finished:")
+    assert not lines(frames[7], "finished:") and frames[8][0] == "rejected"
+    assert sends(frames[9])[0] == sends(frames[4])[0]
+frames = run([BIND, ["start", 0, 1, 3], receive(request()), ["start", 50, 2, 3],
+              receive(response(1), 2000, base=LB[4])], streams=streams)
+assert lines(frames[5], "retired:") and not lines(frames[5], "non-symmetric:") and not lines(frames[5], "finished:")
+assert records(frames[5]).keys() == {1} and 2 in pair_states(frames[5])
+
+# A wrong local base still receives a response from the original server's
+# IP/port. Pin that server's algorithm after authentication, even though ICE fails
+# its pair; a new triggered check uses it, while already signed retries stay fixed.
+for algorithm in ("legacy", "sha256"):
+    frames = run([BIND, ["start", 0, 1, 3], receive(response(1, algorithm), base=LB[4]), receive(request()),
+                  ["start", 50, 2, 3], ["tick", 550]], streams=streams)
+    assert one(frames[3], "policy:").endswith(":" + algorithm) and pair_states(frames[3])[0] == 4
+    assert sends(frames[5], algorithm) and sends(frames[6])[0] == sends(frames[5])[0]
+frames = run([BIND, ["start", 0, 1, 3], receive(request()), ["start", 50, 2, 3],
+              receive(response(1, "sha256"), 51, base=LB[4]), ["tick", 550]], streams=streams)
+assert one(frames[5], "policy:").endswith(":sha256")
+assert sends(frames[6], "dual")[0] == sends(frames[4], "dual")[0]
+# An older retained response cannot overwrite a first algorithm established by
+# another current attempt at that endpoint, even if it arrives at the wrong base.
+frames = run([BIND, ["start", 0, 1, 3], receive(request()), ["start", 50, 2, 3], receive(response(2)),
+              receive(response(1, "sha256"), 60, base=LB[4])], streams=streams)
+assert one(frames[6], "policy:").endswith(":legacy") and pair_states(frames[6])[0] == 3
+
+# Failure does not thaw another pair of the same foundation. A second active
+# pair is unaffected, and new triggered attempts never inherit an old reply.
+frozen_base = cand(2130706175, 10002, "local")
+frames = run([BIND, ["start", 0, 1, 3], receive(response(1), base=frozen_base[4])],
+             streams=[[1, [[LA, LA], [frozen_base, frozen_base]], [RA]]])
+assert pair_states(frames[3]) == [4, 0]
+frames = run([BIND, ["start", 0, 1, 3], ["start", 50, 2, 3], receive(response(1), 51, source=RB[4]),
+              receive(response(2), 52, base=LB[4])], streams=streams)
+assert records(frames[4]).keys() == {1} and pair_states(frames[4]) == [4, 2]
+assert records(frames[5]) == {} and pair_states(frames[5]) == [4, 3]
+frames = run([BIND, ["start", 0, 1, 3], receive(response(1), 1, source=RB[4]), receive(request(), 10),
+              ["start", 50, 2, 3], receive(response(1), 51, base=LB[4]), receive(response(2), 52)], streams=streams)
+assert one(frames[3], "non-symmetric:").startswith("non-symmetric:1:0:")
+assert records(frames[6]).keys() == {1} and 2 in pair_states(frames[6]) and not lines(frames[6], "non-symmetric:")
+assert lines(frames[7], "finished:") and 3 in pair_states(frames[7])
+# A bad late mismatch leaves the original listener's deadline/identity intact.
+frames = run([BIND, ["start", 0, 1, 3], receive(request()), ["start", 50, 2, 3],
+              receive(response(1, key=b"bad"), 51, base=LB[4]), receive(response(1), 52)], streams=streams)
+assert records(frames[5]).keys() == {0, 1} and "/listening" in one(frames[5], "engine:")
+assert not lines(frames[5], "non-symmetric:") and lines(frames[6], "late:") and records(frames[6]).keys() == {1}
+# Already completed success/conflict outcomes cannot be replaced by a duplicate
+# response arriving at another endpoint after their network transaction ended.
+for error in (0, 487):
+    frames = run([BIND, ["start", 0, 1, 3], receive(response(1, error=error)), receive(response(1), 20, source=RB[4])])
+    assert not lines(frames[4], "non-symmetric:") and pair_states(frames[4]) == pair_states(frames[3])
+    assert records(frames[4]) == records(frames[3]) and lines(frames[4], "raw:")
 
 # Invalid/unrelated packets never trigger, mutate roles or postpone retirement.
 for raw in (request(key=b"bad password"), request()[:-1] + bytes([request()[-1]^1]),
