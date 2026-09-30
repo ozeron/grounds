@@ -230,11 +230,67 @@ If distinct remote candidate records alias an endpoint, the owner must resolve
 that ambiguity before using the reference; these helpers cannot choose a record
 on its behalf. Existing index-based checklist interfaces remain available.
 
-The next agent integration includes ordinary/triggered selection and client-side
-487 retries,
-dynamic/valid pairs, nomination, consent/restart, candidate gathering, TURN,
-IPv6, DTLS/SCTP, media protocols and browser interoperability. Generated-code
-timing safety is unproven; live checks use synthetic local credentials.
+`ice_scheduler.bend` adds pure scheduling and current-attempt ownership for
+bounded IPv4 checklists. `create(streams, role, limit, generation)` uses the
+existing formation limits and rejects ambiguous endpoint identities. Each stream
+has a deduplicated FIFO triggered queue. `trigger(state, reference)` keeps a
+Succeeded pair unchanged; it moves Frozen, Waiting, Failed or In-Progress pairs
+to Waiting and queues their stable reference. Interrupting In-Progress work
+returns its old token and removes only its current scheduler flight. The owner
+must call `Tx.stop_retries` and keep the old transaction metadata until a late
+response or retirement; the scheduler does not own retained response correlation.
+
+`select(state)` returns `Selected{state, reference, token, role}`, `Idle{state}`
+or `Rejected{}`. It advances round robin through streams, choosing the triggered
+FIFO head before ordinary work in that stream. Ordinary selection chooses the
+highest Waiting rank, with the lowest component breaking a rank tie. When a
+stream has no Waiting pairs, it thaws Frozen pairs sequentially only for
+foundations with no Waiting or In-Progress pair anywhere in the checklist set.
+It skips streams without work within the same scheduling opportunity. All
+checklists here are schedulable; valid/nominated pairs and terminal/PAC state
+remain agent work. Idle is not a declaration of ICE success or failure.
+These rules follow [RFC 8445 section 6.1.4.2](https://www.rfc-editor.org/rfc/rfc8445.html#section-6.1.4.2).
+
+Selection is speculative: commit the returned scheduler state only when the
+paced transaction engine accepts the new check. On `Tx.Later` or `Tx.Rejected`,
+retain the original scheduler state so its queue, pair state, cursor and token
+are unchanged. The scheduler owns no clocks or sockets and supplies no Ta/RTO
+policy; the owner must use negotiated/default Ta, shared send spacing and a
+valid ICE RTO policy. Preserve Idle's returned state if selection thawed pairs.
+Within a generation, U32 tokens never repeat and exhaustion rejects new work.
+Each flight records the role used by that attempt. `complete(state, token,
+generation, success)` accepts only a current flight in the matching generation,
+then applies the existing completion/foundation-thaw rules. An interrupted old
+token cannot complete or fail its replacement, even after priority reordering.
+The owner must discard all scheduler and transaction state together on restart.
+
+`switch_role` recomputes ranks while preserving queue identities and flights'
+sent roles. `repair_conflict(state, token, generation, high, low)` is for a
+current authenticated 487: it flips the role recorded by that attempt, requires
+a different tie-breaker from both its sent and current role, reorders, and
+requeues the pair. Host RNG must supply the new tie-breaker; an unrelated or
+unauthenticated error cannot authorize this call. A server-side switch must
+retain its tie-breaker. Capturing the sent role matters when another incoming
+check has already changed the current role.
+
+`insert_triggered(state, stream, local, remote)` inserts only the observed
+Host/Relay local-base and remote-source pair, never a cross-product with other
+locals. It validates candidate/component syntax, preserves existing pair
+metadata for an already known endpoint and rejects missing streams, reflexive
+locals or exhausted global pair capacity atomically. The owner must authenticate
+the request, verify the local base is registered, bind its remote fragment to
+signaled credentials, select known versus peer-reflexive remote metadata and
+supply a unique learned foundation before insertion. On capacity rejection it
+must retain bounded deferred work. This helper itself does not gather candidates
+or authenticate input. Triggered interruption and observed-pair handling follow
+[RFC 8445 sections 7.3.1.3 and 7.3.1.4](https://www.rfc-editor.org/rfc/rfc8445.html#section-7.3.1.3).
+
+The next integration joins the incoming authenticator, scheduler and transaction
+engine into a bounded socket/session owner, including pre-answer credential
+binding and retained old-attempt metadata. Valid pairs, nomination,
+consent/restart, PAC terminal-state handling, candidate gathering, TURN, IPv6,
+DTLS/SCTP, media protocols and browser interoperability remain open.
+Generated-code timing safety is unproven; live checks use synthetic credentials.
 Formation and initial state rules follow [RFC 8445 sections 5.1.2 and 6.1.2](https://www.rfc-editor.org/rfc/rfc8445.html#section-6.1.2).
 The [2026-09-30 errata search](https://errata.rfc-editor.org/search/?rfc_number=8445&presentation=records) lists only reported editorial erratum 7526 about a
 broken reference link, with no verified protocol correction. The later agent
@@ -296,3 +352,12 @@ independent Python model, including mirror priorities that exchange positions,
 checks completed through a saved reference after reordering, success/failure and
 guard rejection, reflexive bases, cross-stream foundation thawing, ambiguous
 endpoint refusal and randomized candidates. Both targets run the same fixtures.
+
+Scheduler checks compare every pair, queue, cursor, allocator and sent-role
+snapshot with an independent Python full-sort/bigint model. Native and Bun run
+106 cases covering FIFO priority/deduplication, ordinary round robin, global
+foundation blocking/thawing, idle streams, speculative selection without commit,
+interrupted old-token isolation, generation guards, U32 exhaustion, sent-role
+487 repair after another role switch, one-pair peer-reflexive insertion,
+capacity and input rejection, and 60 seeded interleaved schedules of 55 turns.
+The JSON adapter is a fixture interface, not signaling or a complete ICE agent.
