@@ -269,54 +269,117 @@ def loop(fuel: Nat, a: Socket, b: Socket, driver: Driver) -> IO(Unit):
         at_now(now, a, b, Driver{state, first, second, bind_at, end, was_bound, next},
           sa => sb => d => loop(p, sa, sb, d))
 
-def candidate(port: U32, priority: U32, foundation: String) -> C.Candidate:
-  C.Candidate{1, priority, foundation, C.Host{}, Stun.IPv4{127, 0, 0, 1, port}}
+def Name() -> Type:
+  Socket & Result<&1, &1, U32 & String, String & U32>
 
-def initialized_now(+now: Nat, a: Socket, b: Socket, state: Session.State, first: U32, second: U32, delay: U32, duration: U32) -> IO(Unit):
-  loop(65536n, a, b, Driver{state, Stun.IPv4{127, 0, 0, 1, first}, Stun.IPv4{127, 0, 0, 1, second},
+def candidate(address: Stun.IPv4, priority: U32, foundation: String) -> C.Candidate:
+  C.Candidate{1, priority, foundation, C.Host{}, address}
+
+def initial_error(a: Socket, b: Socket, message: String) -> IO(Unit):
+  do IO<Unit>:
+    x : Unit <- Socket.close(a)
+    y : Unit <- Socket.close(b)
+    IO.die(Unit, 3, message)
+
+def first_error(a: Socket, message: String) -> IO(Unit):
+  do IO<Unit>:
+    x : Unit <- Socket.close(a)
+    IO.die(Unit, 3, message)
+
+def initialized_now(+now: Nat, a: Socket, b: Socket, state: Session.State, first: Stun.IPv4, second: Stun.IPv4,
+                    delay: U32, duration: U32) -> IO(Unit):
+  loop(65536n, a, b, Driver{state, first, second,
     Nat.add(now, U32.to_nat(delay)), Nat.add(now, U32.to_nat(duration)), False{}, True{}})
 
-def initialized(value: Maybe<&2, Session.State>, a: Socket, b: Socket, first: U32, second: U32, delay: U32, duration: U32) -> IO(Unit):
+def initialized(value: Maybe<&2, Session.State>, a: Socket, b: Socket, +first: Stun.IPv4, +second: Stun.IPv4,
+                delay: U32, duration: U32) -> IO(Unit):
   match value:
-    case None{}:
-      do IO<Unit>:
-        x : Unit <- Socket.close(a)
-        y : Unit <- Socket.close(b)
-        IO.die(Unit, 3, "bad session input")
+    case None{}: initial_error(a, b, "bad session input")
     case Some{state}:
       do IO<Unit>:
         now : Nat <- IO.now()
-        x : Unit <- IO.print("ready")
+        x : Unit <- IO.print("bases:" ++ C.host(first) ++ "/" ++ U32.show(C.port(first)) ++ ":" ++ C.host(second) ++ "/" ++ U32.show(C.port(second)))
+        y : Unit <- IO.print("ready")
         initialized_now(now, a, b, state, first, second, delay, duration)
 
-def second_bound(result: Result<&1, &1, U32 & String, Socket>, a: Socket, +first: U32, +second: U32,
-                 peer: U32, delay: U32, duration: U32, known: U32, capacity: U32) -> IO(Unit):
-  match result:
-    case Fail{_}:
-      do IO<Unit>:
-        x : Unit <- Socket.close(a)
-        IO.die(Unit, 3, "second UDP bind failed")
-    case Done{b}:
+def second_address(value: Maybe<&2, Stun.IPv4>, a: Socket, b: Socket, +first: Stun.IPv4,
+                   peer: U32, delay: U32, duration: U32, known: U32, capacity: U32) -> IO(Unit):
+  match value:
+    case None{}: initial_error(a, b, "bad second bound address")
+    case Some{+second}:
       initialized(Session.create([Check.Stream{1, [C.Local{candidate(first, 2130706431, "a"), candidate(first, 2130706431, "a")},
         C.Local{candidate(second, 2130706175, "b"), candidate(second, 2130706175, "b")}],
-        Bool.pick(List<&2, C.Candidate>, U32.is_eq(known, 0), [], [candidate(peer, 2100000000, "remote")])}],
+        Bool.pick(List<&2, C.Candidate>, U32.is_eq(known, 0), [], [candidate(Stun.IPv4{127, 0, 0, 1, peer}, 2100000000, "remote")])}],
         Ice.Controlling{0, 1}, Incoming.Secret{"localFrag", "LocalFixturePassword123456"}, Auth.Dual{}, 100, capacity, 7), a, b, first, second, delay, duration)
 
-def run(+first: U32, +second: U32, peer: U32, delay: U32, duration: U32, known: U32, capacity: U32) -> IO(Unit):
-  do IO<Unit>:
-    a : Socket <- IO.try(Socket, UDP.bind(first))
-    IO.bind(Result<&1, &1, U32 & String, Socket>, Unit, UDP.bind(second),
-      r => second_bound(r, a, first, second, peer, delay, duration, known, capacity))
+def second_name_result(result: Result<&1, &1, U32 & String, String & U32>, a: Socket, b: Socket, first: Stun.IPv4,
+                       peer: U32, delay: U32, duration: U32, known: U32, capacity: U32) -> IO(Unit):
+  match result:
+    case Fail{_}: initial_error(a, b, "second local address query failed")
+    case Done{(host, port)}: second_address(C.address_read(host, port), a, b, first, peer, delay, duration, known, capacity)
 
-def parsed(first: Maybe<&2, U32>, second: Maybe<&2, U32>, peer: Maybe<&2, U32>, delay: Maybe<&2, U32>, duration: Maybe<&2, U32>, known: Maybe<&2, U32>, capacity: Maybe<&2, U32>) -> IO(Unit):
+def second_named(reply: Name(), a: Socket, first: Stun.IPv4, peer: U32, delay: U32, duration: U32, known: U32, capacity: U32) -> IO(Unit):
+  (b, result) = reply
+  second_name_result(result, a, b, first, peer, delay, duration, known, capacity)
+
+def second_bound(result: Result<&1, &1, U32 & String, Socket>, a: Socket, first: Stun.IPv4,
+                 peer: U32, delay: U32, duration: U32, known: U32, capacity: U32) -> IO(Unit):
+  match result:
+    case Fail{_}: first_error(a, "second UDP bind failed")
+    case Done{b}: IO.bind(Name(), Unit, W.wire_udp_local_address(b), r => second_named(r, a, first, peer, delay, duration, known, capacity))
+
+def first_address(value: Maybe<&2, Stun.IPv4>, a: Socket, +second: Stun.IPv4,
+                  peer: U32, delay: U32, duration: U32, known: U32, capacity: U32) -> IO(Unit):
+  match value:
+    case None{}: first_error(a, "bad first bound address")
+    case Some{first}:
+      IO.bind(Result<&1, &1, U32 & String, Socket>, Unit, W.wire_udp_bind(C.host(second), C.port(second)),
+        r => second_bound(r, a, first, peer, delay, duration, known, capacity))
+
+def first_name_result(result: Result<&1, &1, U32 & String, String & U32>, a: Socket, second: Stun.IPv4,
+                      peer: U32, delay: U32, duration: U32, known: U32, capacity: U32) -> IO(Unit):
+  match result:
+    case Fail{_}: first_error(a, "first local address query failed")
+    case Done{(host, port)}: first_address(C.address_read(host, port), a, second, peer, delay, duration, known, capacity)
+
+def first_named(reply: Name(), second: Stun.IPv4, peer: U32, delay: U32, duration: U32, known: U32, capacity: U32) -> IO(Unit):
+  (a, result) = reply
+  first_name_result(result, a, second, peer, delay, duration, known, capacity)
+
+def run(+first: Stun.IPv4, second: Stun.IPv4, peer: U32, delay: U32, duration: U32, known: U32, capacity: U32) -> IO(Unit):
+  do IO<Unit>:
+    a : Socket <- IO.try(Socket, W.wire_udp_bind(C.host(first), C.port(first)))
+    IO.bind(Name(), Unit, W.wire_udp_local_address(a), r => first_named(r, second, peer, delay, duration, known, capacity))
+
+def input_address(value: Maybe<&2, Stun.IPv4>, port: U32) -> Maybe<&2, Stun.IPv4>:
+  match value:
+    case None{}: None{}
+    case Some{Stun.IPv4{a, b, c, d, _}}: Some{Stun.IPv4{a, b, c, d, port}}
+
+# Candidate addresses require a nonzero port; binding input may request port 0.
+# The session is formed only from the actual addresses queried after binding.
+def bind_address(+host: String, +port: U32) -> Maybe<&2, Stun.IPv4>:
+  Bool.pick(Maybe<&2, Stun.IPv4>, String.eq(host, "0.0.0.0"), None{},
+    input_address(C.address_read(host, Bool.pick(U32, U32.is_eq(port, 0), 1, port)), port))
+
+def parsed_addresses(first: Maybe<&2, Stun.IPv4>, second: Maybe<&2, Stun.IPv4>, peer: U32, delay: U32, duration: U32, known: U32, capacity: U32) -> IO(Unit):
+  match first second:
+    case Some{a} Some{b}: run(a, b, peer, delay, duration, known, capacity)
+    case _ _: IO.die(Unit, 2, "bad UDP bind addresses")
+
+def parsed(first_host: String, second_host: String, first: Maybe<&2, U32>, second: Maybe<&2, U32>, peer: Maybe<&2, U32>, delay: Maybe<&2, U32>, duration: Maybe<&2, U32>, known: Maybe<&2, U32>, capacity: Maybe<&2, U32>) -> IO(Unit):
   match first second peer delay duration known capacity:
-    case Some{a} Some{b} Some{p} Some{d} Some{end} Some{k} Some{cap}: run(a, b, p, d, end, k, cap)
+    case Some{a} Some{b} Some{p} Some{d} Some{end} Some{k} Some{cap}:
+      parsed_addresses(bind_address(first_host, a), bind_address(second_host, b), p, d, end, k, cap)
     case _ _ _ _ _ _ _: IO.die(Unit, 2, "bad UDP session arguments")
 
 def dispatch(args: List<String>) -> IO(Unit):
   match args:
-    case [first, second, peer, delay, duration, known, capacity]: parsed(U32.read(first), U32.read(second), U32.read(peer), U32.read(delay), U32.read(duration), U32.read(known), U32.read(capacity))
-    case _: IO.die(Unit, 2, "usage: ice_session_udp <first-port> <second-port> <peer-port> <bind-delay-ms> <duration-ms> <known-remote> <capacity>")
+    case [first, second, peer, delay, duration, known, capacity]:
+      parsed("127.0.0.1", "127.0.0.1", U32.read(first), U32.read(second), U32.read(peer), U32.read(delay), U32.read(duration), U32.read(known), U32.read(capacity))
+    case [first_host, first, second_host, second, peer, delay, duration, known, capacity]:
+      parsed(first_host, second_host, U32.read(first), U32.read(second), U32.read(peer), U32.read(delay), U32.read(duration), U32.read(known), U32.read(capacity))
+    case _: IO.die(Unit, 2, "usage: ice_session_udp [<first-IP>] <first-port> [<second-IP>] <second-port> <peer-port> <bind-delay-ms> <duration-ms> <known-remote> <capacity>")
 
 def main() -> IO(Unit):
   do IO<Unit>:

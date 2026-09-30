@@ -189,6 +189,67 @@ static void __attribute__((constructor)) gw_sendt_use(void) {
 
 #endif
 
+#ifdef CID_WIRE_UDP_BIND
+
+Term gw_udp_bind_run(Env e, Term* f, IoWork* w) {
+  struct sockaddr_in at;
+  u64 host_len;
+  char* host = io_cstr(e, f[0], &host_len);
+  bool valid = !io_nul(host, host_len) && io_sys_addr(host, (u32)f[1], &at) == 0;
+  free(host);
+  if (!valid) {
+    return io_fail(e, EINVAL, NULL);
+  }
+  int fd = socket(AF_INET, SOCK_DGRAM, 0);
+  if (fd < 0) {
+    return io_fail(e, (u32)errno, NULL);
+  }
+  if (bind(fd, (struct sockaddr*)&at, sizeof(at)) < 0) {
+    int code = errno;
+    close(fd);
+    return io_fail(e, (u32)code, NULL);
+  }
+  int flags = fcntl(fd, F_GETFL, 0);
+  if (flags < 0 || fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0) {
+    int code = errno;
+    close(fd);
+    return io_fail(e, (u32)code, NULL);
+  }
+  return io_done(e, io_hand(fd));
+}
+
+static void __attribute__((constructor)) gw_udp_bind_use(void) {
+  io_eff(CID_WIRE_UDP_BIND, gw_udp_bind_run, 0);
+}
+
+#endif
+
+#ifdef CID_WIRE_UDP_LOCAL_ADDRESS
+
+Term gw_udp_local_run(Env e, Term* f, IoWork* w) {
+  int fd = (int)io_hand_v(f[0]);
+  struct sockaddr_in at = { 0 };
+  socklen_t len = sizeof(at);
+  char host[INET_ADDRSTRLEN];
+  Term r;
+  if (getsockname(fd, (struct sockaddr*)&at, &len) < 0) {
+    r = io_fail(e, (u32)errno, NULL);
+  } else if (len != sizeof(at) || at.sin_family != AF_INET) {
+    r = io_fail(e, EAFNOSUPPORT, NULL);
+  } else if (!inet_ntop(AF_INET, &at.sin_addr, host, sizeof(host))) {
+    r = io_fail(e, (u32)errno, NULL);
+  } else {
+    r = io_done(e, io_tup(e, io_str(e, host, strlen(host)), ntohs(at.sin_port)));
+  }
+  return io_tup(e, io_hand(fd), r);
+}
+
+static void __attribute__((constructor)) gw_udp_local_use(void) {
+  io_eff(CID_WIRE_UDP_LOCAL_ADDRESS, gw_udp_local_run, 0);
+}
+
+#endif
+
 #ifdef CID_WIRE_UDP_SEND_TO
 
 static Term gw_udp_send_more(Env e, IoWork* w) {

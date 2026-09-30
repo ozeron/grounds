@@ -10,9 +10,13 @@ bend timeout.bend -o "$tmp/timeout" > /dev/null
 "$tmp/timeout"
 bend udp.bend -o "$tmp/udp" > /dev/null
 "$tmp/udp"
+bend udp_address.bend -o "$tmp/udp_address" > /dev/null
+python3 udp_address_check.py "$tmp/udp_address"
 if command -v bun > /dev/null 2>&1; then
   bend udp.bend -o "$tmp/udp.js" > /dev/null
   bun "$tmp/udp.js"
+  bend udp_address.bend -o "$tmp/udp_address.js" > /dev/null
+  python3 udp_address_check.py bun "$tmp/udp_address.js"
 else
   echo "udp JS target: Bun unavailable; skipped"
 fi

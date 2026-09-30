@@ -127,6 +127,59 @@ function wire_send_timeout(socket, data, ms, k) {
   return go(0);
 }
 
+// Bind one IPv4 literal. Validate before allocating and close on every error.
+function wire_udp_bind(host, port) {
+  const sys = io_sys();
+  const at = io_addr(host, Number(port));
+  if (at === null) {
+    return io_fail(22);
+  }
+  const fd = sys.socket(2, 2, 0);
+  if (fd < 0) {
+    return io_fail(sys.errno());
+  }
+  if (sys.bind(fd, sys.ptr(at), 16) < 0) {
+    const code = sys.errno();
+    sys.close(fd);
+    return io_fail(code);
+  }
+  const flags = sys.fcntl(fd, 3, 0);
+  if (flags < 0 || sys.fcntl(fd, 4, flags | (sys.mac ? 4 : 0x800)) < 0) {
+    const code = sys.errno();
+    sys.close(fd);
+    return io_fail(code);
+  }
+  return io_done(fd);
+}
+
+// Base's syscall table does not expose getsockname. Keep this small OS-only
+// library handle alive for the process, just like Base's io_sys table.
+let gw_udp_name_lib;
+
+function wire_udp_local_address(socket) {
+  const sys = io_sys();
+  if (gw_udp_name_lib === undefined) {
+    try {
+      gw_udp_name_lib = require("bun:ffi").dlopen(sys.mac ? "libSystem.dylib" : "libc.so.6", {
+        getsockname: { args: ["i32", "ptr", "ptr"], returns: "i32" },
+      });
+    } catch (_) {
+      return io_tup(socket, io_fail(sys.mac ? 78 : 38));
+    }
+  }
+  const at = new Uint8Array(16);
+  const len = new Uint32Array([16]);
+  if (gw_udp_name_lib.symbols.getsockname(socket, sys.ptr(at), sys.ptr(len)) < 0) {
+    return io_tup(socket, io_fail(sys.errno()));
+  }
+  const family = sys.mac ? at[1] : (at[0] | at[1] << 8);
+  if (len[0] !== 16 || family !== 2) {
+    return io_tup(socket, io_fail(sys.mac ? 47 : 97));
+  }
+  const host = at[4] + "." + at[5] + "." + at[6] + "." + at[7];
+  return io_tup(socket, io_done(io_tup(host, (at[2] << 8) | at[3])));
+}
+
 // Binary UDP. A zero-byte datagram is Some{[]}; None{} is only a timeout.
 function wire_udp_send_to(socket, host, port, data, ms, k) {
   const sys = io_sys();

@@ -10,6 +10,9 @@ import time
 from pathlib import Path
 from stun_reference import COOKIE, attr, attributes, fingerprint, packet, sign, validate
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "wire"))
+from udp_test_support import second_local_ipv4
+
 COMMAND = sys.argv[1:]
 LOCAL_KEY = b"LocalFixturePassword123456"
 REMOTE_KEY = b"SyntheticPassword123456789"
@@ -32,30 +35,42 @@ def response(raw, address, mode="legacy", error=0):
     return sign(packet(body, kind=0x111 if error else 0x101, transaction=raw[8:20]), REMOTE_KEY, mode)
 
 
-def free_port():
+def free_port(host="127.0.0.1"):
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-        s.bind(("127.0.0.1", 0))
+        s.bind((host, 0))
         return s.getsockname()[1]
 
 
 class Driver:
-    def __init__(self, known=1, delay=0, duration=1300, capacity=4):
-        self.first, self.second = ("127.0.0.1", free_port()), ("127.0.0.1", free_port())
-        while self.second == self.first:
-            self.second = ("127.0.0.1", free_port())
+    def __init__(self, known=1, delay=0, duration=1300, capacity=4, first_host="127.0.0.1",
+                 second_host="127.0.0.1", same_port=False, ephemeral=False, legacy=False):
+        self.first = (first_host, 0 if ephemeral else free_port(first_host))
+        self.second = (second_host, self.first[1] if same_port else (0 if ephemeral else free_port(second_host)))
+        while self.second == self.first and not ephemeral:
+            self.second = (second_host, free_port(second_host))
         self.peer = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.peer.bind(("127.0.0.1", 0))
         self.peer.settimeout(2)
         self.tmp = tempfile.TemporaryDirectory()
         self.output_path = Path(self.tmp.name) / "stdout"
         self.output = self.output_path.open("w")
-        self.process = subprocess.Popen(COMMAND + [str(self.first[1]), str(self.second[1]), str(self.peer.getsockname()[1]),
-                                       str(delay), str(duration), str(known), str(capacity)], stdout=self.output, stderr=subprocess.PIPE, text=True)
+        args = [str(self.first[1]), str(self.second[1]), str(self.peer.getsockname()[1]),
+                str(delay), str(duration), str(known), str(capacity)] if legacy else [
+                self.first[0], str(self.first[1]), self.second[0], str(self.second[1]), str(self.peer.getsockname()[1]),
+                str(delay), str(duration), str(known), str(capacity)]
+        self.process = subprocess.Popen(COMMAND + args, stdout=self.output, stderr=subprocess.PIPE, text=True)
         deadline = time.monotonic() + 2
         while "ready" not in self.output_path.read_text().splitlines():
             assert self.process.poll() is None, (self.process.poll(), self.process.stderr.read(), self.output_path.read_text())
             assert time.monotonic() < deadline, "session never became ready"
             time.sleep(0.01)
+        bases = next(s for s in self.output_path.read_text().splitlines() if s.startswith("bases:"))
+        _, first, second = bases.split(":")
+        actual = [(host, int(port)) for host, port in (first.split("/"), second.split("/"))]
+        for configured, bound in zip((self.first, self.second), actual):
+            assert configured[0] == bound[0] and (configured[1] == 0 or configured[1] == bound[1])
+            assert 0 < bound[1] <= 65535
+        self.first, self.second = actual
 
     def recv(self, mode="dual", timeout=2):
         self.peer.settimeout(timeout)
@@ -115,7 +130,7 @@ def driver(**kwargs):
 
 # Pre-answer authentication responds before credentials, then creates ONLY the
 # observed first-base pair. Invalid traffic cannot create a check on either base.
-with driver(known=0, delay=350, duration=1200) as d:
+with driver(known=0, delay=350, duration=1200, legacy=True) as d:
     bad = request()
     d.peer.sendto(bad[:-1] + bytes([bad[-1]^1]), d.first)
     assert not select.select([d.peer], [], [], 0.06)[0], "answered invalid fingerprint"
@@ -294,6 +309,58 @@ with driver(capacity=1, duration=2650) as d:
     assert not any(s.startswith("record:") for s in log)
 COUNT += 1
 
+# The same port on two distinct explicitly bound local IPs proves IP identity.
+# A first response at the second IP fails only the original first-IP pair;
+# algorithm selection is shared by remote endpoint, while the second pair succeeds.
+SECOND = second_local_ipv4()
+with driver(second_host=SECOND, same_port=True) as d:
+    first, address, _ = d.recv()
+    assert address == d.first and d.first[1] == d.second[1] and d.first[0] != d.second[0]
+    d.peer.sendto(response(first, address), d.second)
+    second, address2, _ = d.recv("legacy")
+    assert address2 == d.second and second[8:20] != first[8:20]
+    d.peer.sendto(response(second, address2), address2)
+    assert not select.select([d.peer], [], [], 0.75)[0]
+    log = d.finish()
+    assert any(s.startswith("non-symmetric:1:0:7:") and f":observed:1:1:{SECOND}/{d.second[1]}:" in s for s in log)
+    assert sum(s.startswith("pair:") and s.endswith(":4") for s in log) == 1
+    assert sum(s.startswith("pair:") and s.endswith(":3") for s in log) == 1
+COUNT += 1
+
+# Distinct-IP ordinary checks keep their actual source IP/port and retry bytes.
+with driver(second_host=SECOND, same_port=True) as d:
+    first, address, _ = d.recv()
+    second, address2, began = d.recv()
+    assert address == d.first and address2 == d.second
+    d.peer.sendto(response(first, address), address)
+    retry, source, retried = d.recv()
+    assert retry == second and source == address2 and 0.44 <= retried-began <= 1.4
+    d.peer.sendto(response(second, address2), address2)
+    log = d.finish()
+    assert not any(s.startswith("non-symmetric:") for s in log)
+    assert sum(s.startswith("pair:") and s.endswith(":3") for s in log) == 2
+COUNT += 1
+
+# Port-zero binding uses the real queried address/port for candidate formation,
+# outgoing requests, incoming response correlation and released-port rebinding.
+with driver(second_host=SECOND, ephemeral=True) as d:
+    first, address, _ = d.recv()
+    second, address2, _ = d.recv()
+    assert address == d.first and address2 == d.second
+    d.peer.sendto(response(first, address), address)
+    d.peer.sendto(response(second, address2), address2)
+    log = d.finish()
+    assert sum(s.startswith("pair:") and s.endswith(":3") for s in log) == 2
+COUNT += 1
+
+# A wildcard bind cannot provide received-IP identity for this ICE effects owner.
+# Reject it before binding, and do not silently convert it to a concrete base.
+for first_host, second_host in (("0.0.0.0", "127.0.0.1"), ("127.0.0.1", "0.0.0.0")):
+    result = subprocess.run(COMMAND + [first_host, "0", second_host, "0", "20001", "0", "100", "1", "4"],
+                            capture_output=True, text=True, timeout=2)
+    assert result.returncode != 0 and "ready" not in result.stdout.splitlines()
+COUNT += 1
+
 # Failed second bind and invalid session creation release any opened sockets.
 with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as occupied:
     occupied.bind(("127.0.0.1", 0))
@@ -311,4 +378,4 @@ for port in (first, second):
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as rebind:
         rebind.bind(("127.0.0.1", port))
 COUNT += 1
-print(f"ICE session UDP: {COUNT} pre-answer/two-base/loss/interruption/late/role/capacity/cleanup cases passed")
+print(f"ICE session UDP: {COUNT} pre-answer/two-IP-base/ephemeral/loss/interruption/late/role/capacity/cleanup cases passed; second IP {SECOND}")

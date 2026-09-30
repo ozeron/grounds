@@ -373,15 +373,17 @@ successfully; it updates pacing from actual OS send time. Send notices carry
 their retained record so an effects owner routes them from the registered base;
 Reply notices carry the receiving reference. The two-socket UDP example shows
 this loop, host RNG conflict repair and cleanup using local synthetic fixtures.
-It advertises loopback bases but uses Base's wildcard `UDP.bind(port)` on both
-targets. The receive effect exposes only peer IP/port, so the fixture's socket-to-
-base mapping verifies port identity, not arbitrary local destination-IP identity.
-Production integration must first provide address-specific UDP binding or actual
-local destination metadata. The pure owner relies on the actual receiving base
-supplied by that effects owner. This is not a production gathering/relay driver.
+It now uses `wire_udp_bind` with explicit IPv4 addresses and obtains each actual
+local address/port through `wire_udp_local_address` before forming candidates.
+The receiving socket's explicitly bound unicast IP supplies actual base identity;
+wildcard addresses are rejected by this fixture. It can bind port `0` and retain
+the OS-assigned port for every send/receive and candidate reference. The old
+seven-port/configuration arguments remain supported; nine arguments additionally
+supply the two bind IPs. The second IP is chosen from bindable local addresses by
+the independent Python peer helper, without changing interfaces. This is still a
+fixture, not production candidate gathering, relay transport or signaling.
 
-The next integration first supplies reliable local UDP address identity, then
-adds valid pairs and nomination, including preserving sent
+The next integration adds valid pairs and nomination, including preserving sent
 PRIORITY and nomination intent through the triggered check. Dynamic pair-cap pruning,
 deferred-item expiry, consent/restart, PAC terminal-state handling, candidate
 gathering, real-browser ICE, IPv6/TURN, Bend TLS/DTLS, SCTP/data channels and media
@@ -468,13 +470,18 @@ transport outcomes, endpoint algorithm pinning, registry rollback and 30 seeded
 signed arrival sets. Tests also cover authenticated non-symmetric failure versus
 unauthenticated raw traffic, exact final deadlines, frozen-foundation preservation,
 independent active pairs, completed outcomes, late listener retirement, stale sends
-and old replies after replacement. Nine independent real-UDP cases per target own two actual
+and old replies after replacement. Thirteen independent real-UDP cases per target own two actual
 local sockets: pre-answer replies, no learned-candidate cross-products,
 wrong-local-base and independently bound wrong-source authenticated failure,
 bad-MAC raw forwarding with unchanged retry bytes, ordinary overlap/loss,
 incoming interruption and late success/non-symmetric retirement without
 replacement failure, fresh host-random role-conflict retries,
 per-endpoint modes, retained-listener capacity/expiry and both-port cleanup.
-Failed second bind and invalid session construction also release opened ports.
+Additional cases bind two distinct local IPs at the same port, prove IP-only
+non-symmetric failure without replacement/other-pair damage, retain the actual
+second-IP source/port and bytes through loss/retry, form candidates from queried
+ephemeral ports, and reject wildcard owner inputs. The original seven-argument
+fixture path still passes. Failed second bind and invalid session construction
+also release opened ports.
 Raw notices expose the actual receiving base and peer source. These tests verify
 this session/transaction slice, not nominated paths or browser data/media.

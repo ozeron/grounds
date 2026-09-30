@@ -130,6 +130,18 @@ def wire_close(sock: Socket) -> IO(Unit):
 def close(sock: Socket) -> IO(Unit):
   Socket.close(sock)
 
+# IPv4 literal and port 0..65535; 0 lets the OS assign an ephemeral port.
+# No DNS, address reuse or fallback to a wildcard bind. Socket.close owns cleanup.
+def wire_udp_bind(host: String, port: U32) -> IO(Result<&1, &1, U32 & String, Socket>):
+  import "./effs/wire.c"
+  import "./effs/wire.js"
+
+# Returns the bound IPv4 address/port, preserving socket ownership on failure.
+# A wildcard socket reports 0.0.0.0, not the destination IP of a received packet.
+def wire_udp_local_address(sock: Socket) -> IO(Socket & Result<&1, &1, U32 & String, String & U32>):
+  import "./effs/wire.c"
+  import "./effs/wire.js"
+
 # Binary UDP for datagram protocols. UDP.bind and Socket.close come from Base;
 # Base's UDP.send_to/recv_from use String and cannot preserve arbitrary bytes.
 # Sending is atomic. Invalid octets fail EINVAL before the datagram is sent.
