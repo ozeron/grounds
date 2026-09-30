@@ -285,12 +285,95 @@ must retain bounded deferred work. This helper itself does not gather candidates
 or authenticate input. Triggered interruption and observed-pair handling follow
 [RFC 8445 sections 7.3.1.3 and 7.3.1.4](https://www.rfc-editor.org/rfc/rfc8445.html#section-7.3.1.3).
 
-The next integration joins the incoming authenticator, scheduler and transaction
-engine into a bounded socket/session owner, including pre-answer credential
-binding and retained old-attempt metadata. Valid pairs, nomination,
-consent/restart, PAC terminal-state handling, candidate gathering, TURN, IPv6,
-DTLS/SCTP, media protocols and browser interoperability remain open.
-Generated-code timing safety is unproven; live checks use synthetic credentials.
+`ice_session.bend` joins the incoming authenticator, scheduler and transaction
+engine for one bounded UDP/IPv4 peer generation. `create(streams, role, secret,
+mode, pair_limit, transaction_capacity, generation)` returns a session without
+remote credentials. It uses default Ta=50 ms, the existing 16-stream/64-candidate
+formation bounds, 1–256 retained pairs/transactions and at most `pair_limit`
+deferred incoming items and learned remote candidates. `ice_registry.bend`
+retains the original registered bases and signaled remotes even when checklist
+pruning leaves no associated pair. It rejects inconsistent metadata for a local
+base and remote endpoint aliases, including aliases hidden by pair pruning.
+Learned peer-reflexive foundations skip all existing remote foundations in the
+generation. Learning and pair insertion commit together; a rejected insertion
+cannot leak registry state or consume a learned-candidate slot.
+
+`bind(state, Credentials{local, remote, password})` verifies that the local
+fragment matches the local secret, validates credential syntax and binds the
+remote password separately from the local password. Binding is immutable within
+a generation; repeating identical credentials is allowed, changing any of them
+returns `None`. Before an answer, accepted requests get replies immediately and
+are retained in a bounded FIFO by observed pair and remote fragment. Duplicates
+preserve an actually authenticated nomination request when present. Binding
+drains only matching fragments, discarding unmatched work with `Unbound` notices.
+A bound fragment mismatch gets the stateless authenticated reply but cannot
+change roles, learn candidates or trigger an outgoing check. Full SDP forking,
+trickle signaling and credential expiry/restart remain later work.
+
+`receive(state, Ref{stream, component, actual_local_base, observed_peer}, raw,
+now)` first validates the registered local base and IPv4 source. Binding requests
+use the local secret; only accepted input for the selected peer (or deferred
+pre-answer input) applies a server-side role decision. Known remotes retain
+signaled metadata; unknown sources learn one peer-reflexive candidate using the
+authenticated priority/component and insert only the observed Host/Relay pair.
+Raw `Datagram{reference, bytes}` notices preserve both receiving-base and source
+metadata for later protocol demultiplexing. They remain untrusted input.
+Recognizing relay identities here does not implement TURN; a future relay driver
+must supply its authenticated peer source, not the TURN server's UDP address.
+
+`start(state, transaction, retry_policy, now)` waits for credentials and uses the
+registered sending base's local preference with the recommended peer-reflexive
+type preference 110 to construct PRIORITY. Selection commits only after the
+transaction engine accepts it. `Waiting{at}` and `AtCapacity` preserve the queue,
+pair state and allocator; invalid configuration/transaction input also consumes
+no selection. The caller supplies a fresh 96-bit transaction from host RNG, a
+valid ICE RTO/retry policy and monotonic time. The session supplies no adaptive
+RTO calculation, alternate priority formula or nondefault Ta negotiation yet.
+
+`ice_attempts.bend` retains every active/listening transaction's stable reference,
+generation, sent role and original transaction ID separately from current
+scheduler flights. Interrupting a flight stops its retries while preserving its
+record and response correlation through the original final deadline. Responses
+must match the actual receiving base, stream/component, peer source, transaction,
+authentication policy and fingerprint. Late responses and retirement are
+annotated with the original record and cannot complete/fail a replacement.
+Current success/error/timeout/integrity/transport outcomes update only the
+current flight; none declares whole-session success or failure.
+
+An authenticated current 487 leaves a repairable record after the network
+transaction finishes. `repair(state, token, generation, high, low)` accepts only
+that pending conflict and requires a fresh tie-breaker. An equal RNG result or
+wrong generation leaves repair pending without resurrecting the old transaction.
+The retry flips the recorded sent role, even if another incoming request already
+changed the current role, and preserves FIFO ordering after rank recomputation.
+Authenticated responses also pin their first selected integrity algorithm by
+remote IP/port. Subsequent requests to that endpoint use only the negotiated
+algorithm; already signed in-flight retries retain their original bytes/mode.
+A late reply cannot overwrite an established endpoint policy. This follows
+[RFC 8489 section 9.1.5](https://www.rfc-editor.org/rfc/rfc8489.html#section-9.1.5).
+
+`tick`, `failed`, `timeout`, `current_send` and `acknowledge` expose the owned
+transaction loop. `current_send` suppresses stale directives after interruption
+or completion. Call `acknowledge` only after executing the exact current Send
+successfully; it updates pacing from actual OS send time. Send notices carry
+their retained record so an effects owner routes them from the registered base;
+Reply notices carry the receiving reference. The two-socket UDP example shows
+this loop, host RNG conflict repair and cleanup using local synthetic fixtures.
+It binds loopback ports and is not a production gathering/relay driver.
+
+The next integration must first authenticate correlated responses received on
+a non-symmetric endpoint and immediately fail the original current pair as
+required by [RFC 8445 section 7.2.5.2.1](https://www.rfc-editor.org/rfc/rfc8445.html#section-7.2.5.2.1).
+This foundation currently leaves those packets raw and the original attempt
+active until a symmetric response or timeout; its source guards prevent false
+completion but do not implement that required failure transition. Unauthenticated
+traffic must not gain authority to fail a pair, and an interrupted old attempt
+must not fail its replacement. Then add valid pairs and nomination, including
+preserving nomination intent through the triggered check. Dynamic pair-cap pruning,
+deferred-item expiry, consent/restart, PAC terminal-state handling, candidate
+gathering, real-browser ICE, IPv6/TURN, Bend TLS/DTLS, SCTP/data channels and media
+remain open. Generated-code timing safety is unproven; checks use synthetic
+credentials. The session foundation does not satisfy full ICE or WebRTC acceptance.
 Formation and initial state rules follow [RFC 8445 sections 5.1.2 and 6.1.2](https://www.rfc-editor.org/rfc/rfc8445.html#section-6.1.2).
 The [2026-09-30 errata search](https://errata.rfc-editor.org/search/?rfc_number=8445&presentation=records) lists only reported editorial erratum 7526 about a
 broken reference link, with no verified protocol correction. The later agent
@@ -361,3 +444,19 @@ interrupted old-token isolation, generation guards, U32 exhaustion, sent-role
 487 repair after another role switch, one-pair peer-reflexive insertion,
 capacity and input rejection, and 60 seeded interleaved schedules of 55 turns.
 The JSON adapter is a fixture interface, not signaling or a complete ICE agent.
+
+Session checks use independently signed Python input packets and verify all
+outgoing request/reply authentication and fields. Native and Bun each run 80
+compiled cases for pre-answer/immutable credential binding, pending nomination
+request deduplication, observed-only learned pairs, full-registry alias/base
+checks, source/receiving-base/ID guards, speculative pacing/capacity behavior,
+interrupted records and late responses, current/pending 487 repair, integrity and
+transport outcomes, endpoint algorithm pinning, registry rollback and 30 seeded
+signed arrival sets. Six independent real-UDP cases per target own two actual
+local sockets: pre-answer replies, no learned-candidate cross-products,
+wrong-local-base response rejection, ordinary overlap/loss and unchanged retries,
+incoming interruption and late success, fresh host-random role-conflict retries,
+per-endpoint modes, retained-listener capacity/expiry and both-port cleanup.
+Failed second bind and invalid session construction also release opened ports.
+Raw notices expose the actual receiving base and peer source. These tests verify
+this session/transaction slice, not nominated paths or browser data/media.
