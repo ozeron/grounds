@@ -1,5 +1,6 @@
 import Base
 import ./sha256.bend as Sha
+import ./bytes.bend as B
 
 # HMAC-SHA-256 (RFC 2104 / RFC 4231) over byte lists (values 0..255).
 
@@ -32,12 +33,12 @@ def outer(opad: List<&2, U32>, inner_hash: Maybe<&2, List<&2, U32>>) -> Maybe<&2
     case None{}:
       None{}
     case Some{bytes}:
-      Sha.digest(List.append(&2, U32, opad, bytes))
+      Sha.digest(B.append(opad, bytes))
 
 def padded(p: Pads, msg: List<&2, U32>) -> Maybe<&2, List<&2, U32>>:
   match p:
     case Pads{ipad, opad}:
-      outer(opad, Sha.digest(List.append(&2, U32, ipad, msg)))
+      outer(opad, Sha.digest(B.append(ipad, msg)))
 
 def with_key(norm: Maybe<&2, List<&2, U32>>, msg: List<&2, U32>) -> Maybe<&2, List<&2, U32>>:
   match norm:
@@ -51,7 +52,7 @@ def checked(ok: Bool, +key: List<&2, U32>, msg: List<&2, U32>) -> Maybe<&2, List
     case False{}:
       None{}
     case True{}:
-      with_key(normalized(Nat.is_gt(List.length(&2, U32, key), 64n), key), msg)
+      with_key(normalized(Nat.is_gt(B.length(key), 64n), key), msg)
 
 def digest(+key: List<&2, U32>, +msg: List<&2, U32>) -> Maybe<&2, List<&2, U32>>:
   checked(Bool.and(Sha.valid(key), Sha.valid(msg)), key, msg)

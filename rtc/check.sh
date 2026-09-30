@@ -8,6 +8,9 @@ bend test.bend
 bend integrity_test.bend
 bend fingerprint_test.bend
 bend sign_test.bend
+bend sha256_test.bend
+bend examples/auth.bend -o "$tmp/auth" > /dev/null
+python3 examples/auth_check.py "$tmp/auth"
 bend examples/binding.bend -o "$tmp/binding" > /dev/null
 python3 examples/binding_check.py "$tmp/binding"
 bend examples/stress.bend -o "$tmp/stress" > /dev/null
@@ -20,6 +23,8 @@ bend examples/sign.bend -o "$tmp/sign" > /dev/null
 "$tmp/sign"
 
 if command -v bun > /dev/null 2>&1; then
+  bend examples/auth.bend -o "$tmp/auth.js" > /dev/null
+  python3 examples/auth_check.py bun "$tmp/auth.js"
   bend examples/binding.bend -o "$tmp/binding.js" > /dev/null
   python3 examples/binding_check.py bun "$tmp/binding.js"
   bend examples/stress.bend -o "$tmp/stress.js" > /dev/null

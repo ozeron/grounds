@@ -1,4 +1,5 @@
 import Base
+import ./bytes.bend as B
 
 # SHA-256 (FIPS 180-4 / RFC 6234). The public digest rejects values outside
 # the byte range; the compression function only sees validated bytes.
@@ -140,11 +141,11 @@ def length_bytes(left: Nat, +bits: Nat, acc: List<&2, U32>) -> List<&2, U32>:
       length_bytes(p, Nat.div(bits, 256n), Con{U32.from_nat(Nat.mod(bits, 256n)), acc})
 
 def padded(+bs: List<&2, U32>) -> List<&2, U32>:
-  +n = List.length(&2, U32, bs)
+  +n = B.length(bs)
   used = Nat.mod(Nat.add(n, 1n), 64n)
   zeros = Nat.mod(Nat.add(56n, Nat.sub(64n, used)), 64n)
-  List.append(&2, U32, bs,
-    Con{128, List.append(&2, U32, List.replicate(U32, zeros, 0),
+  B.append(bs,
+    Con{128, B.append(List.replicate(U32, zeros, 0),
       length_bytes(8n, Nat.mul(n, 8n), []))})
 
 def word_bytes(+x: U32, rest: List<&2, U32>) -> List<&2, U32>:
@@ -160,14 +161,10 @@ def output(s: State) -> List<&2, U32>:
         word_bytes(e, word_bytes(f, word_bytes(g, word_bytes(h, []))))))))
 
 def valid(bs: List<&2, U32>) -> Bool:
-  match bs:
-    case Nil{}:
-      True{}
-    case Con{b, tail}:
-      Bool.and(U32.is_le(b, 255), valid(tail))
+  B.valid(bs)
 
 def digest.padded(+bs: List<&2, U32>) -> State:
-  blocks(Nat.div(List.length(&2, U32, bs), 64n), Chain{bs, initial()})
+  blocks(Nat.div(B.length(bs), 64n), Chain{bs, initial()})
 
 def digest.checked(ok: Bool, bs: List<&2, U32>) -> Maybe<&2, List<&2, U32>>:
   match ok:
@@ -183,11 +180,7 @@ def hex_digit(+n: U32) -> Char:
   Char.from_u32(Bool.pick(U32, U32.is_lt(n, 10), U32.add(48, n), U32.add(87, n)))
 
 def hex(bs: List<&2, U32>) -> String:
-  match bs:
-    case Nil{}:
-      ""
-    case Con{+b, tail}:
-      SCon{hex_digit(U32.shrn(b, 4n)), SCon{hex_digit(U32.and(b, 15)), hex(tail)}}
+  B.hex(bs)
 
 def digest_hex.got(r: Maybe<&2, List<&2, U32>>) -> Maybe<&2, String>:
   match r:

@@ -22,6 +22,8 @@ ChaCha20 requires a 32-byte key and 12-byte nonce. `block` returns 64 keystream 
 
 Run `moon run crypto:check --force`. The check proves that SHA-256 state output is always 32 bytes, compiles the native adapters, tests invalid-byte handling, compares SHA-256 against four published vectors and boundary/binary cases, compares HMAC against RFC 4231 and Python, and checks three RFC 5869 extract/expand vectors plus output-length boundaries. The million-`a` SHA-256 vector exercises a multi-block message.
 
+SHA-256 and HMAC-SHA256 now use `bytes.bend` for length, validation and append traversal. The RTC authentication checks independently compare SHA-256 STUN MACs and maximum-length STUN packet signing on native and Bun; these paths exposed and now avoid Base's non-tail list recursion on JS. The crypto check itself retains the native SHA-256/HMAC/HKDF vectors; RTC supplies this additional compiled JS evidence.
+
 SHA-1 is checked against published vectors and Python's `hashlib` on native and Bun JS, including a 64 KiB message on both targets and the million-`a` vector on native. Its sole protocol use here is `Sec-WebSocket-Accept`.
 
 HMAC-SHA1 is checked against all seven RFC 2202 vectors and eight Python `hmac` differential cases on native and Bun JS, including a 64 KiB message. The `rtc` package uses it to verify the RFC 5769 STUN MESSAGE-INTEGRITY vectors. This does not establish timing-safe execution or authenticate the current unauthenticated Binding discovery client.
