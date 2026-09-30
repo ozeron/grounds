@@ -5,6 +5,7 @@ dependsOn:
   - "wire"
   - "io"
   - "utf8"
+  - "json"
 
 tasks:
   check:

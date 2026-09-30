@@ -73,6 +73,7 @@ All boxes require current, inspectable implementation and verification evidence.
 
 - [ ] Complete ICE transactions, pacing/retransmission, candidate gathering and
   pair/checklist state, triggered checks, role conflicts, nomination, consent,
+  RFC 8863 PAC failure timing,
   restart and failure/cleanup behavior. Preserve the completed STUN milestone.
 - [ ] Add IPv6 and TURN authentication/allocation/permissions/channel/refresh
   behavior; demonstrate a relay path as well as direct connectivity.

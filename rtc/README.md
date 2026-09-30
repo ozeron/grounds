@@ -92,10 +92,71 @@ transactions to the same IP/port (RFC 8489 section 9.1.5); retries themselves
 always preserve the original packet. No automatic redirection or server-error transaction retry
 is performed. Bind/RNG errors in `request` still propagate as IO errors.
 
-Candidate-pair/checklist management, triggered checks, role-conflict resolution,
-nomination, consent/restart, shared-socket demultiplexing/cancellation, TURN,
-IPv6, DTLS/SCTP, media protocols and browser interoperability remain unfinished. Generated-code timing safety is unproven;
-the live checks use synthetic local credentials.
+`ice_candidates.bend` represents UDP/IPv4 candidates and explicit local bases.
+It validates component IDs 1–256, positive priorities up to 2^31−1,
+foundations of 1–32 ASCII ICE characters and IPv4 addresses/ports. Candidate
+priorities follow the recommended RFC 8445 formula. Pair priorities use two
+U32 words so all 64 bits survive Bend's smaller Nat representation. Foundation
+assignment, candidate gathering and signaling remain caller work.
+
+`ice_checklist.bend` exposes `build(streams, controlling, limit)`,
+`begin(checklists, stream_id, pair_index)` and
+`finish_check(checklists, stream_id, pair_index, success)`. Formation pairs
+matching components, orders by advertised pair priority, substitutes reflexive
+bases, prunes redundant pairs, and discards low ranks evenly across streams to
+a configurable global limit (normally 100). Initial unfreezing chooses the
+lowest component, then highest priority, in the first stream containing each
+foundation. Foundation pairs are compared as two strings, avoiding ambiguous
+concatenation. Successful checks unfreeze matching foundations across streams;
+invalid state transitions return `None{}`. Inputs are bounded at 16 streams,
+64 local and 64 remote candidates per stream, unique advertised priorities
+within each side/stream, unique stream IDs and a global limit of 1–256 pairs.
+Sorting retains at most the configured cap per stream while counting all unique
+pairs for the global discard allocation. This bookkeeping records check results;
+valid pairs, nomination and terminal checklist/agent states are still pending.
+It does not choose or send ordinary/triggered checks automatically.
+
+`ice_transactions.bend` is a pure shared-socket transaction engine. Its default
+state uses Ta 50 ms and capacity 100; configurable states require Ta 5–60000 ms
+and capacity 1–256. `start` validates/signs once and returns `Ready{step}`,
+`Later{at}` for pacing, or `Rejected{}`. Each active transaction needs a unique
+token and a fresh 96-bit transaction ID. `tick(state, now)` emits at most one
+retransmission per turn, with a 5 ms minimum between send commands;
+`receive(state, host, port, bytes, now)` correlates Binding responses by exact
+source/transaction and authenticates them before producing the existing
+reliable outcomes. Invalid input cannot move deadlines. A packet processed at
+or after the final deadline cannot revive that transaction. `cancel` and
+`failed` retire only the named transaction. Unmatched responses, malformed
+packets, incoming requests and media return byte-exact `Datagram` notices.
+These notices are untrusted input; no incoming ICE server authentication is
+implied. Completed results include the negotiated response algorithm, which
+the caller must retain for subsequent requests to that peer.
+
+`ice_socket.bend` executes `Send` notices with OS UDP effects, acknowledges the
+actual send completion timestamp, and suppresses commands invalidated before
+execution. `execute(socket, step)` and `poll(socket, state, cap_ms)` each return
+the owned socket and a `Step{state, events}`. Successful sends become `Sent`
+notices; send failures terminate only the affected transaction. A receive
+failure emits `SocketFailure` and terminates every active transaction; an
+oversize datagram error is consumed without changing them. The caller handles
+notices between bounded turns and closes the socket on every terminal path.
+Pacing is shared by transactions in one engine; coordinating multiple engines
+and agents remains caller work. Deadline selection uses comparisons, avoiding
+Base's native recursive Nat.min/max reconstruction at large monotonic clock
+values. `examples/ice_shared.bend` demonstrates two checklist checks over one
+socket; it is a local fixture, not a complete ICE agent.
+
+The next agent integration includes authenticated incoming Binding requests,
+ordinary/triggered selection, role-conflict resolution and priority recomputation,
+valid-pair construction, nomination, consent/restart, candidate gathering, TURN,
+IPv6, DTLS/SCTP, media protocols and browser interoperability. Generated-code
+timing safety is unproven; live checks use synthetic local credentials.
+Formation and initial state rules follow [RFC 8445 sections 5.1.2 and 6.1.2](https://www.rfc-editor.org/rfc/rfc8445.html#section-6.1.2).
+The [2026-09-30 errata search](https://errata.rfc-editor.org/search/?rfc_number=8445&presentation=records) lists only reported editorial erratum 7526 about a
+broken reference link, with no verified protocol correction. The later agent
+must also implement the PAC timer from [RFC 8863 section 4](https://www.rfc-editor.org/rfc/rfc8863.html#section-4)
+before declaring checklist/session failure; individual failed checks do not
+establish ICE failure.
 
 `moon run rtc:check --force` checks the RFC 5769 IPv4 Binding response and malformed inputs in Bend, then uses a separate Python UDP responder to verify two random Binding requests, source port mapping, and rejection of wrong transaction IDs and sources. RFC 5769 request and response HMAC and FINGERPRINT values pass on native and Bun JS; changed content, MAC, key, and CRC fail. Both signers reproduce the legacy RFC request byte for byte.
 
@@ -110,3 +171,18 @@ timeout, invalid-traffic floods, authenticated and unauthenticated errors,
 response attribute/UTF-8 failures, and late-response isolation while reusing a
 socket after timeout. These are synthetic transaction tests; they do not prove
 checklist pacing, timing safety or browser interoperation.
+
+The checklist model runs 132 independent full-sort reference fixtures per
+target, including candidate/pair priority bounds and bigint ranks, reflexive
+pruning, multi-stream/component foundation states, tight caps, malformed input,
+seeded randomized sets and the maximum 16×64×64 candidate combinations. The
+clock fixture runs 32 cases per target for exact Ta/RTO gates, large timestamps,
+final response boundaries, send acknowledgement, duplicate tokens/transaction
+IDs, cancellation and transport failures. Ten independent real UDP cases per
+target run overlapping checks over one bound socket, including reordered
+responses, loss, authentication failures, error 487 reporting, timeouts,
+cancellation before/after sending, and byte-exact delivery of interleaved
+requests/media/invalid or wrong-source packets. The large raw UDP case is 8 KiB
+because macOS defaults `net.inet.udp.maxdgram` to 9216 bytes; format-maximum STUN
+checks remain in the authentication suite. These are foundation tests; they do
+not complete full checklist scheduling, role handling, nomination or browser ICE.

@@ -21,6 +21,12 @@ bend examples/retry_schedule.bend -o "$tmp/retry_schedule" > /dev/null
 python3 examples/retry_schedule_check.py "$tmp/retry_schedule"
 bend examples/ice_retry.bend -o "$tmp/ice_retry" > /dev/null
 python3 examples/ice_retry_check.py "$tmp/ice_retry"
+bend examples/ice_model.bend -o "$tmp/ice_model" > /dev/null
+python3 examples/ice_model_check.py "$tmp/ice_model"
+bend examples/ice_clock.bend -o "$tmp/ice_clock" > /dev/null
+python3 examples/ice_clock_check.py "$tmp/ice_clock"
+bend examples/ice_shared.bend -o "$tmp/ice_shared" > /dev/null
+python3 examples/ice_shared_check.py "$tmp/ice_shared"
 bend examples/binding.bend -o "$tmp/binding" > /dev/null
 python3 examples/binding_check.py "$tmp/binding"
 bend examples/stress.bend -o "$tmp/stress" > /dev/null
@@ -43,6 +49,12 @@ if command -v bun > /dev/null 2>&1; then
   python3 examples/retry_schedule_check.py bun "$tmp/retry_schedule.js"
   bend examples/ice_retry.bend -o "$tmp/ice_retry.js" > /dev/null
   python3 examples/ice_retry_check.py bun "$tmp/ice_retry.js"
+  bend examples/ice_model.bend -o "$tmp/ice_model.js" > /dev/null
+  python3 examples/ice_model_check.py bun "$tmp/ice_model.js"
+  bend examples/ice_clock.bend -o "$tmp/ice_clock.js" > /dev/null
+  python3 examples/ice_clock_check.py bun "$tmp/ice_clock.js"
+  bend examples/ice_shared.bend -o "$tmp/ice_shared.js" > /dev/null
+  python3 examples/ice_shared_check.py bun "$tmp/ice_shared.js"
   bend examples/binding.bend -o "$tmp/binding.js" > /dev/null
   python3 examples/binding_check.py bun "$tmp/binding.js"
   bend examples/stress.bend -o "$tmp/stress.js" > /dev/null
