@@ -39,10 +39,74 @@ check = Ice.Check{1845494271, Ice.Controlling{4275878552, 1985229328}}
 reply : Maybe<&2, Packet.IPv4> <- Client.request("127.0.0.1", 50000, 1000, credentials, check, Auth.Dual{})
 ```
 
-There are no retransmissions, candidate-pair/checklist management, role-conflict handling, nomination, TURN, IPv6, DTLS/SCTP, media protocols or browser interoperability yet. Generated-code timing safety is unproven; the live checks use synthetic local credentials.
+`ice_reliable.bend` adds a separate retained-socket retry API:
+
+```python
+import ../rtc/ice_reliable.bend as Reliable
+import ../rtc/stun_retry.bend as Retry
+
+reply : Reliable.Reply() <- Reliable.exchange(socket, transaction, "127.0.0.1", 50000,
+  Retry.default(), credentials, check, Auth.Dual{})
+# reply contains the same owned socket and an explicit outcome.
+```
+
+`request(host, port, policy, credentials, check, mode)` instead generates the
+transaction and binds/closes its own socket. The original `ice_client.bend`
+API retains its single-send behavior. A reliable transaction signs once and
+resends identical bytes from the same socket. `stun_retry.bend` supplies the
+[RFC 8489 section 6.2.1](https://www.rfc-editor.org/rfc/rfc8489.html#section-6.2.1)
+default: RTO 500 ms, seven total sends (including the first), exponential
+backoff, and a final wait of 16 times the initial RTO. Send times are
+0/500/1500/3500/7500/15500/31500 ms; timeout is 39500 ms. Monotonic deadlines
+are anchored before each send, and invalid traffic does not reset them. Late
+OS wakeups shift subsequent sends; this synchronous API owns receives for one
+transaction and discards other traffic rather than multiplexing it.
+
+`Policy{rto, requests, final_factor}` permits RTO 500–60000 ms, 1–16 total
+requests and a final factor 1–64; larger or zero values are rejected before
+sending. These bounds keep OS timeouts and total duration representable.
+The 500 ms minimum follows [RFC 8445 section 14.3](https://www.rfc-editor.org/rfc/rfc8445.html#section-14.3).
+The caller must calculate the appropriate ICE RTO for its candidates/checklist;
+this API does not supply checklist pacing or a generic STUN RTT estimator/cache.
+
+`Outcome` distinguishes `Received{response, algorithm}`, `TimedOut{}`,
+`IntegrityViolation{}`, `TransportError{code}`, `FloodLimit{}` (65,536
+receive/timer turns across the whole transaction), and `InvalidInput{}`. Correlated response envelopes with
+missing/incorrect integrity are discarded while retries continue. If no
+acceptable response arrives before exhaustion, this is `IntegrityViolation{}`
+rather than `TimedOut{}`, as required by RFC 8489 section 9.1.4. Unrelated
+source/transaction/class or invalid CRC/envelope traffic cannot set that flag.
+A subsequent acceptable response still completes normally. The socket is
+returned on every outcome. An authenticated, correlated response terminates the transaction:
+`Success{address}`, `Error{code}` or `Invalid{}` for unusable protected response
+structure. `ice_response.bend` validates ERROR-CODE class/number and UTF-8
+reason length, ignores reserved bits and later duplicate ordinary attributes,
+and rejects unknown comprehension-required attributes. It understands base
+RFC 8489/ICE required attributes; other extensions need explicit support.
+Only protected attributes are processed; unknown optional and unexpected known base attributes are ignored. Bad source/transaction/algorithm,
+integrity or FINGERPRINT packets are discarded. An authenticated error such as
+487 is returned to the caller immediately; role switching and a new transaction
+remain caller work. An accepted response also returns its single authenticated
+`Legacy{}` or `Sha256{}` algorithm. The caller must retain it for subsequent
+transactions to the same IP/port (RFC 8489 section 9.1.5); retries themselves
+always preserve the original packet. No automatic redirection or server-error transaction retry
+is performed. Bind/RNG errors in `request` still propagate as IO errors.
+
+Candidate-pair/checklist management, triggered checks, role-conflict resolution,
+nomination, consent/restart, shared-socket demultiplexing/cancellation, TURN,
+IPv6, DTLS/SCTP, media protocols and browser interoperability remain unfinished. Generated-code timing safety is unproven;
+the live checks use synthetic local credentials.
 
 `moon run rtc:check --force` checks the RFC 5769 IPv4 Binding response and malformed inputs in Bend, then uses a separate Python UDP responder to verify two random Binding requests, source port mapping, and rejection of wrong transaction IDs and sources. RFC 5769 request and response HMAC and FINGERPRINT values pass on native and Bun JS; changed content, MAC, key, and CRC fail. Both signers reproduce the legacy RFC request byte for byte.
 
 The SHA-256 vector uses [RFC 8489 Appendix B.1 with verified erratum 6268](https://www.rfc-editor.org/rfc/inline-errata/rfc8489.html#appendix-B.1), correcting its message length, adding PASSWORD-ALGORITHM and updating its MAC. Native and Bun run 139 independent stdlib Python comparisons and rejection cases, including the corrected vector, padding/hash boundaries, dual integrity, response policy, ignored attributes after integrity and the maximum 65,532-byte STUN body. This is a STUN format maximum; an IPv4 UDP payload has a smaller transport limit. SHA-256 byte traversals use the crypto package's tail-recursive helpers to avoid JS stack overflow.
 
 Each target also runs 51 byte-exact ICE builder cases covering credential limits, username direction, priority, transaction length and both roles with 64-bit extreme values. A separate Python UDP responder independently checks outgoing request HMACs and attributes, signs responses, and exercises 29 success/rejection/recovery cases plus two exchanges on one retained socket. Tests reject missing/bad integrity or FINGERPRINT, wrong source/transaction/key/algorithm/class, response USERNAME, dual-integrity responses, malformed input and unsigned mapped addresses. They check recovery after invalid packets, randomized transaction IDs, deadline behavior under repeated bad MACs, and bound-port reuse. This proves an authenticated ICE Binding transaction slice on native and Bun, not full ICE or end-to-end WebRTC.
+
+The reliable API additionally runs 154 compiled schedule/vector/boundary cases
+per target and an independent UDP evaluator covering loss of the first or first
+two packets, exact byte/socket reuse, every default retry and the real 39.5-second
+timeout, invalid-traffic floods, authenticated and unauthenticated errors,
+response attribute/UTF-8 failures, and late-response isolation while reusing a
+socket after timeout. These are synthetic transaction tests; they do not prove
+checklist pacing, timing safety or browser interoperation.

@@ -10,12 +10,17 @@ bend fingerprint_test.bend
 bend sign_test.bend
 bend sha256_test.bend
 bend ice_test.bend
+bend retry_test.bend
 bend examples/auth.bend -o "$tmp/auth" > /dev/null
 python3 examples/auth_check.py "$tmp/auth"
 bend examples/ice_build.bend -o "$tmp/ice_build" > /dev/null
 python3 examples/ice_build_check.py "$tmp/ice_build"
 bend examples/ice_exchange.bend -o "$tmp/ice_exchange" > /dev/null
 python3 examples/ice_exchange_check.py "$tmp/ice_exchange"
+bend examples/retry_schedule.bend -o "$tmp/retry_schedule" > /dev/null
+python3 examples/retry_schedule_check.py "$tmp/retry_schedule"
+bend examples/ice_retry.bend -o "$tmp/ice_retry" > /dev/null
+python3 examples/ice_retry_check.py "$tmp/ice_retry"
 bend examples/binding.bend -o "$tmp/binding" > /dev/null
 python3 examples/binding_check.py "$tmp/binding"
 bend examples/stress.bend -o "$tmp/stress" > /dev/null
@@ -34,6 +39,10 @@ if command -v bun > /dev/null 2>&1; then
   python3 examples/ice_build_check.py bun "$tmp/ice_build.js"
   bend examples/ice_exchange.bend -o "$tmp/ice_exchange.js" > /dev/null
   python3 examples/ice_exchange_check.py bun "$tmp/ice_exchange.js"
+  bend examples/retry_schedule.bend -o "$tmp/retry_schedule.js" > /dev/null
+  python3 examples/retry_schedule_check.py bun "$tmp/retry_schedule.js"
+  bend examples/ice_retry.bend -o "$tmp/ice_retry.js" > /dev/null
+  python3 examples/ice_retry_check.py bun "$tmp/ice_retry.js"
   bend examples/binding.bend -o "$tmp/binding.js" > /dev/null
   python3 examples/binding_check.py bun "$tmp/binding.js"
   bend examples/stress.bend -o "$tmp/stress.js" > /dev/null
