@@ -34,7 +34,8 @@ with tempfile.TemporaryDirectory() as directory:
 
     run("verify", "sha256", RFC_SHA256, RFC_KEY)
     run("seal", "sha256", length(RFC_SHA256[:-36], 108), RFC_KEY, RFC_SHA256.hex())
-    original = length(RFC_SHA256[:120] + RFC_SHA256[128:], 156)
+    original_mac = bytes.fromhex("e4686c8f0edeb59013e07090010a93efccbccc544c0a45d9f830aa6d6f735a01")
+    original = length(RFC_SHA256[:120] + RFC_SHA256[128:-32] + original_mac, 156)
     run("verify", "sha256", original, RFC_KEY, valid=False)
 
     rng = random.Random(8489)

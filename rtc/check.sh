@@ -9,8 +9,13 @@ bend integrity_test.bend
 bend fingerprint_test.bend
 bend sign_test.bend
 bend sha256_test.bend
+bend ice_test.bend
 bend examples/auth.bend -o "$tmp/auth" > /dev/null
 python3 examples/auth_check.py "$tmp/auth"
+bend examples/ice_build.bend -o "$tmp/ice_build" > /dev/null
+python3 examples/ice_build_check.py "$tmp/ice_build"
+bend examples/ice_exchange.bend -o "$tmp/ice_exchange" > /dev/null
+python3 examples/ice_exchange_check.py "$tmp/ice_exchange"
 bend examples/binding.bend -o "$tmp/binding" > /dev/null
 python3 examples/binding_check.py "$tmp/binding"
 bend examples/stress.bend -o "$tmp/stress" > /dev/null
@@ -25,6 +30,10 @@ bend examples/sign.bend -o "$tmp/sign" > /dev/null
 if command -v bun > /dev/null 2>&1; then
   bend examples/auth.bend -o "$tmp/auth.js" > /dev/null
   python3 examples/auth_check.py bun "$tmp/auth.js"
+  bend examples/ice_build.bend -o "$tmp/ice_build.js" > /dev/null
+  python3 examples/ice_build_check.py bun "$tmp/ice_build.js"
+  bend examples/ice_exchange.bend -o "$tmp/ice_exchange.js" > /dev/null
+  python3 examples/ice_exchange_check.py bun "$tmp/ice_exchange.js"
   bend examples/binding.bend -o "$tmp/binding.js" > /dev/null
   python3 examples/binding_check.py bun "$tmp/binding.js"
   bend examples/stress.bend -o "$tmp/stress.js" > /dev/null

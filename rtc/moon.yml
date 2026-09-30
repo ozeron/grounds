@@ -3,10 +3,13 @@ language: "bend"
 dependsOn:
   - "crypto"
   - "wire"
+  - "io"
+  - "utf8"
 
 tasks:
   check:
     command: "./check.sh"
     inputs:
+      - "check.sh"
       - "*.bend"
       - "examples/*"

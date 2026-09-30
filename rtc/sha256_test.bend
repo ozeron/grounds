@@ -49,6 +49,12 @@ def rejects_bad_key_byte() -> {Auth.seal(unsigned(), [256], Auth.Sha256{}) ==
   None{} : Maybe<&2, List<&2, U32>>}:
   {==}
 
+def rejects_bad_verification_key_byte() -> {Auth.verify(request(), [256], Auth.Sha256{}) == False{} : Bool}:
+  {==}
+
+def rejects_bad_packet_byte() -> {Auth.verify(Test.alter(request(), 8n, 256), key(), Auth.Sha256{}) == False{} : Bool}:
+  {==}
+
 def rejects_old_rfc_length() -> {Auth.verify(Test.alter(request(), 3n, 156), key(), Auth.Sha256{}) == False{} : Bool}:
   {==}
 
