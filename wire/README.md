@@ -33,6 +33,43 @@ w : Socket & Result<&1, &1, U32 & String, Unit> <- W.wire_send(sock, [72, 105])
 | `W.wire_close(sock)` | sends TLS close_notify when needed, then closes the socket |
 | `W.listen(port)`, `W.accept(l)`, `W.connect(host, port)`, `W.close(sock)`, `W.close_listener(l)` | Base's own |
 
+`tls_record.bend` adds a pure Bend protected-record path for
+TLS_CHACHA20_POLY1305_SHA256. It uses `crypto/traffic.bend` affine read/write
+owners and Bend HKDF/AEAD; it does not call the OpenSSL TLS effects. Its public
+`seal(owner, kind, padding, content)` / `open(owner, record)` return a successor
+owner and `Done` / `Fail`. Writers authenticate the five-byte `17 03 03` header
+and its uint16 length, and encrypt content + type + zero padding. Readers
+authenticate the actual received header before exposing content. The deprecated
+legacy version does not choose a protocol version; authenticated alternative
+values are tolerated, while modifying those bytes without a new tag fails.
+
+`frame(bytes)` yields `More`, `Bad`, or `Framed{header, body, rest}`. Retain
+`More` bytes in the stream owner, append the next chunk, and retry without
+consuming a traffic key. For coalesced input, process the first complete record
+and retain `rest`; `open` itself accepts exactly one record and rejects extra
+bytes. Limits are 16384 content bytes, 16385 total inner bytes and 16401 encrypted
+body bytes for this suite's 16-byte tag. Oversized padding is rejected before
+length arithmetic or allocation. Empty application content is allowed;
+handshake content must be nonempty and alerts must contain exactly one two-byte
+message. Encrypted CCS, unknown inner types and authenticated inner plaintext
+without a nonzero type are rejected. Every record/protection error retires the
+owner. The check passes 154 independent cases on each native/Bun target,
+including all split points of a small record, maximum-size and coalesced records,
+padding, header/body/tag changes, replay, retirement and old-key KeyUpdate bytes
+followed by an explicitly updated key and sequence-zero record. Bend proofs
+cover invalid byte input and the largest representable padding argument.
+
+This is the protected record codec, not a completed TLS connection. Plaintext
+handshake/compatibility CCS, transcript and handshake-fragment ownership,
+Finished/KeyUpdate phase and record-boundary ordering, certificates/signatures,
+alert dispatch, TCP buffering/deadlines and authenticated client/server interop
+remain to implement. Existing OpenSSL APIs retain their behavior. Crypto timing
+and physical key erasure remain unapproved; the new evaluator uses local
+synthetic fixtures. [RFC 9846 sections 5.1–5.4](https://www.rfc-editor.org/info/rfc9846/)
+and [current errata](https://www.rfc-editor.org/errata/rfc9846) were reviewed on
+2026-10-01; no verified record changes apply. This is a TLS 1.3 codec and cannot
+be used as a DTLS record implementation.
+
 On Bun, `wire_on_stop` installs SIGTERM/SIGINT through a small OS-only C bridge.
 Bend's synchronous select/trampoline runtime prevents JavaScript signal callbacks
 from running while the program is active. The bridge uses a lock-free atomic

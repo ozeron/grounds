@@ -4,6 +4,9 @@ set -eu
 cd "$(dirname "$0")"
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
+bend tls_record_test.bend
+bend tls_record_cli.bend -o "$tmp/tls_record" > /dev/null
+python3 tls_record_check.py "$tmp/tls_record"
 bend random.bend -o "$tmp/random" > /dev/null
 python3 random_check.py "$tmp/random"
 "${CC:-cc}" -std=c11 -O2 -Wall -Wextra -Werror random_host_check.c -o "$tmp/random_host_check"
@@ -11,6 +14,8 @@ python3 random_check.py "$tmp/random"
 bend bench.bend -o "$tmp/bench" > /dev/null
 python3 bench_check.py "$tmp/bench"
 if command -v bun > /dev/null 2>&1; then
+  bend tls_record_cli.bend -o "$tmp/tls_record.js" > /dev/null
+  python3 tls_record_check.py bun "$tmp/tls_record.js"
   bend random.bend -o "$tmp/random.js" > /dev/null
   python3 random_check.py bun "$tmp/random.js"
   bun random_host_check.mjs

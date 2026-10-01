@@ -12,6 +12,7 @@ Pure Bend cryptographic primitives. This package implements SHA-1, SHA-256, HMAC
 | `chacha20.bend` | `block(key, nonce, counter)`, `crypt(key, nonce, counter, bytes)` | RFC 8439 |
 | `poly1305.bend` | `mac(one_time_key, bytes)` | RFC 8439 |
 | `aead.bend` | `seal(key, nonce, aad, plaintext)`, `open(key, nonce, aad, ciphertext, tag)` | RFC 8439 |
+| `traffic.bend` | `expand_label`, `new_write`, `new_read`, `seal`, `open`, `rekey_write`, `rekey_read`, `close_write`, `close_read` | RFC 9846 TLS 1.3 traffic-key/nonce lifecycle for ChaCha20-Poly1305/SHA-256 |
 | `x25519.bend` | `scalar_mult(scalar, u)`, `public_key(scalar)`, `shared(scalar, peer_public)` | RFC 7748 |
 | `field25519.bend` | Internal `add`, `sub`, `mul`, `square`, `decode`, `encode` | GF(2^255-19) arithmetic used by X25519 |
 | `bytes.bend` | `length`, `valid`, `append`, `hex` | Tail-recursive byte-list helpers |
@@ -21,6 +22,45 @@ Byte input and output use `List<U32>` with values 0–255. The public calls retu
 ChaCha20 requires a 32-byte key and 12-byte nonce. `block` returns 64 keystream bytes; `crypt` XORs a message with successive blocks and rejects a request that would wrap the 32-bit counter. It does **not** authenticate ciphertext. Poly1305 requires a fresh 32-byte one-time key per message. AEAD derives that key from ChaCha20 block zero, encrypts from counter one, authenticates the associated data and ciphertext, and returns plaintext only after checking all 16 tag bytes. The caller must ensure a unique nonce for every message under a key; these calls do not manage nonce allocation.
 
 Run `moon run crypto:check --force`. The check proves that SHA-256 state output is always 32 bytes, compiles the native adapters, tests invalid-byte handling, compares SHA-256 against four published vectors and boundary/binary cases, compares HMAC against RFC 4231 and Python, and checks three RFC 5869 extract/expand vectors plus output-length boundaries. The million-`a` SHA-256 vector exercises a multi-block message.
+
+`traffic.bend` owns TLS_CHACHA20_POLY1305_SHA256 traffic keys, IVs and
+64-bit record counters. `new_write` / `new_read` validate a 32-byte traffic
+secret and return distinct affine owners. `seal` / `open` consume that owner
+and return its successor alongside `Done` or `Fail`; callers must retain only
+the successor. The nonce is the derived 12-byte IV XOR the left-padded,
+big-endian sequence. Sequence zero is used first, the last 64-bit value is
+used once, and a further operation fails without wrapping. Invalid seal input,
+failed authentication and attempted counter wrap retire the owner; closed
+owners cannot reopen or update. Explicit close consumes the live epoch.
+
+`rekey_write` / `rekey_read` derive a new secret with `traffic upd`, then a new
+key and IV, and reset the record sequence. Sending updates are limited to
+2^48−1; exceeding that limit returns `UpdateLimit` while preserving the
+current epoch, and receive updates have no such cap. The TLS handshake owner
+must enforce handshake phase, emit/process KeyUpdate under the old key before
+changing keys, and update proactively while it can still send that message.
+Record framing, content types, padding, TLS record-size limits, stream
+fragmentation and the complete handshake are not implemented by this module.
+Initial traffic secrets must be unique for each connection/direction/epoch;
+constructors and internal helpers are visible in Bend, so deliberately
+reconstructing an owner can bypass this interface's lifecycle discipline.
+Retiring an epoch releases its references logically; it does not prove physical
+erasure of every runtime copy or timing-safe execution.
+
+The traffic evaluator passes 70 scenarios on native and Bun: three RFC 8448
+KDF vectors, independent Python HKDF and OpenSSL-ChaCha20/bigint-Poly1305
+records, sequential records, 32/64-bit carries, exhaustion, four key updates,
+the sending update cap/carry, replay/reordering, wrong-key/AAD/ciphertext/tag,
+invalid inputs and retirement. The compiler also rejects affine owner copies
+and direction confusion. Counter/generation injection exists only in the
+synthetic CLI to reach impractical boundaries. The 16-byte RFC key vector
+tests HKDF label serialization and does not add AES support.
+[RFC 9846](https://www.rfc-editor.org/info/rfc9846/) (July 2026) supersedes
+RFC 8446; sections 4.7.3, 5.3/5.5 and 7.1–7.3 and
+[its errata](https://www.rfc-editor.org/errata/rfc9846) were reviewed on
+2026-10-01. The errata page lists five reported records and no verified records;
+none changes these implemented operations. RFC 9846's TLS label is distinct
+from DTLS 1.3's label; this owner must not be reused for DTLS unchanged.
 
 SHA-256 and HMAC-SHA256 now use `bytes.bend` for length, validation and append traversal. The RTC authentication checks independently compare SHA-256 STUN MACs and maximum-length STUN packet signing on native and Bun; these paths exposed and now avoid Base's non-tail list recursion on JS. The crypto check itself retains the native SHA-256/HMAC/HKDF vectors; RTC supplies this additional compiled JS evidence.
 
@@ -36,7 +76,7 @@ X25519 accepts 32-byte scalars and public coordinates, clamps scalars, masks the
 
 `field25519.decode` assumes exactly 32 valid bytes; use the validating X25519 calls for external input.
 
-This is correctness evidence for tested inputs, not a proof of constant-time execution or production security. The current compiled CLI has reference-counted constructors (`json/scripts/cold.py` reports hot types), so byte representation and throughput need more work. X25519 in particular needs a generated-code timing audit before handling live secrets. The next gates are that audit, throughput work, nonce management, signatures, and integration with cookie signing before replacing its OpenSSL effect.
+This is correctness evidence for tested inputs, not a proof of constant-time execution or production security. The current compiled CLI has reference-counted constructors (`json/scripts/cold.py` reports hot types), so byte representation and throughput need more work. X25519 in particular needs a generated-code timing audit before handling live secrets. The next gates are that audit, throughput work, traffic-owner integration/erasure, mandatory TLS algorithms/signatures, and integration with cookie signing before replacing its OpenSSL effect.
 
 Initial static review on 2026-10-01 retained generated C for X25519, AEAD and
 HMAC-SHA1, generated X25519 JavaScript and default Apple Clang 21 `-O3` arm64

@@ -1,5 +1,7 @@
 # grounds-wire: TCP on bytes
 language: "bend"
+dependsOn:
+  - "crypto"
 
 tasks:
   check:
@@ -11,3 +13,6 @@ tasks:
       - "*.c"
       - "*.mjs"
       - "effs/*"
+      - "/crypto/*.bend"
+      - "/crypto/*.py"
+      - "/io/*.bend"
