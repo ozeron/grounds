@@ -40,11 +40,11 @@ def exact(sock, size):
     return result
 
 
-def connect(headers=None):
+def connect(headers=None, *, path="/signal", method="GET", key=KEY):
     sock = socket.create_connection(("127.0.0.1", 8089), timeout=5)
     fields = headers if headers is not None else [("Host", HOST), ("Origin", ORIGIN), ("Cookie", COOKIE)]
-    request = "GET /signal HTTP/1.1\r\n" + "".join(f"{key}: {value}\r\n" for key, value in fields)
-    request += f"Upgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: {KEY}\r\nSec-WebSocket-Version: 13\r\n\r\n"
+    request = f"{method} {path} HTTP/1.1\r\n" + "".join(f"{name}: {value}\r\n" for name, value in fields)
+    request += f"Upgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: {key}\r\nSec-WebSocket-Version: 13\r\n\r\n"
     sock.sendall(request.encode())
     response = b""
     while not response.endswith(b"\r\n\r\n"):
@@ -52,7 +52,7 @@ def connect(headers=None):
         assert len(response) <= 8192
     status = int(response.split(b" ", 2)[1])
     if status == 101:
-        expected = base64.b64encode(hashlib.sha1((KEY + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").encode()).digest())
+        expected = base64.b64encode(hashlib.sha1((key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").encode()).digest())
         assert b"Sec-WebSocket-Accept: " + expected in response
     return sock, status
 
@@ -139,8 +139,24 @@ def main():
                 assert sum(row.startswith("signaling-base:") for row in logs) == before, (name, "unauthorized UDP allocation")
                 scenarios += 1
 
+            for options in [
+                {"path": "/signalx"}, {"path": "/Signal"},
+                {"path": "/signal/"}, {"path": "/signal?x=1"}, {"method": "POST"},
+                {"key": KEY[:-3] + "h=="}, {"key": KEY + "A"},
+                {"key": base64.b64encode(b"fifteen-bytekey").decode()},
+            ]:
+                before = sum(row.startswith("signaling-base:") for row in logs)
+                sock, actual = connect(**options)
+                sock.close()
+                assert actual == 400, (options, actual)
+                assert sum(row.startswith("signaling-base:") for row in logs) == before, (options, "invalid upgrade allocated UDP")
+                scenarios += 1
+
             for name, payload, op, fin, code in [
                 ("object message", {"offer": sdp}, 1, True, 1008),
+                ("command suffix", ["offerx", 0, sdp], 1, True, 1008),
+                ("command case", ["OFFER", 0, sdp], 1, True, 1008),
+                ("command not text", [True, 0, sdp], 1, True, 1008),
                 ("bad JSON", b"[", 1, True, 1008),
                 ("negative revision", ["offer", -1, sdp], 1, True, 1008),
                 ("stale initial revision", ["offer", 1, sdp], 1, True, 1008),

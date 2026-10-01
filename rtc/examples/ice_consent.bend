@@ -1,4 +1,5 @@
 import Base
+import ./ice_consent_output.bend as Shared
 import ../ice_consent.bend as Consent
 import ../ice_binding.bend as Ice
 import ../ice_pairs.bend as Pairs
@@ -19,23 +20,13 @@ type Turn is Data:
   Turn{fixture: Fixture, events: List<&2, Consent.Notice>, text: String}
 
 def status(status: Consent.Status) -> String:
-  match status:
-    case Consent.Awaiting{}: "awaiting"
-    case Consent.Granted{}: "granted"
-    case Consent.Expired{}: "expired"
-    case Consent.Revoked{}: "revoked"
-    case Consent.Closed{}: "closed"
+  Shared.status(status)
 
 def mode(mode: Auth.Mode) -> String:
-  match mode:
-    case Auth.Legacy{}: "legacy"
-    case Auth.Sha256{}: "sha256"
-    case Auth.Dual{}: "dual"
+  Shared.mode(mode)
 
 def flag(value: Bool) -> String:
-  match value:
-    case True{}: "1"
-    case False{}: "0"
+  Shared.flag(value)
 
 def saved(values: List<&2, Consent.Notice>, previous: Maybe<&2, Consent.Notice>) -> Maybe<&2, Consent.Notice>:
   match values:
@@ -57,23 +48,10 @@ def rejected(+fixture: Fixture) -> Turn:
   Turn{fixture, [], "rejected"}
 
 def event(event: Consent.Notice) -> IO(Unit):
-  match event:
-    case Consent.Send{_, gen, token, bytes}: IO.print("send:" ++ U32.show(gen) ++ ":" ++ U32.show(token) ++ ":" ++ B.hex(bytes))
-    case Consent.Sent{token}: IO.print("sent:" ++ U32.show(token))
-    case Consent.Renewed{token, expires}: IO.print("renewed:" ++ U32.show(token) ++ ":" ++ Nat.show(expires))
-    case Consent.TimedOut{token}: IO.print("timedout:" ++ U32.show(token))
-    case Consent.Error{token, code}: IO.print("error:" ++ U32.show(token) ++ ":" ++ U32.show(code))
-    case Consent.Invalid{token}: IO.print("invalid-response:" ++ U32.show(token))
-    case Consent.TransportError{token, code}: IO.print("transport-error:" ++ U32.show(token) ++ ":" ++ U32.show(code))
-    case Consent.Changed{s}: IO.print("status-changed:" ++ status(s))
+  Shared.event(event)
 
 def events(values: List<&2, Consent.Notice>) -> IO(Unit):
-  match values:
-    case Nil{}: IO.pure(Unit, Unit{})
-    case Con{head, tail}:
-      do IO<Unit>:
-        x : Unit <- event(head)
-        events(tail)
+  Shared.events(values)
 
 def sent_text(sent: Maybe<&2, Nat>) -> String:
   match sent:

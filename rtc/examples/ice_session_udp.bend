@@ -1,4 +1,5 @@
 import Base
+import ./ice_entropy.bend as Shared
 import ../ice_scheduler.bend as S
 import ../ice_session.bend as Session
 import ../ice_valid.bend as V
@@ -26,25 +27,19 @@ def Reply() -> Type:
   Socket & Socket & Driver
 
 def Entropy() -> Type:
-  Result<&1, &1, U32 & String, U32 & U32 & U32>
+  Shared.Entropy()
 
 def random_third(c: Result<&1, &1, U32 & String, U32>, a: U32, b: U32) -> IO(Entropy()):
-  match c:
-    case Done{c}: IO.pure(Entropy(), Done{(a, (b, c))})
-    case Fail{error}: IO.pure(Entropy(), Fail{error})
+  Shared.random_third(c, a, b)
 
 def random_second(b: Result<&1, &1, U32 & String, U32>, a: U32) -> IO(Entropy()):
-  match b:
-    case Done{b}: IO.bind(Result<&1, &1, U32 & String, U32>, Entropy(), IO.random_u32(), c => random_third(c, a, b))
-    case Fail{error}: IO.pure(Entropy(), Fail{error})
+  Shared.random_second(b, a)
 
 def random_first(a: Result<&1, &1, U32 & String, U32>) -> IO(Entropy()):
-  match a:
-    case Done{a}: IO.bind(Result<&1, &1, U32 & String, U32>, Entropy(), IO.random_u32(), b => random_second(b, a))
-    case Fail{error}: IO.pure(Entropy(), Fail{error})
+  Shared.random_first(a)
 
 def random() -> IO(Entropy()):
-  IO.bind(Result<&1, &1, U32 & String, U32>, Entropy(), IO.random_u32(), a => random_first(a))
+  Shared.random()
 
 def fatal(a: Socket, b: Socket, message: String) -> IO(Reply()):
   do IO<Reply()>:

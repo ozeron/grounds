@@ -1,4 +1,5 @@
 import Base
+import ./ice_scheduler_output.bend as Shared
 import ../ice_scheduler.bend as S
 import ../ice_binding.bend as Ice
 import ../ice_pairs.bend as Pairs
@@ -15,15 +16,10 @@ def role(control: Bool, +high: U32, +low: U32) -> Ice.Role:
   Bool.pick(Ice.Role, control, Ice.Controlling{high, low}, Ice.Controlled{high, low})
 
 def role_text(role: Ice.Role) -> String:
-  match role:
-    case Ice.Controlling{high, low}: "controlling:" ++ U32.show(high) ++ ":" ++ U32.show(low)
-    case Ice.Controlled{high, low}: "controlled:" ++ U32.show(high) ++ ":" ++ U32.show(low)
+  Shared.role_text(role)
 
 def ref_text(reference: Pairs.Ref) -> String:
-  match reference:
-    case Pairs.Ref{id, component, +base, +remote}:
-      U32.show(id) ++ ":" ++ U32.show(component) ++ ":" ++ C.host(base) ++ "/" ++ U32.show(C.port(base)) ++ ":" ++
-      C.host(remote) ++ "/" ++ U32.show(C.port(remote))
+  Shared.ref_text(reference)
 
 def changed(value: Maybe<&2, S.State>, old: S.State) -> Notice:
   match value:
@@ -113,29 +109,13 @@ def action(step: J.Json, +state: S.State) -> Notice:
     case _: Notice{state, "rejected"}
 
 def show_refs(refs: List<&2, Pairs.Ref>) -> IO(Unit):
-  match refs:
-    case Nil{}: IO.pure(Unit, Unit{})
-    case Con{r, tail}:
-      do IO<Unit>:
-        x : Unit <- IO.print("queued:" ++ ref_text(r))
-        show_refs(tail)
+  Shared.show_refs(refs)
 
 def show_queues(values: List<&2, S.Queue>) -> IO(Unit):
-  match values:
-    case Nil{}: IO.pure(Unit, Unit{})
-    case Con{S.Queue{id, refs}, tail}:
-      do IO<Unit>:
-        x : Unit <- IO.print("queue:" ++ U32.show(id))
-        y : Unit <- show_refs(refs)
-        show_queues(tail)
+  Shared.show_queues(values)
 
 def show_flights(values: List<&2, S.Flight>) -> IO(Unit):
-  match values:
-    case Nil{}: IO.pure(Unit, Unit{})
-    case Con{S.Flight{token, ref, r}, tail}:
-      do IO<Unit>:
-        x : Unit <- IO.print("flight:" ++ U32.show(token) ++ ":" ++ ref_text(ref) ++ ":" ++ role_text(r))
-        show_flights(tail)
+  Shared.show_flights(values)
 
 def snapshot(+state: S.State) -> IO(S.State):
   match state:

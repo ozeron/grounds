@@ -42,6 +42,19 @@ compiler workload bounded on the development host. The SDP native fixture uses
 native and Bun run the same admission, malformed-input and bound cases. Run
 checks through the memory guard described in [tools/README.md](../tools/README.md).
 
+Fixture formatting and host entropy helpers live in separate `examples/*_output.bend`
+and `examples/ice_entropy.bend` modules; original CLI helper interfaces forward to
+them. Signaling uses the bounded retained-socket operations in
+`examples/ice_transport_effects.bend`, copied from the UDP fixture, rather than
+importing that fixture's entire CLI. The protocol owners and their send/reply,
+consent and restart decisions remain in the same Bend modules. Package checks
+still include every existing CLI and browser scenario.
+
+The latest guarded full RTC run passes type/admission checks and native SDP,
+then reaches the memory cutoff during signaling C emission. Its new signaling
+runtime and browser checks remain pending; [STACK_PROGRESS.md](../STACK_PROGRESS.md)
+records the current commands, evidence and remaining compiler work.
+
 The adapter caps upgraded fixture connections at eight using the server's live
 connection counter, text messages at 32,768 bytes, frames at 64, revisions at
 0–7 and each connection lifetime at 45 seconds. Restarts never extend that

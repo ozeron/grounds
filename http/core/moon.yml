@@ -9,6 +9,15 @@ tasks:
   check:
     command: "./check.sh"
     inputs:
+      - "check.sh"
+      - "check_units.py"
+      - "check_proofs.py"
       - "*.bend"
       - "examples/*"
       - "effs/*"
+      - "/tools/bend_native.sh"
+      - "/crypto/bytes.bend"
+      - "/json/json.bend"
+      - "/io/*.bend"
+      - "/io/effs/*"
+      - "/utf8/*.bend"

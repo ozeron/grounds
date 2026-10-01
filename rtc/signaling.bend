@@ -12,6 +12,7 @@ import ./stun.bend as Stun
 import ./stun_auth.bend as Auth
 import ../json/json.bend as J
 import ../crypto/bytes.bend as B
+import ../http/core/text.bend as Text
 
 # One already-authenticated signaling connection owns one ICE transport. The
 # adapter supplies its actual bound base and fresh host-generated local secret.
@@ -39,9 +40,15 @@ def command.revision(value: Result<&2, &2, J.Access, U32>, sdp: String) -> Comma
     case Done{r}: command.sdp(Sdp.decode(sdp), r)
     case _: Bad{"invalid offer revision"}
 
+def command.offer(ok: Bool, revision: J.Json, sdp: String) -> Command:
+  match ok:
+    case True{}: command.revision(J.u32(revision), sdp)
+    case False{}: Bad{"expected [offer, revision, SDP]"}
+
 def command.json(value: Result<&2, &2, J.Error, J.Json>) -> Command:
   match value:
-    case Done{J.JArr{[J.JStr{"offer"}, revision, J.JStr{sdp}]}}: command.revision(J.u32(revision), sdp)
+    case Done{J.JArr{[J.JStr{kind}, revision, J.JStr{sdp}]}}:
+      command.offer(Text.same(kind, "offer", True{}), revision, sdp)
     case _: Bad{"expected [offer, revision, SDP]"}
 
 def command.checked(ok: Bool, bytes: List<&2, U32>) -> Command:

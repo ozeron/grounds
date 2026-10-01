@@ -3,7 +3,7 @@ import ../core/request.bend as Req
 import ../core/method.bend as M
 import ../core/headers.bend as H
 import ../core/text.bend as T
-import ../core/auth.bend as Auth
+import ../core/base64.bend as B64
 import ../wire/http1.bend as H1
 import ../../crypto/sha1.bend as Sha1
 import ../../crypto/bytes.bend as B
@@ -84,7 +84,7 @@ def accept_decoded(decoded: Maybe<&2, List<&2, U32>>, key: String) -> Maybe<&2, 
 def accept_fields.valid(ok: Bool, +key: String) -> Maybe<&2, String>:
   match ok:
     case True{}:
-      accept_decoded(Auth.b64_go(24n, key, []), key)
+      accept_decoded(B64.b64_go(24n, key, []), key)
     case False{}:
       None{}
 

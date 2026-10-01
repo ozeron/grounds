@@ -28,11 +28,19 @@ def handle(r: Req.Request) -> Res.Response:
 | `event.bend` | server-sent events: `Message{name, data, id}`, which the server writes and the client reads; `write`, `retry`, `ping`, and the WHATWG parser `feed` |
 | `cookie.bend` | `get(req, name)`, `set(res, name, value)`, `clear(res, name)`, and HMAC-SHA256 `sign(key, value)` / `verify(key, signed)` |
 | `auth.bend` | strict Bearer and UTF-8 Basic credentials, duplicate detection, `Principal{subject, claims}` |
+| `base64.bend` | strict canonical decoder shared by Basic credentials and WebSocket keys; the existing `Auth.b64_*` interfaces forward to it |
 | `cors.bend` | CORS allowlist policy, origin decisions, request field inspection and preflight header validation |
 | `content_type.bend` | media type and parameter parsing, including quoted parameter values |
 | `multipart.bend` | binary `multipart/form-data` writer and parser with part and header limits |
 
 Bodies are bytes (`List<U32>`, 0..255). Text goes through `grounds-utf8`.
+
+Method parsing consumes the selected suffix once and reconstructs an unknown
+spelling from its consumed prefix. It recognizes all nine existing method
+constructors exactly, preserves every other spelling, and avoids shared Strings
+and nested full-string patterns. Native/Bun checks cover every ASCII replacement
+at every known-name position, Unicode, case, prefixes, suffixes and long unknown
+names. A separate runtime-argument example extends the cold-type gate to parsing.
 
 ## Cookies
 
@@ -41,6 +49,13 @@ Bodies are bytes (`List<U32>`, 0..255). Text goes through `grounds-utf8`.
 `Ck.sign(key, value)` returns `IO(Result)` with `value.<64 lowercase hex digits>`; `Ck.verify(key, signed)` returns `IO(Result)` containing `Some{value}` only for a valid HMAC-SHA256 signature. A malformed or incorrect signature gives `Done{None{}}`; an unavailable crypto library gives `Fail`. The native target loads OpenSSL 3 `libcrypto` at run time (`BEND_LIBCRYPTO` overrides its path); the JS target returns ENOSYS. Use a random secret key of at least 32 bytes and separate keys or signed purpose tags when several cookie types share an application.
 
 ## Authentication credentials
+
+The Base64 decoder has a native/Bun differential check covering RFC 4648 vectors,
+all byte values, both padding forms, nonzero pad bits, invalid alphabets and
+malformed tails. Its padding dispatch uses equality checks rather than nested
+numeric patterns. This retains the existing strict canonical policy described in
+[RFC 4648 section 3.5](https://www.rfc-editor.org/rfc/rfc4648.html#section-3.5).
+Run package checks with the [build memory guard](../../tools/README.md).
 
 `Auth.parse_header(value)` parses an RFC 6750 Bearer token or RFC 7617 Basic user/password pair into `Got{Credential}`. Bearer tokens must follow the RFC token grammar; Basic uses strict, canonical Base64 and UTF-8, rejects control characters and requires the first colon to divide user from password. Malformed values have `BadBearer{}` or `BadBasic{}`; unknown schemes have `Unsupported{}`. `Auth.take(req)` also rejects repeated Authorization fields and returns the request with Authorization removed. `Principal{subject, claims}` is supplied only by an application verifier, through [server middleware](../server/README.md#middleware). Serve Basic credentials over TLS. The verifier can apply any required Unicode normalization or account policy.
 
@@ -65,6 +80,6 @@ Bodies are bytes (`List<U32>`, 0..255). Text goes through `grounds-utf8`.
 - **A request is used once.** Bend values are single-use, so an accessor like `Req.path(r)` takes the request whole. To read several parts, match on `Request{method, target, headers, body}`.
 - **Cold baseline.** The basic HTTP helpers keep Strings free of reference counting in `examples/hello.bend`, as `check.sh` verifies. CORS policy lookups and multipart parsing currently make some String and List constructors reference counted.
 
-`moon run http_core:check` runs the tests, examples, HMAC vectors checked against Python, and cold checks.
+`moon run http_core:check` runs the tests, examples, HMAC vectors checked against Python, and cold checks. `check_units.py` checks every definition in the unchanged `test.bend` exactly once, grouped by module with narrower imports. An unassigned or multiply assigned definition fails the gate; no test body is rewritten or omitted. `check_proofs.py` similarly checks every original law, contract helper and proof body from unchanged `LAWS.bend` and `PROOF.bend` in six scopes. It verifies the full public-law inventory and proof fills before compiling; splitting a scope never removes an obligation.
 
 **Laws.** `LAWS.bend`, proven in `PROOF.bend`: `same_ci` is equality of the lowercased Strings; a header is found under any spelling of its name, and its first value is the one read; a query key's first value is the one read. `set_cookie_clean`: every value `set` writes has no CR or LF. `cors_safe`: the CORS decision never selects an unlisted origin or a wildcard with credentials. `multipart_reads_back`: one canonical part with arbitrary delimiter-free binary data reads back from its writer output. `sse_reads_back`: events `write` makes, `feed` reads back as the same names, data and ids, for any name and id with no CR or LF and any data with no CR, `data:` or `id:` text inside it included. `write_joins`: events written one at a time make the same stream as written together.

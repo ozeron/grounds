@@ -11,10 +11,10 @@ import ../ice_candidates.bend as C
 import ../ice_transactions.bend as Tx
 import ../ice_reliable.bend as Reliable
 import ../ice_response.bend as Response
-import ./ice_scheduler.bend as Scheduler
-import ./ice_model.bend as Model
-import ./ice_accept.bend as Format
-import ./ice_clock.bend as Clock
+import ./ice_scheduler_output.bend as Scheduler
+import ./ice_model_output.bend as Model
+import ./ice_accept_output.bend as Format
+import ./ice_clock_output.bend as Clock
 import ../../crypto/bytes.bend as B
 
 def record(value: A.Record) -> String:

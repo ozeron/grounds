@@ -10,7 +10,7 @@ import ../stun.bend as Stun
 import ../stun_client.bend as Discovery
 import ../stun_sign.bend as Sign
 import ./signaling_answer.bend as Answer
-import ./ice_transport_udp.bend as Udp
+import ./ice_transport_effects.bend as Udp
 import ./ice_transport_output.bend as Output
 import ../../http/server/server.bend as Server
 import ../../http/server/websocket.bend as Ws

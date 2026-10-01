@@ -6,7 +6,7 @@ import ../ice_candidates.bend as C
 import ../ice_registry.bend as R
 import ../ice_scheduler.bend as S
 import ./ice_session_output.bend as Output
-import ./ice_accept.bend as Format
+import ./ice_accept_output.bend as Format
 
 def local_text(local: C.Local) -> String:
   match local:

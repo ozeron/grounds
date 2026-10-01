@@ -6,10 +6,10 @@ import ../ice_session.bend as Session
 import ../ice_attempts.bend as A
 import ../ice_scheduler.bend as S
 import ../ice_transactions.bend as Tx
-import ./ice_scheduler.bend as Scheduler
+import ./ice_scheduler_output.bend as Scheduler
 import ./ice_session_output.bend as Output
-import ./ice_agent.bend as Life
-import ./ice_consent.bend as Probe
+import ./ice_agent_output.bend as Life
+import ./ice_consent_output.bend as Probe
 import ../../crypto/bytes.bend as B
 
 def source(value: T.Source) -> String:

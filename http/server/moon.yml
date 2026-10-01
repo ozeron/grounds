@@ -11,5 +11,18 @@ tasks:
   check:
     command: "./check.sh"
     inputs:
+      - "check.sh"
       - "*.bend"
       - "examples/*"
+      - "/http/core/*.bend"
+      - "/http/core/effs/*"
+      - "/http/wire/*.bend"
+      - "/wire/*.bend"
+      - "/wire/effs/*"
+      - "/wire/examples/*"
+      - "/crypto/*.bend"
+      - "/io/*.bend"
+      - "/io/effs/*"
+      - "/utf8/*.bend"
+      - "/json/*.bend"
+      - "/json/scripts/cold.py"

@@ -14,6 +14,80 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 
 ## Evidence ledger
 
+- 2026-10-02 (guarded HTTP core and narrower signaling helpers): Fresh
+  `moon --concurrency 1 run http_core:check --force` passes with Bend 2.0.27,
+  Bun 1.3.13 and the unchanged 640 MiB aggregate / 512 MiB individual sampled
+  cutoffs. Moon task execution is 18s854ms, overall 18s882ms; the enclosing
+  guard takes 19.459s, peaking at 564.17 MiB aggregate / 378.88 MiB individual.
+  Full hash: `8df08374edcec0b01ba4c06560adacde8f5a25297e27f678bfa39bb6cbe59519`.
+  Saved RunReport and task metadata confirm passed execution, exit zero and
+  skipped cache hydration. Native and Bun each pass 838 strict canonical
+  Base64 cases and 8,320 method classification/unknown-spelling cases.
+  Method parsing consumes the selected suffix and reconstructs mismatches
+  without sharing Strings; standalone type checking peaks at 134.42 MiB.
+  Base64 moves into a narrow Bend module; every existing `Auth.b64_*` interface
+  remains, and WebSocket admission uses the same decoder. Boolean padding
+  comparisons retain the existing pad-bit/alphabet/tail rejection policy.
+  All 93 original unit definitions, all eight public laws, 17 contract
+  declarations and 100 proof declarations pass in smaller import scopes.
+  `test.bend`, `LAWS.bend` and `PROOF.bend` remain byte-identical to HEAD.
+  The runners copy every body verbatim, require complete assignments/public
+  law fills and reject unknown units, duplicate assignments, an actual false
+  equality and an altered law inventory in four owned negative regressions.
+  The full gate also passes existing native cookie HMAC/verification checks
+  and cold audits of hello, cookie-signing and runtime-argument method parsing.
+  Cookie HMAC still uses the original native OpenSSL compatibility path;
+  this does not complete Bend cookie signing or Bun cookie integration.
+  Nine copied Base64 bodies and all 28 moved RTC format/entropy bodies match
+  their originals exactly. The narrow retained-socket adapter copies 27
+  existing operations and the existing Driver fields; transport decisions,
+  send acknowledgements and all original fixture scenarios remain present.
+  Ten shared/signaling modules type-check at 418.16 MiB aggregate, and 13
+  closed exact-command/path/body/method admission regressions pass at 386 MiB.
+  HTTP server cache inputs now cover its check script and all 38 transitive
+  Bend sources, verified in `http-server-final-import-coverage.json`.
+  Recovery commands use local `BUN_OPTIONS=--smol`,
+  `BUN_JSC_forceRAMSize=268435456`, `PYTHONDONTWRITEBYTECODE=1`, `nice -n 10`
+  and `tools/build_guard.py`; no global compiler setting or budget was changed.
+  Artifacts: `/Users/ozeron/.codex/artifacts/grounds/2026-10-01/resource-recovery/`,
+  including `http-core-complete-forced-*`, `partition-runner-regressions-*`,
+  `method-affine-*`, `method-runtime-cold-*`, `signaling-token-proofs-*`,
+  helper/body reviews and the 369-input manifest/stability reports.
+
+- 2026-10-02 (remaining guarded failures after HTTP core recovery): Fresh
+  `moon --concurrency 1 run http_server:check --force` (hash prefix `505681ff`)
+  passes hello/request parsing, keep-alive, malformed framing, idle/partial/
+  trickle deadlines and 4,000 actual requests with zero failures, then stops
+  while building the middleware fixture: exit 137 after 16.366s, peak
+  630.42 MiB aggregate / 521.28 MiB individual. Earlier monolithic core unit
+  and proof cutoffs are superseded by the complete passing gate above.
+  Fresh `moon --concurrency 1 run rtc:check --force` (prefix `45326188`)
+  passes the preserved type checks, new closed admission regressions and all
+  90 native SDP cases, then stops at signaling C emission: exit 137 after
+  131.076s, peak 600.83 MiB aggregate / 513.91 MiB individual.
+  Expanded actual HTTP/WS signaling tests and a fresh browser run remain
+  unexecuted. The final repository `moon --concurrency 1 run :check` reuses
+  the accepted core hash, then stops in JSON's mandatory constructor audit:
+  exit 137 after 2.951s, 635.13 MiB aggregate / 545.97 MiB individual.
+  JSON regenerates its original files byte-identically. These killed Moon
+  runs have terminal guard reports/logs, not fresh successful RunReports.
+  An isolated, SHA-verified official
+  [Bend 2.0.34](https://github.com/bendlang/bend/releases/tag/v2.0.34) probe
+  still crosses 512 MiB for unchanged baseline core units and JSON emission.
+  Its standard library also changes TCP/UDP host arguments; signaling fails
+  its TCP.listen signature check. It was not installed or adopted, and all
+  acceptance evidence above uses the pinned 2.0.27 toolchain. The diagnostic
+  GC/tracing copies and shared-String method experiment remain unaccepted.
+  Logs and reports are `http-server-inputs-forced-*`,
+  `rtc-import-method-forced-*`, `repository-core-complete-*` and
+  `*-2.0.34-*` in the recovery directory above. The sampled guard allows brief
+  overshoots; it is not a kernel memory quota. Only owned groups were stopped.
+  Next: reduce JSON generated transition/emission workload and signaling's
+  remaining compiler workload under the same limits, preserving constructor,
+  proof, conformance and real-peer gates; resume mandatory signatures and
+  generated-code review before Bend TLS/DTLS. All 19 full-stack acceptance
+  boxes remain open; no fresh secure browser, TURN, data or media claim follows.
+
 - 2026-10-01 (repository gate after SDP milestone 4777d4a): A fresh sequential
   guarded `moon --concurrency 1 run :check` still stops in JSON's mandatory
   constructor audit, with terminal exit 137 after 1.683s and a sampled peak of

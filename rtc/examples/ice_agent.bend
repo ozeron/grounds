@@ -1,4 +1,5 @@
 import Base
+import ./ice_agent_output.bend as Shared
 import ../ice_agent.bend as Agent
 import ../ice_nomination.bend as N
 import ../ice_valid.bend as V
@@ -42,11 +43,7 @@ def maybe_changed(value: Maybe<&2, Agent.Step>, +fixture: Fixture) -> Turn:
     case _ _: rejected(fixture)
 
 def status_text(status: Agent.Status) -> String:
-  match status:
-    case Agent.Running{}: "running"
-    case Agent.Completed{}: "completed"
-    case Agent.Failed{}: "failed"
-    case Agent.Faulted{}: "faulted"
+  Shared.status_text(status)
 
 def numbers(values: List<&2, U32>) -> String:
   match values:
@@ -85,32 +82,7 @@ def streams(values: List<&2, Agent.Stream>, +state: Agent.State) -> IO(Unit):
         streams(tail, state)
 
 def lifecycle(values: List<&2, Agent.Notice>) -> IO(Unit):
-  match values:
-    case Nil{}: IO.pure(Unit, Unit{})
-    case Con{Agent.Nominated{path, ref, attempt}, tail}:
-      do IO<Unit>:
-        a : Unit <- IO.print("nominated:" ++ Scheduler.ref_text(ref) ++ ":" ++ Output.maybe_record(attempt) ++ ":" ++ ValidOutput.path_text(path))
-        lifecycle(tail)
-    case Con{Agent.NominationFailed{record, _}, tail}:
-      do IO<Unit>:
-        a : Unit <- IO.print("nomination-failed:" ++ Output.record(record))
-        lifecycle(tail)
-    case Con{Agent.StreamChanged{id, status}, tail}:
-      do IO<Unit>:
-        a : Unit <- IO.print("stream-changed:" ++ U32.show(id) ++ ":" ++ status_text(status))
-        lifecycle(tail)
-    case Con{Agent.SessionChanged{status}, tail}:
-      do IO<Unit>:
-        a : Unit <- IO.print("session-changed:" ++ status_text(status))
-        lifecycle(tail)
-    case Con{Agent.PacStarted{deadline}, tail}:
-      do IO<Unit>:
-        a : Unit <- IO.print("pac-started:" ++ Nat.show(deadline))
-        lifecycle(tail)
-    case Con{Agent.PacExpired{}, tail}:
-      do IO<Unit>:
-        a : Unit <- IO.print("pac-expired")
-        lifecycle(tail)
+  Shared.lifecycle(values)
 
 def snapshot(+fixture: Fixture) -> IO(Fixture):
   match fixture:
