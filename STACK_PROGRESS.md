@@ -7,12 +7,114 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 | Layer | Current state | Next proof of progress |
 |---|---|---|
 | `wire` | Byte TCP and IPv4 UDP effects, explicit local-IP binding and OS bound-address/ephemeral-port discovery; OpenSSL TLS effects. UDP handles all octets, zero datagrams, timeout and oversize errors, with same-port/two-IP isolation and failed-bind descriptor checks. Actual SIGTERM/SIGINT stop parked native/Bun loops and release the listener; Bun uses an OS-only C11 atomic signal bridge because its synchronous runtime cannot dispatch JS signal callbacks. Bounded bulk host RNG bytes now pass native/Bun guard/error tests and supply signaling credentials. Public-pattern byte/RNG and retained UDP measurements are recorded; Bend Base supplies monotonic `IO.now`. | Verify IPv6/cancellation and packed storage/long-session allocation, retaining measured baselines; complete crypto/runtime review before secure transport. |
-| `crypto` | Bend SHA-1 for WebSocket challenge, HMAC-SHA1 for legacy STUN integrity, SHA-256, HMAC-SHA256, HKDF-SHA-256, ChaCha20, Poly1305, ChaCha20-Poly1305 AEAD, AES-128 encryption, AES-128-GCM and X25519; P-256 prime/order arithmetic foundation, plus TLS HKDF labels and distinct affine ChaCha/AES-GCM traffic owners with 64-bit nonces/key updates and AES sending usage limits. Poly1305 products now stay below 2^26; OpenSSL remains in live cookie/TLS paths. | Resolve remaining runtime/erasure review, add mandatory P-256/RSA/ECDSA, then cookie and full handshake integration. |
+| `crypto` | Bend SHA-1 for WebSocket challenge, HMAC-SHA1 for legacy STUN integrity, SHA-256, HMAC-SHA256, HKDF-SHA-256, ChaCha20, Poly1305, ChaCha20-Poly1305 AEAD, AES-128 encryption, AES-128-GCM and X25519; P-256 prime/order arithmetic and uncompressed-point ECDH, plus TLS HKDF labels and distinct affine ChaCha/AES-GCM traffic owners with 64-bit nonces/key updates and AES sending usage limits. Poly1305 products now stay below 2^26; OpenSSL remains in live cookie/TLS paths. | Resolve remaining runtime/erasure review, add mandatory P-256/RSA/ECDSA, then cookie and full handshake integration. |
 | `tls` | Bend protected TLS 1.3 ChaCha20-Poly1305 and AES-128-GCM records and traffic/key lifecycle pass synthetic native/Bun differential tests; AES also reproduces RFC 8448 encrypted records. Live TLS client/server still use OpenSSL C effects; JS TLS effects return `ENOSYS`. | Complete mandatory TLS algorithms, handshake/transcripts, certificates/signatures/trust/hostname checks and real client/server interop; DTLS 1.2 for RTC. |
 | `http` | Bend HTTP/1.1 client/server, routing, JSON, cookies, auth, CORS, multipart, SSE, and server WebSocket handshake/framing/session. Native echo interops with a third-party Python client and Bun's WebSocket API. A bounded local signaling fixture admits exact Host/Origin and a public synthetic cookie before upgrade/UDP allocation; native and Bun exchange SDP with real Chrome and clean up connection-owned ICE state/sockets. | Replace the fixture selector with Bend cookie/HMAC authentication and integrate Bend TLS for browser HTTPS/WSS. |
 | `rtc` | Bend STUN parsing, IPv4 XOR-MAPPED-ADDRESS, SHA-1/SHA-256/dual integrity, FINGERPRINT, authenticated incoming/outgoing ICE Binding exchanges, retained-socket retransmissions and explicit error/integrity outcomes. IPv4 candidate/pair priorities, bounded checklist formation, stable transport references and guarded state transitions, role-driven priority reordering, a paced shared-socket transaction engine with response-only interruption, protected incoming replies and server-side role decisions, FIFO triggered queues, ordinary round-robin/foundation scheduling and generation/sent-role attempt ownership. A bounded session now binds signaled credentials, registered receiving/sending bases, observed peer-reflexive candidates, deferred incoming work, retained attempts and endpoint integrity policies. Authenticated non-symmetric responses fail only their original current pair; interrupted old listeners retire independently. The live owner fixture explicitly binds unicast IPv4 bases and queries actual local ports before candidate formation. An additive valid-list owner resolves authenticated mappings, learns locally peer-reflexive candidates from retained signed-request priority, allocates IP-keyed foundations, reranks by role and keeps late paths separate from replacement flights. A nomination-evidence owner associates current successful checks with their valid paths and retains qualified incoming intent through materialization, exact triggered flights and response-only listeners; already-Succeeded counterparts resolve their actual generating record. A generation lifecycle owner now applies regular controlling/controlled nomination, selects completed stream paths, removes nominated component checks while retaining response listeners, continues authenticated Binding service, and defers failure through PAC. An outer transport owner derives selected physical consent routes, serves authenticated consent-only Binding requests, shares actual-send pacing and recent transaction identity admission, gates logical application routes, and preserves sealed consent loss. Full/full credential restart rebuilds ICE state while retaining only selected old consent/server contexts until replacement selection. Bounded SDP/signaling now binds connection-owned credentials and the actual retained UDP base; real Chrome verifies direct selected pairs, fresh consent, restart and cleanup on native and Bun. Separate unauthenticated discovery remains available. | Complete crypto/runtime foundations and secure signaling, then gathering, IPv6/TURN, DTLS/SCTP and SRTP/media. |
 
 ## Evidence ledger
+
+- 2026-10-01 (resource recovery): Added `tools/build_guard.py` and its usage
+  documentation. It refuses concurrent guarded jobs across checkouts and
+  pre-existing same-user Bend compilers, forces Moon's default concurrency to
+  one, and monitors combined owned process-group memory every 0.1 seconds.
+  On macOS it uses the greater of RSS and physical footprint per process, so
+  compressed memory is included. Memory measurement errors fail closed. A
+  cutoff, timeout, interrupt or leftover child kills only the owned group.
+  This is a sampled cutoff with possible brief overshoot, not an allocation
+  quota; detached children and unguarded commands are unsupported.
+  `PYTHONDONTWRITEBYTECODE=1 python3 tools/build_guard_test.py -v` passed eight
+  real subprocess tests in 4.464s: successful/failed commands, aggregate child
+  cutoff with an unrelated process left alive, ignored-TERM child cleanup on
+  timeout, concurrency refusal and lock reuse, interruption, orphan cleanup
+  and missing-command failure. `git diff --check` passed. No Bend build was
+  required for guard verification. All subsequent goal builds/checks must use
+  this guard and run sequentially. Start the next isolated ECDSA native build
+  at 512 MiB; if it crosses the cutoff, reduce the compilation workload before
+  retrying. The primary repository/RTC recovery gate remains failed and the
+  P-256 point/ECDH milestone remains uncommitted.
+
+- 2026-10-01 (resource incident): The user reported Bend processes using roughly
+  15 GB and 7 GB. Two isolated consolidated ECDSA CLI builds (native and JS)
+  were launched concurrently while the primary repository check was active.
+  This overlap was an unsafe resource scheduling choice. Peak memory was not
+  measured, so those figures remain user observations. On inspection both
+  builds and the repository runner had exited: native exit 143, JS exit 0,
+  repository runner exit 1 with RTC exit 143. The cause of the termination is
+  unconfirmed. A fresh process scan found no Bend or Moon processes; current
+  swap usage was 8056.69 MB. No additional heavy work was launched. The full
+  goal remains incomplete and the pending P-256 milestone is uncommitted.
+  Before any compilation or full check resumes, implement and verify an owned
+  process-tree memory cutoff and one-job concurrency guard. Run builds and
+  checks sequentially; do not overlap draft compilation with repository gates.
+  Keep the failed gate evidence and rerun only after that guard is in place.
+  Resource evidence: `/Users/ozeron/.codex/artifacts/grounds/2026-10-01/ecdsa256/resource-incident.json`.
+
+- 2026-10-01 (milestone in progress, uncommitted): Added pure Bend `p256.bend`
+  point operations and ECDH. Private scalars are exactly 32 big-endian bytes
+  in 1..n−1; peers use exactly 65-byte uncompressed SEC1 points with canonical
+  coordinates and curve validation. Infinity, aliases, compressed/hybrid and
+  off-curve encodings are rejected. Shared output is the fixed 32-byte affine
+  x coordinate, preserving leading zero bytes. Internal projective coordinates
+  x=X/Z, y=Y/Z use canonical Montgomery byte limbs. The 43 straight-line RCB
+  add-2015-rcb-3 assignments cover doubling/inverses/infinity without a secret
+  exceptional-case branch; explicit ownership clones preserve required values.
+  Raw helpers require validated curve representatives. Every scalar uses 256
+  doublings, 256 additions and 256 masked selections; public bit positions
+  control indexing. Normalization rejects zero Z. Source fixed schedules and
+  bounded arithmetic do not resolve native/runtime/JIT timing or copy erasure.
+  Isolated native/Bun runs each pass 609 independent cases: all 25 NIST ECDH
+  vectors with public/shared outputs, 121 affine and 121 independently rescaled
+  group pairs, 81 zero/order/byte-transition/dense/alternating/random scalars,
+  infinity multiplication, canonical peers, private/public malformed/range/
+  tampering rejection and eight OpenSSL exchanges in both directions. The
+  oracle uses textbook affine slopes/inversions, not the RCB formula. Native
+  took 3.778s, Bun 701.563s in these focused runs, with some overlapping ECDSA
+  draft checking; this records a substantial target performance gap, not a
+  standalone throughput baseline. Four closed malformed/non-byte Bend checks
+  pass. Five source/fixture files were transferred with hash checks; imported
+  field/byte/IO dependencies match the primary checkout. The primary crypto
+  gate registers the proofs, both adapters and both evaluators. Artifacts:
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-01/p256-points/`, including
+  formula/NIST sources and hashes, 420 reference-only planning checks, transfer
+  manifest, focused logs and generated C/JS/default Clang arm64 assembly.
+  Separate ECDSA verification/signing drafts remain only in the owned isolated
+  checkout; native/Bun verification probes pass all 15 published P-256/SHA256
+  SigVer cases (12 failures), both RFC6979 P-256/SHA256 deterministic signatures,
+  1133 strict DER cases per target, 65 independent signing/repeat/digest-reduction/
+  tampering/range/malformed/wrong-key cases per target (with 12 OpenSSL-verifiable
+  independent reference signatures), six closed malformed-byte/fuel checks and
+  42 rejection/known-nonce controls per target: all 15 NIST SHA256 SigGen cases,
+  actual zero-s, injected zero-r, positive control and independently computed
+  RFC6979 rejected-candidate/rejected-signature state updates.
+  These are not primary package acceptance. Generated JS inventory covers 80
+  point functions; native C symbols are anonymous numbered helpers, so complete
+  source-to-optimized dependency mapping remains open. The ECDSA draft provenance,
+  sources and outstanding gates are in `ecdsa-draft-state.json`.
+  Primary forced crypto passes fresh (execution 14m4s128ms, hash
+  `c6151b831101af16296095e32ff0e1a7cd12b8f02b6ed8c91243ad3075cb94d0`):
+  native/Bun point checks pass 609 cases in 4.026s/608.306s. Forced wire failed
+  in the existing address fixture: bind-only second-IP selection chose VPN
+  172.16.1.7, but the independent peer's sendto failed EADDRNOTAVAIL (49).
+  A plain OS-only roundtrip reproduces the failure and succeeds for the local
+  LAN address. The helper now requires exact bidirectional UDP reachability
+  from the loopback-bound peer, preserving the actual same-port/two-IP proof;
+  it never changes interface configuration or skips that proof. The failed
+  report/log are retained. Only this shared test helper changed after the
+  crypto gate, so its successful result remains valid; a provenance snapshot
+  records the one-file change and updated frozen 518-file manifest. Run the
+  distinct forced retry-wire gate and repository gate. Retry-wire now passes
+  fresh with exit zero and skipped hydration (execution 100s, hash
+  `6dc11d55f1f1ecabad4b9f0b12808ccff6d22d2451d09ab7d8866c1b67a33001`). Recovery session 54512 has exited 1;
+  its repository gate failed with RTC exit 143 during the resource incident.
+  RTC imports the helper,
+  so its changed input hash now requires fresh execution, including the real
+  browser/ICE tests; do not reuse the prior RTC result. Exact next action:
+  audit these recovery reports/frozen inputs, update this entry and commit the
+  verified point/ECDH milestone. Continue ECDSA
+  deterministic signing/strict DER and published/independent signature checks,
+  then mandatory RSA and full certificate/handshake integration. All 19
+  full-stack acceptance boxes remain unchecked.
 
 - 2026-10-01: Added internal pure Bend
   `field256.bend` for the P-256 coordinate prime and scalar order from NIST

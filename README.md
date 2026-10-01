@@ -20,4 +20,7 @@ mise install        # pinned bend and moon
 moon run :check     # every package's tests, laws and examples
 ```
 
+For local builds and checks, use the [resource guard](tools/README.md) to keep
+jobs sequential and stop their process group at a measured memory cutoff.
+
 From BendHub, 0.1.0 is one bundle, `0x64e1b9e0466cf913fa57e70aeb11c176` (tag `grounds/v0.1.0`). Take every module from that one bundle.
