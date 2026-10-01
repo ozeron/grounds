@@ -14,6 +14,19 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 
 ## Evidence ledger
 
+- 2026-10-01 (standalone cutoff localization after milestone 82fc0c4): With the
+  same local recovery settings and `nice -n 10`, the default 512 MiB standalone
+  guard stopped `bend rtc/sdp.bend --check-only` at 524.02 MiB after 1.594s,
+  and `bend json/main.bend -o .../json-main-probe.c` at 515.44 MiB after 1.290s.
+  Both returned 137, independently confirming these source workloads exceed
+  the cutoff; neither is a successful type/C-emission acceptance result. No
+  source input changed. Reports/logs are `sdp-check-only-*` and
+  `json-main-emission-*` in the recovery artifact directory below. A fresh
+  scan found no Bend, Moon, Bun or clang jobs after both terminal results.
+  Next: reduce SDP pattern-checking and JSON constructor-audit emission workload
+  under the same limits, retaining all validation and tests, then rerun the
+  missing RTC/repository gates. The full goal remains active and incomplete.
+
 - 2026-10-01 (bounded crypto/wire recovery gates): Fresh sequential guarded
   `moon --concurrency 1 run crypto:check --force` passes (19m50s801ms execution,
   hash `39490f0fb9e68d59734a722c5aa1b133796a069f90abf339c25df3316582af6b`).
