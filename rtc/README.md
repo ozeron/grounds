@@ -1,5 +1,78 @@
 # grounds-rtc
 
+The local signaling evaluator is in `examples/signaling_server.bend`. It checks
+an exact Host and Origin and one synthetic fixture cookie before the WebSocket
+upgrade or UDP allocation. Each upgraded connection owns one retained IPv4 UDP
+base and one `signaling.State`; offers use `["offer", revision, SDP]` and answers
+use `["answer", SDP]`. Revision zero creates the owner. Subsequent revisions must
+increase by one, replace both remote ICE credentials, preserve MID/SCTP port and
+the peer fingerprint, and supply fresh local host-generated credentials. The
+answer's successful socket write starts local-signaled PAC timing. Reconnects
+create independent owners. A rejected message closes its connection.
+
+`sdp.decode` accepts one `application UDP/DTLS/SCTP webrtc-datachannel` section,
+session-level credential/fingerprint/setup defaults with media overrides, one
+MID, SHA-256 fingerprints and an `actpass` offer. Duplicate required attributes
+at either level fail admission. Limits are 16,384 SDP characters, 128 lines,
+1,024 characters per line and 64 candidate lines, including ignored candidates.
+Candidate integers are bounded before conversion; canonical IPv4 UDP candidates
+are admitted, IPv6/DNS/TCP and unknown candidate kinds are reported as ignored,
+and unknown extension name/value pairs are ignored. Related addresses are
+required for reflexive/relay candidates and forbidden for host candidates.
+The decoder extracts this explicit ICE profile; it is not a general SDP validator
+or an implementation of media negotiation, BUNDLE multiplexing or trickle ICE.
+
+The adapter caps upgraded fixture connections at eight using the server's live
+connection counter, text messages at 32,768 bytes, frames at 64, revisions at
+0–7 and each connection lifetime at 45 seconds. Restarts never extend that
+lifetime. It supports unfragmented text signaling, ping/pong and valid close
+frames; fragmented/binary signaling is rejected. Existing general-purpose
+WebSocket framing/session APIs retain their behavior. Close, stop and deadline
+discard the transport and close both sockets; tests rebind the actual UDP port.
+
+Run `sh examples/build_signaling.sh /tmp/grounds-signaling` and start that
+binary. On Apple Clang 21 arm64 the fixture build emits Bend C and uses
+`-O3 -fno-stack-check`: the compiler's Darwin stack probe conflicts with live
+registers in the generated `preserve_none` runtime function `WL_FID_ENTER`.
+Default `-O3`, `-O1`, `-O0` and disabled shrink wrapping all reproduced the
+backend failure; the explicit stack-probe workaround compiled the same C.
+This disables compiler-inserted stack probes for this evaluator only. It is a
+build limitation, not a memory/timing safety finding resolved for the full stack.
+Other checks retain Bend's normal native build. The generated-runtime ABI and
+stack behavior remain part of the required review before production acceptance.
+The fixture uses port 8089, accepts Origin `http://127.0.0.1:8089` and
+cookie `grounds-fixture=local-synthetic-session`, and binds its UDP base to
+127.0.0.1. The current HTTP listener's OS effect listens on all interfaces; the
+cookie is a public synthetic test selector, not deployable authentication.
+This is plaintext HTTP/WS and ICE only. The answer renderer is explicitly a
+fixture in `examples/signaling_answer.bend`: it advertises a public placeholder
+fingerprint and does not implement DTLS. Production authentication, Bend
+cookie/HMAC, HTTPS/WSS, DTLS fingerprint verification, data and media remain open.
+
+`examples/signaling_browser_check.mjs` launches an isolated real Chrome profile,
+uses the browser's ICE implementation as a peer, and records offers, answers,
+actual selected `RTCIceTransport` pairs and server packet logs. It checks denied
+authentication/Origin, initial nomination, fresh consent, credential restart,
+reconnect, malformed signaling and closure. `signaling_browser_packets.py`
+independently validates both generations' HMAC-SHA1, FINGERPRINT, USERNAME,
+transactions, controlling nomination and role-free consent. A selected pair is
+combined with authenticated packet evidence; DTLS/data/media are not claimed.
+Run `bun examples/signaling_browser_check.mjs <evidence-dir> <server-command...>`
+then `python3 examples/signaling_browser_packets.py <evidence-dir>`. Set
+`GROUNDS_CHROME` to a Chrome executable outside the default macOS location.
+`check.sh` runs native/Bun admission and socket tests and this browser evaluator
+when Chrome and Bun are available; an unavailable browser is explicitly skipped
+and cannot satisfy the full stack contract.
+
+The profile follows [RFC 8839](https://www.rfc-editor.org/rfc/rfc8839.html),
+[RFC 8866](https://www.rfc-editor.org/rfc/rfc8866.html),
+[RFC 8841](https://www.rfc-editor.org/rfc/rfc8841.html) and the
+[WebRTC selected-pair API](https://www.w3.org/TR/webrtc/#dom-rtcicetransport-getselectedcandidatepair).
+On 2026-10-01 the RFC Editor's current errata service returned no verified
+records for those three RFC numbers. Query the current
+`https://errata.rfc-editor.org/search/?rfc_number=<number>&status=verified`;
+the legacy `errata_search.php` redirects its old status selector to Reported.
+
 Early pure Bend WebRTC protocol work. `stun.bend` parses RFC 8489 STUN datagrams, validates the 20-byte header, declared length, magic cookie, attribute boundaries and padding, and decodes IPv4 `XOR-MAPPED-ADDRESS`. It builds a Binding request with a caller-supplied 96-bit transaction ID. `stun_client.bend` generates that ID with Bend Base's host RNG, sends one unauthenticated Binding request over `grounds-wire` UDP, checks the source and transaction ID, and returns the mapped IPv4 address.
 
 `stun_integrity.bend` verifies the legacy HMAC-SHA1 `MESSAGE-INTEGRITY` attribute over the RFC-adjusted header and preceding attributes. It rejects a missing or duplicate attribute and refuses to treat a message with `MESSAGE-INTEGRITY-SHA256` as SHA-1-only. The caller supplies the already prepared credential key. This verifier is not yet wired into the discovery client, which sends no authenticated request.

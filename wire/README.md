@@ -32,6 +32,20 @@ w : Socket & Result<&1, &1, U32 & String, Unit> <- W.wire_send(sock, [72, 105])
 | `W.wire_close(sock)` | sends TLS close_notify when needed, then closes the socket |
 | `W.listen(port)`, `W.accept(l)`, `W.connect(host, port)`, `W.close(sock)`, `W.close_listener(l)` | Base's own |
 
+On Bun, `wire_on_stop` installs SIGTERM/SIGINT through a small OS-only C bridge.
+Bend's synchronous select/trampoline runtime prevents JavaScript signal callbacks
+from running while the program is active. The bridge uses a lock-free atomic
+flag in its C signal handler; `wire_stopping` polls it without calling JavaScript
+from the handler. A C11 compiler (`CC`, otherwise `cc`) is required when enabling
+this effect. The bridge is compiled once in a private temporary directory and
+loaded with Bun FFI; build files are removed immediately. Its mapping remains
+for the process lifetime so installed signal handlers always point to valid code.
+Compiler/load/install failures fail explicitly. Native signal effects retain
+their existing behavior. `stop_check.py` sends actual SIGTERM and SIGINT before
+and after an accepted connection on both targets, requires clean exit within
+three seconds and rebinds the listener port after each run. This is OS signal
+delivery and cleanup; it does not claim general cancellation of every stack path.
+
 - The TLS server uses OpenSSL 3 at run time, with TLS 1.2 as its minimum, no 0-RTT, and `http/1.1` as its only accepted ALPN offer. After `wire_tls_accept`, the ordinary `wire_recv_timeout` and `wire_send_timeout` effects carry encrypted bytes. Use `wire_close` for both TLS and plain sockets. `BEND_LIBSSL` can name libssl when the default paths do not find it.
 - The TLS client uses `wire_tls_connect(sock, host, ms)`, `wire_tls_send_timeout`, `wire_tls_recv_timeout` and `wire_tls_close`. It verifies the certificate chain and host; `GROUNDS_TLS_CA` adds a PEM trust root.
 - An effect's name is global in a program: its C id is `CID_WIRE_RECV`, taken from the def's name. So the effects carry the package's name, and there are no `recv`/`send` wrappers: a one-line wrapper is merged into the effect and takes its name.

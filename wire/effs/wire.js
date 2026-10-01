@@ -316,16 +316,77 @@ function wire_accept_timeout(listener, ms, k) {
   return go();
 }
 
-let gw_stop = false;
+let gw_signal_bridge;
+
+// Bend's Bun runtime runs a synchronous select/trampoline loop. JavaScript
+// process.on signal callbacks cannot run while that loop owns the thread. A
+// tiny OS-only C bridge records signals without entering JavaScript, and the
+// existing Bend shutdown owner polls its flag. No protocol logic lives here.
+function gw_signals() {
+  if (gw_signal_bridge) return gw_signal_bridge;
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const dir = fs.mkdtempSync(path.join(require("node:os").tmpdir(), "grounds-wire-signal-"));
+  try {
+    const source = path.join(dir, "signal.c");
+    const library = path.join(dir, process.platform === "darwin" ? "signal.dylib" : "signal.so");
+    fs.writeFileSync(source, `
+#define _POSIX_C_SOURCE 200809L
+#include <errno.h>
+#include <signal.h>
+#include <stdatomic.h>
+_Static_assert(ATOMIC_INT_LOCK_FREE == 2, "signal flag must be lock-free");
+static _Atomic unsigned stopped;
+static void on_signal(int number) {
+  (void)number;
+  atomic_store_explicit(&stopped, 1, memory_order_relaxed);
+}
+int grounds_wire_on_stop(void) {
+  struct sigaction action = {0}, previous;
+  action.sa_handler = on_signal;
+  sigemptyset(&action.sa_mask);
+  if (sigaction(SIGINT, &action, &previous) != 0) return errno;
+  if (sigaction(SIGTERM, &action, 0) != 0) {
+    int error = errno;
+    sigaction(SIGINT, &previous, 0);
+    return error;
+  }
+  return 0;
+}
+unsigned grounds_wire_stopping(void) {
+  return atomic_load_explicit(&stopped, memory_order_relaxed);
+}
+`);
+    const result = Bun.spawnSync([process.env.CC || "cc", "-std=c11", "-O2", "-fPIC",
+      process.platform === "darwin" ? "-dynamiclib" : "-shared", source, "-o", library],
+      {stdout: "pipe", stderr: "pipe", timeout: 10000});
+    if (result.exitCode !== 0) throw new Error("wire_on_stop: C signal bridge build failed: " +
+      new TextDecoder().decode(result.stderr));
+    const bridge = require("bun:ffi").dlopen(library, {
+      grounds_wire_on_stop: {args: [], returns: "i32"},
+      grounds_wire_stopping: {args: [], returns: "u32"},
+    });
+    const error = bridge.symbols.grounds_wire_on_stop();
+    if (error !== 0) {
+      bridge.close();
+      throw new Error("wire_on_stop: sigaction failed: " + error);
+    }
+    // Keep the mapping for the process lifetime: installed handlers must never
+    // point at an unloaded library. The private build files can be removed now.
+    gw_signal_bridge = bridge;
+    return bridge;
+  } finally {
+    fs.rmSync(dir, {recursive: true, force: true});
+  }
+}
 
 function wire_on_stop() {
-  process.on("SIGTERM", () => { gw_stop = true; });
-  process.on("SIGINT", () => { gw_stop = true; });
+  gw_signals();
   return { $: "Unit" };
 }
 
 function wire_stopping() {
-  return gw_stop ? 1 : 0;
+  return gw_signal_bridge ? gw_signal_bridge.symbols.grounds_wire_stopping() : 0;
 }
 
 let gw_live = 0;

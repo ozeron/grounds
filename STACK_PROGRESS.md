@@ -6,13 +6,81 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 
 | Layer | Current state | Next proof of progress |
 |---|---|---|
-| `wire` | Byte TCP and IPv4 UDP effects, explicit local-IP binding and OS bound-address/ephemeral-port discovery; OpenSSL TLS effects. UDP handles all octets, zero datagrams, timeout and oversize errors, with same-port/two-IP isolation and failed-bind descriptor checks. Bend Base already supplies `IO.random_u32` from the host RNG and monotonic `IO.now`. | Build a bulk random-byte helper and efficient byte storage; benchmark UDP throughput. |
+| `wire` | Byte TCP and IPv4 UDP effects, explicit local-IP binding and OS bound-address/ephemeral-port discovery; OpenSSL TLS effects. UDP handles all octets, zero datagrams, timeout and oversize errors, with same-port/two-IP isolation and failed-bind descriptor checks. Actual SIGTERM/SIGINT stop parked native/Bun loops and release the listener; Bun uses an OS-only C11 atomic signal bridge because its synchronous runtime cannot dispatch JS signal callbacks. Bend Base already supplies `IO.random_u32` from the host RNG and monotonic `IO.now`. | Build a bulk random-byte helper and efficient byte storage; benchmark UDP throughput. |
 | `crypto` | Bend SHA-1 for WebSocket challenge, HMAC-SHA1 for legacy STUN integrity, SHA-256, HMAC-SHA256, HKDF-SHA-256, ChaCha20, Poly1305, ChaCha20-Poly1305 AEAD and X25519; OpenSSL remains in live cookie/TLS paths. | Audit generated-code timing, improve byte throughput, manage nonces, then cookie integration and signatures. |
 | `tls` | TLS client/server work through OpenSSL C effects; JS TLS returns `ENOSYS`. | Bend TLS 1.3 handshake, records, certificates, and real client/server interop; DTLS 1.2 for RTC. |
-| `http` | Bend HTTP/1.1 client/server, routing, JSON, cookies, auth, CORS, multipart, SSE, and server WebSocket handshake/framing/session. Native echo interops with a third-party Python client and Bun's WebSocket API. | Add a real authenticated signaling service with Origin policy, subprotocol support as needed, and browser-level interoperability; then integrate Bend TLS/HMAC. |
-| `rtc` | Bend STUN parsing, IPv4 XOR-MAPPED-ADDRESS, SHA-1/SHA-256/dual integrity, FINGERPRINT, authenticated incoming/outgoing ICE Binding exchanges, retained-socket retransmissions and explicit error/integrity outcomes. IPv4 candidate/pair priorities, bounded checklist formation, stable transport references and guarded state transitions, role-driven priority reordering, a paced shared-socket transaction engine with response-only interruption, protected incoming replies and server-side role decisions, FIFO triggered queues, ordinary round-robin/foundation scheduling and generation/sent-role attempt ownership. A bounded session now binds signaled credentials, registered receiving/sending bases, observed peer-reflexive candidates, deferred incoming work, retained attempts and endpoint integrity policies. Authenticated non-symmetric responses fail only their original current pair; interrupted old listeners retire independently. The live owner fixture explicitly binds unicast IPv4 bases and queries actual local ports before candidate formation. An additive valid-list owner resolves authenticated mappings, learns locally peer-reflexive candidates from retained signed-request priority, allocates IP-keyed foundations, reranks by role and keeps late paths separate from replacement flights. A nomination-evidence owner associates current successful checks with their valid paths and retains qualified incoming intent through materialization, exact triggered flights and response-only listeners; already-Succeeded counterparts resolve their actual generating record. A generation lifecycle owner now applies regular controlling/controlled nomination, selects completed stream paths, removes nominated component checks while retaining response listeners, continues authenticated Binding service, and defers failure through PAC. An outer transport owner derives selected physical consent routes, serves authenticated consent-only Binding requests, shares actual-send pacing and recent transaction identity admission, gates logical application routes, and preserves sealed consent loss. Full/full credential restart rebuilds ICE state while retaining only selected old consent/server contexts until replacement selection. Separate unauthenticated discovery remains available. | Build authenticated signaling and a real-browser ICE evaluator with actual socket/candidate/session binding; then gathering, IPv6/TURN, DTLS/SCTP and SRTP/media. |
+| `http` | Bend HTTP/1.1 client/server, routing, JSON, cookies, auth, CORS, multipart, SSE, and server WebSocket handshake/framing/session. Native echo interops with a third-party Python client and Bun's WebSocket API. A bounded local signaling fixture admits exact Host/Origin and a public synthetic cookie before upgrade/UDP allocation; native and Bun exchange SDP with real Chrome and clean up connection-owned ICE state/sockets. | Replace the fixture selector with Bend cookie/HMAC authentication and integrate Bend TLS for browser HTTPS/WSS. |
+| `rtc` | Bend STUN parsing, IPv4 XOR-MAPPED-ADDRESS, SHA-1/SHA-256/dual integrity, FINGERPRINT, authenticated incoming/outgoing ICE Binding exchanges, retained-socket retransmissions and explicit error/integrity outcomes. IPv4 candidate/pair priorities, bounded checklist formation, stable transport references and guarded state transitions, role-driven priority reordering, a paced shared-socket transaction engine with response-only interruption, protected incoming replies and server-side role decisions, FIFO triggered queues, ordinary round-robin/foundation scheduling and generation/sent-role attempt ownership. A bounded session now binds signaled credentials, registered receiving/sending bases, observed peer-reflexive candidates, deferred incoming work, retained attempts and endpoint integrity policies. Authenticated non-symmetric responses fail only their original current pair; interrupted old listeners retire independently. The live owner fixture explicitly binds unicast IPv4 bases and queries actual local ports before candidate formation. An additive valid-list owner resolves authenticated mappings, learns locally peer-reflexive candidates from retained signed-request priority, allocates IP-keyed foundations, reranks by role and keeps late paths separate from replacement flights. A nomination-evidence owner associates current successful checks with their valid paths and retains qualified incoming intent through materialization, exact triggered flights and response-only listeners; already-Succeeded counterparts resolve their actual generating record. A generation lifecycle owner now applies regular controlling/controlled nomination, selects completed stream paths, removes nominated component checks while retaining response listeners, continues authenticated Binding service, and defers failure through PAC. An outer transport owner derives selected physical consent routes, serves authenticated consent-only Binding requests, shares actual-send pacing and recent transaction identity admission, gates logical application routes, and preserves sealed consent loss. Full/full credential restart rebuilds ICE state while retaining only selected old consent/server contexts until replacement selection. Bounded SDP/signaling now binds connection-owned credentials and the actual retained UDP base; real Chrome verifies direct selected pairs, fresh consent, restart and cleanup on native and Bun. Separate unauthenticated discovery remains available. | Complete crypto/runtime foundations and secure signaling, then gathering, IPv6/TURN, DTLS/SCTP and SRTP/media. |
 
 ## Evidence ledger
+
+- 2026-10-01: Added bounded single-application SDP
+  decoding, connection-owned signaling revisions/credential restart, exact
+  Host/Origin and synthetic-cookie admission, and a retained-socket local WS/ICE
+  evaluator. Native and Bun each pass 65 SDP cases and 28 actual HTTP/WS/UDP
+  admission, malformed, restart/reconnect, revision/connection-limit and
+  port-release scenarios. Final focused isolated Chrome 154.0.8037.92 runs on
+  both targets reach actual selected direct ICE pairs, fresh signed consent in
+  generations zero and one, and restart on the same Grounds UDP base. Independent
+  Python verifies HMAC-SHA1/FINGERPRINT/USERNAME, nomination and transaction
+  ownership. Browser denied authentication/Origin, reconnect, malformed signaling
+  and clean shutdown also pass; the data channel remains unopened. Packet checks
+  also reject success for Chrome's transitional old-local/new-remote credential
+  namespace. The final frozen source has 15 check-input SHA-256 digests.
+  Bun's synchronous Bend runtime cannot dispatch JS `process.on` signals. An
+  OS-only C11 lock-free atomic signal bridge fixes actual SIGTERM/SIGINT shutdown,
+  retains its loaded mapping while handlers exist, and removes private build
+  files after loading. Four real signal/listener-rebinding scenarios pass on
+  each target; Bun additionally passes explicit compiler-failure/temporary-file
+  cleanup. `PYTHONDONTWRITEBYTECODE=1 moon run wire:check --force` passed fresh in
+  11s 909ms (overall 11s 910ms), full hash
+  `d9118597a152e2684d4aadba8c0683d083460512244598a9d15a8f3561d17222`.
+  Saved task metadata records exit zero and skipped cache hydration.
+  A deep debug snapshot on closure caused 18.0 GB Bun / 21.7 GB native compile
+  footprints; those exploratory builds were terminated (exit 143), samples
+  retained, and the snapshot removed. No forced gate was interrupted. Apple
+  Clang 21 arm64 then failed its generated `preserve_none` `WL_FID_ENTER` stack
+  prologue at `-O3`, `-O1`, `-O0` and with shrink wrapping disabled. The scoped
+  `examples/build_signaling.sh` helper compiles the identical Bend C using
+  `-O3 -fno-stack-check` only for that compiler/platform; native focused server
+  and Chrome checks pass. All other native checks retain Bend defaults. The
+  generated-runtime ABI, stack and timing review remains open; compilation and
+  vectors do not resolve those findings before live-secret use.
+  Artifacts: `/Users/ozeron/.codex/artifacts/grounds/2026-10-01/signaling/`,
+  including final focused native/Bun builds and logs, `browser-native/`,
+  `browser-bun-final/`, independently verified `packets.json`, signal tests,
+  compiler failure diagnostics, source digests, versions and forced-wire report.
+  Pilot artifacts and failed exploratory builds are not final passing evidence.
+  `PYTHONDONTWRITEBYTECODE=1 moon run rtc:check --force` passed fresh: task
+  execution 24m 49s 723ms, overall 24m 49s 790ms, full hash
+  `a2eca3de3de40c33205987b7155f1571c435721cce3cf55274e21b69e10f00ea`.
+  Saved task metadata confirms exit zero and skipped cache hydration. All 15
+  frozen check inputs were unchanged at gate completion: 13 are included in the RTC hash and
+  the two wire checker files in the fresh wire hash. Both targets pass all
+  prior RTC checks, the new 65 SDP/28 signaling cases, and fresh real Chrome
+  nomination/consent/restart with independent packet checks. Native/Bun live
+  integrated consent expiry measured 30.076s/30.073s; both browser servers and
+  isolated Chrome processes exit zero without forced termination. Fresh raw
+  browser artifacts are retained in `forced-browser-native/` and
+  `forced-browser-bun/`; complete forced task/hash/operation reports are saved
+  alongside the logs. `PYTHONDONTWRITEBYTECODE=1 moon run :check` passed all
+  13 tasks in 1m 48s 958ms: 12 cached, JSON fresh (706 independent integration
+  cases passed). Cached Redis optional live 6379/password-AUTH 6380 checks were
+  not rerun; their recorded result skips unavailable local services. Repository
+  log, full run report and per-task fresh/cache evidence are saved. Versions:
+  Bend 2.0.27, Bun 1.3.13, Python 3.12.8, moon 2.5.5, macOS 26.2 arm64 and
+  Chrome 154.0.8037.92. Final staging normalized exactly one extra EOF newline
+  in `signaling.bend`; byte comparison confirms no other source change. Original
+  gate digests and final commit digests are retained separately with
+  `final-whitespace-evidence.json`. No protocol behavior changed, so the suites
+  were not repeated for whitespace. This completes the local signaling milestone.
+  The public fixture cookie, all-interface HTTP listener, plaintext HTTP/WS,
+  placeholder answer fingerprint, IPv4 single media section and unfragmented
+  signaling are explicit limits. Production auth/Bend HMAC, HTTPS/WSS, DTLS,
+  TURN, data, media and all 19 full-stack acceptance gates remain open.
+  Next dependency slice: audit generated-runtime ABI/stack and secret-dependent
+  crypto operations, establish measured byte/bulk-RNG foundations, and implement
+  required Bend signatures/TLS/DTLS before secure browser signaling and data.
 
 - 2026-10-01: `ice_transport.bend` adds an outer pure transport owner around Agent selection, consent and full/full credential restart. It derives the actual selected base and exchanged credential/integrity context, shares one consent slot across logical aliases on the same physical transport, and requires a fresh selected-base round trip before application data. `ice_consent_server.bend` serves authenticated consent-only Binding requests without mandatory PRIORITY/role attributes; protected ICE usage passes to ICE, while unprotected trailing attributes cannot mutate roles or nominate. `Consent.start_binding` emits role-free authenticated requests while preserving the existing `start` API. One authoritative request directive, private host-generated nonces/callbacks, actual-send acknowledgement, a shared 5-ms pacer and bounded IO leases coordinate ICE and consent. Admission retains active/listening records, consent IDs and 64 recently issued IDs per generation. Incoming consent never grants outgoing data consent. Response IDs resolve original ICE logical attempts without replacing observed base/source metadata; physical consent aliases resolve to their one retained owner.
   Restart reconstructs all ICE layers, clears old queues/flights/deferred/valid/nomination/pending state, preserves the current full/full role and actual pacing, and requires both local credential fields and both remote fields to change. All retained credentials are protected against reuse across a bounded 64-generation history. Only selected old consent/server slots survive, with their original clocks/probes and the role actually reached before restart. Old data requires continuing consent; replacement stream selection retires old aliases immediately and awaits fresh new consent. Old requests are reply-only and cannot change replacement roles/queues; retired namespaces are ignored. Lost contexts remain sealed. Current and retained slots share a configurable 1–256 total limit (default 256); exhaustion/core failure/fault closes the owner. Local close drops pending requests and closes consent states; the IO owner disposes state and retained sockets.

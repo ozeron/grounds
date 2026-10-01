@@ -6,6 +6,7 @@ dependsOn:
   - "io"
   - "utf8"
   - "json"
+  - "http_server"
 
 tasks:
   check:
@@ -23,3 +24,6 @@ tasks:
       - "/utf8/*.bend"
       - "/json/*.bend"
       - "/json/effs/*"
+      - "/http/core/*.bend"
+      - "/http/wire/*.bend"
+      - "/http/server/*.bend"
