@@ -13,6 +13,7 @@ w : Socket & Result<&1, &1, U32 & String, Unit> <- W.wire_send(sock, [72, 105])
 
 | Function | Does |
 |---|---|
+| `W.wire_random_bytes(count)` | 0–1048576 bytes from the host RNG, as `Result<List<U32>>`; zero does not call the RNG; failure returns no partial list |
 | `W.wire_recv(sock, max)` | up to `max` bytes, once some arrive; `[]` when the peer has closed |
 | `W.wire_recv_timeout(sock, max, ms)` | the same, as `Some{bytes}`; `None{}` when nothing comes within `ms` |
 | `W.wire_send(sock, bytes)` | every byte; a value past 255 fails with `EINVAL` before any is sent |
@@ -45,6 +46,66 @@ their existing behavior. `stop_check.py` sends actual SIGTERM and SIGINT before
 and after an accepted connection on both targets, requires clean exit within
 three seconds and rebinds the listener port after each run. This is OS signal
 delivery and cleanup; it does not claim general cancellation of every stack path.
+
+Bulk randomness uses `arc4random_buf` on Darwin, nonblocking `getrandom` on
+Linux, and Bun WebCrypto in chunks of at most 65536 bytes. Native work runs
+through Bend's existing IO worker; the Linux adapter completes short reads,
+retries at most 63 consecutive interruptions and reports the 64th, zero/invalid
+reads and OS errors. An unready Linux pool returns `EAGAIN`; no weaker RNG is
+substituted. Requests above 1 MiB fail `EINVAL` before allocation. Temporary OS
+buffers are cleared before release, including failure; returned Bend values and
+runtime heap copies are not thereby erased. Native malloc failure is `ENOMEM`;
+Bun allocation and entropy failures are explicit. This is entropy acquisition,
+not a nonce/key lifecycle or constant-time guarantee. See
+[Linux getrandom](https://man7.org/linux/man-pages/man2/getrandom.2.html),
+[Apple arc4random](https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man3/arc4random.3.html)
+and [WebCrypto getRandomValues](https://www.w3.org/TR/webcrypto/#Crypto-method-getRandomValues).
+The Linux completion loop has controlled short-read/interruption/error tests;
+live kernel verification remains pending on this Darwin host.
+
+On 2026-10-01, `bench.bend` and `measure.py` recorded three samples per workload
+on macOS 26.2 arm64, Bend 2.0.27/Bun 1.3.13. For one 1 MiB acquisition plus
+byte-count/range/checksum traversal, median bulk RNG was 3 ms native (3–4 ms)
+and 58 ms Bun (58–59 ms), versus word-at-a-time `IO.random_u32` at 1212 ms
+native (1198–1214 ms) and 348 ms Bun (345–359 ms). These are local fixture costs,
+not throughput of an entropy source alone, entropy-quality evidence or timing
+safety. The millisecond counter rounds small workloads; zero is below resolution.
+
+The same benchmark constructs and scans eight public 1 MiB patterns:
+
+| Representation/workload | Native median | Bun median |
+|---|---:|---:|
+| Existing `List<U32>` byte boundary | 15 ms | 779 ms |
+| Dedicated byte-list constructors | 15 ms | 765 ms |
+| `Array<U32>` construction, conversion to list and scan | 72 ms | 1595 ms |
+
+The checksum validator is included in every workload. The array measurement is
+an IO serialization workload, not an indexed-access comparison; crypto's existing
+limb arrays are not replaced. Retain the byte-list API for the sequential OS
+boundary: dedicated constructors supplied no clear measured win and array
+serialization was slower. This choice does not solve allocation pressure. Bun's
+whole-process peak RSS for these eight-round cases was about 815 MiB for lists,
+830 MiB for dedicated constructors and 592 MiB for arrays, including runtime,
+construction and validator allocations. Native peaks were about 18/18/30 MiB.
+Packed storage and long-session allocation behavior still need measurement
+before the integrated data/media path is accepted.
+
+The independent Python peer also verifies every echoed octet and rebinds each
+actual released UDP port. Median aggregate loopback echo throughput (both
+directions counted, 200 datagrams per sample) was 8.43/57.21/342.86 MiB/s native
+and 6.51/27.33/121.98 MiB/s Bun for 256/1200/8192-byte datagrams respectively.
+This includes the peer, retained sockets and byte conversions; it is not a network
+capacity result. This Mac's unchanged `net.inet.udp.maxdgram` is 9216. At 16384
+bytes the peer's default `sendto` rejects `EMSGSIZE`; the Grounds fixture then
+closes on its receive deadline, and the actual port rebinds. The failed first
+measurement and final explicit rejection records are retained.
+
+Reproduce with `bend bench.bend -o <native>` / `-o <bun.js>`, likewise
+`udp_address.bend`, then `python3 measure.py <evidence-dir> <native> <bun.js>
+<native-udp> <bun-udp.js>`. The runner is macOS-specific (`time -l` RSS units),
+records exact commands, source digests, samples, ranges and peak RSS, and uses no
+speed threshold. Evidence is in
+`/Users/ozeron/.codex/artifacts/grounds/2026-10-01/foundations/measurements.json`.
 
 - The TLS server uses OpenSSL 3 at run time, with TLS 1.2 as its minimum, no 0-RTT, and `http/1.1` as its only accepted ALPN offer. After `wire_tls_accept`, the ordinary `wire_recv_timeout` and `wire_send_timeout` effects carry encrypted bytes. Use `wire_close` for both TLS and plain sockets. `BEND_LIBSSL` can name libssl when the default paths do not find it.
 - The TLS client uses `wire_tls_connect(sock, host, ms)`, `wire_tls_send_timeout`, `wire_tls_recv_timeout` and `wire_tls_close`. It verifies the certificate chain and host; `GROUNDS_TLS_CA` adds a PEM trust root.

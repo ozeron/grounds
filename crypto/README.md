@@ -37,3 +37,26 @@ X25519 accepts 32-byte scalars and public coordinates, clamps scalars, masks the
 `field25519.decode` assumes exactly 32 valid bytes; use the validating X25519 calls for external input.
 
 This is correctness evidence for tested inputs, not a proof of constant-time execution or production security. The current compiled CLI has reference-counted constructors (`json/scripts/cold.py` reports hot types), so byte representation and throughput need more work. X25519 in particular needs a generated-code timing audit before handling live secrets. The next gates are that audit, throughput work, nonce management, signatures, and integration with cookie signing before replacing its OpenSSL effect.
+
+Initial static review on 2026-10-01 retained generated C for X25519, AEAD and
+HMAC-SHA1, generated X25519 JavaScript and default Apple Clang 21 `-O3` arm64
+assembly in `/Users/ozeron/.codex/artifacts/grounds/2026-10-01/foundations/`.
+`generated-review.json` pins source/generated digests and exact evidence lines.
+The inspected native field and Poly1305 selection helpers use U32 bit masks;
+their selected value does not choose a branch or array index in those helpers.
+This is support for those operations, not approval of the full runtime or crypto.
+
+An open review finding is X25519 JavaScript's secret-derived Number range:
+`cswap` and field canonicalization produce either zero or 4294967295 masks,
+and canonical subtraction can wrap a negative difference into unsigned U32.
+The source therefore leaves JIT numeric representation/lowering behavior to
+review; no measured timing leak is claimed. The next bounded mitigation to
+evaluate is byte-sized masks and a biased 0–511 subtraction with a 0/1 borrow,
+retaining native/Bun field and RFC X25519 checks and inspecting regenerated code.
+Those changes have not been applied, and would not by themselves prove all Bun
+crypto safe. The inspected native free path recycles cells without a dedicated
+complete payload scrub; clearing a new host RNG buffer does not erase every
+Bend key/field copy. Secret ownership/erasure, full generated control/memory
+dependency review, Bun JIT behavior and generated-runtime ABI/stack review remain
+required before live-secret use. The large local signaling fixture still needs
+its separately documented Apple Clang stack-probe workaround.

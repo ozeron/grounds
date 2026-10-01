@@ -1,5 +1,11 @@
 import Base
 
+# Host RNG bytes, 0..1048576 inclusive. Zero does not call the host RNG.
+# Failure returns no partial bytes; there is no deterministic fallback.
+def wire_random_bytes(count: U32) -> IO(Result<&1, &1, U32 & String, List<&2, U32>>):
+  import "./effs/random.c"
+  import "./effs/random.js"
+
 # grounds-wire: TCP on bytes. Base's TCP.send and TCP.recv decode and
 # encode UTF-8, which breaks byte counts and binary protocols; these move
 # bytes (0..255) as they are, one List cell each. Listening, accepting,

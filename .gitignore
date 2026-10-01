@@ -15,5 +15,6 @@
 .moon/docker
 !/wire/effs/*.c
 !/wire/effs/*.js
+!/wire/random_host_check.c
 !/http/core/effs/*.c
 !/http/core/effs/*.js

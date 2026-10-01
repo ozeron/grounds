@@ -6,13 +6,99 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 
 | Layer | Current state | Next proof of progress |
 |---|---|---|
-| `wire` | Byte TCP and IPv4 UDP effects, explicit local-IP binding and OS bound-address/ephemeral-port discovery; OpenSSL TLS effects. UDP handles all octets, zero datagrams, timeout and oversize errors, with same-port/two-IP isolation and failed-bind descriptor checks. Actual SIGTERM/SIGINT stop parked native/Bun loops and release the listener; Bun uses an OS-only C11 atomic signal bridge because its synchronous runtime cannot dispatch JS signal callbacks. Bend Base already supplies `IO.random_u32` from the host RNG and monotonic `IO.now`. | Build a bulk random-byte helper and efficient byte storage; benchmark UDP throughput. |
+| `wire` | Byte TCP and IPv4 UDP effects, explicit local-IP binding and OS bound-address/ephemeral-port discovery; OpenSSL TLS effects. UDP handles all octets, zero datagrams, timeout and oversize errors, with same-port/two-IP isolation and failed-bind descriptor checks. Actual SIGTERM/SIGINT stop parked native/Bun loops and release the listener; Bun uses an OS-only C11 atomic signal bridge because its synchronous runtime cannot dispatch JS signal callbacks. Bounded bulk host RNG bytes now pass native/Bun guard/error tests and supply signaling credentials. Public-pattern byte/RNG and retained UDP measurements are recorded; Bend Base supplies monotonic `IO.now`. | Verify IPv6/cancellation and packed storage/long-session allocation, retaining measured baselines; complete crypto/runtime review before secure transport. |
 | `crypto` | Bend SHA-1 for WebSocket challenge, HMAC-SHA1 for legacy STUN integrity, SHA-256, HMAC-SHA256, HKDF-SHA-256, ChaCha20, Poly1305, ChaCha20-Poly1305 AEAD and X25519; OpenSSL remains in live cookie/TLS paths. | Audit generated-code timing, improve byte throughput, manage nonces, then cookie integration and signatures. |
 | `tls` | TLS client/server work through OpenSSL C effects; JS TLS returns `ENOSYS`. | Bend TLS 1.3 handshake, records, certificates, and real client/server interop; DTLS 1.2 for RTC. |
 | `http` | Bend HTTP/1.1 client/server, routing, JSON, cookies, auth, CORS, multipart, SSE, and server WebSocket handshake/framing/session. Native echo interops with a third-party Python client and Bun's WebSocket API. A bounded local signaling fixture admits exact Host/Origin and a public synthetic cookie before upgrade/UDP allocation; native and Bun exchange SDP with real Chrome and clean up connection-owned ICE state/sockets. | Replace the fixture selector with Bend cookie/HMAC authentication and integrate Bend TLS for browser HTTPS/WSS. |
 | `rtc` | Bend STUN parsing, IPv4 XOR-MAPPED-ADDRESS, SHA-1/SHA-256/dual integrity, FINGERPRINT, authenticated incoming/outgoing ICE Binding exchanges, retained-socket retransmissions and explicit error/integrity outcomes. IPv4 candidate/pair priorities, bounded checklist formation, stable transport references and guarded state transitions, role-driven priority reordering, a paced shared-socket transaction engine with response-only interruption, protected incoming replies and server-side role decisions, FIFO triggered queues, ordinary round-robin/foundation scheduling and generation/sent-role attempt ownership. A bounded session now binds signaled credentials, registered receiving/sending bases, observed peer-reflexive candidates, deferred incoming work, retained attempts and endpoint integrity policies. Authenticated non-symmetric responses fail only their original current pair; interrupted old listeners retire independently. The live owner fixture explicitly binds unicast IPv4 bases and queries actual local ports before candidate formation. An additive valid-list owner resolves authenticated mappings, learns locally peer-reflexive candidates from retained signed-request priority, allocates IP-keyed foundations, reranks by role and keeps late paths separate from replacement flights. A nomination-evidence owner associates current successful checks with their valid paths and retains qualified incoming intent through materialization, exact triggered flights and response-only listeners; already-Succeeded counterparts resolve their actual generating record. A generation lifecycle owner now applies regular controlling/controlled nomination, selects completed stream paths, removes nominated component checks while retaining response listeners, continues authenticated Binding service, and defers failure through PAC. An outer transport owner derives selected physical consent routes, serves authenticated consent-only Binding requests, shares actual-send pacing and recent transaction identity admission, gates logical application routes, and preserves sealed consent loss. Full/full credential restart rebuilds ICE state while retaining only selected old consent/server contexts until replacement selection. Bounded SDP/signaling now binds connection-owned credentials and the actual retained UDP base; real Chrome verifies direct selected pairs, fresh consent, restart and cleanup on native and Bun. Separate unauthenticated discovery remains available. | Complete crypto/runtime foundations and secure signaling, then gathering, IPv6/TURN, DTLS/SCTP and SRTP/media. |
 
 ## Evidence ledger
+
+- 2026-10-01: Added `wire_random_bytes` for 0–1048576
+  host RNG bytes, retaining the byte-list OS boundary. Darwin uses
+  `arc4random_buf`; Linux uses nonblocking `getrandom`, short-read completion and
+  bounded consecutive-EINTR retries; Bun chunks WebCrypto at 65536 bytes. Zero
+  avoids the RNG, oversized requests fail before allocation, and failure never
+  returns partial output or weaker random fallback. Temporary OS buffers are
+  cleared on success/failure; returned Bend/runtime copies are not thereby erased.
+  Native/Bun each pass 20 real size/boundary cases. Nine controlled native OS
+  completion cases cover short reads, interruption exhaustion, zero/invalid reads
+  and errors; the Linux syscall itself is simulated on this Darwin host. Twelve
+  Bun effect cases verify guards, chunk sizes/order, failure rejection and buffer
+  cleanup. The signaling fixture now obtains its 64-bit fragment, 128-bit password
+  and 64-bit tie-breaker in one 32-byte request, with byte-to-word conversion in
+  Bend. Native and Bun each pass all 28 focused signaling scenarios. Fresh
+  `PYTHONDONTWRITEBYTECODE=1 moon run rtc:check --force` passes in 24m 27s 729ms
+  (overall 24m 27s 771ms), full hash
+  `5220562c214c9bff620317bec0515fef7f9ef354a0802f2dc931df634dcb12d4`.
+  Exit-zero execution/skipped hydration metadata, full hash/report and fresh raw
+  browser directories `forced-browser-native/` / `forced-browser-bun/` are saved.
+  Both Chrome 154.0.8037.92 runs verify actual selected pairs, fresh signed consent
+  in both generations, credential restart and independent packet authentication;
+  browser and server processes exit zero without forced termination. All prior
+  RTC regressions pass on both targets. All 12 changed check-input SHA digests
+  remain unchanged and are covered by the fresh wire/RTC hash union; configuration
+  digests also remain unchanged. Integrated consent expiry measures 30.072s
+  native / 30.084s Bun. `PYTHONDONTWRITEBYTECODE=1 moon run :check` passes all
+  13 tasks in 1m 47s 777ms: 12 cached, JSON fresh with 706 independent integration
+  cases passed. Cached Redis optional live 6379/password-AUTH 6380 checks were
+  not rerun; their recorded result skips unavailable local services. Repository
+  log, full run report and per-task fresh/cache evidence are saved.
+  `bench.bend`/`measure.py` record 102 RNG/storage samples (three per workload)
+  and 24 real UDP samples/rejections. Eighteen independent public-pattern cases
+  and four argument rejections pass on both targets before timings are trusted.
+  For 1 MiB generation plus count/range/checksum traversal, median bulk RNG is
+  3 ms native (3–4) / 58 ms Bun (58–59), versus word-at-a-time 1212 ms native
+  (1198–1214) / 348 ms Bun (345–359). Eight 1 MiB public pattern construction/
+  scan rounds take 15/779 ms native/Bun for `List<U32>`, 15/765 ms for dedicated
+  byte constructors, and 72/1595 ms for arrays plus list serialization. Retain
+  lists at the sequential OS boundary from these measured workloads; this does
+  not compare indexed access or replace crypto limb arrays. All measurements
+  include their validators. Whole-process Bun peak RSS is about 815/830/592 MiB
+  for these list/dedicated/array workloads, including runtime and temporary
+  allocations; packed storage and long-session allocation remain open.
+  Median aggregate retained-socket UDP echo throughput at 256/1200/8192 bytes
+  is 8.43/57.21/342.86 MiB/s native and 6.51/27.33/121.98 MiB/s Bun. The peer
+  independently checks every octet and actual port rebinding. This includes peer,
+  OS and byte conversions and does not establish network capacity. This Mac's
+  unchanged UDP maxdgram is 9216: 16384-byte peer sends fail EMSGSIZE, the
+  Grounds receive deadline closes its socket, and its actual port rebinds.
+  The first measurement failure is retained alongside explicit final rejection
+  records. No machine network settings were changed.
+  The first native RNG build failed because Bend copies effect C into a temporary
+  translation unit and a relative helper include was unresolved. The final OS
+  helper is self-contained and native/Bun builds pass. The first forced wire gate
+  passed but cache review found the new C test excluded by the root `*.c` ignore;
+  a specific source exception fixes tracking. The repeated
+  `PYTHONDONTWRITEBYTECODE=1 moon run wire:check --force` passes fresh in 22s 099ms
+  overall, full hash
+  `e295775e559eb2d709044157a54ac2f632485aa7a62a33b71e5ea1fa816c07c9`.
+  Exit-zero task execution and skipped cache hydration are saved; all 11 wire
+  frozen check inputs, including the C and JS host tests, are included. A twelfth
+  digest freezes the signaling integration. No forced gate was interrupted.
+  Versions: Bend 2.0.27, Bun 1.3.13, Python 3.12.8, moon 2.5.5, Apple Clang
+  21.0.0, macOS 26.2 arm64. Artifacts:
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-01/foundations/`, including
+  builds, focused checks, exact benchmark commands/samples/source digests,
+  `measurements.json`, `source-sha256.json`, configuration digests, versions,
+  first-build/measurement/cache-input diagnostics and final forced-wire reports.
+  Initial static crypto review retains generated X25519/AEAD/HMAC-SHA1 C,
+  X25519 JavaScript and default Clang -O3 arm64 assembly. `generated-review.json`
+  pins all crypto source/generated digests and evidence lines. Inspected native
+  selection helpers use bit masks without mask-dependent branch/index, but that
+  does not approve the full runtime. X25519 JS produces secret-derived zero/
+  4294967295 masks and wrapped canonical subtraction; JIT numeric representation
+  and lowering are unverified, with no measured timing leak claimed. The inspected
+  native allocator free path has no dedicated complete payload scrub; clearing
+  host RNG buffers does not erase all Bend key/field copies. These findings remain
+  open and package docs name them. Next: evaluate byte-sized masks and biased 0..511
+  canonical subtraction with 0/1 borrow, rerun native/Bun field/X25519 checks and
+  inspect regenerated code. Continue full control/memory/JIT, ABI/stack and key
+  ownership/erasure review before Bend TLS/DTLS or live-secret use.
+  RNG sampling and public-pattern timings prove neither entropy quality nor
+  constant-time operation. IPv6, cancellation coverage, packed storage, nonce/key
+  lifecycle, signatures, secure signaling, DTLS/data/TURN/media and all 19 full
+  stack acceptance boxes remain open.
 
 - 2026-10-01: Added bounded single-application SDP
   decoding, connection-owned signaling revisions/credential restart, exact

@@ -9,6 +9,9 @@ increase by one, replace both remote ICE credentials, preserve MID/SCTP port and
 the peer fingerprint, and supply fresh local host-generated credentials. The
 answer's successful socket write starts local-signaled PAC timing. Reconnects
 create independent owners. A rejected message closes its connection.
+Fresh offers now obtain 32 bytes through `wire_random_bytes` in one bounded OS
+request. Bend converts them into the 64-bit local fragment, 128-bit password and
+64-bit tie-breaker; entropy failure rejects the offer and closes the connection.
 
 `sdp.decode` accepts one `application UDP/DTLS/SCTP webrtc-datachannel` section,
 session-level credential/fingerprint/setup defaults with media overrides, one

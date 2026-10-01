@@ -8,4 +8,6 @@ tasks:
       - "check.sh"
       - "*.bend"
       - "*.py"
+      - "*.c"
+      - "*.mjs"
       - "effs/*"

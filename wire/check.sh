@@ -4,6 +4,21 @@ set -eu
 cd "$(dirname "$0")"
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
+bend random.bend -o "$tmp/random" > /dev/null
+python3 random_check.py "$tmp/random"
+"${CC:-cc}" -std=c11 -O2 -Wall -Wextra -Werror random_host_check.c -o "$tmp/random_host_check"
+"$tmp/random_host_check"
+bend bench.bend -o "$tmp/bench" > /dev/null
+python3 bench_check.py "$tmp/bench"
+if command -v bun > /dev/null 2>&1; then
+  bend random.bend -o "$tmp/random.js" > /dev/null
+  python3 random_check.py bun "$tmp/random.js"
+  bun random_host_check.mjs
+  bend bench.bend -o "$tmp/bench.js" > /dev/null
+  python3 bench_check.py bun "$tmp/bench.js"
+else
+  echo "bulk RNG JS target: Bun unavailable; skipped"
+fi
 bend loopback.bend -o "$tmp/loopback" > /dev/null
 "$tmp/loopback"
 bend timeout.bend -o "$tmp/timeout" > /dev/null

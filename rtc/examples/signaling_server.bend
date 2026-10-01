@@ -169,17 +169,19 @@ def changed(change: Signal.Change, ws: Socket, udp: Socket, driver: Driver) -> I
         x : Unit <- IO.print("signaling-rejected:" ++ reason)
         send_ws(8, Conn.code_bytes(1008), ws, udp, stop(d))
 
-def words(value: Result<&1, &1, U32 & String, U32>, acc: List<&2, U32>,
-          again: List<&2, U32> -> IO(Result<&1, &2, U32 & String, List<&2, U32>>)) -> IO(Result<&1, &2, U32 & String, List<&2, U32>>):
-  match value:
-    case Done{n}: again(Con{n, acc})
-    case Fail{e}: IO.pure(Result<&1, &2, U32 & String, List<&2, U32>>, Fail{e})
+# One bounded OS request supplies the 64-bit local fragment, 128-bit password
+# and 64-bit tie-breaker. Byte-to-word conversion stays in Bend.
+def entropy(fuel: Nat, bytes: List<&2, U32>, acc: List<&2, U32>) -> Result<&1, &2, U32 & String, List<&2, U32>>:
+  match fuel bytes:
+    case 0n Nil{}: Done{List.reverse(&2, U32, acc)}
+    case 1n+p Con{a, Con{b, Con{c, Con{d, tail}}}}:
+      entropy(p, tail, Con{U32.or(U32.or(U32.shln(a, 24n), U32.shln(b, 16n)), U32.or(U32.shln(c, 8n), d)), acc})
+    case _ _: Fail{(5, "host entropy returned wrong byte count")}
 
-def random(fuel: Nat, acc: List<&2, U32>) -> IO(Result<&1, &2, U32 & String, List<&2, U32>>):
-  match fuel:
-    case 0n: IO.pure(Result<&1, &2, U32 & String, List<&2, U32>>, Done{acc})
-    case 1n+p:
-      IO.bind(Result<&1, &1, U32 & String, U32>, Result<&1, &2, U32 & String, List<&2, U32>>, IO.random_u32(), r => words(r, acc, a => random(p, a)))
+def random(value: Result<&1, &1, U32 & String, List<&2, U32>>) -> IO(Result<&1, &2, U32 & String, List<&2, U32>>):
+  match value:
+    case Done{bytes}: IO.pure(Result<&1, &2, U32 & String, List<&2, U32>>, entropy(8n, bytes, []))
+    case Fail{e}: IO.pure(Result<&1, &2, U32 & String, List<&2, U32>>, Fail{e})
 
 def random_offer(value: Result<&1, &2, U32 & String, List<&2, U32>>, command: Signal.Command,
                  ws: Socket, udp: Socket, +driver: Driver) -> IO(Reply()):
@@ -197,7 +199,9 @@ def command(value: Signal.Command, ws: Socket, udp: Socket, driver: Driver) -> I
   match value:
     case Signal.Bad{reason}: changed(Signal.Rejected{Signal.Ended{}, reason}, ws, udp, driver)
     case cmd:
-      IO.bind(Result<&1, &2, U32 & String, List<&2, U32>>, Reply(), random(8n, []), r => random_offer(r, cmd, ws, udp, driver))
+      IO.bind(Result<&1, &2, U32 & String, List<&2, U32>>, Reply(),
+        IO.bind(Result<&1, &1, U32 & String, List<&2, U32>>, Result<&1, &2, U32 & String, List<&2, U32>>,
+          W.wire_random_bytes(32), random), r => random_offer(r, cmd, ws, udp, driver))
 
 def data.valid(ok: Bool, payload: Bytes.Bytes, ws: Socket, udp: Socket, driver: Driver) -> IO(Reply()):
   match ok:
