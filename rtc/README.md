@@ -383,14 +383,51 @@ supply the two bind IPs. The second IP is chosen from bindable local addresses b
 the independent Python peer helper, without changing interfaces. This is still a
 fixture, not production candidate gathering, relay transport or signaling.
 
-The next integration adds valid pairs and nomination, including preserving sent
-PRIORITY and nomination intent through the triggered check. Dynamic pair-cap pruning,
+`ice_valid.bend` adds a pure owner around the existing session, preserving the
+original `Session.State`, `A.Record` and low-level interfaces. Use
+`from_session(Session.create(...), limit)` for a new generation, then its `bind`,
+`start`, `receive`, `tick`, `repair`, `current_send`, `acknowledge` and lifecycle
+operations. `Step{state, events, valid}` keeps the original session directives
+and separate valid-list notices. The UDP fixture now executes this owner.
+
+Before a response removes its transaction, `attempt(session, record)` reads the
+actual PRIORITY and USE-CANDIDATE flag from the original signed bytes retained
+by `Tx`, including response-only listeners. Record/token/generation/reference/
+sent-role/transaction matching guards this metadata. A symmetric authenticated
+success resolves the mapped local address against known candidates and omitted
+bases; known candidates retain their advertised metadata. A new mapping learns
+one local peer-reflexive candidate with the actual request priority and original
+sending base, without generating candidate cross-products. Locally learned UDP
+peer-reflexive foundations share the base IP and peer/server IP, ignoring ports,
+components and streams, and avoid existing local foundation names. These rules
+follow [RFC 8445 sections 5.1.1.3 and 7.2.5.3](https://www.rfc-editor.org/rfc/rfc8445.html#section-7.2.5.3).
+
+Valid paths retain stream/component, mapped candidate, its base, remote candidate,
+two-word rank and original attempt. They are separate from checklist transport
+references, partitioned by stream and sorted by the current role's candidate
+priorities. A role change reranks paths without replacing metadata. Duplicate
+outcomes retain the existing path; a full list still accepts duplicates. Late
+successes can add mapped paths while leaving the replacement flight and checklist
+state unchanged. Untrusted, non-symmetric, wrong-transaction, expired and error
+responses cannot learn a path. Every new path has `nominated=False`.
+
+The configurable limit is 1–256 paths and independently 1–256 learned local
+candidates. Failed admission commits neither a candidate nor a foundation.
+`Exhausted` and `InvalidMapping` are explicit notices: a current attempt faults
+the owner and suppresses further starts/sends, so the IO owner must close its
+sockets; the UDP fixture does so. An old listener's rejected mapping instead
+preserves its active replacement and reports the rejection without faulting it.
+This is bounded IPv4 valid-list integration, not a complete ICE agent.
+
+The next integration updates any distinct checklist pair represented by a valid
+path, then adds regular controlling USE-CANDIDATE checks, retained controlled-side
+nomination intent and nominated/terminal state transitions. Dynamic pair-cap pruning,
 deferred-item expiry, consent/restart, PAC terminal-state handling, candidate
 gathering, real-browser ICE, IPv6/TURN, Bend TLS/DTLS, SCTP/data channels and media
 remain open. Generated-code timing safety is unproven; checks use synthetic
 credentials. The session foundation does not satisfy full ICE or WebRTC acceptance.
 Formation and initial state rules follow [RFC 8445 sections 5.1.2 and 6.1.2](https://www.rfc-editor.org/rfc/rfc8445.html#section-6.1.2).
-The [2026-09-30 errata search](https://errata.rfc-editor.org/search/?rfc_number=8445&presentation=records) lists only reported editorial erratum 7526 about a
+The [2026-10-01 errata search](https://errata.rfc-editor.org/search/?rfc_number=8445&presentation=records) lists only reported editorial erratum 7526 about a
 broken reference link, with no verified protocol correction. The later agent
 must also implement the PAC timer from [RFC 8863 section 4](https://www.rfc-editor.org/rfc/rfc8863.html#section-4)
 before declaring checklist/session failure; individual failed checks do not
@@ -485,3 +522,14 @@ fixture path still passes. Failed second bind and invalid session construction
 also release opened ports.
 Raw notices expose the actual receiving base and peer source. These tests verify
 this session/transaction slice, not nominated paths or browser data/media.
+
+The valid-list fixture adds 55 independent signed mapping/priority/foundation/
+bigint/role/late/capacity/rejection cases per target. It compares actual request
+PRIORITY and every resulting path/rank with Python, including known reflexive
+candidates, omitted host bases, shared/different IP foundation keys, collisions,
+role changes, duplicate full-list outcomes, invalid late mappings and replacement
+isolation. Five additional independent live UDP cases per target use the same
+explicit-address owner: synthetic mapped addresses after loss/retry, pre-answer
+triggered learning, distinct old/replacement mappings, wrong receiving-IP rejection,
+authenticated errors and both-port rebinding. These mappings are synthetic peer
+claims, not proof of a physical NAT or a nominated/browser data path.

@@ -17,6 +17,7 @@ bend ice_scheduler.bend --check-only
 bend ice_attempts.bend --check-only
 bend ice_registry.bend --check-only
 bend ice_session.bend --check-only
+bend ice_valid.bend --check-only
 bend examples/auth.bend -o "$tmp/auth" > /dev/null
 python3 examples/auth_check.py "$tmp/auth"
 bend examples/ice_build.bend -o "$tmp/ice_build" > /dev/null
@@ -35,8 +36,11 @@ bend examples/ice_scheduler.bend -o "$tmp/ice_scheduler" > /dev/null
 python3 examples/ice_scheduler_check.py "$tmp/ice_scheduler"
 bend examples/ice_session.bend -o "$tmp/ice_session" > /dev/null
 python3 examples/ice_session_check.py "$tmp/ice_session"
+bend examples/ice_valid.bend -o "$tmp/ice_valid" > /dev/null
+python3 examples/ice_valid_check.py "$tmp/ice_valid"
 bend examples/ice_session_udp.bend -o "$tmp/ice_session_udp" > /dev/null
 python3 examples/ice_session_udp_check.py "$tmp/ice_session_udp"
+python3 examples/ice_valid_udp_check.py "$tmp/ice_session_udp"
 bend examples/ice_clock.bend -o "$tmp/ice_clock" > /dev/null
 python3 examples/ice_clock_check.py "$tmp/ice_clock"
 bend examples/ice_shared.bend -o "$tmp/ice_shared" > /dev/null
@@ -75,8 +79,11 @@ if command -v bun > /dev/null 2>&1; then
   python3 examples/ice_scheduler_check.py bun "$tmp/ice_scheduler.js"
   bend examples/ice_session.bend -o "$tmp/ice_session.js" > /dev/null
   python3 examples/ice_session_check.py bun "$tmp/ice_session.js"
+  bend examples/ice_valid.bend -o "$tmp/ice_valid.js" > /dev/null
+  python3 examples/ice_valid_check.py bun "$tmp/ice_valid.js"
   bend examples/ice_session_udp.bend -o "$tmp/ice_session_udp.js" > /dev/null
   python3 examples/ice_session_udp_check.py bun "$tmp/ice_session_udp.js"
+  python3 examples/ice_valid_udp_check.py bun "$tmp/ice_session_udp.js"
   bend examples/ice_clock.bend -o "$tmp/ice_clock.js" > /dev/null
   python3 examples/ice_clock_check.py bun "$tmp/ice_clock.js"
   bend examples/ice_shared.bend -o "$tmp/ice_shared.js" > /dev/null

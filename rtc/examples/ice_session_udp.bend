@@ -1,6 +1,7 @@
 import Base
 import ../ice_scheduler.bend as S
 import ../ice_session.bend as Session
+import ../ice_valid.bend as V
 import ../ice_attempts.bend as A
 import ../ice_binding.bend as Ice
 import ../ice_incoming.bend as Incoming
@@ -15,10 +16,11 @@ import ../stun_auth.bend as Auth
 import ../stun_retry.bend as Retry
 import ../stun_client.bend as Discovery
 import ./ice_session_output.bend as Output
+import ./ice_valid_output.bend as ValidOutput
 import ../../wire/wire.bend as W
 
 type Driver is Data:
-  Driver{state: Session.State, first: Stun.IPv4, second: Stun.IPv4, bind_at: Nat, end: Nat, bound: Bool, next: Bool}
+  Driver{state: V.State, first: Stun.IPv4, second: Stun.IPv4, bind_at: Nat, end: Nat, bound: Bool, next: Bool}
 
 def Reply() -> Type:
   Socket & Socket & Driver
@@ -55,11 +57,12 @@ def position(first: Bool, socket: Socket, other: Socket, driver: Driver) -> Repl
     case True{}: (socket, (other, driver))
     case False{}: (other, (socket, driver))
 
-def updated(step: Session.Step, driver: Driver) -> IO(Driver):
+def updated(step: V.Step, driver: Driver) -> IO(Driver):
   match step driver:
-    case Session.Step{state, events} Driver{_, first, second, bind_at, end, bound, next}:
+    case V.Step{state, events, valid} Driver{_, first, second, bind_at, end, bound, next}:
       do IO<Driver>:
         x : Unit <- Output.events(events)
+        y : Unit <- ValidOutput.notices(valid)
         IO.pure(Driver, Driver{state, first, second, bind_at, end, bound, next})
 
 def sent_result(result: Result<&1, &1, U32 & String, Unit>, socket: Socket, other: Socket, first: Bool,
@@ -68,7 +71,7 @@ def sent_result(result: Result<&1, &1, U32 & String, Unit>, socket: Socket, othe
     case Done{_} Driver{+state, +base, +second, +bind_at, +end, +bound, +next}:
       do IO<Reply()>:
         now : Nat <- IO.now()
-        changed : Driver <- updated(Session.acknowledge(state, notice, now), Driver{state, base, second, bind_at, end, bound, next})
+        changed : Driver <- updated(V.acknowledge(state, notice, now), Driver{state, base, second, bind_at, end, bound, next})
         IO.pure(Reply(), position(first, socket, other, changed))
     case Fail{_} _: fatal(socket, other, "UDP session send failed")
 
@@ -99,7 +102,7 @@ def current_send(ok: Bool, a: Socket, b: Socket, driver: Driver, reference: Pair
     case False{}: IO.pure(Reply(), (a, (b, driver)))
     case True{}: send(a, b, driver, reference, bytes, notice)
 
-def repaired(value: Maybe<&2, Session.Step>, a: Socket, b: Socket, driver: Driver,
+def repaired(value: Maybe<&2, V.Step>, a: Socket, b: Socket, driver: Driver,
              again: Socket -> Socket -> Driver -> IO(Reply())) -> IO(Reply()):
   match value:
     case None{}: again(a, b, driver)
@@ -112,7 +115,7 @@ def repair_random(value: Entropy(), a: Socket, b: Socket, driver: Driver, token:
                   again: Socket -> Socket -> Driver -> IO(Reply())) -> IO(Reply()):
   match value driver:
     case Done{(high, (low, _))} Driver{+state, +first, +second, +bind_at, +end, +bound, +next}:
-      repaired(Session.repair(state, token, gen, high, low), a, b, Driver{state, first, second, bind_at, end, bound, next}, again)
+      repaired(V.repair(state, token, gen, high, low), a, b, Driver{state, first, second, bind_at, end, bound, next}, again)
     case Fail{_} _: fatal(a, b, "host RNG failed")
 
 def repair_go(fuel: Nat, a: Socket, b: Socket, driver: Driver, +token: U32, +gen: U32) -> IO(Reply()):
@@ -125,7 +128,7 @@ def event(+notice: Session.Notice, a: Socket, b: Socket, driver: Driver) -> IO(R
   match notice driver:
     case Session.Attempt{A.Transaction{Some{A.Record{S.Flight{_, +ref, _}, _, _, _}}, Tx.Send{_, _, _, bytes, _}}}
          Driver{+state, +first, +second, +bind_at, +end, +bound, +next}:
-      current_send(Session.current_send(state, notice), a, b, Driver{state, first, second, bind_at, end, bound, next}, ref, bytes, notice)
+      current_send(V.current_send(state, notice), a, b, Driver{state, first, second, bind_at, end, bound, next}, ref, bytes, notice)
     case Session.Reply{ref, bytes, _} d: send(a, b, d, ref, bytes, notice)
     case Session.Attempt{A.Transaction{Some{A.Record{S.Flight{_, _, _}, gen, _, _}}, Tx.Finished{token, Reliable.Received{Response.Error{487}, _}}}} d:
       repair_go(16n, a, b, d, token, gen)
@@ -153,17 +156,25 @@ def execute(fuel: Nat, a: Socket, b: Socket, driver: Driver, values: List<&2, Se
         x : Unit <- show_event(head)
         IO.bind(Reply(), Reply(), event(head, a, b, driver), r => continued(r, tail, sa => sb => d => rest => execute(p, sa, sb, d, rest)))
 
-def execute_step(step: Session.Step, a: Socket, b: Socket, driver: Driver) -> IO(Reply()):
+def execute_valid(state: V.State, +values: List<&2, Session.Notice>, a: Socket, b: Socket, driver: Driver) -> IO(Reply()):
+  match state:
+    case V.State{_, _, _, _, _, True{}}: fatal(a, b, "valid-list owner failed")
+    case _:
+      execute(Nat.add(List.length(&2, Session.Notice, values), 1n), a, b, driver, values)
+
+def execute_step(step: V.Step, a: Socket, b: Socket, driver: Driver) -> IO(Reply()):
   match step driver:
-    case Session.Step{state, +values} Driver{_, first, second, bind_at, end, bound, next}:
-      execute(Nat.add(List.length(&2, Session.Notice, values), 1n), a, b, Driver{state, first, second, bind_at, end, bound, next}, values)
+    case V.Step{+state, values, valid} Driver{_, first, second, bind_at, end, bound, next}:
+      do IO<Reply()>:
+        x : Unit <- ValidOutput.notices(valid)
+        execute_valid(state, values, a, b, Driver{state, first, second, bind_at, end, bound, next})
 
 def received_source(source: Maybe<&2, Stun.IPv4>, +base: Stun.IPv4, raw: List<&2, U32>, a: Socket, b: Socket, driver: Driver) -> IO(Reply()):
   match source driver:
     case Some{peer} Driver{+state, +first, +second, +bind_at, +end, +bound, +next}:
       do IO<Reply()>:
         now : Nat <- IO.now()
-        execute_step(Session.receive(state, Pairs.Ref{1, 1, base, peer}, raw, now), a, b, Driver{state, first, second, bind_at, end, bound, next})
+        execute_step(V.receive(state, Pairs.Ref{1, 1, base, peer}, raw, now), a, b, Driver{state, first, second, bind_at, end, bound, next})
     case None{} d: IO.pure(Reply(), (a, (b, d)))
 
 def receive_failed(oversize: Bool, first: Bool, socket: Socket, other: Socket, driver: Driver) -> IO(Reply()):
@@ -195,7 +206,7 @@ def poll(a: Socket, b: Socket, driver: Driver) -> IO(Reply()):
 def start_random(entropy: Entropy(), a: Socket, b: Socket, driver: Driver, now: Nat) -> IO(Reply()):
   match entropy driver:
     case Done{(x, (y, z))} Driver{+state, +first, +second, +bind_at, +end, +bound, +next}:
-      execute_step(Session.start(state, Discovery.transaction(x, y, z), Retry.Policy{500, 3, 1}, now), a, b,
+      execute_step(V.start(state, Discovery.transaction(x, y, z), Retry.Policy{500, 3, 1}, now), a, b,
         Driver{state, first, second, bind_at, end, bound, next})
     case Fail{_} _: fatal(a, b, "host RNG failed")
 
@@ -205,7 +216,7 @@ def begin(reply: Reply()) -> IO(Reply()):
     now : Nat <- IO.now()
     IO.bind(Entropy(), Reply(), random(), entropy => start_random(entropy, a, b, driver, now))
 
-def bound(value: Maybe<&2, Session.Step>, a: Socket, b: Socket, driver: Driver) -> IO(Reply()):
+def bound(value: Maybe<&2, V.Step>, a: Socket, b: Socket, driver: Driver) -> IO(Reply()):
   match value driver:
     case None{} _: fatal(a, b, "session credential binding failed")
     case Some{s} Driver{state, first, second, bind_at, end, _, next}:
@@ -215,7 +226,7 @@ def binding(due: Bool, a: Socket, b: Socket, driver: Driver) -> IO(Reply()):
   match due driver:
     case False{} d: IO.pure(Reply(), (a, (b, d)))
     case True{} Driver{+state, +first, +second, +bind_at, +end, +was_bound, +next}:
-      bound(Session.bind(state, Ice.Credentials{"localFrag", "remoteFrag", "SyntheticPassword123456789"}), a, b,
+      bound(V.bind(state, Ice.Credentials{"localFrag", "remoteFrag", "SyntheticPassword123456789"}), a, b,
         Driver{state, first, second, bind_at, end, was_bound, next})
 
 def prepare(a: Socket, b: Socket, driver: Driver, +now: Nat) -> IO(Reply()):
@@ -238,11 +249,11 @@ def resumed(reply: Reply(), again: Socket -> Socket -> Driver -> IO(Unit)) -> IO
   (a, (b, driver)) = reply
   again(a, b, driver)
 
-def done(a: Socket, b: Socket, state: Session.State) -> IO(Unit):
+def done(a: Socket, b: Socket, state: V.State) -> IO(Unit):
   do IO<Unit>:
     x : Unit <- Socket.close(a)
     y : Unit <- Socket.close(b)
-    final : Session.State <- Output.snapshot(state)
+    final : V.State <- ValidOutput.snapshot(state)
     z : Unit <- IO.print("done")
     IO.pure(Unit, Unit{})
 
@@ -252,7 +263,7 @@ def timed(expired: Bool, a: Socket, b: Socket, driver: Driver, now: Nat,
     case True{} Driver{state, _, _, _, _, _, _}: done(a, b, state)
     case False{} Driver{+state, +first, +second, +bind_at, +end, +was_bound, +next}:
       IO.bind(Reply(), Unit, IO.bind(Reply(), Reply(), IO.bind(Reply(), Reply(),
-        execute_step(Session.tick(state, now), a, b, Driver{state, first, second, bind_at, end, was_bound, next}), r => after_tick(r)), r => after_start(r)),
+        execute_step(V.tick(state, now), a, b, Driver{state, first, second, bind_at, end, was_bound, next}), r => after_tick(r)), r => after_start(r)),
         r => resumed(r, again))
 
 def at_now(+now: Nat, a: Socket, b: Socket, driver: Driver, again: Socket -> Socket -> Driver -> IO(Unit)) -> IO(Unit):
@@ -286,12 +297,12 @@ def first_error(a: Socket, message: String) -> IO(Unit):
     x : Unit <- Socket.close(a)
     IO.die(Unit, 3, message)
 
-def initialized_now(+now: Nat, a: Socket, b: Socket, state: Session.State, first: Stun.IPv4, second: Stun.IPv4,
+def initialized_now(+now: Nat, a: Socket, b: Socket, state: V.State, first: Stun.IPv4, second: Stun.IPv4,
                     delay: U32, duration: U32) -> IO(Unit):
   loop(65536n, a, b, Driver{state, first, second,
     Nat.add(now, U32.to_nat(delay)), Nat.add(now, U32.to_nat(duration)), False{}, True{}})
 
-def initialized(value: Maybe<&2, Session.State>, a: Socket, b: Socket, +first: Stun.IPv4, +second: Stun.IPv4,
+def initialized(value: Maybe<&2, V.State>, a: Socket, b: Socket, +first: Stun.IPv4, +second: Stun.IPv4,
                 delay: U32, duration: U32) -> IO(Unit):
   match value:
     case None{}: initial_error(a, b, "bad session input")
@@ -307,10 +318,10 @@ def second_address(value: Maybe<&2, Stun.IPv4>, a: Socket, b: Socket, +first: St
   match value:
     case None{}: initial_error(a, b, "bad second bound address")
     case Some{+second}:
-      initialized(Session.create([Check.Stream{1, [C.Local{candidate(first, 2130706431, "a"), candidate(first, 2130706431, "a")},
+      initialized(V.from_session(Session.create([Check.Stream{1, [C.Local{candidate(first, 2130706431, "a"), candidate(first, 2130706431, "a")},
         C.Local{candidate(second, 2130706175, "b"), candidate(second, 2130706175, "b")}],
         Bool.pick(List<&2, C.Candidate>, U32.is_eq(known, 0), [], [candidate(Stun.IPv4{127, 0, 0, 1, peer}, 2100000000, "remote")])}],
-        Ice.Controlling{0, 1}, Incoming.Secret{"localFrag", "LocalFixturePassword123456"}, Auth.Dual{}, 100, capacity, 7), a, b, first, second, delay, duration)
+        Ice.Controlling{0, 1}, Incoming.Secret{"localFrag", "LocalFixturePassword123456"}, Auth.Dual{}, 100, capacity, 7), 100), a, b, first, second, delay, duration)
 
 def second_name_result(result: Result<&1, &1, U32 & String, String & U32>, a: Socket, b: Socket, first: Stun.IPv4,
                        peer: U32, delay: U32, duration: U32, known: U32, capacity: U32) -> IO(Unit):
