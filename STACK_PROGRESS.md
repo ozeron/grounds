@@ -14,6 +14,31 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 
 ## Evidence ledger
 
+- 2026-10-01 (repository gate after SDP milestone 4777d4a): A fresh sequential
+  guarded `moon --concurrency 1 run :check` still stops in JSON's mandatory
+  constructor audit, with terminal exit 137 after 1.683s and a sampled peak of
+  648.61 MiB aggregate / 534.94 MiB individual (640/512 MiB cutoffs).
+  `repository-sdp.log` and
+  `repository-sdp-resource.json` in the recovery artifact directory below record
+  the cutoff; cached task output is not new package acceptance. JSON experiments
+  grouping all 303 transitions per formatter by mode also crossed the unchanged
+  512 MiB standalone cutoff. Stderr-only diagnostics locate the nested candidate
+  in `fast.gc` type checking, and the helper-based candidate in numeric-helper
+  type checking; grouping alone does not solve the workload. Neither candidate
+  passed constructor/proof/conformance gates and neither was adopted.
+  Original `gen_fast.py`, `fast.bend`, `proof/fast_run.bend` and `PROOF.bend`
+  are byte-identical before and after the repository attempt, verified in
+  `json-experiment-restoration.json` and `json-post-repository-restoration.json`.
+  The unaccepted nested source/generator are saved as `json-unaccepted-fuel-mode-*`
+  outside the repository, with `json-*-resource.json` and trace logs. The final
+  diagnostic compiler diff/provenance is `trace-compiler-final-provenance.json`;
+  it only adds stderr tracing to the owned pinned source copy. No jobs remain.
+  Next: separate signaling's format/entropy helpers from imported test CLIs,
+  preserving the owner and all current native/Bun/browser tests. For JSON,
+  reduce duplicated numeric/whitespace transition work rather than retrying
+  grouping; retain cold-type, proof and full conformance gates. The full goal
+  remains active with every acceptance box still open.
+
 - 2026-10-01 (SDP compiler workload recovery): Exact consuming text comparisons
   replace nested string-literal patterns in fingerprint/media/candidate parsing;
   line-field dispatch is separate from document-stage admission. Required tokens,
