@@ -33,6 +33,7 @@ class Memory:
     def __init__(self):
         self.metric = "aggregate-rss"
         self.lib = None
+        self.sizes = {}
         if sys.platform == "darwin":
             self.lib = ctypes.CDLL("/usr/lib/libproc.dylib", use_errno=True)
             self.lib.proc_pid_rusage.argtypes = [
@@ -64,7 +65,8 @@ class Memory:
     def group(self, pgid):
         if self.lib is None:
             rows = [r for r in processes() if r[1] == pgid and "Z" not in r[3]]
-            return sum(self.read(r[0], r[2]) for r in rows), [r[0] for r in rows]
+            self.sizes = {r[0]: self.read(r[0], r[2]) for r in rows}
+            return sum(self.sizes.values()), [r[0] for r in rows]
         # Avoid spawning ps on every macOS sample: it delays detection during
         # rapid allocation. PROC_PGRP_ONLY=2 is in SDK sys/proc_info.h.
         capacity = 128
@@ -80,12 +82,14 @@ class Memory:
                     raise RuntimeError("Unrecognized process-group byte count")
                 members = []
                 total = 0
+                self.sizes = {}
                 for pid in buffer[:size // ctypes.sizeof(ctypes.c_int)]:
                     if pid > 0:
                         usage = self.read(pid, 0)
                         if usage:
                             total += usage
                             members.append(pid)
+                            self.sizes[pid] = usage
                 return total, members
             capacity *= 2
         raise RuntimeError("Owned process group exceeded the monitoring capacity")
@@ -118,6 +122,7 @@ def stop_group(pgid):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--memory-mib", type=int, default=512)
+    parser.add_argument("--process-memory-mib", type=int)
     parser.add_argument("--timeout", type=float, default=3600)
     parser.add_argument("--report", type=Path, required=True)
     parser.add_argument("--lock", type=Path, default=(
@@ -126,7 +131,8 @@ def main():
     parser.add_argument("command", nargs=argparse.REMAINDER)
     args = parser.parse_args()
     command = args.command[1:] if args.command[:1] == ["--"] else args.command
-    if not command or args.memory_mib < 1 or args.timeout <= 0:
+    if (not command or args.memory_mib < 1 or args.timeout <= 0
+            or (args.process_memory_mib is not None and args.process_memory_mib < 1)):
         parser.error("A command, positive memory cutoff and timeout are required")
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.lock.parent.mkdir(parents=True, exist_ok=True)
@@ -134,6 +140,8 @@ def main():
     report = {
         "command": command, "cwd": str(Path.cwd()),
         "memory_limit_bytes": args.memory_mib * MIB,
+        "process_memory_limit_bytes": (args.process_memory_mib * MIB
+                                       if args.process_memory_mib is not None else None),
         "timeout_seconds": args.timeout, "sample_interval_seconds": SAMPLE_INTERVAL,
         "peak_bytes": 0, "peak_processes": [], "reason": None,
     }
@@ -172,8 +180,24 @@ def main():
                 break
             size, members = memory.group(job.pid)
             report["samples"] = report.get("samples", 0) + 1
+            largest_pid, largest_size = max(memory.sizes.items(),
+                                            key=lambda item: item[1], default=(None, 0))
+            if largest_size > report.get("max_process_bytes", 0):
+                report.update(max_process_bytes=largest_size,
+                              max_process_pid=largest_pid)
             if size > report["peak_bytes"]:
-                report.update(peak_bytes=size, peak_processes=members)
+                report.update(peak_bytes=size, peak_processes=members,
+                              peak_process_memory_bytes=dict(memory.sizes))
+            if (report["process_memory_limit_bytes"] is not None
+                    and any(value > report["process_memory_limit_bytes"]
+                            for value in memory.sizes.values())):
+                report["reason"] = "process-memory-cutoff"
+                report["violating_process_memory_bytes"] = {
+                    pid: value for pid, value in memory.sizes.items()
+                    if value > report["process_memory_limit_bytes"]
+                }
+                exit_code = 137
+                break
             if size > report["memory_limit_bytes"]:
                 report["reason"] = "memory-cutoff"
                 exit_code = 137

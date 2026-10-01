@@ -14,6 +14,48 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 
 ## Evidence ledger
 
+- 2026-10-01 (resource safeguard verification): Fresh
+  `PYTHONDONTWRITEBYTECODE=1 python3 tools/build_guard_test.py` passes all nine
+  real subprocess tests in 3.016s. They exercise default 512 MiB aggregation,
+  single Moon worker, command failure, combined and individual child cutoffs,
+  timeout/interruption/orphan cleanup, overlap refusal and lock release, missing
+  commands, and preservation of an unrelated process. The individual test kills
+  a child above 48 MiB while total owned memory stays below 256 MiB. No Bend
+  compiler is invoked by these tests. Evidence and source hashes are in
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-01/resource-recovery/guard-tests.log`
+  and `guard-source-sha256.json` in the same directory.
+  The CPU build helper runs Bend C emission and native compilation in separate
+  processes and atomically creates a new output without replacing an existing
+  file/symlink. Its exact current source built every native crypto fixture in
+  the interrupted forced run recorded below. That proves the build helper on
+  this macOS host, not a complete crypto/package or Linux acceptance result.
+
+- 2026-10-01 (build stopped after renewed memory complaint): On the user's
+  report of 15 GB / 7 GB Bend memory use, stopped the verified Grounds guard
+  PID 13189 with SIGTERM. It killed owned process group 13194, returned 143,
+  and a fresh scan found no remaining members. Unrelated processes were
+  untouched. The interrupted forced crypto check is NOT a package pass.
+  Its terminal report records 588.153 seconds, 555.14 MiB aggregate peak and
+  496.81 MiB largest-process peak, under explicit 640 MiB aggregate / 512 MiB
+  per-process sampled cutoffs. These measurements do not establish the
+  earlier user-reported multi-gigabyte peaks or system memory recovery.
+  No further compilation or package check was started in this response.
+  Report and partial log:
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-01/ecdsa256/field-adapter/primary-crypto-fixtures-resource.json`
+  and `primary-crypto-fixtures.log` in the same directory.
+  Before interruption, native checks passed through 609 P-256 cases and both
+  unchanged traffic matrices (70 ChaCha / 72 AES cases). Bun passed primitives
+  through 4,178 field cases and was still evaluating P-256. Bun P-256 and
+  subsequent checks, fresh RTC/repository gates and a milestone commit remain
+  pending; no stale Moon report may substitute for this interrupted run.
+  Pending source changes split public field constants, factor the field CLI,
+  build native fixtures in separate Bend/clang phases, and split the traffic
+  test fixture by direction while retaining each complete Bend-owned lifecycle.
+  The guard adds an optional individual-process cutoff and nine small safety
+  tests passed; its default aggregate cutoff remains 512 MiB. Full-stack
+  acceptance remains incomplete. Keep future workloads sequential and guarded;
+  this complaint response is not authorization to raise resource budgets.
+
 - 2026-10-01 (resource default tightened): Changed the build guard's default
   cutoff from 1024 to 512 MiB and updated its example. The existing successful
   subprocess test now omits the memory option and verifies the actual default;

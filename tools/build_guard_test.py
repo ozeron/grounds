@@ -109,6 +109,21 @@ class GuardTests(unittest.TestCase):
         self.assertEqual(report["exit_code"], 124)
         self.assert_stopped(json.loads(marker.read_text()))
 
+    def test_individual_child_cutoff_below_aggregate_limit(self):
+        marker = self.directory / "pids.json"
+        command, report_path = self.command("individual", self.spawn_code(1, 56, marker))
+        separator = command.index("--")
+        command[separator:separator] = ["--process-memory-mib", "48"]
+        result = subprocess.run(command, capture_output=True, text=True, timeout=10)
+        report = json.loads(report_path.read_text())
+        self.assertEqual(result.returncode, 137, result.stderr)
+        self.assertEqual(report["reason"], "process-memory-cutoff")
+        self.assertLess(report["peak_bytes"], 256 * 1024 * 1024)
+        sizes = report["peak_process_memory_bytes"].values()
+        self.assertEqual(sum(sizes), report["peak_bytes"])
+        self.assertGreater(max(sizes), 48 * 1024 * 1024)
+        self.assert_stopped(json.loads(marker.read_text()))
+
     def test_overlap_refused_then_lock_released(self):
         marker = self.directory / "started"
         code = f"import pathlib,time; pathlib.Path({str(marker)!r}).touch(); time.sleep(.8)"
