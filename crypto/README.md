@@ -14,7 +14,7 @@ Pure Bend cryptographic primitives. This package implements SHA-1, SHA-256, HMAC
 | `aead.bend` | `seal(key, nonce, aad, plaintext)`, `open(key, nonce, aad, ciphertext, tag)` | RFC 8439 |
 | `aes128.bend` | `encrypt(key, block)` | FIPS 197 AES-128 encryption |
 | `gcm.bend` | `seal(key, nonce, aad, plaintext)`, `open(key, nonce, aad, ciphertext, tag)` | SP 800-38D, 96-bit nonce / 128-bit tag profile |
-| `traffic.bend` | `expand_label`, `new_write`, `new_read`, `seal`, `open`, `rekey_write`, `rekey_read`, `close_write`, `close_read` | RFC 9846 TLS 1.3 traffic-key/nonce lifecycle for ChaCha20-Poly1305/SHA-256 |
+| `traffic.bend` | `expand_label`, `new_write`, `new_read`, `new_aes128_write`, `new_aes128_read`, `seal`, `open`, `rekey_write`, `rekey_read`, `close_write`, `close_read` | RFC 9846 TLS 1.3 traffic-key/nonce lifecycle for ChaCha20-Poly1305 and AES-128-GCM with SHA-256 |
 | `x25519.bend` | `scalar_mult(scalar, u)`, `public_key(scalar)`, `shared(scalar, peer_public)` | RFC 7748 |
 | `field25519.bend` | Internal `add`, `sub`, `mul`, `square`, `decode`, `encode` | GF(2^255-19) arithmetic used by X25519 |
 | `bytes.bend` | `length`, `valid`, `append`, `hex` | Tail-recursive byte-list helpers |
@@ -42,8 +42,9 @@ limit is 2^36−32 bytes, following SP 800-38D section 5.2.1.1; a larger length
 is rejected before encryption, preventing counter reuse. AAD is limited by
 Bend's representable byte-list length (Nat maximum 2^48−1), which is smaller
 than the published general AEAD bound. Nonce uniqueness and per-key record
-usage limits remain the protocol owner's responsibility; these functions are
-not yet connected to the TLS traffic/record owners.
+usage limits remain the protocol owner's responsibility. TLS callers use
+the AES-128 traffic factories below, which enforce bounded TLS records and
+the sending epoch's usage cap.
 
 Native and Bun checks compare all 256 S-box bytes with FIPS 197 Table 4,
 the published cipher example, all 284 AESAVS AES-128 ECB encryption KATs,
@@ -67,7 +68,7 @@ bound; it remains reported, so this limit is grounded in the NIST specification.
 
 Run `moon run crypto:check --force`. The check proves that SHA-256 state output is always 32 bytes, compiles the native adapters, tests invalid-byte handling, compares SHA-256 against four published vectors and boundary/binary cases, compares HMAC against RFC 4231 and Python, and checks three RFC 5869 extract/expand vectors plus output-length boundaries. The million-`a` SHA-256 vector exercises a multi-block message.
 
-`traffic.bend` owns TLS_CHACHA20_POLY1305_SHA256 traffic keys, IVs and
+`traffic.bend` owns TLS_CHACHA20_POLY1305_SHA256 and TLS_AES_128_GCM_SHA256 keys, IVs and
 64-bit record counters. `new_write` / `new_read` validate a 32-byte traffic
 secret and return distinct affine owners. `seal` / `open` consume that owner
 and return its successor alongside `Done` or `Fail`; callers must retain only
@@ -76,6 +77,20 @@ big-endian sequence. Sequence zero is used first, the last 64-bit value is
 used once, and a further operation fails without wrapping. Invalid seal input,
 failed authentication and attempted counter wrap retire the owner; closed
 owners cannot reopen or update. Explicit close consumes the live epoch.
+
+`new_write` / `new_read` retain the original ChaCha20-Poly1305 behavior;
+`new_aes128_write` / `new_aes128_read` explicitly select AES-128-GCM. AES epochs
+derive a 16-byte key and 12-byte IV and retain their algorithm through updates.
+No authentication fallback chooses another cipher suite. AES sending epochs
+allow at most 2^24 records, conservatively below RFC 9846 section 5.5's
+approximately 2^24.5 full-record bound. An attempted extra seal returns
+`UsageLimit` and retires the owner. Its raw input bounds are five AAD bytes
+and 16385 inner plaintext bytes, preserving the full-record usage assumptions.
+Oversized seal input returns `Invalid` and retires; receive input errors retire
+as authentication failures. Receiving epochs enforce the size/sequence bounds
+and authenticate each record but do not apply the sending usage cap.
+Send old-key KeyUpdate before exhausting the allowance; the final permitted
+record can carry that message, followed by an explicit key update/reset.
 
 `rekey_write` / `rekey_read` derive a new secret with `traffic upd`, then a new
 key and IV, and reset the record sequence. Sending updates are limited to
@@ -98,7 +113,11 @@ the sending update cap/carry, replay/reordering, wrong-key/AAD/ciphertext/tag,
 invalid inputs and retirement. The compiler also rejects affine owner copies
 and direction confusion. Counter/generation injection exists only in the
 synthetic CLI to reach impractical boundaries. The 16-byte RFC key vector
-tests HKDF label serialization and does not add AES support.
+tests HKDF label serialization. Separate AES-GCM owner checks pass 72
+independent lifecycle scenarios per target, including sequential records,
+all tag positions, usage-cap boundaries, uncapped receiving counters,
+64-bit carry/exhaustion, five epochs, sending update-generation limits,
+algorithm confusion, malformed inputs and permanent retirement.
 [RFC 9846](https://www.rfc-editor.org/info/rfc9846/) (July 2026) supersedes
 RFC 8446; sections 4.7.3, 5.3/5.5 and 7.1–7.3 and
 [its errata](https://www.rfc-editor.org/errata/rfc9846) were reviewed on

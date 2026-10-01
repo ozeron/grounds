@@ -10,6 +10,7 @@ tasks:
       - "check.sh"
       - "*.bend"
       - "*.py"
+      - "*_vectors.json"
       - "*.c"
       - "*.mjs"
       - "effs/*"

@@ -36,6 +36,7 @@ python3 gcm_check.py "$tmp/gcm"
 python3 field_check.py "$tmp/field25519"
 python3 x25519_check.py --iterated "$tmp/x25519"
 python3 traffic_check.py "$tmp/traffic"
+python3 traffic_aes_check.py "$tmp/traffic"
 if command -v bun > /dev/null 2>&1; then
   bend sha1_cli.bend -o "$tmp/sha1.js" > /dev/null
   bend hmac_sha1_cli.bend -o "$tmp/hmac_sha1.js" > /dev/null
@@ -57,6 +58,7 @@ if command -v bun > /dev/null 2>&1; then
   python3 field_check.py bun "$tmp/field25519.js"
   python3 x25519_check.py bun "$tmp/x25519.js"
   python3 traffic_check.py bun "$tmp/traffic.js"
+  python3 traffic_aes_check.py bun "$tmp/traffic.js"
 else
   echo "crypto JS target: Bun unavailable; skipped"
 fi

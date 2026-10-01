@@ -1,6 +1,8 @@
 #!/bin/sh
 set -eu
 cd "$(dirname "$0")"
+python3 check_inputs.py
+python3 check_inputs_test.py
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 

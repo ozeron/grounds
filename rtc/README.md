@@ -1,5 +1,16 @@
 # grounds-rtc
 
+RTC's Moon check inputs cover the five crypto modules actually imported by its
+Bend sources: bytes, SHA-1/SHA-256 and HMAC-SHA1/HMAC-SHA256. Changes to these
+still invalidate RTC checks. Changes to an unused TLS primitive no longer
+require the entire RTC build/test suite. `check_inputs.py` walks all local Bend
+imports, including transitive and nested crypto modules, and fails before the
+suite if a required crypto file is absent from `rtc/moon.yml` inputs. Update
+that declaration whenever adding an imported dependency. The guard's regression
+checks cover transitive additions, nested glob scope and unused primitives.
+All existing native/Bun/browser protocol checks remain in `check.sh`; this
+input change does not remove a verification scenario.
+
 The local signaling evaluator is in `examples/signaling_server.bend`. It checks
 an exact Host and Origin and one synthetic fixture cookie before the WebSocket
 upgrade or UDP allocation. Each upgraded connection owns one retained IPv4 UDP

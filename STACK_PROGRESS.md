@@ -7,12 +7,85 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 | Layer | Current state | Next proof of progress |
 |---|---|---|
 | `wire` | Byte TCP and IPv4 UDP effects, explicit local-IP binding and OS bound-address/ephemeral-port discovery; OpenSSL TLS effects. UDP handles all octets, zero datagrams, timeout and oversize errors, with same-port/two-IP isolation and failed-bind descriptor checks. Actual SIGTERM/SIGINT stop parked native/Bun loops and release the listener; Bun uses an OS-only C11 atomic signal bridge because its synchronous runtime cannot dispatch JS signal callbacks. Bounded bulk host RNG bytes now pass native/Bun guard/error tests and supply signaling credentials. Public-pattern byte/RNG and retained UDP measurements are recorded; Bend Base supplies monotonic `IO.now`. | Verify IPv6/cancellation and packed storage/long-session allocation, retaining measured baselines; complete crypto/runtime review before secure transport. |
-| `crypto` | Bend SHA-1 for WebSocket challenge, HMAC-SHA1 for legacy STUN integrity, SHA-256, HMAC-SHA256, HKDF-SHA-256, ChaCha20, Poly1305, ChaCha20-Poly1305 AEAD, AES-128 encryption, AES-128-GCM and X25519, plus TLS HKDF labels and distinct affine ChaCha traffic owners with 64-bit nonces/key updates. Poly1305 products now stay below 2^26; OpenSSL remains in live cookie/TLS paths. | Integrate AES-GCM into TLS traffic/records with per-key usage limits, resolve remaining runtime/erasure review, add mandatory P-256/RSA/ECDSA, then cookie and full handshake integration. |
-| `tls` | Bend protected TLS 1.3 ChaCha20-Poly1305 records and traffic/key lifecycle pass synthetic native/Bun differential tests. Live TLS client/server still use OpenSSL C effects; JS TLS effects return `ENOSYS`. | Complete mandatory TLS algorithms, handshake/transcripts, certificates/signatures/trust/hostname checks and real client/server interop; DTLS 1.2 for RTC. |
+| `crypto` | Bend SHA-1 for WebSocket challenge, HMAC-SHA1 for legacy STUN integrity, SHA-256, HMAC-SHA256, HKDF-SHA-256, ChaCha20, Poly1305, ChaCha20-Poly1305 AEAD, AES-128 encryption, AES-128-GCM and X25519, plus TLS HKDF labels and distinct affine ChaCha/AES-GCM traffic owners with 64-bit nonces/key updates and AES sending usage limits. Poly1305 products now stay below 2^26; OpenSSL remains in live cookie/TLS paths. | Resolve remaining runtime/erasure review, add mandatory P-256/RSA/ECDSA, then cookie and full handshake integration. |
+| `tls` | Bend protected TLS 1.3 ChaCha20-Poly1305 and AES-128-GCM records and traffic/key lifecycle pass synthetic native/Bun differential tests; AES also reproduces RFC 8448 encrypted records. Live TLS client/server still use OpenSSL C effects; JS TLS effects return `ENOSYS`. | Complete mandatory TLS algorithms, handshake/transcripts, certificates/signatures/trust/hostname checks and real client/server interop; DTLS 1.2 for RTC. |
 | `http` | Bend HTTP/1.1 client/server, routing, JSON, cookies, auth, CORS, multipart, SSE, and server WebSocket handshake/framing/session. Native echo interops with a third-party Python client and Bun's WebSocket API. A bounded local signaling fixture admits exact Host/Origin and a public synthetic cookie before upgrade/UDP allocation; native and Bun exchange SDP with real Chrome and clean up connection-owned ICE state/sockets. | Replace the fixture selector with Bend cookie/HMAC authentication and integrate Bend TLS for browser HTTPS/WSS. |
 | `rtc` | Bend STUN parsing, IPv4 XOR-MAPPED-ADDRESS, SHA-1/SHA-256/dual integrity, FINGERPRINT, authenticated incoming/outgoing ICE Binding exchanges, retained-socket retransmissions and explicit error/integrity outcomes. IPv4 candidate/pair priorities, bounded checklist formation, stable transport references and guarded state transitions, role-driven priority reordering, a paced shared-socket transaction engine with response-only interruption, protected incoming replies and server-side role decisions, FIFO triggered queues, ordinary round-robin/foundation scheduling and generation/sent-role attempt ownership. A bounded session now binds signaled credentials, registered receiving/sending bases, observed peer-reflexive candidates, deferred incoming work, retained attempts and endpoint integrity policies. Authenticated non-symmetric responses fail only their original current pair; interrupted old listeners retire independently. The live owner fixture explicitly binds unicast IPv4 bases and queries actual local ports before candidate formation. An additive valid-list owner resolves authenticated mappings, learns locally peer-reflexive candidates from retained signed-request priority, allocates IP-keyed foundations, reranks by role and keeps late paths separate from replacement flights. A nomination-evidence owner associates current successful checks with their valid paths and retains qualified incoming intent through materialization, exact triggered flights and response-only listeners; already-Succeeded counterparts resolve their actual generating record. A generation lifecycle owner now applies regular controlling/controlled nomination, selects completed stream paths, removes nominated component checks while retaining response listeners, continues authenticated Binding service, and defers failure through PAC. An outer transport owner derives selected physical consent routes, serves authenticated consent-only Binding requests, shares actual-send pacing and recent transaction identity admission, gates logical application routes, and preserves sealed consent loss. Full/full credential restart rebuilds ICE state while retaining only selected old consent/server contexts until replacement selection. Bounded SDP/signaling now binds connection-owned credentials and the actual retained UDP base; real Chrome verifies direct selected pairs, fresh consent, restart and cleanup on native and Bun. Separate unauthenticated discovery remains available. | Complete crypto/runtime foundations and secure signaling, then gathering, IPv6/TURN, DTLS/SCTP and SRTP/media. |
 
 ## Evidence ledger
+
+- 2026-10-01: Extended the affine TLS
+  traffic owners and protected-record evaluator to TLS_AES_128_GCM_SHA256.
+  Explicit `new_aes128_write/read` factories derive 16-byte keys and 12-byte
+  IVs, retain AES through traffic-secret updates, and use the existing
+  64-bit record counter/nonce construction. Authentication never falls back
+  to another suite. AES sending epochs permit 2^24 records, below RFC 9846
+  section 5.5's approximately 2^24.5 full-record bound; an attempted excess
+  returns UsageLimit and retires the owner. Raw AAD/inner-size bounds of
+  5/16385 bytes preserve the full-record assumptions. Receiving epochs retain
+  size/sequence/authentication bounds but do not enforce sending usage limits.
+  The last permitted old-key record can carry KeyUpdate before explicit rekey
+  resets sequence/usage; phase, message ordering and connection-secret uniqueness
+  remain the future handshake owner's responsibilities. Physical erasure and
+  complete optimized native/JIT/runtime timing review remain unresolved.
+  Native and Bun each pass 72 independent AES owner scenarios and 166 AES
+  record scenarios, while retaining the original 70 ChaCha owner/154 record
+  scenarios. All seven encrypted records in RFC 8448 section 3 match published
+  bytes in continuous handshake/application direction groups: both handshake
+  flights, server ticket, both application records and both closing alerts.
+  A fixture pins the downloaded RFC source hash and participates in the wire
+  input hash. Independent Python HKDF, OpenSSL AES and bigint GHASH cover
+  payload/bounds, every tag position, tampering, replay/reordering, usage/counter
+  and update-generation boundaries, retirement and algorithm confusion. The
+  record codec's production source/API is unchanged; it uses the supplied
+  Bend traffic owner. Compiler probes still reject owner copies/direction mixing.
+  RTC now declares the five crypto modules in its actual local import closure
+  instead of all crypto modules. A guard follows transitive/nested imports and
+  fails if the declaration omits required crypto; regressions cover missing
+  transitive dependencies, flat/nested glob scope and unused modules. Every
+  existing native/Bun/browser RTC check remains. A disposable checkout using
+  the identical RTC config and a clearly marked no-op check script verifies
+  actual Moon behavior: an unused GCM edit remains cached with the same hash,
+  while an imported HMAC edit executes with a changed hash. This cache probe
+  is not protocol acceptance evidence; its owned sources were restored.
+  Artifacts: `/Users/ozeron/.codex/artifacts/grounds/2026-10-01/aes-traffic/`,
+  including the 17-file hash-checked transfer manifest, a frozen 374-file source/
+  config/fixture manifest, standards/vector sources, package logs/reports/hashes,
+  cache-probe evidence and generated C/JS/default Clang arm64 assembly. Static
+  inventory covers 43 traffic and 24 protected-record functions; public
+  count/size/suite dispatch and logical retirement do not establish complete
+  timing/erasure safety. The running RTC task hash covers 163 inputs, including
+  exactly its five imported crypto modules and both new guard scripts.
+  `PYTHONDONTWRITEBYTECODE=1 moon run crypto:check --force` passes fresh
+  (execution 2m43s543ms, hash
+  `bc3c850b28d5cf540472746760ccb67a42f2e221caa2e64577cdfd0cb2873ef7`).
+  `PYTHONDONTWRITEBYTECODE=1 moon run wire:check --force` passes fresh
+  (execution 58s035ms, hash
+  `4d5a8fa07eb445a86d1261175d08a6a3e2c73463e129362a0577b6338ee81efa`).
+  Both reports confirm exit-zero execution and skipped cache hydration.
+  `PYTHONDONTWRITEBYTECODE=1 moon run rtc:check --force` passes fresh
+  (execution 29m17s580ms, hash
+  `a1dca40ee0e2b21637190a491be4cc785bf4eb1afb4de2c243f3694d20246102`).
+  Fresh Chrome 154.0.8037.92 native/Bun checks pass actual nominated ICE,
+  independently authenticated consent in both credential generations, restart,
+  denied auth/Origin, reconnect, malformed signaling and cleanup. Browser/server
+  shutdowns exit zero without forced termination; copied raw browser artifacts
+  and independent packet checks are retained. This proves local plaintext
+  WS/ICE only; DTLS/data/media remain absent. The artifact runner's browser-loop
+  variable shadowed its gate label; original report/hash/profile files were
+  retained and copied to the correct forced-rtc names, with provenance in
+  `artifact-label-correction.json`. The runner is corrected for later runs;
+  no gate was restarted or interrupted for this artifact-label issue.
+  Final `PYTHONDONTWRITEBYTECODE=1 moon run :check` passes all 13 tasks in
+  3m39s872ms: 12 cached, JSON fresh with 706/706 independent cases. Crypto,
+  wire and RTC cached hashes exactly match the saved forced checks. All
+  374 frozen source/config/fixture inputs remain unchanged through the gates.
+  Saved reports/hashes distinguish fresh exit-zero execution from cached
+  hydration; no required native/Bun/Chrome checks skipped. Optional live Redis
+  checks were cached and not rerun. Exact next action: implement mandatory
+  P-256/RSA/ECDSA and the full handshake/transcript/certificate path, before
+  DTLS/secure signaling and IPv6/TURN/data/media. All 19 full-stack acceptance
+  boxes remain unchecked.
 
 - 2026-10-01: Added pure Bend
   `aes128.bend` and `gcm.bend`. AES encryption uses arithmetic GF(2^8)

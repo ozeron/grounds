@@ -14,6 +14,7 @@ def error(error: T.Error) -> String:
     case T.Exhausted{}: "exhausted"
     case T.Closed{}: "closed"
     case T.UpdateLimit{}: "update-limit"
+    case T.UsageLimit{}: "usage-limit"
 
 def sequence(sequence: T.Sequence) -> String:
   match sequence:
@@ -28,6 +29,8 @@ def epoch_state(epoch: T.Epoch) -> T.Epoch & String:
       (T.Gone{}, "closed")
     case T.Ready{secret, key, iv, +counter}:
       (T.Ready{secret, key, iv, counter}, sequence(counter))
+    case T.AesReady{secret, key, iv, +counter}:
+      (T.AesReady{secret, key, iv, counter}, sequence(counter))
 
 def write_state.got(+high: U32, +low: U32, pair: T.Epoch & String) -> T.WriteKey & String:
   (next, state) = pair
@@ -77,6 +80,8 @@ def seed_epoch(epoch: T.Epoch, high: U32, low: U32) -> T.Epoch:
       T.Gone{}
     case T.Ready{secret, key, iv, _}:
       T.Ready{secret, key, iv, T.Counter{high, low}}
+    case T.AesReady{secret, key, iv, _}:
+      T.AesReady{secret, key, iv, T.Counter{high, low}}
 
 def seed_write(owner: T.WriteKey, high: U32, low: U32) -> T.WriteKey:
   match owner:
@@ -229,6 +234,14 @@ def label_emit(result: Maybe<&2, List<&2, U32>>) -> IO(Unit):
 
 def dispatch(args: List<String>) -> IO(Unit):
   match args:
+    case Con{"write-aes", Con{secret, tail}}:
+      do IO<Unit>:
+        bytes : List<&2, U32> <- Io.read_bytes(secret)
+        write_started(T.new_aes128_write(bytes), tail)
+    case Con{"read-aes", Con{secret, tail}}:
+      do IO<Unit>:
+        bytes : List<&2, U32> <- Io.read_bytes(secret)
+        read_started(T.new_aes128_read(bytes), tail)
     case Con{"write", Con{secret, tail}}:
       do IO<Unit>:
         bytes : List<&2, U32> <- Io.read_bytes(secret)

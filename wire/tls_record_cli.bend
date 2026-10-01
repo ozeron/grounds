@@ -58,6 +58,10 @@ def write_loop(args: List<String>, owner: T.WriteKey) -> IO(Unit):
       do IO<Unit>:
         next : T.WriteKey <- D.write_report(T.close_write(owner))
         write_loop(tail, next)
+    case Con{"seed", Con{high, Con{low, tail}}}:
+      do IO<Unit>:
+        next : T.WriteKey <- D.write_report(D.seed_write(owner, D.decimal(high), D.decimal(low)))
+        write_loop(tail, next)
     case _:
       IO.die(Unit, 2, "invalid record write command")
 
@@ -77,6 +81,10 @@ def read_loop(args: List<String>, owner: T.ReadKey) -> IO(Unit):
     case Con{"close", tail}:
       do IO<Unit>:
         next : T.ReadKey <- D.read_report(T.close_read(owner))
+        read_loop(tail, next)
+    case Con{"seed", Con{high, Con{low, tail}}}:
+      do IO<Unit>:
+        next : T.ReadKey <- D.read_report(D.seed_read(owner, D.decimal(high), D.decimal(low)))
         read_loop(tail, next)
     case _:
       IO.die(Unit, 2, "invalid record read command")
@@ -110,6 +118,14 @@ def framed(result: R.Frame) -> IO(Unit):
 
 def dispatch(args: List<String>) -> IO(Unit):
   match args:
+    case Con{"write-aes", Con{secret, tail}}:
+      do IO<Unit>:
+        bytes : List<&2, U32> <- Io.read_bytes(secret)
+        write_started(T.new_aes128_write(bytes), tail)
+    case Con{"read-aes", Con{secret, tail}}:
+      do IO<Unit>:
+        bytes : List<&2, U32> <- Io.read_bytes(secret)
+        read_started(T.new_aes128_read(bytes), tail)
     case Con{"write", Con{secret, tail}}:
       do IO<Unit>:
         bytes : List<&2, U32> <- Io.read_bytes(secret)

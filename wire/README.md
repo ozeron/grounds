@@ -34,7 +34,7 @@ w : Socket & Result<&1, &1, U32 & String, Unit> <- W.wire_send(sock, [72, 105])
 | `W.listen(port)`, `W.accept(l)`, `W.connect(host, port)`, `W.close(sock)`, `W.close_listener(l)` | Base's own |
 
 `tls_record.bend` adds a pure Bend protected-record path for
-TLS_CHACHA20_POLY1305_SHA256. It uses `crypto/traffic.bend` affine read/write
+TLS_CHACHA20_POLY1305_SHA256 and TLS_AES_128_GCM_SHA256. It uses `crypto/traffic.bend` affine read/write
 owners and Bend HKDF/AEAD; it does not call the OpenSSL TLS effects. Its public
 `seal(owner, kind, padding, content)` / `open(owner, record)` return a successor
 owner and `Done` / `Fail`. Writers authenticate the five-byte `17 03 03` header
@@ -48,7 +48,7 @@ values are tolerated, while modifying those bytes without a new tag fails.
 consuming a traffic key. For coalesced input, process the first complete record
 and retain `rest`; `open` itself accepts exactly one record and rejects extra
 bytes. Limits are 16384 content bytes, 16385 total inner bytes and 16401 encrypted
-body bytes for this suite's 16-byte tag. Oversized padding is rejected before
+body bytes for either suite's 16-byte tag. Oversized padding is rejected before
 length arithmetic or allocation. Empty application content is allowed;
 handshake content must be nonempty and alerts must contain exactly one two-byte
 message. Encrypted CCS, unknown inner types and authenticated inner plaintext
@@ -58,6 +58,18 @@ including all split points of a small record, maximum-size and coalesced records
 padding, header/body/tag changes, replay, retirement and old-key KeyUpdate bytes
 followed by an explicitly updated key and sequence-zero record. Bend proofs
 cover invalid byte input and the largest representable padding argument.
+
+AES callers supply owners from `T.new_aes128_write` / `T.new_aes128_read`;
+the record interface and framing remain unchanged. Its evaluator passes 166
+cases per native/Bun target: the same 154 record scenarios plus all seven
+published protected records in RFC 8448 section 3, grouped into continuous
+handshake/application directions, and sending usage-limit/old-key KeyUpdate
+boundary checks. Published bytes include the server handshake flight, client
+Finished, server ticket, application data and alerts in both directions.
+`tls_aes_vectors.json` pins the RFC source hash and participates in the wire
+task's input hash. AES sending usage is capped at 2^24 records per epoch;
+attempted excess closes the owner, while receiving does not apply that cap.
+Explicit updates retain the negotiated algorithm and reset the sequence.
 
 This is the protected record codec, not a completed TLS connection. Plaintext
 handshake/compatibility CCS, transcript and handshake-fragment ownership,

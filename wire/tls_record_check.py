@@ -1,6 +1,7 @@
 """Independent TLS 1.3 ChaCha20-Poly1305 record/framing evaluator."""
 
 from pathlib import Path
+import json
 import random
 import subprocess
 import sys
@@ -22,7 +23,13 @@ def raw_inner(secret, seq, inner, version=b"\x03\x03"):
 
 
 def main():
+    global protect
     command = sys.argv[1:]
+    aes = "--aes" in command
+    if aes:
+        from traffic_aes_check import record
+        protect = record
+        command.remove("--aes")
     rng = random.Random(0x1350)
     count = 0
     with tempfile.TemporaryDirectory() as folder:
@@ -37,9 +44,55 @@ def main():
 
         def run(args, expected):
             nonlocal count
-            result = subprocess.run(command + args, capture_output=True, text=True, timeout=30)
+            if aes and args[0] in ("write", "read"):
+                args = [args[0] + "-aes"] + args[1:]
+            result = subprocess.run(command + args, capture_output=True, text=True, timeout=60)
             assert result.returncode == 0 and result.stdout.splitlines() == expected, (args, result.stderr, result.stdout, expected)
             count += 1
+
+        if aes:
+            vectors = json.loads(Path(__file__).with_name("tls_aes_vectors.json").read_text())["cases"]
+            groups = {}
+            for vector in vectors:
+                groups.setdefault(vector["context"], []).append(vector)
+                assert reference(bytes.fromhex(vector["secret"]), vector["sequence"],
+                                 vector["kind"], bytes.fromhex(vector["content"])) == bytes.fromhex(vector["record"])
+            for group in groups.values():
+                secret_path = put(bytes.fromhex(group[0]["secret"]))
+                wa, ra = ["write", secret_path], ["read", secret_path]
+                we, re = ["write-state:0:0:0:0"], ["read-state:0:0"]
+                for sequence, vector in enumerate(group):
+                    assert vector["sequence"] == sequence
+                    content = bytes.fromhex(vector["content"])
+                    wa += ["seal", str(vector["kind"]), "0", put(content)]
+                    ra += ["open", put(bytes.fromhex(vector["record"]))]
+                    we += [f'sealed:{vector["record"]}', f"write-state:0:{sequence + 1}:0:0"]
+                    re += [f'record:{vector["kind"]}:0:{vector["content"]}', f"read-state:0:{sequence + 1}"]
+                run(wa, we); run(ra, re)
+
+            cap = 2**24
+            secret = bytes.fromhex(groups["client-application"][0]["secret"])
+            content = b"usage cap fixture"
+            final = reference(secret, cap - 1, 23, content)
+            run(["write", put(secret), "seed", "0", str(cap - 1), "seal", "23", "0", put(content),
+                 "seal", "23", "0", put(content), "update"],
+                ["write-state:0:0:0:0", f"write-state:0:{cap - 1}:0:0", f"sealed:{final.hex()}",
+                 f"write-state:0:{cap}:0:0", "seal-error:crypto-usage-limit", "write-state:closed:0:0",
+                 "update-error:closed", "write-state:closed:0:0"])
+            peer = reference(secret, cap, 23, content)
+            run(["read", put(secret), "seed", "0", str(cap), "open", put(peer)],
+                ["read-state:0:0", f"read-state:0:{cap}", f"record:23:0:{content.hex()}", f"read-state:0:{cap + 1}"])
+            message = bytes.fromhex("1800000100")
+            last = reference(secret, cap - 1, 22, message)
+            next_record = reference(updated(secret), 0, 23, content)
+            run(["write", put(secret), "seed", "0", str(cap - 1), "seal", "22", "0", put(message),
+                 "update", "seal", "23", "0", put(content)],
+                ["write-state:0:0:0:0", f"write-state:0:{cap - 1}:0:0", f"sealed:{last.hex()}",
+                 f"write-state:0:{cap}:0:0", "updated", "write-state:0:0:0:1",
+                 f"sealed:{next_record.hex()}", "write-state:0:1:0:1"])
+            run(["read", put(secret), "seed", "0", str(cap - 1), "open", put(last), "update", "open", put(next_record)],
+                ["read-state:0:0", f"read-state:0:{cap - 1}", f"record:22:0:{message.hex()}", f"read-state:0:{cap}",
+                 "updated", "read-state:0:0", f"record:23:0:{content.hex()}", "read-state:0:1"])
 
         secret = rng.randbytes(32)
         for length in (0, 1, 15, 16, 17, 63, 64, 65, 16383, 16384):
@@ -121,7 +174,8 @@ def main():
             ["read-state:0:0", "record:22:0:1800000100", "read-state:0:1", "updated", "read-state:0:0",
              "record:23:0:6e65772065706f6368", "read-state:0:1"])
         denied(next_record, "crypto-authentication")
-    print(f"TLS records: {count} independent framing/protection/padding/bounds/tampering/lifecycle scenarios passed")
+    suite = "AES-GCM" if aes else "ChaCha20-Poly1305"
+    print(f"TLS {suite} records: {count} independent framing/protection/padding/bounds/tampering/lifecycle scenarios passed")
 
 
 if __name__ == "__main__":
