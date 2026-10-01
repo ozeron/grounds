@@ -468,9 +468,40 @@ retain selection policy and authenticated controlled-side nomination intent,
 apply nominated/selected outcomes and conclude the component. Successful intent
 responses currently still produce paths with `nominated=False`.
 
-The next integration retains controlled-side nomination intent beyond pending
-materialization, binds nomination success/failure to the actual sent and received
-intent, and implements nominated/selected and terminal state transitions.
+`ice_nomination.bend` adds nomination evidence around a fresh unbound valid-list
+owner. Its six-field `State` owns the valid state, bounded successful-check
+associations, qualified incoming intent, retained flight bindings, pair limit and
+fault status. Existing `Session.State`, `V.State` and attempt records remain
+unchanged. Creation rejects a bound or already running session because importing
+it would lose previously materialized intent.
+
+Current authenticated valid results associate both the original sending
+reference and any unique Succeeded mapped counterpart with the path they proved.
+`path_for(state, reference)` requires the exact stream/component/base/peer,
+current generation, Succeeded pair, retained valid identity and healthy owners.
+It returns current stored candidate/rank metadata with the association's actual
+generating record, even when duplicate insertion retained an older path origin.
+Late mappings may enter the valid list but cannot replace these associations.
+
+Applied incoming intent comes from the actual prior pending requests and
+Accepted notices, merged by the session's existing rule. It qualifies only
+after matching peer credentials, with local Controlled role and an actual
+controlling USE-CANDIDATE request. An applied ordinary request clears prior
+queued intent for that reference; speculative pacing/capacity failure preserves
+it. A fresh triggered send binds the request to its exact generation, reference,
+sent role, token and transaction. Retries do not duplicate bindings. Interrupted
+listeners retain their original requests separately from replacement flights.
+Bindings reserve at most engine capacity plus pair limit, including 487 repair
+records that no longer have a network entry.
+
+`Mapped`, `Outcome` and `NonSymmetric` notices carry the actual bound request and
+original attempt before its metadata retires. Generation replacement discards
+old associations/intent/bindings; that ownership guard does not implement a
+complete credential restart. These are evidence primitives: they still leave
+every path `nominated=False`. The next integration applies controlling and
+controlled nomination outcomes, one controlling choice per stream/component,
+unrecoverable nomination failure, related cancellation, selected paths and
+terminal state transitions.
 Dynamic pair-cap pruning,
 deferred-item expiry, consent/restart, PAC terminal-state handling, candidate
 gathering, real-browser ICE, IPv6/TURN, Bend TLS/DTLS, SCTP/data channels and media
@@ -602,3 +633,12 @@ modes, loss/retry with identical bytes and bound port, bad MAC/source rejection,
 error/timeout, stopped-listener late success/error/expiry, controlled rejection
 and socket rebinding. This UDP fixture tests the transaction interface; it does
 not choose a valid path or establish nominated/selected ICE agent state.
+
+The nomination-evidence fixture adds 46 independently signed packet cases per
+target for current/checklist-counterpart associations, exact lookup, duplicate
+origin replacement, late mapping isolation, pre-answer merging and fragment
+binding, request-role/integrity qualification, retry/pacing/capacity preservation,
+ordinary and nominated replacements, old listener outcomes/expiry, 487 repair,
+non-symmetric failure ownership, generation isolation, fresh creation and fault
+quarantine. It runs pure owner transitions on native and Bun; it does not add a
+live nomination-owner UDP, browser, selected-path or terminal-state proof.
