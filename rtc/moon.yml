@@ -17,6 +17,7 @@ tasks:
       - "check_inputs_test.py"
       - "*.bend"
       - "examples/*"
+      - "/tools/bend_native.sh"
       - "/crypto/bytes.bend"
       - "/crypto/hmac.bend"
       - "/crypto/hmac_sha1.bend"

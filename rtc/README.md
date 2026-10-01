@@ -36,6 +36,12 @@ required for reflexive/relay candidates and forbidden for host candidates.
 The decoder extracts this explicit ICE profile; it is not a general SDP validator
 or an implementation of media negotiation, BUNDLE multiplexing or trickle ICE.
 
+Exact token comparisons and separate line/state dispatch keep this decoder's
+compiler workload bounded on the development host. The SDP native fixture uses
+`tools/bend_native.sh` to release the Bend frontend before C compilation;
+native and Bun run the same admission, malformed-input and bound cases. Run
+checks through the memory guard described in [tools/README.md](../tools/README.md).
+
 The adapter caps upgraded fixture connections at eight using the server's live
 connection counter, text messages at 32,768 bytes, frames at 64, revisions at
 0–7 and each connection lifetime at 45 seconds. Restarts never extend that

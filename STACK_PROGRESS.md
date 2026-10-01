@@ -14,6 +14,31 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 
 ## Evidence ledger
 
+- 2026-10-01 (SDP compiler workload recovery): Exact consuming text comparisons
+  replace nested string-literal patterns in fingerprint/media/candidate parsing;
+  line-field dispatch is separate from document-stage admission. Required tokens,
+  case/spacing, candidate extensions, defaults, overrides and all bounds remain
+  checked. The final `bend rtc/sdp.bend --check-only` and separate native/Bun SDP
+  builds pass under the default 512 MiB guard; final type checking peaks at
+  230.09 MiB, native compilation at 463.53 MiB and JS emission at 417.14 MiB.
+  The expanded independent
+  admission/malformed/bound matrix passes all 90 cases on each target, including
+  exact-token near misses, wrong header order and optional-field handling.
+  `rtc/check.sh` uses the native helper for SDP, and Moon includes that helper.
+  A fresh guarded `moon --concurrency 1 run rtc:check --force` passes all 22
+  type/proof checks and native SDP, then stops at the signaling fixture frontend:
+  exit 137 after 137.555s, 601.83 MiB aggregate / 515.48 MiB individual, using
+  unchanged 640/512 MiB cutoffs. A stderr-only copy of the pinned 2.0.27 compiler
+  traces that fixture into imported test CLIs (last entered `examples/ice_valid.bend`)
+  during loading; the installed compiler is untouched. This is not a successful
+  RTC gate or fresh browser run. Logs, terminal resource reports and current input
+  hashes are `sdp-*-resource.json`, `rtc-sdp-refactor-*`, `signaling-load-trace-*`
+  and `sdp-refactor-evidence.json` under
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-01/resource-recovery/`.
+  Next: reduce JSON generated-loop and signaling fixture import workloads under
+  the same cutoff; run their complete existing checks and the missing repository
+  gate. All 19 full-stack acceptance boxes remain open.
+
 - 2026-10-01 (standalone cutoff localization after milestone 82fc0c4): With the
   same local recovery settings and `nice -n 10`, the default 512 MiB standalone
   guard stopped `bend rtc/sdp.bend --check-only` at 524.02 MiB after 1.594s,

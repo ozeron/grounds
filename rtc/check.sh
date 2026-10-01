@@ -28,7 +28,7 @@ bend ice_transport.bend --check-only
 bend sdp.bend --check-only
 bend signaling.bend --check-only
 bend signaling_auth.bend --check-only
-bend examples/sdp.bend -o "$tmp/sdp" > /dev/null
+sh ../tools/bend_native.sh examples/sdp.bend "$tmp/sdp" > /dev/null
 python3 examples/sdp_check.py "$tmp/sdp"
 sh examples/build_signaling.sh "$tmp/signaling_server" > /dev/null
 python3 examples/signaling_server_check.py "$tmp/signaling_server"

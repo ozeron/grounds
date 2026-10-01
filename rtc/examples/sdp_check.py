@@ -41,6 +41,8 @@ def main():
     add("remote password maximum", BASE.replace(PWD, "p" * 256), True, pwd="p" * 256)
     add("related reflexive", BASE.replace("typ host generation 0 network-cost 999", "typ srflx raddr 0.0.0.0 rport 9 extension opaque"), True)
     add("unknown candidate kind", BASE.replace("typ host", "typ future"), True, ignored=1, candidates=0)
+    add("candidate attribute suffix is opaque", BASE.replace("a=group:BUNDLE 0", "a=candidatex:opaque"), True)
+    add("optional fields before headers", "i=fixture\r\nu=https://fixture.invalid\r\n" + BASE, True)
     for field in ["ice-ufrag", "ice-pwd", "mid", "fingerprint", "setup", "sctp-port"]:
         row = next(row for row in BASE.splitlines() if row.startswith("a=" + field + ":"))
         add("missing " + field, BASE.replace(row + "\r\n", ""))
@@ -49,6 +51,11 @@ def main():
         ("ufrag short", "abcd", "abc"), ("ufrag overlong", "abcd", "a" * 257),
         ("ufrag invalid character", "abcd", "ab:cd"), ("password short", PWD, "p" * 21),
         ("password overlong", PWD, "p" * 257), ("wrong hash", "sha-256", "sha-1"),
+        ("fingerprint hash suffix", "sha-256 ", "sha-256x "),
+        ("fingerprint hash case", "sha-256 ", "SHA-256 "),
+        ("fingerprint missing separator", "sha-256 ", "sha-256"),
+        ("fingerprint doubled separator", "sha-256 ", "sha-256  "),
+        ("fingerprint tab separator", "sha-256 ", "sha-256\t"),
         ("fingerprint short", FP, FP[:-3]), ("fingerprint long", FP, FP + ":00"),
         ("fingerprint bad hex", FP, FP.replace("0A", "GG")),
         ("setup passive offer", "actpass", "passive"), ("SCTP zero", "sctp-port:5000", "sctp-port:0"),
@@ -61,16 +68,37 @@ def main():
         ("candidate component zero", "7 1 UDP", "7 0 UDP"),
         ("candidate component overflow", "7 1 UDP", "7 257 UDP"),
         ("candidate foundation invalid", "candidate:7", "candidate:bad-foundation"),
+        ("candidate marker case", " typ ", " TYP "),
+        ("candidate marker suffix", " typ ", " type "),
+        ("candidate marker missing", " typ ", " "),
         ("extension missing value", "network-cost 999", "network-cost"),
         ("related missing", "typ host", "typ srflx"),
         ("wrong media", "m=application", "m=audio"),
         ("disabled media", "m=application 9", "m=application 0"),
         ("host related address forbidden", "typ host generation 0 network-cost 999", "typ host raddr 127.0.0.1 rport 9"),
         ("wrong transport", "UDP/DTLS/SCTP", "TCP/DTLS/SCTP"),
+        ("media type suffix", "m=application ", "m=applicationx "),
+        ("media format suffix", "webrtc-datachannel", "webrtc-datachannelx"),
+        ("media format case", "webrtc-datachannel", "WebRTC-datachannel"),
+        ("media extra token", "webrtc-datachannel", "webrtc-datachannel extra"),
+        ("media missing format", " webrtc-datachannel", ""),
         ("wrong version", "v=0", "v=1"),
+        ("version suffix", "v=0", "v=00"),
+        ("timing extra separator", "t=0 0", "t=0  0"),
+        ("timing trailing token", "t=0 0", "t=0 0 0"),
+        ("origin missing separator", "o=-", "o-"),
     ]:
         add(label, BASE.replace(old, new))
+    for label, related in [
+        ("related address marker suffix", "raddrx 0.0.0.0 rport 9"),
+        ("related port marker case", "raddr 0.0.0.0 RPORT 9"),
+        ("related port missing", "raddr 0.0.0.0 rport"),
+        ("related extension missing value", "raddr 0.0.0.0 rport 9 extension"),
+    ]:
+        add(label, BASE.replace("typ host generation 0 network-cost 999", "typ srflx " + related))
     add("duplicate media", BASE + "m=application 9 UDP/DTLS/SCTP webrtc-datachannel\r\n")
+    add("duplicate version", BASE.replace("v=0", "v=0\r\nv=0"))
+    add("reordered headers", BASE.replace("s=-\r\nt=0 0", "t=0 0\r\ns=-"))
     add("candidate before media", BASE.replace("a=group:BUNDLE 0", CANDIDATE))
     add("embedded CR", BASE.replace("a=mid:0", "a=mid:0\rINJECT"))
     add("NUL", BASE.replace("a=mid:0", "a=mid:0\x00"))

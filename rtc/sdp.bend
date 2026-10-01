@@ -89,11 +89,18 @@ def fingerprint.bytes(values: List<&2, String>, fuel: Nat, acc: List<&2, U32>) -
       fingerprint.more(fingerprint_byte(head), acc, a => fingerprint.bytes(tail, p, a))
     case _ _: None{}
 
-def fingerprint(s: String) -> Maybe<&2, List<&2, U32>>:
-  match s:
-    case SCon{'s', SCon{'h', SCon{'a', SCon{'-', SCon{'2', SCon{'5', SCon{'6', SCon{' ', tail}}}}}}}}:
-      fingerprint.bytes(String.split(tail, ':'), 32n, [])
+def fingerprint.checked(ok: Bool, tail: String) -> Maybe<&2, List<&2, U32>>:
+  match ok:
+    case True{}: fingerprint.bytes(String.split(tail, ':'), 32n, [])
+    case False{}: None{}
+
+def fingerprint.cut(cut: Text.Cut) -> Maybe<&2, List<&2, U32>>:
+  match cut:
+    case Text.Cut{name, Some{tail}}: fingerprint.checked(Text.same(name, "sha-256", True{}), tail)
     case _: None{}
+
+def fingerprint(s: String) -> Maybe<&2, List<&2, U32>>:
+  fingerprint.cut(Text.cut(s, 32))
 
 def extensions(values: List<&2, String>, ok: Bool) -> Bool:
   match values:
@@ -102,13 +109,17 @@ def extensions(values: List<&2, String>, ok: Bool) -> Bool:
       extensions(tail, Bool.and(ok, Bool.and(Bool.not(String.eq(name, "")), Bool.not(String.eq(value, "")))))
     case _: False{}
 
-def kind(s: String) -> Maybe<&2, C.Flavor>:
-  match s:
-    case "host": Some{C.Host{}}
-    case "srflx": Some{C.ServerReflexive{}}
-    case "prflx": Some{C.PeerReflexive{}}
-    case "relay": Some{C.Relay{}}
-    case _: None{}
+def kind.checked(host: Bool, srflx: Bool, prflx: Bool, relay: Bool) -> Maybe<&2, C.Flavor>:
+  match host srflx prflx relay:
+    case True{} _ _ _: Some{C.Host{}}
+    case _ True{} _ _: Some{C.ServerReflexive{}}
+    case _ _ True{} _: Some{C.PeerReflexive{}}
+    case _ _ _ True{}: Some{C.Relay{}}
+    case _ _ _ _: None{}
+
+def kind(+s: String) -> Maybe<&2, C.Flavor>:
+  kind.checked(Text.same(s, "host", True{}), Text.same(s, "srflx", True{}),
+    Text.same(s, "prflx", True{}), Text.same(s, "relay", True{}))
 
 def host_extensions(values: List<&2, String>, ok: Bool) -> Bool:
   match values:
@@ -120,17 +131,20 @@ def host_extensions(values: List<&2, String>, ok: Bool) -> Bool:
 
 def related_address(values: List<&2, String>) -> Bool:
   match values:
-    case Con{"raddr", Con{+host, Con{"rport", Con{port, tail}}}}:
-      Bool.and(Bool.not(String.eq(host, "")), Bool.and(Maybe.is_some(&2, U32, decimal(port, 65535n)), extensions(tail, True{})))
+    case Con{address_name, Con{+host, Con{port_name, Con{port, tail}}}}:
+      Bool.and(Text.same(address_name, "raddr", True{}),
+        Bool.and(Text.same(port_name, "rport", True{}),
+          Bool.and(Bool.not(String.eq(host, "")), Bool.and(Maybe.is_some(&2, U32, decimal(port, 65535n)), extensions(tail, True{})))))
     case _: False{}
 
-def related(k: String, values: List<&2, String>) -> Bool:
+def related.kind(k: Maybe<&2, C.Flavor>, values: List<&2, String>) -> Bool:
   match k:
-    case "host": host_extensions(values, True{})
-    case "srflx": related_address(values)
-    case "prflx": related_address(values)
-    case "relay": related_address(values)
-    case _: extensions(values, True{})
+    case Some{C.Host{}}: host_extensions(values, True{})
+    case Some{_}: related_address(values)
+    case None{}: extensions(values, True{})
+
+def related(k: String, values: List<&2, String>) -> Bool:
+  related.kind(kind(k), values)
 
 def candidate.address(address: Maybe<&2, Stun.IPv4>, comp: U32, priority: U32,
                       foundation: String, flavor: C.Flavor) -> CandidateRead:
@@ -156,10 +170,17 @@ def candidate.numbers(comp: Maybe<&2, U32>, priority: Maybe<&2, U32>, port: Mayb
         Text.same_ci(transport, "UDP", True{}), kind(k), c, p, foundation, host, v)
     case _ _ _: Malformed{}
 
+def candidate.marker(ok: Bool, f: String, c: String, transport: String, p: String,
+                     host: String, port: String, k: String, tail: List<&2, String>) -> CandidateRead:
+  match ok:
+    case True{}:
+      candidate.numbers(decimal(c, 256n), decimal(p, 2147483647n), decimal(port, 65535n), f, transport, host, k, tail)
+    case False{}: Malformed{}
+
 def candidate.parts(values: List<&2, String>) -> CandidateRead:
   match values:
-    case Con{f, Con{c, Con{transport, Con{p, Con{host, Con{port, Con{"typ", Con{k, tail}}}}}}}}:
-      candidate.numbers(decimal(c, 256n), decimal(p, 2147483647n), decimal(port, 65535n), f, transport, host, k, tail)
+    case Con{f, Con{c, Con{transport, Con{p, Con{host, Con{port, Con{marker, Con{k, tail}}}}}}}}:
+      candidate.marker(Text.same(marker, "typ", True{}), f, c, transport, p, host, port, k, tail)
     case _: Malformed{}
 
 def candidate(s: String) -> CandidateRead:
@@ -169,16 +190,21 @@ def attribute(cut: Text.Cut) -> Attribute:
   match cut:
     case Text.Cut{name, value}: Attribute{name, Text.or(value, "")}
 
-def add_attribute(a: Attribute, doc: Document) -> Document:
-  match a doc:
-    case Attribute{"candidate", text} Document{stage, True{}, globals, attrs, +candidates, +ok}:
+def add_attribute.checked(candidate: Bool, a: Attribute, doc: Document) -> Document:
+  match candidate a doc:
+    case True{} Attribute{_, text} Document{stage, True{}, globals, attrs, +candidates, +ok}:
       Document{stage, True{}, globals, attrs, Con{text, candidates}, Bool.and(ok, Nat.is_lt(List.length(&2, String, candidates), 64n))}
-    case Attribute{"candidate", _} Document{stage, media, globals, attrs, candidates, _}:
+    case True{} _ Document{stage, media, globals, attrs, candidates, _}:
       Document{stage, media, globals, attrs, candidates, False{}}
-    case value Document{stage, False{}, globals, attrs, candidates, ok}:
+    case False{} value Document{stage, False{}, globals, attrs, candidates, ok}:
       Document{stage, False{}, Con{value, globals}, attrs, candidates, ok}
-    case value Document{stage, True{}, globals, attrs, candidates, ok}:
+    case False{} value Document{stage, True{}, globals, attrs, candidates, ok}:
       Document{stage, True{}, globals, Con{value, attrs}, candidates, ok}
+
+def add_attribute(a: Attribute, doc: Document) -> Document:
+  match a:
+    case Attribute{+name, value}:
+      add_attribute.checked(String.eq(name, "candidate"), Attribute{name, value}, doc)
 
 def media_port(port: Maybe<&2, U32>) -> Bool:
   match port:
@@ -187,27 +213,59 @@ def media_port(port: Maybe<&2, U32>) -> Bool:
 
 def media_ok(parts: List<&2, String>) -> Bool:
   match parts:
-    case ["application", port, "UDP/DTLS/SCTP", "webrtc-datachannel"]:
-      media_port(decimal(port, 65535n))
+    case [media, port, transport, format]:
+      Bool.and(Text.same(media, "application", True{}),
+        Bool.and(media_port(decimal(port, 65535n)),
+          Bool.and(Text.same(transport, "UDP/DTLS/SCTP", True{}), Text.same(format, "webrtc-datachannel", True{}))))
     case _: False{}
 
-def line(s: String, doc: Document) -> Document:
-  match s doc:
-    case "v=0" Document{0, False{}, g, a, c, ok}: Document{1, False{}, g, a, c, ok}
-    case SCon{'o', SCon{'=', _}} Document{1, False{}, g, a, c, ok}: Document{2, False{}, g, a, c, ok}
-    case SCon{'s', SCon{'=', _}} Document{2, False{}, g, a, c, ok}: Document{3, False{}, g, a, c, ok}
-    case "t=0 0" Document{3, False{}, g, a, c, ok}: Document{4, False{}, g, a, c, ok}
-    case SCon{'m', SCon{'=', text}} Document{4, False{}, g, a, c, +ok}:
+def line.advance(ok: Bool, next: U32, doc: Document) -> Document:
+  match ok doc:
+    case True{} Document{_, media, g, a, c, valid}: Document{next, media, g, a, c, valid}
+    case False{} Document{stage, media, g, a, c, _}: Document{stage, media, g, a, c, False{}}
+
+def line.invalid(doc: Document) -> Document:
+  match doc:
+    case Document{stage, media, g, a, c, _}: Document{stage, media, g, a, c, False{}}
+
+def line.header(ok: Bool, expected: U32, next: U32, doc: Document) -> Document:
+  match doc:
+    case Document{+stage, +media, g, a, c, valid}:
+      line.advance(Bool.and(ok, Bool.and(U32.is_eq(stage, expected), Bool.not(media))),
+        next, Document{stage, media, g, a, c, valid})
+
+def line.media(text: String, doc: Document) -> Document:
+  match doc:
+    case Document{4, False{}, g, a, c, ok}:
       Document{4, True{}, g, a, c, Bool.and(ok, media_ok(String.split(text, ' ')))}
-    case SCon{'a', SCon{'=', text}} Document{4, media, g, a, c, ok}:
+    case other: line.invalid(other)
+
+def line.attribute(text: String, doc: Document) -> Document:
+  match doc:
+    case Document{4, media, g, a, c, ok}:
       add_attribute(attribute(Text.cut(text, 58)), Document{4, media, g, a, c, ok})
-    case SCon{'c', SCon{'=', _}} d: d
-    case SCon{'b', SCon{'=', _}} d: d
-    case SCon{'i', SCon{'=', _}} d: d
-    case SCon{'u', SCon{'=', _}} d: d
-    case SCon{'e', SCon{'=', _}} d: d
-    case SCon{'p', SCon{'=', _}} d: d
-    case _ Document{stage, media, g, a, c, _}: Document{stage, media, g, a, c, False{}}
+    case other: line.invalid(other)
+
+def line.field(field: Char, text: String, doc: Document) -> Document:
+  match field:
+    case 'v': line.header(Text.same(text, "0", True{}), 0, 1, doc)
+    case 'o': line.header(True{}, 1, 2, doc)
+    case 's': line.header(True{}, 2, 3, doc)
+    case 't': line.header(Text.same(text, "0 0", True{}), 3, 4, doc)
+    case 'm': line.media(text, doc)
+    case 'a': line.attribute(text, doc)
+    case 'c': doc
+    case 'b': doc
+    case 'i': doc
+    case 'u': doc
+    case 'e': doc
+    case 'p': doc
+    case _: line.invalid(doc)
+
+def line(s: String, doc: Document) -> Document:
+  match s:
+    case SCon{field, SCon{'=', text}}: line.field(field, text, doc)
+    case _: line.invalid(doc)
 
 def drop_cr(s: String) -> String:
   match s:
