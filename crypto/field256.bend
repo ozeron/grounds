@@ -17,143 +17,91 @@ def zero() -> Array<U32>:
 def one() -> Array<U32>:
   Array.set(U32, zero(), 0, 1)
 
-def field_digit(i: U32) -> U32:
+# Public constant access uses eight 32-bit words instead of 32 byte cases.
+def word_byte(word: U32, i: U32) -> U32:
+  U32.and(U32.shrn(word, U32.to_nat(U32.mul(U32.and(i, 3), 8))), 255)
+
+def field_digit.word.low(i: Nat) -> U32:
   match i:
-    case 0:
-      255
-    case 1:
-      255
-    case 2:
-      255
-    case 3:
-      255
-    case 4:
-      255
-    case 5:
-      255
-    case 6:
-      255
-    case 7:
-      255
-    case 8:
-      255
-    case 9:
-      255
-    case 10:
-      255
-    case 11:
-      255
-    case 12:
+    case 0n:
+      4294967295
+    case 1n:
+      4294967295
+    case 2n:
+      4294967295
+    case 3n:
       0
-    case 13:
-      0
-    case 14:
-      0
-    case 15:
-      0
-    case 16:
-      0
-    case 17:
-      0
-    case 18:
-      0
-    case 19:
-      0
-    case 20:
-      0
-    case 21:
-      0
-    case 22:
-      0
-    case 23:
-      0
-    case 24:
-      1
-    case 25:
-      0
-    case 26:
-      0
-    case 27:
-      0
-    case 28:
-      255
-    case 29:
-      255
-    case 30:
-      255
-    case 31:
-      255
     case _:
       0
 
-def scalar_digit(i: U32) -> U32:
+def field_digit.word.high(i: Nat) -> U32:
   match i:
-    case 0:
-      81
-    case 1:
-      37
-    case 2:
-      99
-    case 3:
-      252
-    case 4:
-      194
-    case 5:
-      202
-    case 6:
-      185
-    case 7:
-      243
-    case 8:
-      132
-    case 9:
-      158
-    case 10:
-      23
-    case 11:
-      167
-    case 12:
-      173
-    case 13:
-      250
-    case 14:
-      230
-    case 15:
-      188
-    case 16:
-      255
-    case 17:
-      255
-    case 18:
-      255
-    case 19:
-      255
-    case 20:
-      255
-    case 21:
-      255
-    case 22:
-      255
-    case 23:
-      255
-    case 24:
+    case 0n:
       0
-    case 25:
+    case 1n:
       0
-    case 26:
-      0
-    case 27:
-      0
-    case 28:
-      255
-    case 29:
-      255
-    case 30:
-      255
-    case 31:
-      255
+    case 2n:
+      1
+    case 3n:
+      4294967295
     case _:
       0
+
+def field_digit.word.group(group: Nat, i: Nat) -> U32:
+  match group:
+    case 0n:
+      field_digit.word.low(i)
+    case 1n:
+      field_digit.word.high(i)
+    case _:
+      0
+
+def field_digit.word(+i: U32) -> U32:
+  field_digit.word.group(U32.to_nat(U32.shrn(i, 2n)), U32.to_nat(U32.and(i, 3)))
+
+def field_digit(+i: U32) -> U32:
+  word_byte(field_digit.word(U32.shrn(i, 2n)), i)
+
+def scalar_digit.word.low(i: Nat) -> U32:
+  match i:
+    case 0n:
+      4234356049
+    case 1n:
+      4089039554
+    case 2n:
+      2803342980
+    case 3n:
+      3169254061
+    case _:
+      0
+
+def scalar_digit.word.high(i: Nat) -> U32:
+  match i:
+    case 0n:
+      4294967295
+    case 1n:
+      4294967295
+    case 2n:
+      0
+    case 3n:
+      4294967295
+    case _:
+      0
+
+def scalar_digit.word.group(group: Nat, i: Nat) -> U32:
+  match group:
+    case 0n:
+      scalar_digit.word.low(i)
+    case 1n:
+      scalar_digit.word.high(i)
+    case _:
+      0
+
+def scalar_digit.word(+i: U32) -> U32:
+  scalar_digit.word.group(U32.to_nat(U32.shrn(i, 2n)), U32.to_nat(U32.and(i, 3)))
+
+def scalar_digit(+i: U32) -> U32:
+  word_byte(scalar_digit.word(U32.shrn(i, 2n)), i)
 
 def modulus_digit(mode: Mode, i: U32) -> U32:
   match mode:
@@ -390,143 +338,87 @@ def encode_list(left: Nat, xs: List<&1, U32>) -> List<&2, U32>:
 def encode(xs: Array<U32>) -> List<&2, U32>:
   encode_list(32n, Array.to_list(U32, xs))
 
-def field_r2_digit(i: U32) -> U32:
+def field_r2_digit.word.low(i: Nat) -> U32:
   match i:
-    case 0:
+    case 0n:
       3
-    case 1:
+    case 1n:
       0
-    case 2:
-      0
-    case 3:
-      0
-    case 4:
-      0
-    case 5:
-      0
-    case 6:
-      0
-    case 7:
-      0
-    case 8:
-      255
-    case 9:
-      255
-    case 10:
-      255
-    case 11:
-      255
-    case 12:
-      251
-    case 13:
-      255
-    case 14:
-      255
-    case 15:
-      255
-    case 16:
-      254
-    case 17:
-      255
-    case 18:
-      255
-    case 19:
-      255
-    case 20:
-      255
-    case 21:
-      255
-    case 22:
-      255
-    case 23:
-      255
-    case 24:
-      253
-    case 25:
-      255
-    case 26:
-      255
-    case 27:
-      255
-    case 28:
-      4
-    case 29:
-      0
-    case 30:
-      0
-    case 31:
-      0
+    case 2n:
+      4294967295
+    case 3n:
+      4294967291
     case _:
       0
 
-def scalar_r2_digit(i: U32) -> U32:
+def field_r2_digit.word.high(i: Nat) -> U32:
   match i:
-    case 0:
-      162
-    case 1:
-      238
-    case 2:
-      121
-    case 3:
-      190
-    case 4:
-      149
-    case 5:
-      76
-    case 6:
-      36
-    case 7:
-      131
-    case 8:
-      166
-    case 9:
-      111
-    case 10:
-      189
-    case 11:
-      73
-    case 12:
-      156
-    case 13:
-      121
-    case 14:
-      153
-    case 15:
-      70
-    case 16:
-      89
-    case 17:
-      236
-    case 18:
-      107
-    case 19:
-      43
-    case 20:
-      57
-    case 21:
-      178
-    case 22:
-      69
-    case 23:
-      40
-    case 24:
-      32
-    case 25:
-      86
-    case 26:
-      217
-    case 27:
-      243
-    case 28:
-      148
-    case 29:
-      45
-    case 30:
-      225
-    case 31:
-      102
+    case 0n:
+      4294967294
+    case 1n:
+      4294967295
+    case 2n:
+      4294967293
+    case 3n:
+      4
     case _:
       0
+
+def field_r2_digit.word.group(group: Nat, i: Nat) -> U32:
+  match group:
+    case 0n:
+      field_r2_digit.word.low(i)
+    case 1n:
+      field_r2_digit.word.high(i)
+    case _:
+      0
+
+def field_r2_digit.word(+i: U32) -> U32:
+  field_r2_digit.word.group(U32.to_nat(U32.shrn(i, 2n)), U32.to_nat(U32.and(i, 3)))
+
+def field_r2_digit(+i: U32) -> U32:
+  word_byte(field_r2_digit.word(U32.shrn(i, 2n)), i)
+
+def scalar_r2_digit.word.low(i: Nat) -> U32:
+  match i:
+    case 0n:
+      3195661986
+    case 1n:
+      2200194197
+    case 2n:
+      1237151654
+    case 3n:
+      1184463260
+    case _:
+      0
+
+def scalar_r2_digit.word.high(i: Nat) -> U32:
+  match i:
+    case 0n:
+      728493145
+    case 1n:
+      675656249
+    case 2n:
+      4091106848
+    case 3n:
+      1726033300
+    case _:
+      0
+
+def scalar_r2_digit.word.group(group: Nat, i: Nat) -> U32:
+  match group:
+    case 0n:
+      scalar_r2_digit.word.low(i)
+    case 1n:
+      scalar_r2_digit.word.high(i)
+    case _:
+      0
+
+def scalar_r2_digit.word(+i: U32) -> U32:
+  scalar_r2_digit.word.group(U32.to_nat(U32.shrn(i, 2n)), U32.to_nat(U32.and(i, 3)))
+
+def scalar_r2_digit(+i: U32) -> U32:
+  word_byte(scalar_r2_digit.word(U32.shrn(i, 2n)), i)
 
 def r2_digit(mode: Mode, i: U32) -> U32:
   match mode:

@@ -2,10 +2,10 @@
 
 import hashlib
 import hmac
+import argparse
 from pathlib import Path
 import random
 import subprocess
-import sys
 import tempfile
 
 
@@ -30,8 +30,13 @@ def hkdf_expand_reference(prk: bytes, info: bytes, length: int) -> str:
 
 
 def main() -> None:
-    binary = sys.argv[1]
-    hkdf_binary = sys.argv[2]
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--bun", action="store_true")
+    parser.add_argument("sha256")
+    parser.add_argument("hkdf")
+    options = parser.parse_args()
+    binary = (["bun"] if options.bun else []) + [options.sha256]
+    hkdf_binary = (["bun"] if options.bun else []) + [options.hkdf]
     cases = VECTORS + [
         (bytes(range(n % 256)) if n < 256 else bytes(range(256)), None)
         for n in (1, 55, 56, 63, 64, 65, 119, 120, 127, 128, 129, 256)
@@ -75,20 +80,20 @@ def main() -> None:
         for data, known in cases:
             expected = known or hashlib.sha256(data).hexdigest()
             path.write_bytes(data)
-            got = subprocess.run([binary, str(path)], capture_output=True, text=True, check=True).stdout.strip()
+            got = subprocess.run(binary + [str(path)], capture_output=True, text=True, check=True).stdout.strip()
             assert got == expected, f"SHA-256 len={len(data)}: {got} != {expected}"
         for key, data, known in hmac_vectors:
             expected = known or hmac.digest(key, data, "sha256").hex()
             key_path.write_bytes(key)
             path.write_bytes(data)
-            got = subprocess.run([binary, str(key_path), str(path)], capture_output=True, text=True, check=True).stdout.strip()
+            got = subprocess.run(binary + [str(key_path), str(path)], capture_output=True, text=True, check=True).stdout.strip()
             assert got == expected, f"HMAC key={len(key)} data={len(data)}: {got} != {expected}"
         for salt, ikm, info, length, prk, okm in hkdf_vectors:
             key_path.write_bytes(salt)
             path.write_bytes(ikm)
             info_path.write_bytes(info)
             lines = subprocess.run(
-                [hkdf_binary, str(key_path), str(path), str(info_path), str(length)],
+                hkdf_binary + [str(key_path), str(path), str(info_path), str(length)],
                 capture_output=True, text=True, check=True,
             ).stdout.splitlines()
             assert lines == [prk, okm], f"HKDF length={length}: {lines} != {[prk, okm]}"
@@ -98,13 +103,13 @@ def main() -> None:
         info_path.write_bytes(info)
         for length in (0, 1, 31, 32, 33, 8160):
             lines = subprocess.run(
-                [hkdf_binary, str(key_path), str(path), str(info_path), str(length)],
+                hkdf_binary + [str(key_path), str(path), str(info_path), str(length)],
                 capture_output=True, text=True, check=True,
             ).stdout.splitlines()
             expected = [prk, hkdf_expand_reference(bytes.fromhex(prk), info, length)]
             assert lines == expected, f"HKDF boundary length={length}: {lines} != {expected}"
         too_long = subprocess.run(
-            [hkdf_binary, str(key_path), str(path), str(info_path), "8161"],
+            hkdf_binary + [str(key_path), str(path), str(info_path), "8161"],
             capture_output=True, text=True,
         )
         assert too_long.returncode != 0, "HKDF accepted more than 255 hash blocks"

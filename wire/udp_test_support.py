@@ -35,17 +35,33 @@ def interface_ipv4s():
     return sorted(hosts)
 
 
+def local_udp_roundtrip(host):
+    """A bindable VPN/tunnel address may not route to a loopback peer."""
+    payload = b"grounds-local-udp-address-probe"
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as target, \
+                socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as peer:
+            target.bind((host, 0))
+            peer.bind(("127.0.0.1", 0))
+            target.settimeout(0.25)
+            peer.settimeout(0.25)
+            peer.sendto(payload, target.getsockname())
+            received, source = target.recvfrom(128)
+            if received != payload or source != peer.getsockname():
+                return False
+            target.sendto(received, source)
+            return peer.recvfrom(128) == (payload, target.getsockname())
+    except OSError:
+        return False
+
+
 def second_local_ipv4():
     for host in ["127.0.0.2"] + interface_ipv4s():
         if host in ("127.0.0.1", "0.0.0.0"):
             continue
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
-            try:
-                probe.bind((host, 0))
-            except OSError:
-                continue
-        return host
-    raise RuntimeError("UDP address proof requires a second bindable local IPv4 address")
+        if local_udp_roundtrip(host):
+            return host
+    raise RuntimeError("UDP address proof requires a second locally reachable IPv4 address")
 
 
 def udp_fd_count(pid):

@@ -1,6 +1,6 @@
 # grounds-crypto
 
-Pure Bend cryptographic primitives. This package implements SHA-1, SHA-256, HMAC-SHA1, HMAC-SHA256, HKDF-SHA-256, ChaCha20, Poly1305, ChaCha20-Poly1305 AEAD, AES-128 encryption, AES-128-GCM, and X25519. They are **experimental**: cookie signing and TLS still use OpenSSL while the Bend implementation is verified and its generated code is reviewed for timing behavior. Plain SHA-1 is used only for the WebSocket handshake challenge; HMAC-SHA1 is for the legacy STUN MESSAGE-INTEGRITY attribute.
+Pure Bend cryptographic primitives. This package implements SHA-1, SHA-256, HMAC-SHA1, HMAC-SHA256, HKDF-SHA-256, ChaCha20, Poly1305, ChaCha20-Poly1305 AEAD, AES-128 encryption, AES-128-GCM, X25519 and P-256 ECDH. They are **experimental**: cookie signing and TLS still use OpenSSL while the Bend implementation is verified and its generated code is reviewed for timing behavior. Plain SHA-1 is used only for the WebSocket handshake challenge; HMAC-SHA1 is for the legacy STUN MESSAGE-INTEGRITY attribute.
 
 | Module | Public calls | Source |
 |---|---|---|
@@ -17,6 +17,7 @@ Pure Bend cryptographic primitives. This package implements SHA-1, SHA-256, HMAC
 | `traffic.bend` | `expand_label`, `new_write`, `new_read`, `new_aes128_write`, `new_aes128_read`, `seal`, `open`, `rekey_write`, `rekey_read`, `close_write`, `close_read` | RFC 9846 TLS 1.3 traffic-key/nonce lifecycle for ChaCha20-Poly1305 and AES-128-GCM with SHA-256 |
 | `x25519.bend` | `scalar_mult(scalar, u)`, `public_key(scalar)`, `shared(scalar, peer_public)` | RFC 7748 |
 | `field25519.bend` | Internal `add`, `sub`, `mul`, `square`, `decode`, `encode` | GF(2^255-19) arithmetic used by X25519 |
+| `p256.bend` | `public_key(private)`, `shared(private, peer_public)`, `decode(peer_public)` | SP 800-186 P-256 / SEC 1 v2.0 ECDH |
 | `field256.bend` | Internal P-256 prime/order `add`, `sub`, `mul`, `square`, `invert`, `decode_canonical` | SP 800-186 section 3.2.1.3 arithmetic foundation |
 | `bytes.bend` | `length`, `valid`, `append`, `hex` | Tail-recursive byte-list helpers |
 
@@ -67,7 +68,14 @@ verified 4008 (decrypt input wording) and 4268 (nonce-persistence example),
 both consistent with this interface. Reported 5219 proposes the NIST plaintext
 bound; it remains reported, so this limit is grounded in the NIST specification.
 
-Run `moon run crypto:check --force`. The check proves that SHA-256 state output is always 32 bytes, compiles the native adapters, tests invalid-byte handling, compares SHA-256 against four published vectors and boundary/binary cases, compares HMAC against RFC 4231 and Python, and checks three RFC 5869 extract/expand vectors plus output-length boundaries. The million-`a` SHA-256 vector exercises a multi-block message.
+Run `moon run crypto:check --force` through the sequential
+[build guard](../tools/README.md), using its documented local recovery settings.
+The compiler cutoff is 512 MiB, with a 640 MiB total budget for the Moon job.
+Native adapters use `tools/bend_native.sh` to release the Bend frontend before
+clang starts. JavaScript generation and all correctness checks remain Bend-based.
+The check proves that SHA-256 state output is always 32 bytes, compiles the native adapters, tests invalid-byte handling, compares SHA-256 against four published vectors and boundary/binary cases, compares HMAC against RFC 4231 and Python, and checks three RFC 5869 extract/expand vectors plus output-length boundaries. The million-`a` SHA-256 vector exercises a multi-block message.
+SHA-256, HMAC-SHA-256 and HKDF run the same matrix on native and Bun, including
+the million-byte hash and the maximum 8,160-byte HKDF expansion.
 
 `traffic.bend` owns TLS_CHACHA20_POLY1305_SHA256 and TLS_AES_128_GCM_SHA256 keys, IVs and
 64-bit record counters. `new_write` / `new_read` validate a 32-byte traffic
@@ -119,6 +127,13 @@ independent lifecycle scenarios per target, including sequential records,
 all tag positions, usage-cap boundaries, uncapped receiving counters,
 64-bit carry/exhaustion, five epochs, sending update-generation limits,
 algorithm confusion, malformed inputs and permanent retirement.
+The package gate builds separate read/write evaluator fixtures to keep compiler
+memory within its process cutoff. Each fixture retains its affine owner for the
+entire scenario, including all records, updates, failures and retirement. The
+Python test launcher only selects and executes the matching Bend fixture;
+cryptography and lifecycle transitions remain in Bend. Shared formatting and
+synthetic boundary injection live in `traffic_fixture_support.bend`. The
+combined `traffic_cli.bend` remains available, with its original interface.
 [RFC 9846](https://www.rfc-editor.org/info/rfc9846/) (July 2026) supersedes
 RFC 8446; sections 4.7.3, 5.3/5.5 and 7.1–7.3 and
 [its errata](https://www.rfc-editor.org/errata/rfc9846) were reviewed on
@@ -206,6 +221,15 @@ The reducing helpers require their stated byte/length preconditions. Protocol
 point/private-key parsers must use strict decoding and enforce their additional
 range, byte-order and curve-point requirements.
 
+The prime, scalar order and Montgomery R-squared constants use eight public
+32-bit words each. Their byte accessors retain the same little-endian values
+and return zero outside indices 0–31. Two four-word groups keep pattern checks
+small. Group/word selection and bounded byte shifts
+use public indices, reducing the compiler's pattern-checking workload without
+changing the arithmetic schedule. The field test CLI factors argument parsing
+and uses decreasing public fuel for at most 1048576 operations per process;
+the validating arithmetic APIs have no such batch limit.
+
 Multiplication uses two byte-limb Montgomery products to return the ordinary
 representation. Inner product-plus-carry sums stay at or below 65535; explicit
 high carry is retained before the canceled low byte is shifted away. Conditional
@@ -220,5 +244,43 @@ operands, random values, 512-bit reduction, Montgomery versus the retained
 binary implementation, inverse/zero behavior, strict decoding and malformed
 lengths. Four closed Bend checks reject bad lengths and U32 values outside the
 byte range. Constants are grounded in [NIST SP 800-186 section 3.2.1.3](https://csrc.nist.gov/pubs/sp/800/186/final).
-This is an arithmetic foundation: P-256 point operations, ECDH, ECDSA and their
-published-vector/independent-implementation interop are still required.
+This arithmetic foundation supports the P-256 module below. ECDSA/RSA signatures
+and full TLS/DTLS certificate/handshake integration remain required.
+
+
+`p256.bend` accepts exactly 32 big-endian private-scalar bytes in 1..n−1.
+Public points use only the 65-byte uncompressed SEC1 encoding `04 || x || y`,
+with two canonical 32-byte big-endian coordinates. It rejects wrong lengths,
+non-byte U32 values, coordinate aliases, off-curve points and infinity;
+compressed/hybrid encodings are not supported. P-256 has cofactor one, so a
+validated non-infinity curve point belongs to the prime-order subgroup.
+`public_key` returns the uncompressed point; `shared` returns exactly the
+32-byte big-endian affine x coordinate, including leading zero bytes. Rejection
+returns `None`. Secret/key ownership, ephemeral generation, KDF/domain binding
+and protocol lifecycle remain integration responsibilities.
+
+Internally, ordinary projective coordinates represent x=X/Z and y=Y/Z in
+canonical Montgomery byte limbs. Point addition ports the 43 straight-line
+[RCB add-2015-rcb-3 formulas](https://www.hyperelliptic.org/EFD/g1p/auto-shortw-projective-3.html#addition-add-2015-rcb-3),
+including doubling, inverse pairs and infinity. Raw point helpers require valid
+curve representatives. Scalar multiplication always performs 256 doublings,
+256 additions and 256 byte-mask selections; only public bit positions choose
+list/array indices. It selects with 0/255 masks. Affine normalization rejects
+zero Z and uses the field's public-exponent inverse. There is no source-level
+secret-bit exceptional-case branch in the group schedule; generated runtime,
+allocation/scheduling, native optimizations and Bun JIT timing/erasure remain
+unresolved. This is synthetic correctness evidence, not production approval.
+
+The native/Bun evaluator covers 609 cases: all 25 published NIST P-256 ECDH
+vectors with both local public keys and shared coordinates; independent affine
+addition and rescaled projective representatives including infinity, doubling
+and inverses; scalar zero/order/byte-transition/alternating/dense/random cases;
+strict private/public malformed, range and tampering rejections; and eight
+bidirectional OpenSSL exchanges with both public keys. The independent Python
+oracle uses textbook affine slopes/inversions, not the RCB implementation.
+Four closed Bend checks reject malformed or non-byte input. Projective and raw
+scalar adapters are synthetic arithmetic fixtures; they do not expand the
+validating protocol API. The JSON fixture pins the NIST archive URL/hash and is
+included in Moon's crypto input hash. Encoding and validation follow
+[Standards for Efficient Cryptography 1 (SEC 1) v2.0](https://www.secg.org/sec1-v2.pdf),
+sections 2.3.3–2.3.4, 3.2.2 and 3.3.1.

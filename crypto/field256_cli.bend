@@ -3,16 +3,19 @@ import ./field256.bend as F
 import ./bytes.bend as B
 import ../io/io.bend as Io
 
+def print_value(value: Array<U32>) -> IO(Unit):
+  IO.print(B.hex(F.encode(value)))
+
 def run_operation(mode: F.Mode, op: String, a: Array<U32>, b: Array<U32>) -> IO(Unit):
   match op:
     case "add":
-      IO.print(B.hex(F.encode(F.add(mode, a, b))))
+      print_value(F.add(mode, a, b))
     case "sub":
-      IO.print(B.hex(F.encode(F.sub(mode, a, b))))
+      print_value(F.sub(mode, a, b))
     case "mul":
-      IO.print(B.hex(F.encode(F.mul(mode, a, b))))
+      print_value(F.mul(mode, a, b))
     case "ref":
-      IO.print(B.hex(F.encode(F.binary_mul(mode, a, b))))
+      print_value(F.binary_mul(mode, a, b))
     case _:
       IO.die(Unit, 2, "unknown field operation")
 
@@ -38,7 +41,7 @@ def wide.checked(ok: Bool, mode: F.Mode, bytes: List<&2, U32>) -> IO(Unit):
     case False{}:
       IO.die(Unit, 2, "wide operand must be 64 bytes")
     case True{}:
-      IO.print(B.hex(F.encode(F.decode_wide(mode, bytes))))
+      print_value(F.decode_wide(mode, bytes))
 
 def wide.read(mode: F.Mode, path: String) -> IO(Unit):
   do IO<Unit>:
@@ -50,7 +53,7 @@ def result(value: Maybe<&1, Array<U32>>) -> IO(Unit):
     case None{}:
       IO.print("invalid")
     case Some{value}:
-      IO.print(B.hex(F.encode(value)))
+      print_value(value)
 
 def invert.checked(valid: Bool, +mode: F.Mode, bytes: List<&2, U32>) -> IO(Unit):
   match valid:
@@ -69,46 +72,69 @@ def canonical.read(mode: F.Mode, path: String) -> IO(Unit):
     bytes : List<&2, U32> <- Io.read_bytes(path)
     result(F.decode_canonical(mode, bytes))
 
-def dispatch(args: List<String>) -> IO(Unit):
-  match args:
-    case Nil{}:
-      IO.pure(Unit, Unit{})
-    case Con{"p", Con{"inv", Con{a, tail}}}:
-      do IO<Unit>:
-        invert.read(F.Field{}, a)
-        dispatch(tail)
-    case Con{"p", Con{"check", Con{a, tail}}}:
-      do IO<Unit>:
-        canonical.read(F.Field{}, a)
-        dispatch(tail)
-    case Con{"n", Con{"inv", Con{a, tail}}}:
-      do IO<Unit>:
-        invert.read(F.Scalar{}, a)
-        dispatch(tail)
-    case Con{"n", Con{"check", Con{a, tail}}}:
-      do IO<Unit>:
-        canonical.read(F.Scalar{}, a)
-        dispatch(tail)
-    case Con{"p", Con{"wide", Con{a, tail}}}:
-      do IO<Unit>:
-        wide.read(F.Field{}, a)
-        dispatch(tail)
-    case Con{"n", Con{"wide", Con{a, tail}}}:
-      do IO<Unit>:
-        wide.read(F.Scalar{}, a)
-        dispatch(tail)
-    case Con{"p", Con{op, Con{a, Con{b, tail}}}}:
-      do IO<Unit>:
-        read_inputs(F.Field{}, op, a, b)
-        dispatch(tail)
-    case Con{"n", Con{op, Con{a, Con{b, tail}}}}:
-      do IO<Unit>:
-        read_inputs(F.Scalar{}, op, a, b)
-        dispatch(tail)
+# Parse mode, operation and operand arity once. Return the unconsumed batch
+# tail rather than duplicating every nested argument pattern for p and n.
+def unary.read(mode: F.Mode, op: String, path: String) -> IO(Unit):
+  match op:
+    case "inv":
+      invert.read(mode, path)
+    case "check":
+      canonical.read(mode, path)
     case _:
-      IO.die(Unit, 2, "usage: field256_cli <p|n> <add|sub|mul|ref> <a-file> <b-file>")
+      wide.read(mode, path)
 
+def consume.unary(mode: F.Mode, op: String, args: List<String>) -> IO(List<String>):
+  match args:
+    case Con{path, tail}:
+      do IO<List<String>>:
+        unary.read(mode, op, path)
+        IO.pure(List<String>, tail)
+    case _:
+      IO.die(List<String>, 2, "field operation needs one operand file")
+
+def consume.binary(mode: F.Mode, op: String, args: List<String>) -> IO(List<String>):
+  match args:
+    case Con{a, Con{b, tail}}:
+      do IO<List<String>>:
+        read_inputs(mode, op, a, b)
+        IO.pure(List<String>, tail)
+    case _:
+      IO.die(List<String>, 2, "field operation needs two operand files")
+
+def consume.operation(mode: F.Mode, +op: String, args: List<String>) -> IO(List<String>):
+  match op:
+    case "inv":
+      consume.unary(mode, "inv", args)
+    case "check":
+      consume.unary(mode, "check", args)
+    case "wide":
+      consume.unary(mode, "wide", args)
+    case _:
+      consume.binary(mode, op, args)
+
+def consume.mode(mode: String, op: String, args: List<String>) -> IO(List<String>):
+  match mode:
+    case "p":
+      consume.operation(F.Field{}, op, args)
+    case "n":
+      consume.operation(F.Scalar{}, op, args)
+    case _:
+      IO.die(List<String>, 2, "unknown field modulus")
+
+def dispatch(left: Nat, args: List<String>) -> IO(Unit):
+  match left args:
+    case _ Nil{}:
+      IO.pure(Unit, Unit{})
+    case Succ{left} Con{mode, Con{op, tail}}:
+      do IO<Unit>:
+        remaining : List<String> <- consume.mode(mode, op, tail)
+        dispatch(left, remaining)
+    case _ _:
+      IO.die(Unit, 2, "usage: field256_cli <p|n> <operation> <operand-files>")
+
+# More operations than can fit in an OS argument vector; explicit fuel keeps
+# the loop checked when an IO helper returns the remaining arguments.
 def main() -> IO(Unit):
   do IO<Unit>:
     args : List<String> <- IO.args()
-    dispatch(args)
+    dispatch(1048576n, args)

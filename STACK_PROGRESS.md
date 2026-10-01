@@ -14,6 +14,72 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 
 ## Evidence ledger
 
+- 2026-10-01 (bounded crypto/wire recovery gates): Fresh sequential guarded
+  `moon --concurrency 1 run crypto:check --force` passes (19m50s801ms execution,
+  hash `39490f0fb9e68d59734a722c5aa1b133796a069f90abf339c25df3316582af6b`).
+  The command used `nice -n 10`, local `BUN_OPTIONS=--smol`,
+  `BUN_JSC_forceRAMSize=268435456`, `PYTHONDONTWRITEBYTECODE=1`, a 640 MiB
+  aggregate / 512 MiB individual sampled cutoff and a 3600-second timeout.
+  Peak owned memory was 590.50 MiB aggregate / 511.59 MiB individual.
+  Both targets pass the complete primitive and unchanged 70/72 traffic-owner
+  matrices. P-256 passes all 609 cases in 4.340s native / 952.617s Bun. The slow
+  Bun matrix is measured under these recovery/priority settings, not an isolated
+  performance comparison. The gate now also executes the previously omitted
+  Bun SHA-256/HMAC/HKDF matrix: all 29 hashes including million-a, 11 HMAC cases,
+  three RFC HKDF vectors and seven output-length boundaries including 8160.
+  P-256 reports each successful 16-case batch. Native helper builds, public
+  four-word constant groups, the factored field CLI and read/write traffic
+  fixtures pass this fresh gate. All 74 preexisting arithmetic definitions
+  match the prior source after excluding comments/blank lines, and all 128
+  constant bytes match. All 388 frozen code/config/check inputs remained
+  unchanged until this gate ended. Current native/JS fixtures and their hashes
+  are retained in `resource-recovery/crypto-builds/` below.
+  Wire's combined record evaluator then crossed the unchanged individual cutoff
+  after 2.051s (517.34 MiB individual). An initial directional split still
+  imported the complete crypto command evaluators and was also stopped. The
+  accepted fixture split imports only shared formatting and owner diagnostics;
+  its complete per-direction record/update/failure/retirement functions remain
+  in Bend. The Python launcher only selects and execs a fixture. Protocol
+  `tls_record.bend`, `traffic.bend`, their original combined evaluators and the
+  existing record checker remain byte-identical. Six directional lifecycle
+  functions differ only in helper qualification. Fresh guarded
+  `moon --concurrency 1 run wire:check --force` now passes in 1m8s298ms
+  (hash `e29a1b805f0298ec9a389d39c796c27b43209a121b0794afecb741e7450971ca`),
+  peak 619.33 MiB aggregate / 430.70 MiB individual. Both targets pass 154
+  ChaCha and 166 AES record cases, RNG and transport/cleanup/compatibility
+  matrices, including the reachable second-IP probe. All 392 frozen inputs
+  remained unchanged during wire execution. No compiler budget was raised.
+  Logs, terminal resource reports, fresh Moon run/hash reports, frozen manifests,
+  source comparisons and draft-review excerpts are in
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-01/resource-recovery/`.
+  Generated P-256 JS selection excerpts show the mask path and public loop/index
+  schedule; native assembly/JIT/erasure review remains open. The isolated ECDSA
+  draft was compared read-only with RFC 6979 section 3.2 and SEC 1 v2.0 sections
+  4.1.3-4.1.4; its current-field full native/Bun acceptance is still pending.
+  The RFC Editor errata endpoint returned Internal Error, so no fresh verified
+  errata claim follows. An owned compiler copy that only prints existing source
+  maps to stderr is prepared for the native audit; it has not been run, and its
+  output must match installed-compiler C byte-for-byte before it is used as
+  evidence. The installed compiler/user configuration is unchanged.
+  Fresh RTC session 35854 is terminal 137: after 19 successful term-check
+  messages the guard stopped a process at 517.27 MiB individual / 604.52 MiB
+  aggregate, 136.747s elapsed. No fresh RTC integration/browser pass follows.
+  The milestone `moon --concurrency 1 run :check` attempt is also terminal 137:
+  it reused cached utf8/crypto/io/http-core/wire results, then stopped during
+  JSON's constructor audit at 526.36 MiB individual / 632.80 MiB aggregate,
+  2.369s elapsed. The temporary PATH wrapper prints Bend source arguments to
+  stderr, but that JSON helper captures stderr, so its exact active source was
+  not recovered. These failures leave the repository gate incomplete; stale
+  `.moon/cache/runReport.json` must not be treated as a new failure/success
+  report. Owned process groups were stopped, and no primary code input changed
+  during the attempts. Terminal guard reports and logs are retained above.
+  The milestone is verified crypto/wire recovery, not full-stack acceptance.
+  Next: probe SDP and JSON constructor-audit C emission individually under the
+  unchanged 512 MiB cutoff to locate and reduce compiler workload, then rerun
+  RTC and repository gates. Continue the ECDSA/current-field matrices and
+  timing audit; preserve every other full-stack requirement. All 19 acceptance
+  boxes remain open.
+
 - 2026-10-01 (resource safeguard verification): Fresh
   `PYTHONDONTWRITEBYTECODE=1 python3 tools/build_guard_test.py` passes all nine
   real subprocess tests in 3.016s. They exercise default 512 MiB aggregation,

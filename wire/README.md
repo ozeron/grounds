@@ -71,6 +71,15 @@ task's input hash. AES sending usage is capped at 2^24 records per epoch;
 attempted excess closes the owner, while receiving does not apply that cap.
 Explicit updates retain the negotiated algorithm and reset the sequence.
 
+Run package checks through the sequential [build guard](../tools/README.md).
+The record gate builds separate native/Bun read and write evaluators to reduce
+compiler workload. Each Bend evaluator retains its affine owner across the
+entire record/update/failure/retirement scenario; Python only selects and
+executes the matching fixture. Shared synthetic formatting and owner diagnostics
+live in `tls_record_fixture_support.bend`. The original combined evaluator and
+all record test cases remain available. Native record fixtures use
+`tools/bend_native.sh` so Bend exits before clang starts.
+
 This is the protected record codec, not a completed TLS connection. Plaintext
 handshake/compatibility CCS, transcript and handshake-fragment ownership,
 Finished/KeyUpdate phase and record-boundary ordering, certificates/signatures,
@@ -167,7 +176,7 @@ speed threshold. Evidence is in
 - `loopback.bend`: all 256 byte values go through a connection to itself and back.
 - `timeout.bend`: a poll times out, gets bytes, then sees the close.
 - `udp.bend`: native and, when Bun is available, JS binary datagrams, including all 256 octets, zero-byte datagrams, timeout, oversize and invalid input.
-- `udp_address.bend` with the independent Python peer: 22 cases per native/Bun target covering literal/NUL/port rejection, ephemeral/wildcard reporting, all octets and empty datagrams, two local IPs sharing a port, wrong-destination isolation, errno, 1,500 failed binds with exactly one retained UDP descriptor, and released-port rebinding. The fixture uses a second bindable local IPv4 address selected by the independent OS helper; Linux may supply another loopback IP, while this Mac uses its existing local interface. No interface configuration is changed. These checks run on Darwin arm64; Linux branches are implemented but not verified on this host.
+- `udp_address.bend` with the independent Python peer: 22 cases per native/Bun target covering literal/NUL/port rejection, ephemeral/wildcard reporting, all octets and empty datagrams, two local IPs sharing a port, wrong-destination isolation, errno, 1,500 failed binds with exactly one retained UDP descriptor, and released-port rebinding. The fixture uses a second local IPv4 address selected by an independent OS UDP round trip from a loopback-bound peer; Linux may supply another loopback IP, while this Mac uses its existing reachable local interface. Bindable VPN/tunnel addresses without bidirectional loopback reachability are rejected. No interface configuration is changed. These checks run on Darwin arm64; Linux branches are implemented but not verified on this host.
 - `stop.bend`: accepts one connection, then SIGTERM ends its loop.
 - `resolve.bend`: resolves localhost, an address, and a name that does not exist.
 - `tls.bend`: a client GET, wrong host and untrusted certificate against the Python TLS server.

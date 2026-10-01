@@ -8,6 +8,7 @@ tasks:
     command: "./check.sh"
     inputs:
       - "check.sh"
+      - "/tools/bend_native.sh"
       - "*.bend"
       - "*.py"
       - "*_vectors.json"
