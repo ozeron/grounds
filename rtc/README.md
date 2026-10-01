@@ -549,7 +549,69 @@ gathering with no local candidate and explicit component configuration are later
 work. The Binding server remains active after failure and rejects new nominations.
 Nomination/conclusion follows [RFC 8445 sections 7.2.5.3.4, 7.3.1.5 and 8.1](https://www.rfc-editor.org/rfc/rfc8445.html#section-8.1).
 
-Dynamic pair-cap pruning, deferred-item expiry, consent/restart, candidate
+`ice_consent.bend` supplies a separate bounded consent owner for one already
+selected UDP/IPv4 transport. It follows [RFC 7675 sections 5.1 and 5.2](https://www.rfc-editor.org/rfc/rfc7675.html#section-5.1).
+`create(Route{reference, generation, credentials, check, mode}, initial_rto, now)`
+starts `Awaiting`, with application transmission denied. This conservative
+handoff requires a fresh round trip on the actual selected base; an old
+nomination notice or a mapping generated from another base cannot grant a new
+30-second window. Route selection and exchanged credentials must come from the
+trusted ICE owner. This API does not select candidates or accept signaling's
+claim that connectivity succeeded.
+
+Call `start(state, transaction, jitter, now, not_before)`, then execute a `Send`
+only if `current_send(state, notice, actual_now)` and the shared socket's dispatch
+gate still permit it. `not_before` shares admission with other ICE sends; the
+enclosing dispatcher must also recheck its current actual-send gate before IO.
+Transaction bytes and jitter belong to trusted OS CSPRNG code and must never be
+exposed to or controlled by an untrusted application or signaling server. Jitter
+is 0–2000 ms, producing randomized 4–6-second intervals. The example UDP driver
+uses three independent host random words for the 96-bit identifier and another
+for jitter. Its synthetic debug output is a test interface, not an application
+API. A recent 64-ID cache rejects accidental reuse within the active response
+windows; it does not replace the CSPRNG requirement for the lifetime of a session.
+
+Each request is signed once and sent once. A successful OS send must call
+`acknowledge`; this sets the response deadline and the next probe interval from
+actual send time. Duplicate acknowledgements cannot extend either timer or
+authorize a second transmission. At most 16 probes, including one queued unsent
+probe, are retained. Each retains its signed bytes and original integrity policy.
+The first authenticated success pins the future request algorithm; an older
+dual-policy reply can renew consent without overwriting that policy. A configured
+initial RTT estimate of 500–60000 ms is updated with integer SRTT/RTTVAR samples,
+using a 500 ms floor and 60000 ms ceiling. This policy is specific to consent;
+adaptive ICE checklist Ta/RTO remains separate work.
+
+`receive(state, actual_reference, generation, bytes, now)` requires the exact
+receiving base, peer IP/port and generation before matching and authenticating an
+outstanding sent request. A protected success renews consent for 30000 ms from
+receipt. Valid older outstanding requests can renew it; consumed, timed-out,
+unsent, replayed or unrelated transactions cannot. Other errors and malformed
+protected responses consume only that request and do not renew. Protected 403
+immediately returns `Revoked` and discards all probes. At the exact consent
+deadline, `tick` and `receive` return `Expired` and discard all probes before
+processing a response. Neither terminal status can be revived by `start` or a
+late success. `close` ends a trusted local owner; it is not a parser for remote
+DTLS closure messages. Those require future authenticated DTLS integration.
+
+Every application send, including future DTLS/media sends, must pass
+`allowed(state, reference, generation, actual_now)`. This gate checks the entire
+transport identity and the deadline even before a timer turn reports expiry.
+`timeout` includes probe, interval and consent deadlines. After consent loss the
+enclosing owner must retain that result and require changed ICE credentials;
+constructing a new consent owner with the lost route's old credentials is
+forbidden. Automatic Agent-to-consent selection, credential restart, retaining
+old-route consent during restart and shared multi-path dispatch are still pending.
+Incoming consent-only Binding requests without ICE PRIORITY/role attributes also
+need a separate authenticated server path; the present ICE request receiver
+requires those attributes. Outgoing probes here use ordinary non-nominating ICE
+Binding requests, authenticated with the selected route's short-term credentials.
+The standalone UDP fixture owns one selected socket and does not prove those
+integration requirements or browser consent behavior. The 2026-10-01 official
+RFC 7675 errata refresh returned an Internal Error; no correction was inferred
+from that failed lookup.
+
+Dynamic pair-cap pruning, deferred-item expiry, integrated consent/restart, candidate
 gathering, real-browser ICE, IPv6/TURN, Bend TLS/DTLS, SCTP/data channels and media
 remain open. Generated-code timing safety is unproven; checks use synthetic
 credentials. The session foundation does not satisfy full ICE or WebRTC acceptance.
@@ -700,5 +762,21 @@ retry bytes and port, invalid MAC, current error/timeout, post-conclusion servic
 new-path protected rejection, controlled immediate nomination and port rebinding.
 The UDP fixture uses a declared 1200 ms PAC policy and an 800 ms terminal server
 grace; pure clocks exercise the default 39500 ms PAC boundary. Mapped addresses
-are synthetic authenticated claims. These do not prove NAT, browser ICE, consent,
+are synthetic authenticated claims. These do not prove NAT, browser ICE, integrated consent,
 restart, IPv6/TURN or data/media delivery.
+
+The consent fixture adds 40 independent signed packet/lifecycle scenarios per
+target. They cover initial application denial, exact 30-second and response-window
+boundaries, 4–6-second intervals, delayed actual-send acknowledgement, single-send
+suppression, older overlapping replies, retained integrity policy and first-policy
+pinning, malformed/forged/errors/403/replay, receiving-base/source/generation
+gates, cancellation, RTT updates, uptime-sized clocks and bounded ID history.
+Six real retained-socket UDP scenarios per target check all integrity modes,
+wrong-source/transaction/forged revocation, initial loss without retransmission,
+fresh random IDs and measured intervals, renewal and actual synthetic application
+datagrams, immediate authenticated 403, the actual default 30-second expiry and
+port release/rebinding. The test peer responds only to authenticated Bend-built
+packets. The fixture supplies a trusted selected route directly; it does not
+exercise nomination-to-consent handoff, multiple paths, restart, browser ICE,
+physical NAT or DTLS/media. C/JS effects remain unchanged; generated-code timing
+safety remains unproven.
