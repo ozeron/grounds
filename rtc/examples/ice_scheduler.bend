@@ -61,6 +61,17 @@ def trigger_numbers(id: Result<&2, &2, J.Access, U32>, index: Result<&2, &2, J.A
       trigger_pair(Check.get_stream(ls, id, U32.to_nat(i)), id, S.State{ls, qs, fs, r, at, next, gen, cap})
     case _ _ s: Notice{s, "rejected"}
 
+def nominate_pair(pair: Maybe<&2, Check.CandidatePair>, id: U32, generation: U32, +state: S.State) -> Notice:
+  match pair:
+    case None{}: Notice{state, "rejected"}
+    case Some{p}: change(S.nominate(state, Pairs.reference(id, p), generation), state)
+
+def nominate_numbers(id: Result<&2, &2, J.Access, U32>, index: Result<&2, &2, J.Access, U32>, generation: Result<&2, &2, J.Access, U32>, state: S.State) -> Notice:
+  match id index generation state:
+    case Done{+id} Done{i} Done{g} S.State{+ls, +qs, +fs, +r, +at, +next, +gen, +cap}:
+      nominate_pair(Check.get_stream(ls, id, U32.to_nat(i)), id, g, S.State{ls, qs, fs, r, at, next, gen, cap})
+    case _ _ _ s: Notice{s, "rejected"}
+
 def complete_numbers(token: Result<&2, &2, J.Access, U32>, generation: Result<&2, &2, J.Access, U32>, success: Bool, +state: S.State) -> Notice:
   match token generation:
     case Done{t} Done{g}: changed(S.complete(state, t, g, success), state)
@@ -93,6 +104,7 @@ def action(step: J.Json, +state: S.State) -> Notice:
     case J.JArr{[J.JStr{"select"}]}: selected(S.select(state), state)
     case J.JArr{[J.JStr{"propose"}]}: proposed(selected(S.select(state), state), state)
     case J.JArr{[J.JStr{"trigger"}, id, index]}: trigger_numbers(J.u32(id), J.u32(index), state)
+    case J.JArr{[J.JStr{"nominate"}, id, index, gen]}: nominate_numbers(J.u32(id), J.u32(index), J.u32(gen), state)
     case J.JArr{[J.JStr{"complete"}, token, gen, J.JBool{ok}]}: complete_numbers(J.u32(token), J.u32(gen), ok, state)
     case J.JArr{[J.JStr{"role"}, J.JBool{control}, high, low]}: role_numbers(control, J.u32(high), J.u32(low), state)
     case J.JArr{[J.JStr{"repair"}, token, gen, high, low]}: repair_numbers(J.u32(token), J.u32(gen), J.u32(high), J.u32(low), state)

@@ -113,6 +113,26 @@ def start(+state: State, token: U32, host: String, port: U32, transaction: List<
       start_due(Nat.is_le(at, now), State{entries, ta, capacity, next_start, next_send}, token,
         host, port, transaction, policy, credentials, check, mode, now, at)
 
+def intent_due(due: Bool, +state: State, token: U32, host: String, port: U32,
+               +transaction: List<&2, U32>, policy: Retry.Policy, +credentials: Ice.Credentials,
+               check: Ice.Check, nominate: Bool, +mode: Auth.Mode, now: Nat, at: Nat) -> Start:
+  match due:
+    case False{}: Later{at}
+    case True{}:
+      start_raw(Ice.intent_request(transaction, credentials, check, nominate, mode), Retry.intervals(policy), state,
+        token, host, port, transaction, Ice.key(credentials), mode, now)
+
+# Sign nomination intent once; the retained context is authoritative across
+# pacing, retries, interruption and role changes, just like ordinary requests.
+def start_intent(+state: State, token: U32, host: String, port: U32, transaction: List<&2, U32>,
+                 policy: Retry.Policy, credentials: Ice.Credentials, check: Ice.Check, nominate: Bool,
+                 mode: Auth.Mode, +now: Nat) -> Start:
+  match state:
+    case State{+entries, +ta, +capacity, +next_start, +next_send}:
+      +at = later(next_start, next_send)
+      intent_due(Nat.is_le(at, now), State{entries, ta, capacity, next_start, next_send}, token,
+        host, port, transaction, policy, credentials, check, nominate, mode, now, at)
+
 def expired(entry: Entry, +now: Nat) -> Maybe<&2, Entry> & Notice:
   match entry:
     case Listening{token, _, _}: (None{}, Retired{token})

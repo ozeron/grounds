@@ -21,7 +21,14 @@ reply : Maybe<&2, Packet.IPv4> <- Stun.request("127.0.0.1", 3478, 1000)
 
 Pass an IPv4 address as the host, rather than a DNS name: the current client compares the response source directly. A timeout, malformed response, wrong transaction, or wrong source returns `None{}`. This is a single request with no retransmission. It does not validate MESSAGE-INTEGRITY or FINGERPRINT and is not yet an ICE connectivity check or a full STUN client. Do not use its unauthenticated result as proof of peer identity.
 
-`ice_binding.bend` builds authenticated ICE Binding requests from `Credentials{local, remote, password}`, `Check{priority, role}`, a 12-byte transaction ID, and an integrity mode. `password` is the remote peer's password; USERNAME is `remote:local`. PRIORITY is supplied by the caller for the prospective peer-reflexive candidate and must be 1–2^31−1. `Controlling{high, low}` and `Controlled{high, low}` emit exactly one role attribute; the two U32 words form the big-endian 64-bit tie-breaker without using an oversized Bend Nat. These initial checks omit USE-CANDIDATE; nomination is later work.
+`ice_binding.bend` builds authenticated ICE Binding requests from `Credentials{local, remote, password}`, `Check{priority, role}`, a 12-byte transaction ID, and an integrity mode. `password` is the remote peer's password; USERNAME is `remote:local`. PRIORITY is supplied by the caller for the prospective peer-reflexive candidate and must be 1–2^31−1. `Controlling{high, low}` and `Controlled{high, low}` emit exactly one role attribute; the two U32 words form the big-endian 64-bit tie-breaker without using an oversized Bend Nat. The original `request` API omits USE-CANDIDATE.
+
+`intent_request(transaction, credentials, check, nominate, mode)` is additive.
+False intent produces identical ordinary bytes; True includes one empty
+USE-CANDIDATE before the integrity fields and FINGERPRINT. A controlled request
+with True intent returns `None{}`. `Check` retains its original two fields.
+This implements [RFC 8445 section 7.1.2](https://www.rfc-editor.org/rfc/rfc8445.html#section-7.1.2),
+not nominated/selected agent state.
 
 Credential validation uses the [RFC 8839 SDP grammar](https://www.rfc-editor.org/rfc/rfc8839.html#section-5.4): ASCII letters/digits/`+`/`/`, local ufrag 4–32 characters, remote ufrag 4–256, and remote password 22–256. The caller exchanges credentials through signaling and supplies their required randomness and a session tie-breaker; syntax checks do not establish entropy. ASCII ICE credentials need no Unicode preparation. The generic STUN authentication interface still accepts already prepared byte keys.
 
@@ -131,6 +138,11 @@ packets, incoming requests and media return byte-exact `Datagram` notices.
 These notices are untrusted input; no incoming ICE server authentication is
 implied. Completed results include the negotiated response algorithm, which
 the caller must retain for subsequent requests to that peer.
+
+`start_intent` additionally takes a nomination Bool after `check`, preserving
+the original transaction state and start interface. It signs intent once and
+retains those exact bytes through pacing, retries and response-only listening;
+it uses the same capacity, identity, deadline and acknowledgement rules.
 
 `stop_retries(state, token)` implements the response-retention part of
 [RFC 8445 triggered-check interruption](https://www.rfc-editor.org/rfc/rfc8445.html#section-7.3.1.4).
@@ -263,6 +275,14 @@ generation, success)` accepts only a current flight in the matching generation,
 then applies the existing completion/foundation-thaw rules. An interrupted old
 token cannot complete or fail its replacement, even after priority reordering.
 The owner must discard all scheduler and transaction state together on restart.
+
+`nominate(state, reference, generation)` is a separate scheduler transition:
+the owner must first choose a proven valid path. It requires the controlling
+role and current generation, repeats the original check even when its pair is
+Succeeded, deduplicates the triggered FIFO, and returns any interrupted token.
+The attempts layer executes response-only interruption and rejects a pair still
+awaiting authenticated 487 repair. Incoming `trigger` keeps its original
+Succeeded no-op behavior.
 
 `switch_role` recomputes ranks while preserving queue identities and flights'
 sent roles. `repair_conflict(state, token, generation, high, low)` is for a
@@ -435,8 +455,22 @@ sockets; the UDP fixture does so. An old listener's rejected mapping instead
 preserves its active replacement and reports the rejection without faulting it.
 This is bounded IPv4 valid-list integration, not a complete ICE agent.
 
-The next integration adds regular controlling USE-CANDIDATE checks, retained
-controlled-side nomination intent and nominated/terminal state transitions.
+`queue_nomination(state, path)` resolves the stored path identity, using its
+owned original attempt rather than trusting a copied caller origin record. It
+queues the original sending reference, which may differ from the mapped path's
+local candidate. `start_intent(state, transaction, policy, target, now)` takes a
+Maybe reference and includes USE-CANDIDATE only if the actual selected pair
+after deferred work drains matches that target. Other selections remain
+ordinary; a controlled target rejects without consuming the speculative queue,
+pair state or allocator. Negotiated endpoint integrity and original request
+PRIORITY still apply. These are scheduling/request primitives; the owner must
+retain selection policy and authenticated controlled-side nomination intent,
+apply nominated/selected outcomes and conclude the component. Successful intent
+responses currently still produce paths with `nominated=False`.
+
+The next integration retains controlled-side nomination intent beyond pending
+materialization, binds nomination success/failure to the actual sent and received
+intent, and implements nominated/selected and terminal state transitions.
 Dynamic pair-cap pruning,
 deferred-item expiry, consent/restart, PAC terminal-state handling, candidate
 gathering, real-browser ICE, IPv6/TURN, Bend TLS/DTLS, SCTP/data channels and media
@@ -453,7 +487,7 @@ establish ICE failure.
 
 The SHA-256 vector uses [RFC 8489 Appendix B.1 with verified erratum 6268](https://www.rfc-editor.org/rfc/inline-errata/rfc8489.html#appendix-B.1), correcting its message length, adding PASSWORD-ALGORITHM and updating its MAC. Native and Bun run 139 independent stdlib Python comparisons and rejection cases, including the corrected vector, padding/hash boundaries, dual integrity, response policy, ignored attributes after integrity and the maximum 65,532-byte STUN body. This is a STUN format maximum; an IPv4 UDP payload has a smaller transport limit. SHA-256 byte traversals use the crypto package's tail-recursive helpers to avoid JS stack overflow.
 
-Each target also runs 51 byte-exact ICE builder cases covering credential limits, username direction, priority, transaction length and both roles with 64-bit extreme values. A separate Python UDP responder independently checks outgoing request HMACs and attributes, signs responses, and exercises 29 success/rejection/recovery cases plus two exchanges on one retained socket. Tests reject missing/bad integrity or FINGERPRINT, wrong source/transaction/key/algorithm/class, response USERNAME, dual-integrity responses, malformed input and unsigned mapped addresses. They check recovery after invalid packets, randomized transaction IDs, deadline behavior under repeated bad MACs, and bound-port reuse. This proves an authenticated ICE Binding transaction slice on native and Bun, not full ICE or end-to-end WebRTC.
+Each target also runs 121 byte-exact ICE builder cases covering ordinary and USE-CANDIDATE requests, credential limits, username direction, priority, transaction length and both roles with 64-bit extreme values. A separate Python UDP responder independently checks outgoing request HMACs and attributes, signs responses, and exercises 29 success/rejection/recovery cases plus two exchanges on one retained socket. Tests reject missing/bad integrity or FINGERPRINT, wrong source/transaction/key/algorithm/class, response USERNAME, dual-integrity responses, malformed input and unsigned mapped addresses. They check recovery after invalid packets, randomized transaction IDs, deadline behavior under repeated bad MACs, and bound-port reuse. This proves an authenticated ICE Binding transaction slice on native and Bun, not full ICE or end-to-end WebRTC.
 
 The reliable API additionally runs 154 compiled schedule/vector/boundary cases
 per target and an independent UDP evaluator covering loss of the first or first
@@ -555,3 +589,16 @@ authenticated errors, counterpart retry suppression, late success/error,
 listener expiry, preserved distinct-pair retransmissions and both-port rebinding.
 These mappings are synthetic peer
 claims, not proof of a physical NAT or a nominated/browser data path.
+
+The nomination-request fixture adds 23 independent pure cases per target. It
+compares exact protected bytes and original sending references for host, local
+peer-reflexive, server-reflexive and different-known-host mappings, negotiated
+integrity, target mismatches, pacing/capacity rollback, pending 487 repair,
+controlled rejection and interrupted-listener metadata. Eleven additional
+scheduler cases cover repeat nomination transitions, generation/role gates,
+queue deduplication and old-flight isolation. Ten live retained-transaction
+UDP cases independently verify protected USE-CANDIDATE bytes in all integrity
+modes, loss/retry with identical bytes and bound port, bad MAC/source rejection,
+error/timeout, stopped-listener late success/error/expiry, controlled rejection
+and socket rebinding. This UDP fixture tests the transaction interface; it does
+not choose a valid path or establish nominated/selected ICE agent state.

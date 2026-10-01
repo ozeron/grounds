@@ -38,6 +38,9 @@ bend examples/ice_session.bend -o "$tmp/ice_session" > /dev/null
 python3 examples/ice_session_check.py "$tmp/ice_session"
 bend examples/ice_valid.bend -o "$tmp/ice_valid" > /dev/null
 python3 examples/ice_valid_check.py "$tmp/ice_valid"
+python3 examples/ice_nomination_request_check.py "$tmp/ice_valid"
+bend examples/ice_nomination_udp.bend -o "$tmp/ice_nomination_udp" > /dev/null
+python3 examples/ice_nomination_udp_check.py "$tmp/ice_nomination_udp"
 bend examples/ice_session_udp.bend -o "$tmp/ice_session_udp" > /dev/null
 python3 examples/ice_session_udp_check.py "$tmp/ice_session_udp"
 python3 examples/ice_valid_udp_check.py "$tmp/ice_session_udp"
@@ -81,6 +84,9 @@ if command -v bun > /dev/null 2>&1; then
   python3 examples/ice_session_check.py bun "$tmp/ice_session.js"
   bend examples/ice_valid.bend -o "$tmp/ice_valid.js" > /dev/null
   python3 examples/ice_valid_check.py bun "$tmp/ice_valid.js"
+  python3 examples/ice_nomination_request_check.py bun "$tmp/ice_valid.js"
+  bend examples/ice_nomination_udp.bend -o "$tmp/ice_nomination_udp.js" > /dev/null
+  python3 examples/ice_nomination_udp_check.py bun "$tmp/ice_nomination_udp.js"
   bend examples/ice_session_udp.bend -o "$tmp/ice_session_udp.js" > /dev/null
   python3 examples/ice_session_udp_check.py bun "$tmp/ice_session_udp.js"
   python3 examples/ice_valid_udp_check.py bun "$tmp/ice_session_udp.js"

@@ -332,6 +332,31 @@ def start(+state: State, tx: List<&2, U32>, policy: Retry.Policy, now: Nat) -> S
     case State{_, _, _, _, _, True{}}: Step{state, [], []}
     case _: advance(Session.start(core(state), tx, policy, now), state)
 
+def stored_path(paths: List<&2, Path>, +wanted: Path) -> Maybe<&2, Path>:
+  match paths:
+    case Nil{}: None{}
+    case Con{+head, tail}:
+      Bool.pick(Maybe<&2, Path>, same_path(head, wanted), Some{head}, stored_path(tail, wanted))
+
+def queued_path(path: Maybe<&2, Path>, +state: State) -> Maybe<&2, Step>:
+  match path:
+    case Some{Path{_, _, _, _, A.Record{S.Flight{_, reference, _}, gen, _, _}, False{}}}:
+      maybe_advance(Session.queue_nomination(core(state), reference, gen), state)
+    case _: None{}
+
+# Resolve the stored path rather than trusting a caller's copied origin record.
+# Nomination policy/outcomes belong to its owner; this only schedules the repeat.
+def queue_nomination(+state: State, path: Path) -> Maybe<&2, Step>:
+  match state:
+    case State{_, _, _, _, _, True{}}: None{}
+    case State{+s, +ls, +fs, +ps, +limit, +faulted}:
+      queued_path(stored_path(ps, path), State{s, ls, fs, ps, limit, faulted})
+
+def start_intent(+state: State, tx: List<&2, U32>, policy: Retry.Policy, target: Maybe<&2, Pairs.Ref>, now: Nat) -> Step:
+  match state:
+    case State{_, _, _, _, _, True{}}: Step{state, [], []}
+    case _: advance(Session.start_intent(core(state), tx, policy, target, now), state)
+
 def receive(+state: State, reference: Pairs.Ref, raw: List<&2, U32>, now: Nat) -> Step:
   match state:
     case State{_, _, _, _, _, True{}}: Step{state, [], []}

@@ -11,6 +11,14 @@ def with_role(role: String, +high: U32, +low: U32, priority: U32,
       Output.emit(Ice.request(transaction, credentials, Ice.Check{priority, Ice.Controlling{high, low}}, mode))
     case "controlled":
       Output.emit(Ice.request(transaction, credentials, Ice.Check{priority, Ice.Controlled{high, low}}, mode))
+    case "controlling-nominate":
+      Output.emit(Ice.intent_request(transaction, credentials, Ice.Check{priority, Ice.Controlling{high, low}}, True{}, mode))
+    case "controlled-nominate":
+      Output.emit(Ice.intent_request(transaction, credentials, Ice.Check{priority, Ice.Controlled{high, low}}, True{}, mode))
+    case "controlling-ordinary":
+      Output.emit(Ice.intent_request(transaction, credentials, Ice.Check{priority, Ice.Controlling{high, low}}, False{}, mode))
+    case "controlled-ordinary":
+      Output.emit(Ice.intent_request(transaction, credentials, Ice.Check{priority, Ice.Controlled{high, low}}, False{}, mode))
     case _:
       IO.die(Unit, 2, "unknown ICE role")
 

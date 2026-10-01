@@ -167,14 +167,18 @@ def started(result: Tx.Start, old: State, +selected: S.State, reference: Pairs.R
     case Tx.Rejected{} State{+schedule, +engine, +records, +policies}:
       Step{State{schedule, engine, records, policies}, [Bool.pick(Notice, at_capacity(engine), AtCapacity{}, Invalid{})]}
 
-def selected(choice: S.Choice, +old: State, +transaction: List<&2, U32>, policy: Retry.Policy,
-             credentials: Ice.Credentials, priority: U32, mode: Auth.Mode, now: Nat) -> Step:
+def selected_intent(choice: S.Choice, +old: State, +transaction: List<&2, U32>, policy: Retry.Policy,
+                    credentials: Ice.Credentials, priority: U32, nominate: Bool, mode: Auth.Mode, now: Nat) -> Step:
   match choice old:
     case S.Selected{schedule, Pairs.Ref{+id, +component, +base, +remote}, +token, +role} State{+previous, +engine, +records, +policies}:
-      started(Tx.start(engine, token, C.host(remote), C.port(remote), transaction, policy, credentials, Ice.Check{priority, role}, peer_mode(policies, remote, mode), now),
+      started(Tx.start_intent(engine, token, C.host(remote), C.port(remote), transaction, policy, credentials, Ice.Check{priority, role}, nominate, peer_mode(policies, remote, mode), now),
         State{previous, engine, records, policies}, schedule, Pairs.Ref{id, component, base, remote}, token, role, transaction)
     case S.Idle{schedule} State{_, engine, records, +policies}: Step{State{schedule, engine, records, policies}, [Idle{}]}
     case S.Rejected{} s: Step{s, [Invalid{}]}
+
+def selected(choice: S.Choice, old: State, transaction: List<&2, U32>, policy: Retry.Policy,
+             credentials: Ice.Credentials, priority: U32, mode: Auth.Mode, now: Nat) -> Step:
+  selected_intent(choice, old, transaction, policy, credentials, priority, False{}, mode, now)
 
 # Credentials/PRIORITY must belong to the selected pair's registered local base
 # and peer. The session layer binds these; RNG supplies a fresh 96-bit ID.
@@ -183,6 +187,12 @@ def start(+state: State, transaction: List<&2, U32>, policy: Retry.Policy, crede
   match state:
     case State{+schedule, +engine, +records, +policies}:
       selected(S.select(schedule), State{schedule, engine, records, policies}, transaction, policy, credentials, priority, mode, now)
+
+def start_intent(+state: State, transaction: List<&2, U32>, policy: Retry.Policy, credentials: Ice.Credentials,
+                 priority: U32, nominate: Bool, mode: Auth.Mode, now: Nat) -> Step:
+  match state:
+    case State{+schedule, +engine, +records, +policies}:
+      selected_intent(S.select(schedule), State{schedule, engine, records, policies}, transaction, policy, credentials, priority, nominate, mode, now)
 
 def stopped(token: Maybe<&2, U32>, state: State) -> Step:
   match token state:
@@ -219,6 +229,21 @@ def validated_change(value: Maybe<&2, S.Change>, engine: Tx.State, records: List
 def validated(state: State, mapped: Pairs.Ref, generation: U32) -> Maybe<&2, Step>:
   match state:
     case State{schedule, engine, records, +policies}: validated_change(S.validated(schedule, mapped, generation), engine, records, policies)
+
+def repair_pending(token: Maybe<&2, U32>, records: List<&2, Record>) -> Bool:
+  match token:
+    case None{}: False{}
+    case Some{t}: conflict_record(get(records, t))
+
+def nomination_pending(schedule: S.State, reference: Pairs.Ref, records: List<&2, Record>) -> Bool:
+  match schedule:
+    case S.State{_, _, fs, _, _, _, _, _}: repair_pending(S.flight_at(fs, reference), records)
+
+def queue_nomination(+state: State, +reference: Pairs.Ref, generation: U32) -> Maybe<&2, Step>:
+  match state:
+    case State{+schedule, +engine, +records, +policies}:
+      Bool.pick(Maybe<&2, Step>, nomination_pending(schedule, reference, records), None{},
+        triggered(S.nominate(schedule, reference, generation), engine, records, policies))
 
 def insert_triggered(state: State, id: U32, local: C.Local, remote: C.Candidate) -> Maybe<&2, Step>:
   match state:

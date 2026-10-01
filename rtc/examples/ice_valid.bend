@@ -64,6 +64,30 @@ def start_numbers(now: Result<&2, &2, J.Access, U32>, transaction: Result<&2, &2
       changed(V.start(state, Discovery.transaction(tx, 2, 3), Retry.Policy{500, rc, 1}, U32.to_nat(n)), saved)
     case _ _ _ f: Turn{f, [], [], "rejected"}
 
+def path_at(paths: List<&2, V.Path>, index: Nat) -> Maybe<&2, V.Path>:
+  match paths index:
+    case Nil{} _: None{}
+    case Con{head, _} 0n: Some{head}
+    case Con{_, tail} 1n+p: path_at(tail, p)
+
+def queue_path(path: Maybe<&2, V.Path>, +fixture: Fixture) -> Turn:
+  match path fixture:
+    case Some{p} Fixture{+state, +saved}: maybe_changed(V.queue_nomination(state, p), Fixture{state, saved})
+    case _ f: Turn{f, [], [], "rejected"}
+
+def queue_index(index: Result<&2, &2, J.Access, U32>, fixture: Fixture) -> Turn:
+  match index fixture:
+    case Done{i} Fixture{V.State{+s, +ls, +fs, +ps, +limit, +failed}, saved}:
+      queue_path(path_at(ps, U32.to_nat(i)), Fixture{V.State{s, ls, fs, ps, limit, failed}, saved})
+    case _ f: Turn{f, [], [], "rejected"}
+
+def intent_numbers(now: Result<&2, &2, J.Access, U32>, transaction: Result<&2, &2, J.Access, U32>, requests: Result<&2, &2, J.Access, U32>,
+                   id: Result<&2, &2, J.Access, U32>, component: Result<&2, &2, J.Access, U32>, base: Maybe<&2, Stun.IPv4>, remote: Maybe<&2, Stun.IPv4>, fixture: Fixture) -> Turn:
+  match now transaction requests id component base remote fixture:
+    case Done{n} Done{tx} Done{rc} Done{i} Done{c} Some{b} Some{r} Fixture{state, saved}:
+      changed(V.start_intent(state, Discovery.transaction(tx, 2, 3), Retry.Policy{500, rc, 1}, Some{Pairs.Ref{i, c, b, r}}, U32.to_nat(n)), saved)
+    case _ _ _ _ _ _ _ f: Turn{f, [], [], "rejected"}
+
 def tick_number(now: Result<&2, &2, J.Access, U32>, fixture: Fixture) -> Turn:
   match now fixture:
     case Done{n} Fixture{state, saved}: changed(V.tick(state, U32.to_nat(n)), saved)
@@ -89,6 +113,9 @@ def action(step: J.Json, +fixture: Fixture) -> Turn:
     case J.JArr{[J.JStr{"bind"}, J.JStr{local}, J.JStr{remote}, J.JStr{password}]} Fixture{state, _}:
       maybe_changed(V.bind(state, Ice.Credentials{local, remote, password}), fixture)
     case J.JArr{[J.JStr{"start"}, now, tx, rc]} f: start_numbers(J.u32(now), J.u32(tx), J.u32(rc), f)
+    case J.JArr{[J.JStr{"queue-nomination"}, index]} f: queue_index(J.u32(index), f)
+    case J.JArr{[J.JStr{"start-intent"}, now, tx, rc, id, component, base, remote]} f:
+      intent_numbers(J.u32(now), J.u32(tx), J.u32(rc), J.u32(id), J.u32(component), Model.address(base), Model.address(remote), f)
     case J.JArr{[J.JStr{"tick"}, now]} f: tick_number(J.u32(now), f)
     case J.JArr{[J.JStr{"receive"}, now, id, component, base, source, J.JArr{raw}]} f:
       receive_numbers(J.u32(now), J.u32(id), J.u32(component), Model.address(base), Model.address(source), bytes(65556n, raw, []), f)

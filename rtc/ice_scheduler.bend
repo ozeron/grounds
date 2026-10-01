@@ -127,6 +127,21 @@ def trigger(+state: State, +wanted: Pairs.Ref) -> Maybe<&2, Change>:
     case State{+lists, +qs, +fs, +role, +cursor, +next, +generation, +limit}:
       triggered(Pairs.lookup(lists, wanted), State{lists, qs, fs, role, cursor, next, generation, limit}, wanted)
 
+def nomination_position(position: Maybe<&2, Pairs.Position>, state: State, +wanted: Pairs.Ref) -> Maybe<&2, Change>:
+  match position state:
+    case Some{Pairs.Position{id, index, _}} State{lists, qs, +fs, role, cursor, next, gen, limit}:
+      Some{Change{State{Check.replace_stream(lists, id, index, Check.Waiting{}, []), queued(qs, wanted, []),
+        without(fs, wanted, []), role, cursor, next, gen, limit}, flight_at(fs, wanted)}}
+    case _ _: None{}
+
+# Repeat the check which produced a chosen valid path, including Succeeded
+# original pairs. Its owner proves validity and one choice per component.
+def nominate(+state: State, +wanted: Pairs.Ref, generation: U32) -> Maybe<&2, Change>:
+  match state:
+    case State{+lists, +qs, +fs, +role, +cursor, +next, +current, +limit}:
+      Bool.pick(Maybe<&2, Change>, Bool.and(U32.is_eq(current, generation), Roles.controlling(role)),
+        nomination_position(Pairs.lookup(lists, wanted), State{lists, qs, fs, role, cursor, next, current, limit}, wanted), None{})
+
 def active_pairs(pairs: List<&2, Check.CandidatePair>, +target: Check.CandidatePair, found: Bool) -> Bool:
   match pairs:
     case Nil{}: found

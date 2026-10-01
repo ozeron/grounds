@@ -74,6 +74,14 @@ def body(credentials: Credentials, check: Check) -> List<&2, U32>:
       B.append(attribute(6, username(credentials)),
         B.append(attribute(36, Sign.word_bytes(priority, [])), role_attribute(role)))
 
+def nomination_role(check: Check) -> Bool:
+  match check:
+    case Check{_, Controlling{_, _}}: True{}
+    case _: False{}
+
+def intent_body(credentials: Credentials, check: Check, nominate: Bool) -> List<&2, U32>:
+  B.append(body(credentials, check), Bool.pick(List<&2, U32>, nominate, attribute(37, []), []))
+
 def unsigned_header(header: Maybe<&2, List<&2, U32>>, +body: List<&2, U32>) -> Maybe<&2, List<&2, U32>>:
   match header:
     case None{}:
@@ -97,6 +105,15 @@ def priority_ok(check: Check) -> Bool:
 def unsigned(transaction: List<&2, U32>, +credentials: Credentials, +check: Check) -> Maybe<&2, List<&2, U32>>:
   unsigned_checked(Bool.and(valid(credentials), priority_ok(check)), transaction, credentials, check)
 
+def intent_unsigned_checked(ok: Bool, transaction: List<&2, U32>, credentials: Credentials, check: Check, nominate: Bool) -> Maybe<&2, List<&2, U32>>:
+  match ok:
+    case False{}: None{}
+    case True{}: unsigned_header(Stun.binding_request(transaction), intent_body(credentials, check, nominate))
+
+def intent_unsigned(transaction: List<&2, U32>, +credentials: Credentials, +check: Check, +nominate: Bool) -> Maybe<&2, List<&2, U32>>:
+  intent_unsigned_checked(Bool.and(Bool.and(valid(credentials), priority_ok(check)),
+    Bool.or(Bool.not(nominate), nomination_role(check))), transaction, credentials, check, nominate)
+
 def signed(raw: Maybe<&2, List<&2, U32>>, key: List<&2, U32>, mode: Auth.Mode) -> Maybe<&2, List<&2, U32>>:
   match raw:
     case None{}:
@@ -107,6 +124,12 @@ def signed(raw: Maybe<&2, List<&2, U32>>, key: List<&2, U32>, mode: Auth.Mode) -
 def request(transaction: List<&2, U32>, +credentials: Credentials,
             check: Check, mode: Auth.Mode) -> Maybe<&2, List<&2, U32>>:
   signed(unsigned(transaction, credentials, check), key(credentials), mode)
+
+# Additive nomination request API; ordinary requests and Check retain their
+# original shape and bytes. A controlled sender can never emit USE-CANDIDATE.
+def intent_request(transaction: List<&2, U32>, +credentials: Credentials,
+                   check: Check, nominate: Bool, mode: Auth.Mode) -> Maybe<&2, List<&2, U32>>:
+  signed(intent_unsigned(transaction, credentials, check, nominate), key(credentials), mode)
 
 def mapped_checked(ok: Bool, packet: Stun.Packet) -> Maybe<&2, Stun.IPv4>:
   match ok:

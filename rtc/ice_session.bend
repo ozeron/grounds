@@ -96,6 +96,12 @@ def validated(state: State, mapped: Pairs.Ref, generation: U32) -> Maybe<&2, Ste
     case State{a, registry, secret, peer, pending, mode}:
       attempt_maybe(A.validated(a, mapped, generation), registry, secret, peer, pending, mode)
 
+def queue_nomination(state: State, reference: Pairs.Ref, generation: U32) -> Maybe<&2, Step>:
+  match state:
+    case State{a, registry, secret, Some{peer}, pending, mode}:
+      attempt_maybe(A.queue_nomination(a, reference, generation), registry, secret, Some{peer}, pending, mode)
+    case _: None{}
+
 def materialized(step: Maybe<&2, A.Step>, registry: R.State, secret: Incoming.Secret, peer: Maybe<&2, Ice.Credentials>, mode: Auth.Mode,
                  +reference: Pairs.Ref) -> Maybe<&2, Step>:
   match step:
@@ -284,6 +290,44 @@ def start(+state: State, transaction: List<&2, U32>, policy: Retry.Policy, now: 
     case State{a, registry, secret, None{}, pending, mode}: Step{State{a, registry, secret, None{}, pending, mode}, [WaitingCredentials{}]}
     case State{a, registry, secret, Some{peer}, pending, mode}:
       start_drained(drain(State{a, registry, secret, Some{peer}, pending, mode}), transaction, policy, now)
+
+def nomination_selected(target: Maybe<&2, Pairs.Ref>, selected: Pairs.Ref) -> Bool:
+  match target:
+    case None{}: False{}
+    case Some{r}: Pairs.same(r, selected)
+
+def intent_priority(priority: Maybe<&2, U32>, state: State, transaction: List<&2, U32>, policy: Retry.Policy, nominate: Bool, now: Nat) -> Step:
+  match priority state:
+    case Some{p} State{a, registry, secret, Some{+peer}, pending, +mode}:
+      attempt_step(A.start_intent(a, transaction, policy, peer, p, nominate, mode, now), registry, secret, Some{peer}, pending, mode)
+    case _ s: Step{s, [Invalid{}]}
+
+def intent_local(local: Maybe<&2, C.Local>, state: State, transaction: List<&2, U32>, policy: Retry.Policy, nominate: Bool, now: Nat) -> Step:
+  match local:
+    case Some{l}: intent_priority(R.priority(l), state, transaction, policy, nominate, now)
+    case None{}: Step{state, [Invalid{}]}
+
+def intent_choice(choice: S.Choice, state: State, transaction: List<&2, U32>, policy: Retry.Policy, target: Maybe<&2, Pairs.Ref>, now: Nat) -> Step:
+  match choice state:
+    case S.Selected{_, Pairs.Ref{+id, +component, +base, +remote}, _, _} State{a, R.State{+ss, next, count, limit}, secret, peer, pending, mode}:
+      intent_local(R.local(ss, id, component, base), State{a, R.State{ss, next, count, limit}, secret, peer, pending, mode}, transaction, policy,
+        nomination_selected(target, Pairs.Ref{id, component, base, remote}), now)
+    case S.Idle{schedule} State{A.State{_, engine, records, +policies}, registry, secret, peer, pending, mode}:
+      Step{State{A.State{schedule, engine, records, policies}, registry, secret, peer, pending, mode}, [Attempt{A.Idle{}}]}
+    case _ s: Step{s, [Invalid{}]}
+
+def intent_drained(step: Step, transaction: List<&2, U32>, policy: Retry.Policy, target: Maybe<&2, Pairs.Ref>, now: Nat) -> Step:
+  match step:
+    case Step{State{A.State{+s, engine, records, +policies}, registry, secret, peer, pending, mode}, prefix}:
+      prefixed(intent_choice(S.select(s), State{A.State{s, engine, records, policies}, registry, secret, peer, pending, mode}, transaction, policy, target, now), prefix)
+
+# Intent is bound to the actual selected reference after deferred work drains.
+# Other selected pairs still send ordinary checks, without USE-CANDIDATE.
+def start_intent(state: State, transaction: List<&2, U32>, policy: Retry.Policy, target: Maybe<&2, Pairs.Ref>, now: Nat) -> Step:
+  match state:
+    case State{a, registry, secret, None{}, pending, mode}: Step{State{a, registry, secret, None{}, pending, mode}, [WaitingCredentials{}]}
+    case State{a, registry, secret, Some{peer}, pending, mode}:
+      intent_drained(drain(State{a, registry, secret, Some{peer}, pending, mode}), transaction, policy, target, now)
 
 def tick(state: State, now: Nat) -> Step:
   match state:

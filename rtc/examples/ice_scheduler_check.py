@@ -94,11 +94,11 @@ class Model:
         values = [p for sid, ps in self.lists for p in ps if identity(sid, p) == ref]
         return values[0] if len(values) == 1 else None
 
-    def trigger(self, ref):
+    def trigger(self, ref, nominate=False):
         p = self.find(ref)
         if p is None:
             return "rejected"
-        if p[4] == 3:
+        if p[4] == 3 and not nominate:
             return "triggered:none"
         p[4] = 1
         if ref not in self.queues[ref[0]]:
@@ -146,6 +146,12 @@ class Model:
 
     def act(self, step):
         op = step[0]
+        if op == "nominate":
+            _, sid, index, generation = step
+            ps = next((ps for got, ps in self.lists if got == sid), [])
+            if not self.role[0] or generation != self.gen or not 0 <= index < len(ps):
+                return "rejected"
+            return self.trigger(identity(sid, ps[index]), nominate=True)
         if op == "select":
             return self.select()
         if op == "propose":
@@ -332,4 +338,15 @@ for case in range(60):
             step = [op, sid, local, candidate(1000+turn, 30000+turn, kind="prflx")]
         steps.append(step)
     check(streams, steps, control=bool(case % 2), cap=RNG.choice((3, 15, 40, 100)))
-print(f"ICE scheduler: {COUNT} FIFO/ordinary/role/attempt/generation/insertion/full-sort cases passed")
+# Nomination repeats the ORIGINAL valid check, including Succeeded pairs, with
+# generation/role gates, deduplication and retained interruption ownership.
+single = [[1, [[la, la]], [ra]]]
+for before in ([], [["select"]], [["select"], ["complete", 0, 7, True]], [["select"], ["complete", 0, 7, False]]):
+    check(single, before + [["nominate", 1, 0, 7], ["nominate", 1, 0, 7], ["select"], ["complete", 0, 7, True]])
+for generation in (0, 6, 8, 4294967295):
+    check(single, [["select"], ["complete", 0, 7, True], ["nominate", 1, 0, generation]])
+check(single, [["nominate", 1, 0, 7]], control=False)
+check(single, [["nominate", 9, 0, 7], ["nominate", 1, 99, 7]])
+frozen = candidate(la[1]-1, 10009, foundation=la[2])
+check([[1, [[la, la], [frozen, frozen]], [ra]]], [["nominate", 1, 1, 7], ["select"]])
+print(f"ICE scheduler: {COUNT} FIFO/ordinary/role/attempt/generation/insertion/nomination/full-sort cases passed")
