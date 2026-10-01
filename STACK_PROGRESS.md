@@ -14,6 +14,65 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 
 ## Evidence ledger
 
+- 2026-10-01: Mitigated the inspected X25519/field numeric-range finding in
+  Bend. Ladder swaps and canonical selection now use 0/255 masks, with XOR 255
+  for the inverse selection mask. Canonical subtraction biases each byte by
+  256, keeping the difference in 0..511 and the borrow in 0/1 instead of wrapping
+  a negative U32. Canonical byte digits and scalar control bits establish the
+  required bounds; public APIs and the RFC ladder remain unchanged. Field checks
+  now compare 319 operand pairs across three operations on native and Bun,
+  covering every byte carry/borrow boundary, all 19 noncanonical coordinates
+  with their high-bit aliases, and p..p+18 addition results. X25519 checks add
+  every one of those 38 coordinate aliases and four public constant/alternating
+  scalar patterns, retaining RFC vectors, four independent OpenSSL exchanges,
+  malformed-input/all-zero rejection and native 1,000 iterations. Both focused
+  targets pass. The crypto task now includes check.sh in its cache inputs.
+  RFC 7748 sections 5/5.1/5.2 and the current errata records were reviewed:
+  verified 7625 clarifies XOR (already used), 5028 clarifies decoded coordinates,
+  4730 changes the unused Montgomery v sign, and 7095 clarifies Appendix A
+  notation. The full errata page, including held/rejected records, is retained.
+  Regenerated native C, Bun JavaScript and default Apple Clang -O3 arm64 assembly
+  show the revised mask/subtraction forms at the inspected sites. This resolves
+  those source-range forms; it does not approve complete runtime/JIT timing,
+  secret-copy erasure or the signaling ABI/stack workaround. No timing leak or
+  constant-time guarantee is claimed. Artifacts:
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-01/x25519-ranges/`, including
+  focused logs, build logs, generated sources/assembly, standards/errata records,
+  versions and generated-review.json. All 37 crypto check/configuration inputs
+  are frozen in source-sha256.json. The source/generated static control/memory
+  map covers 73 core function locations, fixed public counters/indices and the
+  field product-plus-carry bound below 2^21. Native U32 buffer copying does not
+  dispatch on each digit's term tag/refcount; shared-secret zero rejection scans
+  all output bytes before its final observable decision. The map records the
+  remaining allocator/scheduler, optimized native/JIT and erasure questions in
+  control-memory-review.json. Default Clang -O3 -fstack-usage reports 784 static
+  function frames in the generated X25519 CLI, largest 2176 bytes in io_exec;
+  raw .su and stack-usage-evidence.json are saved. This does not bound total call
+  depth or approve the larger signaling fixture. `PYTHONDONTWRITEBYTECODE=1 moon run crypto:check
+  --force` passes fresh: execution 1m 18s 022ms, overall 1m 18s 038ms, full hash
+  `fded508dce8877a673fd6bdeacbd3eac532944eb5ac167f5936b624a29a94662`.
+  Saved metadata confirms exit zero/skipped hydration, all 36 source/check files
+  covered by the task hash and unchanged, with configuration frozen separately.
+  `PYTHONDONTWRITEBYTECODE=1 moon run rtc:check --force` passes fresh: execution
+  24m 48s 491ms, overall 24m 48s 562ms, full hash
+  `756c98ff6c88915e86ac6bc736058e6fc53736449b50a86d2c6f77faa82037f6`.
+  Saved execution metadata confirms exit zero/skipped hydration; all 37 frozen
+  inputs remain unchanged. Fresh raw browser directories are retained. Both
+  Chrome 154.0.8037.92 targets select actual ICE pairs, authenticate signed
+  consent in both generations, restart credentials, and pass independent packet
+  checks plus denied auth/Origin, reconnect and malformed-message scenarios.
+  Browser/server processes exit zero without forced termination. All prior
+  native/Bun RTC regressions pass. `PYTHONDONTWRITEBYTECODE=1 moon run :check`
+  passes all 13 tasks in 1m 48s 158ms: 12 cached, JSON fresh with 706 independent
+  integration cases passed. Cached Redis live 6379/password-AUTH 6380 checks
+  were not rerun; their recorded result skips unavailable local services. Full
+  repository log/report and per-task cache/execution evidence are saved.
+  Next: inspect Poly1305 canonical selection's remaining full-width mask and
+  verify 13-bit digit/carry bounds before changing it; continue optimized native,
+  Bun/JSC lowering and secret ownership/erasure review across the primitives,
+  then nonce/key lifecycle, signatures and Bend TLS/DTLS. All 19 full-stack
+  acceptance gates remain open.
+
 - 2026-10-01: Added `wire_random_bytes` for 0–1048576
   host RNG bytes, retaining the byte-list OS boundary. Darwin uses
   `arc4random_buf`; Linux uses nonblocking `getrandom`, short-read completion and

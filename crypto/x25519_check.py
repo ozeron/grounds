@@ -120,9 +120,14 @@ def main() -> None:
             "422c8e7a6227d7bca1350b3e2bb7279f7897b87bb6854b783c60e80311ae3079"))
 
         # Noncanonical coordinates and the masked top bit must be accepted.
-        for number in (P, P + 1, (1 << 255) - 1, (1 << 256) - 1):
+        for number in (P + i + high for high in (0, 1 << 255) for i in range(19)):
             u = number.to_bytes(32, "little")
             expect("mult", ALICE, u, reference(ALICE, u))
+
+        # Public synthetic scalars exercise constant and alternating ladder bits.
+        for key in (bytes(32), bytes([255]) * 32, bytes([85]) * 32,
+                    bytes([170]) * 32):
+            expect("public", key, None, reference(key, BASE))
 
         for _ in range(4):
             a, b = rng.randbytes(32), rng.randbytes(32)

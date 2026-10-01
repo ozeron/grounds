@@ -66,9 +66,11 @@ def prime_digit(+i: U32) -> U32:
 
 def subtract_prime_step(+i: U32, candidate: Array<U32>, borrow: U32, r: Array<U32> & U32) -> SubPrime:
   (original, value) = r
-  +difference = U32.sub(value, U32.add(prime_digit(i), borrow))
+  # Byte digits and a 0/1 borrow keep this biased difference in 0..511.
+  # Its low byte is the subtraction result; bit 8 is the inverse borrow.
+  +difference = U32.sub(U32.add(value, 256), U32.add(prime_digit(i), borrow))
   SubPrime{original, Array.set(U32, candidate, i, U32.and(difference, 255)),
-    U32.shrn(difference, 31n)}
+    U32.sub(1, U32.shrn(difference, 8n))}
 
 def subtract_prime(left: Nat, +i: U32, state: SubPrime) -> SubPrime:
   match left state:
@@ -84,7 +86,7 @@ type Select is Type:
 def select_step.candidate(+i: U32, +mask: U32, original: Array<U32>, a: U32,
                           out: Array<U32>, r: Array<U32> & U32) -> Select:
   (candidate, b) = r
-  selected = U32.or(U32.and(a, U32.not(mask)), U32.and(b, mask))
+  selected = U32.or(U32.and(a, U32.xor(mask, 255)), U32.and(b, mask))
   Select{original, candidate, Array.set(U32, out, i, selected)}
 
 def select_step.original(+i: U32, mask: U32, candidate: Array<U32>, out: Array<U32>,
@@ -103,7 +105,7 @@ def select_canonical(left: Nat, +i: U32, +mask: U32, state: Select) -> Array<U32
 def canonical.choose(state: SubPrime) -> Array<U32>:
   match state:
     case SubPrime{original, candidate, borrow}:
-      mask = U32.sub(0, U32.sub(1, borrow))
+      mask = U32.mul(255, U32.sub(1, borrow))
       select_canonical(32n, 0, mask, Select{original, candidate, zero()})
 
 def canonical(xs: Array<U32>) -> Array<U32>:

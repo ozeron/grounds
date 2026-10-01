@@ -49,7 +49,8 @@ def swap_digits(left: Nat, +i: U32, +mask: U32, state: Swap) -> Array<U32> & Arr
         swap_step.a(i, mask, b, out_a, out_b, Array.get(U32, a, i)))
 
 def cswap(bit: U32, a: Array<U32>, b: Array<U32>) -> Array<U32> & Array<U32>:
-  swap_digits(32n, 0, U32.sub(0, bit), Swap{a, b, F.zero(), F.zero()})
+  # Ladder control is 0/1 and coordinates are canonical byte digits.
+  swap_digits(32n, 0, U32.mul(255, bit), Swap{a, b, F.zero(), F.zero()})
 
 type Ladder is Type:
   Ladder{x1: Array<U32>, x2: Array<U32>, z2: Array<U32>, x3: Array<U32>, z3: Array<U32>, swap: U32}

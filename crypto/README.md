@@ -32,7 +32,7 @@ The check also proves the RFC 8439 quarter-round example, compares the ChaCha20 
 
 Poly1305 passes nine RFC 8439 vectors and 34 cases against an independent bigint reference. AEAD matches the RFC ciphertext and tag, plus 12 differential records against OpenSSL ChaCha20 and the independent Poly1305 reference, including a 64 KiB seal/open on both native and Bun JS. The check rejects changed key, nonce, associated data, ciphertext and tag bytes, and bad key, nonce and tag lengths. Bend proofs cover invalid-byte rejection and basic MAC input layout. `bytes.bend` avoids JS stack overflow from Bend Base's non-tail list length and append operations on the tested 64 KiB record.
 
-X25519 accepts 32-byte scalars and public coordinates, clamps scalars, masks the high coordinate bit, reduces noncanonical coordinates, and uses the RFC Montgomery ladder. `scalar_mult` returns the raw result; `shared` rejects an all-zero secret after scanning all output bytes. The field check compares 181 pairs across addition, subtraction, and multiplication against Python big integers on native and Bun. X25519 checks the RFC function, Alice/Bob, and one-iteration vectors, four OpenSSL key exchanges, malformed lengths, and noncanonical coordinates on both targets; native also passes the RFC 1,000 iteration chain. Bend checks prove malformed input is rejected before ladder evaluation.
+X25519 accepts 32-byte scalars and public coordinates, clamps scalars, masks the high coordinate bit, reduces noncanonical coordinates, and uses the RFC Montgomery ladder. `scalar_mult` returns the raw result; `shared` rejects an all-zero secret after scanning all output bytes. The field check compares 319 pairs across addition, subtraction, and multiplication against Python big integers on native and Bun, including every byte carry/borrow boundary and all 19 noncanonical coordinates with their high-bit aliases. X25519 checks the RFC function, Alice/Bob, and one-iteration vectors, four OpenSSL key exchanges, malformed lengths, all those coordinate aliases, and four constant/alternating scalar patterns on both targets; native also passes the RFC 1,000 iteration chain. Bend checks prove malformed input is rejected before ladder evaluation.
 
 `field25519.decode` assumes exactly 32 valid bytes; use the validating X25519 calls for external input.
 
@@ -46,15 +46,33 @@ The inspected native field and Poly1305 selection helpers use U32 bit masks;
 their selected value does not choose a branch or array index in those helpers.
 This is support for those operations, not approval of the full runtime or crypto.
 
-An open review finding is X25519 JavaScript's secret-derived Number range:
-`cswap` and field canonicalization produce either zero or 4294967295 masks,
-and canonical subtraction can wrap a negative difference into unsigned U32.
-The source therefore leaves JIT numeric representation/lowering behavior to
-review; no measured timing leak is claimed. The next bounded mitigation to
-evaluate is byte-sized masks and a biased 0–511 subtraction with a 0/1 borrow,
-retaining native/Bun field and RFC X25519 checks and inspecting regenerated code.
-Those changes have not been applied, and would not by themselves prove all Bun
-crypto safe. The inspected native free path recycles cells without a dedicated
+The X25519 numeric-range finding is now mitigated at its inspected sites:
+`cswap` and field canonicalization use 0/255 byte masks, and the inverse
+selection mask is XOR 255. Canonical subtraction biases each byte by 256,
+keeping the difference in 0–511 and the borrow in 0/1 without unsigned negative
+wraparound. This relies on canonical byte digits and ladder bits in 0/1; field
+carry/reduction and scalar-bit extraction establish those bounds. Regenerated
+C/JavaScript and default Clang arm64 assembly are retained in
+`/Users/ozeron/.codex/artifacts/grounds/2026-10-01/x25519-ranges/` with review
+metadata. This removes the previous wide-mask/wrapped-subtraction forms at those
+sites; it does not establish whole-runtime or Bun JIT timing safety, and no
+measured timing leak is claimed. [RFC 7748 sections 5 and 5.1](https://www.rfc-editor.org/rfc/rfc7748.html#section-5)
+and [its errata](https://www.rfc-editor.org/errata/rfc7748) were reviewed on
+2026-10-01; verified errata 7625 clarifies the XOR ladder update, which remains
+unchanged, and 5028 clarifies the decoded coordinate after top-bit masking.
+`control-memory-review.json` maps all generated field/X25519 core functions:
+accepted-input ladder/inversion counts and field array indices follow public
+counters; secret bits affect masks/arithmetic. Field products plus their bounded
+carry stay below 2^21. Shared-secret zero rejection scans the entire result
+before its final observable accept/reject decision. Native U32 buffers use direct
+word copies without per-digit term tag/refcount dispatch. These static findings
+still leave complete optimized native code, allocator/scheduler, JavaScript
+array/object storage, garbage collection and JIT lowering to review.
+Clang `-O3 -fstack-usage` reports 784 static function frames in the generated
+X25519 CLI, with a largest frame of 2176 bytes in `io_exec`; the `.su` file and
+`stack-usage-evidence.json` are retained. This is a per-function estimate, not
+an aggregate call-depth bound or evidence about the larger signaling fixture.
+The inspected native free path recycles cells without a dedicated
 complete payload scrub; clearing a new host RNG buffer does not erase every
 Bend key/field copy. Secret ownership/erasure, full generated control/memory
 dependency review, Bun JIT behavior and generated-runtime ABI/stack review remain

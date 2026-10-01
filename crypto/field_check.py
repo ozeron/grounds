@@ -22,6 +22,16 @@ def main() -> None:
     pairs = [(a.to_bytes(32, "little"), b.to_bytes(32, "little"))
              for a in edge for b in edge]
     pairs.extend((rng.randbytes(32), rng.randbytes(32)) for _ in range(100))
+    # Carry/borrow chains cross each byte boundary, including the top digit.
+    boundary = [(1 << (8 * i), 1) for i in range(1, 32)]
+    boundary += [((1 << (8 * i)) - 1, 1) for i in range(1, 32)]
+    # Every noncanonical coordinate and its high-bit alias reduces modulo p.
+    boundary += [(P + i + high, 0) for high in (0, 1 << 255) for i in range(19)]
+    # Addition reaches p..p+18; subtraction borrows across almost all digits.
+    boundary += [(P - 1, i) for i in range(1, 20)]
+    boundary += [(i, P - 1) for i in range(19)]
+    pairs.extend((a.to_bytes(32, "little"), b.to_bytes(32, "little"))
+                 for a, b in boundary)
 
     with tempfile.TemporaryDirectory() as folder:
         a_path = Path(folder) / "a.bin"
