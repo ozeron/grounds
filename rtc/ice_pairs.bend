@@ -51,6 +51,32 @@ def unique(search: Search) -> Maybe<&2, Position>:
 def lookup(streams: List<&2, Check.Checklist>, wanted: Ref) -> Maybe<&2, Position>:
   unique(find_streams(streams, wanted, Search{0n, None{}}))
 
+# A valid path is compared with the local candidate actually checked, after
+# reflexive base substitution. Its mapped address must not alias its base.
+def candidate_reference(stream: U32, candidate: C.Candidate, component: U32, remote: Stun.IPv4) -> Ref:
+  match candidate:
+    case C.Candidate{_, _, _, _, address}: Ref{stream, component, address, remote}
+
+def mapped_reference(stream: U32, pair: Check.CandidatePair) -> Ref:
+  match pair:
+    case Check.CandidatePair{local, C.Candidate{component, _, _, _, remote}, _, _}:
+      candidate_reference(stream, C.check_candidate(local), component, remote)
+
+def mapped_pairs(pairs: List<&2, Check.CandidatePair>, +stream: U32, +wanted: Ref, +index: Nat, search: Search) -> Search:
+  match pairs:
+    case Nil{}: search
+    case Con{+pair, tail}:
+      mapped_pairs(tail, stream, wanted, Nat.add(index, 1n), found(same(mapped_reference(stream, pair), wanted), search, stream, index, pair))
+
+def mapped_streams(streams: List<&2, Check.Checklist>, +wanted: Ref, search: Search) -> Search:
+  match streams:
+    case Nil{}: search
+    case Con{Check.Checklist{id, pairs}, tail}:
+      mapped_streams(tail, wanted, mapped_pairs(pairs, id, wanted, 0n, search))
+
+def lookup_mapped(streams: List<&2, Check.Checklist>, wanted: Ref) -> Maybe<&2, Position>:
+  unique(mapped_streams(streams, wanted, Search{0n, None{}}))
+
 def begun(position: Maybe<&2, Position>, streams: List<&2, Check.Checklist>) -> Maybe<&2, List<&2, Check.Checklist>>:
   match position:
     case None{}: None{}

@@ -411,6 +411,22 @@ successes can add mapped paths while leaving the replacement flight and checklis
 state unchanged. Untrusted, non-symmetric, wrong-transaction, expired and error
 responses cannot learn a path. Every new path has `nominated=False`.
 
+A current successful path also completes a unique checklist pair represented by
+its mapped local address and remote endpoint, even when that pair differs from
+the original check. Matching uses the checked local candidate after reflexive
+base substitution; a reflexive mapped address cannot complete its base pair.
+The counterpart becomes Succeeded from any prior state, leaves its triggered
+queue and current flights, and thaws matching Frozen foundations across the
+checklist set. Any redundant active transaction stops retrying but retains its
+signed request and response correlation through the original deadline. Its late
+success/error or retirement cannot fail the completed pair. If the counterpart
+was awaiting 487 repair with no remaining network transaction, validation retires
+that obsolete repair record while preserving unrelated repair work. Additional `Stopped`
+notices remain in `Step.events`; stale send directives must still be checked
+with `current_send`. Late original results can learn paths but never apply this
+checklist transition, including when their mapping represents a different active
+pair. These transitions follow [RFC 8445 section 7.2.5.3.3](https://www.rfc-editor.org/rfc/rfc8445.html#section-7.2.5.3.3).
+
 The configurable limit is 1–256 paths and independently 1–256 learned local
 candidates. Failed admission commits neither a candidate nor a foundation.
 `Exhausted` and `InvalidMapping` are explicit notices: a current attempt faults
@@ -419,9 +435,9 @@ sockets; the UDP fixture does so. An old listener's rejected mapping instead
 preserves its active replacement and reports the rejection without faulting it.
 This is bounded IPv4 valid-list integration, not a complete ICE agent.
 
-The next integration updates any distinct checklist pair represented by a valid
-path, then adds regular controlling USE-CANDIDATE checks, retained controlled-side
-nomination intent and nominated/terminal state transitions. Dynamic pair-cap pruning,
+The next integration adds regular controlling USE-CANDIDATE checks, retained
+controlled-side nomination intent and nominated/terminal state transitions.
+Dynamic pair-cap pruning,
 deferred-item expiry, consent/restart, PAC terminal-state handling, candidate
 gathering, real-browser ICE, IPv6/TURN, Bend TLS/DTLS, SCTP/data channels and media
 remain open. Generated-code timing safety is unproven; checks use synthetic
@@ -523,13 +539,19 @@ also release opened ports.
 Raw notices expose the actual receiving base and peer source. These tests verify
 this session/transaction slice, not nominated paths or browser data/media.
 
-The valid-list fixture adds 55 independent signed mapping/priority/foundation/
+The valid-list fixture adds 70 independent signed mapping/priority/foundation/
 bigint/role/late/capacity/rejection cases per target. It compares actual request
 PRIORITY and every resulting path/rank with Python, including known reflexive
 candidates, omitted host bases, shared/different IP foundation keys, collisions,
 role changes, duplicate full-list outcomes, invalid late mappings and replacement
-isolation. Five additional independent live UDP cases per target use the same
+isolation. Counterpart cases cover all five pair states, triggered queue removal
+while preserving other entries, stale sends, cross-stream foundation thawing,
+reflexive base separation, late-result isolation for distinct active pairs, and
+obsolete 487 repair cleanup while preserving unrelated repair work.
+Nine additional independent live UDP cases per target use the same
 explicit-address owner: synthetic mapped addresses after loss/retry, pre-answer
 triggered learning, distinct old/replacement mappings, wrong receiving-IP rejection,
-authenticated errors and both-port rebinding. These mappings are synthetic peer
+authenticated errors, counterpart retry suppression, late success/error,
+listener expiry, preserved distinct-pair retransmissions and both-port rebinding.
+These mappings are synthetic peer
 claims, not proof of a physical NAT or a nominated/browser data path.

@@ -126,6 +126,105 @@ def ordinary(address_value, streams=STREAMS):
     return run([BIND, ["start", 0, 1, 2], ["ack", 0], receive(response(address=address_value))], streams=streams)
 
 
+def pair_states(frame):
+    sid, result = None, {}
+    for line in frame:
+        if line.startswith("stream:"):
+            sid = int(line.split(":")[1])
+        elif line.startswith("pair:"):
+            fields = line.split(":")
+            result[(sid, int(fields[1]), tuple(address(fields[4])), tuple(address(fields[6])))] = int(fields[-1])
+    return result
+
+
+def pair_state(frame, local=LA, remote=RA, sid=1):
+    return pair_states(frame)[(sid, local[0], tuple(local[4]), tuple(remote[4]))]
+
+
+# A mapped host can represent a different checklist pair. Complete it from
+# every prior state, without manufacturing the original base as a valid path.
+TWO = [[1, [[LA, LA], [LB, LB]], [RA]]]
+for frozen in (False, True):
+    lb = copy.deepcopy(LB)
+    lb[2] = LA[2] if frozen else LB[2]
+    ss = [[1, [[LA, LA], [lb, lb]], [RA]]]
+    f = ordinary(lb[4], ss)
+    assert pair_state(f[0], lb) == (0 if frozen else 1)
+    assert pair_state(f[-1]) == pair_state(f[-1], lb) == 3, f[-1]
+    checked(f[-1], [{"address": lb[4], "base": lb[4], "priority": lb[1], "token": 0}])
+    assert not lines(f[-1], "flight:")
+
+active = [BIND, ["start", 0, 1, 2], ["ack", 0], ["start", 50, 2, 2], ["ack", 50]]
+for prior in ("active", "failed", "succeeded"):
+    steps = active[:]
+    if prior != "active":
+        steps += [receive(response(2, LB[4], error=500 if prior == "failed" else 0), 60, base=LB[4])]
+    f = run(steps + [receive(response(1, LB[4]), 70)], TWO)
+    assert pair_state(f[-2], LB) == {"active": 2, "failed": 4, "succeeded": 3}[prior]
+    assert pair_state(f[-1]) == pair_state(f[-1], LB) == 3, f[-1]
+    assert not lines(f[-1], "flight:")
+    checked(f[-1], [{"address": LB[4], "base": LB[4], "priority": LB[1]}])
+    assert bool(lines(f[-1], "stopped:1:")) == (prior == "active")
+
+# A current 487 retains a repair flight but has already retired its network
+# transaction. Counterpart validation must retire that now-unusable repair
+# record, while preserving an unrelated current role-conflict repair.
+ss = [[1, [[LA, LA], [LB, LB]], [RA, RB]]]
+f = run(active + [["start", 100, 3, 2], ["ack", 100],
+                 receive(response(2, error=487), 110, base=LB[4]),
+                 receive(response(3, error=487), 120, source=RB[4]),
+                 receive(response(1, LB[4]), 130), ["repair", 1, 7, 0, 5], ["repair", 2, 7, 0, 5]], ss)
+assert lines(f[-3], "record:2:") and not lines(f[-3], "record:1:")
+assert pair_state(f[-3], LB) == 3 and f[-2][0] == "rejected"
+assert f[-1][0] == "changed" and not lines(f[-1], "record:")
+
+# The stopped counterpart retains correlation: late success/error and expiry
+# cannot turn its Succeeded state into a failure or issue redundant retries.
+for outcome in ("success", "error", "expiry"):
+    steps = active + [receive(response(1, LB[4]), 60)]
+    steps += [["tick", 1050]] if outcome == "expiry" else [receive(response(2, LB[4], error=500 if outcome == "error" else 0), 70, base=LB[4])]
+    f = run(steps + [["tick", 1100], ["start", 1150, 3, 2]], TWO)
+    assert pair_state(f[-1], LB) == 3 and not lines(f[-1], "flight:")
+    assert not lines(f[-2], "send:") and not lines(f[-1], "send:")
+    assert lines(f[-3], "retired:1:" if outcome == "expiry" else "late:1:")
+    assert not lines(f[-3], "finished:1:")
+
+# A send directive that has not been acknowledged becomes stale on completion.
+f = run(active[:-1] + [receive(response(1, LB[4]), 60), ["ack", 60], ["tick", 600]], TWO)
+assert "queued-send:0" in f[-3] and not lines(f[-2], "sent:1") and not lines(f[-1], "send:")
+assert lines(f[-3], "stopped:1:") and pair_state(f[-1], LB) == 3
+
+# Remove only the counterpart from a triggered FIFO; preserve unrelated work.
+f = run([BIND, ["start", 0, 1, 2], ["ack", 0], receive(request(90), 10, base=LB[4]),
+         receive(request(91), 11, base=LB[4], source=RB[4]), receive(response(1, LB[4]), 20), ["start", 50, 2, 2]],
+        [[1, [[LA, LA], [LB, LB]], [RA, RB]]])
+assert len(lines(f[-2], "queued:")) == 1 and f"{RB[4][4]}" in lines(f[-2], "queued:")[0]
+assert pair_state(f[-2], LB) == 3 and pair_state(f[-1], LB, RB) == 2
+
+# Thaw Frozen pairs matching the counterpart's foundation across checklists,
+# even when the original check has a different foundation.
+lc2 = cand(2130705918, 10003, LB[2], component=2)
+rc2 = cand(2099999742, 20003, RA[2], component=2)
+ss = TWO + [[2, [[lc2, lc2]], [rc2]]]
+f = ordinary(LB[4], ss)
+assert pair_state(f[0], lc2, rc2, 2) == 0 and pair_state(f[-1], lc2, rc2, 2) == 1
+
+# A reflexive mapped address is not the checked base pair it refers to.
+f = ordinary([203, 0, 113, 5, 31001],
+             [[1, [[LA, LA], [cand(1677721855, 31001, "srflx", ip=(203, 0, 113, 5), kind="srflx"), LB]], [RA]]])
+assert pair_state(f[-1], LB) == 1 and pair_state(f[-1]) == 3
+
+# Late old results may learn mapped paths, but must not complete the original
+# replacement or a different active/queued counterpart.
+for mapped_address in (BASE, LB[4]):
+    steps = active + [receive(request(90), 60), ["start", 100, 3, 2], ["ack", 100], receive(response(1, mapped_address), 110)]
+    f = run(steps, TWO)
+    assert pair_state(f[-1]) == pair_state(f[-1], LB) == 2
+    assert {int(s.split(":")[1]) for s in lines(f[-1], "flight:")} == {1, 2}
+    assert lines(f[-1], "validated:0:1:") and not lines(f[-1], "stopped:")
+    checked(f[-1], [{"address": mapped_address, "token": 0}])
+
+
 # Existing candidates retain advertised metadata; bases omitted from signaling
 # still count as known local candidates and never become peer reflexive.
 f = ordinary(BASE)

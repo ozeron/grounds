@@ -71,6 +71,13 @@ class Driver:
         assert source == self.addresses[0] and reply[8:20] == raw[8:20]
         validate(reply, LOCAL_KEY, "sha256")
 
+    def wait_event(self, prefix):
+        deadline = time.monotonic() + 2
+        while not any(s.startswith(prefix) for s in self.path.read_text().splitlines()):
+            assert self.process.poll() is None, self.path.read_text()
+            assert time.monotonic() < deadline, (prefix, self.path.read_text())
+            time.sleep(0.01)
+
     def finish(self):
         _, err = self.process.communicate(timeout=5)
         self.output.close()
@@ -175,4 +182,46 @@ with driver() as d:
     d.peer.sendto(response(second, b, error=500), b)
     assert not paths(d.finish())
 COUNT += 1
-print(f"ICE valid UDP: {COUNT} mapping/loss/pre-answer/late/IP-gate/error/cleanup cases passed")
+
+# A response received on the original socket can validate the other known
+# host pair. Stop its active retry, retain its response correlation, and keep
+# both checklist states Succeeded through late replies and listener expiry.
+for outcome in ("success", "error", "expiry"):
+    with driver(duration=2400 if outcome == "expiry" else 1300) as d:
+        first, a, _ = d.recv()
+        second, b, _ = d.recv()
+        d.peer.sendto(response(first, b), a)
+        d.wait_event("stopped:1:")
+        if outcome != "expiry":
+            d.peer.sendto(response(second, b, error=500 if outcome == "error" else 0), b)
+        log = d.finish()
+        got = paths(log)
+        assert len(got) == 1 and got[0]["mapped"] == got[0]["base"] == f"{b[0]}/{b[1]}"
+        assert got[0]["kind"] == 0 and got[0]["token"] == 0, (outcome, got, log)
+        assert any(s.startswith("stopped:1:") for s in log), log
+        assert any(s.startswith("retired:1:" if outcome == "expiry" else "late:1:") for s in log), log
+        assert not any(s.startswith(("finished:1:", "flight:")) for s in log), log
+        assert all(s.endswith(":3") for s in log if s.startswith("pair:")), log
+        assert not select.select([d.peer], [], [], 0.05)[0], "redundant counterpart retry"
+    COUNT += 1
+
+# A late old mapping to the other host must leave that host's current check
+# retrying. Its original request/source bytes prove the listener cannot stop it.
+with driver(duration=1500) as d:
+    old, a, _ = d.recv()
+    second, b, _ = d.recv()
+    d.trigger()
+    replacement, source, _ = d.recv()
+    assert source == a and replacement[8:20] != old[8:20]
+    d.peer.sendto(response(old, b), a)
+    d.wait_event("validated:0:1:")
+    retry, retry_source, _ = d.recv()
+    assert retry == second and retry_source == b
+    d.peer.sendto(response(second, b), b)
+    d.peer.sendto(response(replacement, a), a)
+    log = d.finish()
+    assert len(paths(log)) == 2 and any(s.startswith("validated:0:1:") for s in log), log
+    assert not any(s.startswith("stopped:1:") for s in log), log
+    assert all(s.endswith(":3") for s in log if s.startswith("pair:")), log
+COUNT += 1
+print(f"ICE valid UDP: {COUNT} mapping/loss/pre-answer/late/counterpart/IP-gate/error/cleanup cases passed")

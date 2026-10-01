@@ -263,6 +263,29 @@ def complete(+state: State, token: U32, generation: U32, success: Bool) -> Maybe
     case State{+lists, +qs, +fs, +role, +cursor, +next, +current, +limit}:
       complete_flight(by_token(fs, token), State{lists, qs, fs, role, cursor, next, current, limit}, success, generation)
 
+def unqueued(values: List<&2, Pairs.Ref>, +wanted: Pairs.Ref, +rev: List<&2, Pairs.Ref>) -> List<&2, Pairs.Ref>:
+  match values:
+    case Nil{}: List.reverse(&2, Pairs.Ref, rev)
+    case Con{+head, tail}:
+      unqueued(tail, wanted, Bool.pick(List<&2, Pairs.Ref>, Pairs.same(head, wanted), rev, Con{head, rev}))
+
+def validated_position(position: Maybe<&2, Pairs.Position>, state: State) -> Maybe<&2, Change>:
+  match position state:
+    case Some{Pairs.Position{+id, +index, +pair}} State{+lists, +qs, +fs, role, cursor, next, gen, limit}:
+      +wanted = Pairs.reference(id, pair)
+      Some{Change{State{Check.thaw_all(Check.replace_stream(lists, id, index, Check.Succeeded{}, []), pair, []),
+        replace_queue(qs, id, unqueued(queue_at(qs, id), wanted, []), []), without(fs, wanted, []), role, cursor, next, gen, limit}, flight_at(fs, wanted)}}
+    case _ _: None{}
+
+# The owner calls this only after authenticated current-attempt path construction.
+# Unlike complete, a represented pair can be in any state. Stop its retry engine
+# separately and preserve response correlation until the original deadline.
+def validated(+state: State, mapped: Pairs.Ref, generation: U32) -> Maybe<&2, Change>:
+  match state:
+    case State{+lists, +qs, +fs, +role, +cursor, +next, +current, +limit}:
+      Bool.pick(Maybe<&2, Change>, U32.is_eq(current, generation),
+        validated_position(Pairs.lookup_mapped(lists, mapped), State{lists, qs, fs, role, cursor, next, current, limit}), None{})
+
 def role_changed(lists: Maybe<&2, List<&2, Check.Checklist>>, qs: List<&2, Queue>, fs: List<&2, Flight>,
                  role: Ice.Role, cursor: Nat, next: Nat, generation: U32, limit: U32) -> Maybe<&2, State>:
   match lists:

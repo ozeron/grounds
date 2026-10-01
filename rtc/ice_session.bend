@@ -89,6 +89,13 @@ def attempt_maybe(step: Maybe<&2, A.Step>, registry: R.State, secret: Incoming.S
     case None{}: None{}
     case Some{s}: Some{attempt_step(s, registry, secret, peer, pending, mode)}
 
+# Only an authenticated current result may complete a mapped checklist pair.
+# Pending incoming requests and signaled candidate metadata remain intact.
+def validated(state: State, mapped: Pairs.Ref, generation: U32) -> Maybe<&2, Step>:
+  match state:
+    case State{a, registry, secret, peer, pending, mode}:
+      attempt_maybe(A.validated(a, mapped, generation), registry, secret, peer, pending, mode)
+
 def materialized(step: Maybe<&2, A.Step>, registry: R.State, secret: Incoming.Secret, peer: Maybe<&2, Ice.Credentials>, mode: Auth.Mode,
                  +reference: Pairs.Ref) -> Maybe<&2, Step>:
   match step:

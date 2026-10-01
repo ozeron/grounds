@@ -198,6 +198,28 @@ def trigger(state: State, reference: Pairs.Ref) -> Maybe<&2, Step>:
   match state:
     case State{schedule, engine, records, +policies}: triggered(S.trigger(schedule, reference), engine, records, policies)
 
+def conflict_record(record: Maybe<&2, Record>) -> Bool:
+  match record:
+    case Some{Record{_, _, _, flag}}: flag
+    case None{}: False{}
+
+# A pending 487 repair has no network transaction left to retain. When another
+# current check validates that pair, its removed flight makes repair obsolete.
+def validated_records(token: Maybe<&2, U32>, +records: List<&2, Record>) -> List<&2, Record>:
+  match token:
+    case None{}: records
+    case Some{+t}:
+      Bool.pick(List<&2, Record>, conflict_record(get(records, t)), remove(records, t, []), records)
+
+def validated_change(value: Maybe<&2, S.Change>, engine: Tx.State, records: List<&2, Record>, policies: List<&2, PeerMode>) -> Maybe<&2, Step>:
+  match value:
+    case None{}: None{}
+    case Some{S.Change{schedule, +token}}: Some{stopped(token, State{schedule, engine, validated_records(token, records), policies})}
+
+def validated(state: State, mapped: Pairs.Ref, generation: U32) -> Maybe<&2, Step>:
+  match state:
+    case State{schedule, engine, records, +policies}: validated_change(S.validated(schedule, mapped, generation), engine, records, policies)
+
 def insert_triggered(state: State, id: U32, local: C.Local, remote: C.Candidate) -> Maybe<&2, Step>:
   match state:
     case State{schedule, engine, records, +policies}: triggered(S.insert_triggered(schedule, id, local, remote), engine, records, policies)

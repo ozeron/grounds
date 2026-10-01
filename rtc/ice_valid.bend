@@ -273,22 +273,36 @@ def successful(found: Maybe<&2, Attempt>, +state: State, +record: A.Record, +map
         fault(State{s, ls, fs, ps, limit, failed}, InvalidMapping{record}, late))
     case _ s r: fault(s, InvalidMapping{r}, late)
 
-def updated(result: State & Notice, rev: List<&2, Notice>, again: State -> List<&2, Notice> -> Step) -> Step:
-  (state, notice) = result
-  again(state, Con{notice, rev})
+def counterpart(+notice: Notice, session: Session.State) -> Maybe<&2, Session.Step>:
+  match notice:
+    case Validated{Path{id, +local, C.Candidate{comp, _, _, _, remote}, _, A.Record{_, gen, _, _}, _}, _, False{}}:
+      Session.validated(session, Pairs.Ref{id, comp, address(local), remote}, gen)
+    case _: None{}
 
-def event(+notice: Session.Notice, +previous: Session.State, state: State, rev: List<&2, Notice>, again: State -> List<&2, Notice> -> Step) -> Step:
+def counterpart_step(step: Maybe<&2, Session.Step>, state: State, notice: Notice, rev: List<&2, Notice>,
+                     again: State -> List<&2, Notice> -> List<&2, Session.Notice> -> Step) -> Step:
+  match step state:
+    case Some{Session.Step{session, extra}} State{_, ls, fs, ps, limit, failed}:
+      again(State{session, ls, fs, ps, limit, failed}, Con{notice, rev}, extra)
+    case None{} s: again(s, Con{notice, rev}, [])
+
+def updated(result: State & Notice, rev: List<&2, Notice>, again: State -> List<&2, Notice> -> List<&2, Session.Notice> -> Step) -> Step:
+  (+state, +notice) = result
+  counterpart_step(counterpart(notice, core(state)), state, notice, rev, again)
+
+def event(+notice: Session.Notice, +previous: Session.State, state: State, rev: List<&2, Notice>, again: State -> List<&2, Notice> -> List<&2, Session.Notice> -> Step) -> Step:
   match notice:
     case Session.Attempt{A.Transaction{Some{+record}, Tx.Finished{_, Reliable.Received{Response.Success{mapped}, _}}}}:
       updated(successful(attempt(previous, record), state, record, mapped, False{}), rev, again)
     case Session.Attempt{A.Transaction{Some{+record}, Tx.LateResponse{_, Response.Success{mapped}, _}}}:
       updated(successful(attempt(previous, record), state, record, mapped, True{}), rev, again)
-    case _: again(state, rev)
+    case _: again(state, rev, [])
 
 def events(values: List<&2, Session.Notice>, +previous: Session.State, state: State, rev: List<&2, Notice>, +all: List<&2, Session.Notice>) -> Step:
   match values:
     case Nil{}: Step{state, all, List.reverse(&2, Notice, rev)}
-    case Con{head, tail}: event(head, previous, state, rev, s => r => events(tail, previous, s, r, all))
+    case Con{head, tail}: event(head, previous, state, rev, s => r => extra =>
+      events(tail, previous, s, r, List.reverse.go(&2, Session.Notice, List.reverse(&2, Session.Notice, all), extra)))
 
 def advance(step: Session.Step, old: State) -> Step:
   match step old:
