@@ -15,6 +15,7 @@ import time
 
 
 MIB = 1024 * 1024
+SAMPLE_INTERVAL = 0.02
 
 
 class Usage(ctypes.Structure):
@@ -38,6 +39,10 @@ class Memory:
                 ctypes.c_int, ctypes.c_int, ctypes.c_void_p,
             ]
             self.lib.proc_pid_rusage.restype = ctypes.c_int
+            self.lib.proc_listpids.argtypes = [
+                ctypes.c_uint32, ctypes.c_uint32, ctypes.c_void_p, ctypes.c_int,
+            ]
+            self.lib.proc_listpids.restype = ctypes.c_int
             self.metric = "aggregate-max-rss-physical-footprint"
             self.read(os.getpid(), 0)  # Fail before launching if unavailable.
         elif not sys.platform.startswith("linux"):
@@ -52,7 +57,38 @@ class Memory:
             if code == errno.ESRCH:
                 return 0  # Process exited between the process and memory reads.
             raise OSError(code, "Cannot measure owned process", pid)
-        return max(rss, usage.phys_footprint)
+        if usage.proc_exit_abstime:
+            return 0
+        return max(rss, usage.resident_size, usage.phys_footprint)
+
+    def group(self, pgid):
+        if self.lib is None:
+            rows = [r for r in processes() if r[1] == pgid and "Z" not in r[3]]
+            return sum(self.read(r[0], r[2]) for r in rows), [r[0] for r in rows]
+        # Avoid spawning ps on every macOS sample: it delays detection during
+        # rapid allocation. PROC_PGRP_ONLY=2 is in SDK sys/proc_info.h.
+        capacity = 128
+        while capacity <= 8192:
+            buffer = (ctypes.c_int * capacity)()
+            ctypes.set_errno(0)
+            size = self.lib.proc_listpids(2, pgid, buffer, ctypes.sizeof(buffer))
+            code = ctypes.get_errno()
+            if size < 0 or (size == 0 and code not in (0, errno.ESRCH)):
+                raise OSError(code, "Cannot list owned process group", pgid)
+            if size < ctypes.sizeof(buffer):
+                if size % ctypes.sizeof(ctypes.c_int):
+                    raise RuntimeError("Unrecognized process-group byte count")
+                members = []
+                total = 0
+                for pid in buffer[:size // ctypes.sizeof(ctypes.c_int)]:
+                    if pid > 0:
+                        usage = self.read(pid, 0)
+                        if usage:
+                            total += usage
+                            members.append(pid)
+                return total, members
+            capacity *= 2
+        raise RuntimeError("Owned process group exceeded the monitoring capacity")
 
 
 def processes():
@@ -69,11 +105,6 @@ def processes():
         rows.append((int(pid), int(pgid), int(rss) * 1024, state,
                      int(uid), Path(command).name))
     return rows
-
-
-def group_memory(pgid, memory):
-    members = [row for row in processes() if row[1] == pgid and "Z" not in row[3]]
-    return sum(memory.read(row[0], row[2]) for row in members), [r[0] for r in members]
 
 
 def stop_group(pgid):
@@ -103,7 +134,7 @@ def main():
     report = {
         "command": command, "cwd": str(Path.cwd()),
         "memory_limit_bytes": args.memory_mib * MIB,
-        "timeout_seconds": args.timeout, "sample_interval_seconds": 0.1,
+        "timeout_seconds": args.timeout, "sample_interval_seconds": SAMPLE_INTERVAL,
         "peak_bytes": 0, "peak_processes": [], "reason": None,
     }
     job = None
@@ -139,7 +170,7 @@ def main():
                 report["reason"] = "signal"
                 exit_code = 128 + received_signal
                 break
-            size, members = group_memory(job.pid, memory)
+            size, members = memory.group(job.pid)
             report["samples"] = report.get("samples", 0) + 1
             if size > report["peak_bytes"]:
                 report.update(peak_bytes=size, peak_processes=members)
@@ -153,11 +184,11 @@ def main():
                 break
             code = job.poll()
             if code is not None:
-                _, members = group_memory(job.pid, memory)
+                _, members = memory.group(job.pid)
                 report["reason"] = "child-exit" if not members else "leftover-children"
                 exit_code = (code if code >= 0 else 128 - code) if not members else 125
                 break
-            time.sleep(0.1)
+            time.sleep(SAMPLE_INTERVAL)
     except (OSError, RuntimeError, subprocess.SubprocessError) as error:
         report.update(reason="guard-error", error=str(error))
     finally:

@@ -14,6 +14,61 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 
 ## Evidence ledger
 
+- 2026-10-01 (bounded resource and signature progress): Tightened the guard to
+  a 0.02-second sample interval. macOS now lists the owned process group with
+  `proc_listpids` instead of spawning `ps` on every sample, then reads resident
+  size/physical footprint via `proc_pid_rusage`. The same eight subprocess
+  safety tests pass in 3.000s; final log and source hashes are in
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-01/ecdsa256/guard-final-tests.log`
+  and `guard-verification.json`. Recovery jobs used a 512 MiB cutoff and ran
+  sequentially. Several builds were killed at that cutoff; none count as a
+  successful build or gate. Initial 0.1-second sampling briefly overshot to
+  719.2 MiB in the split-adapter attempt; the current sampler remains a cutoff,
+  not a kernel allocation quota. A minimal Bend native program passes near
+  107.8 MiB. Splitting the ECDSA adapter/import graph and Bun's documented
+  `BUN_OPTIONS=--smol` did not clear the cutoff; those unverified split adapters
+  were removed, and all nine original ECDSA draft source hashes were restored.
+  The combined JS adapter built successfully before the incident was frozen
+  with its original source bundle and generated-JS hash.
+
+  New isolated `crypto/ecdsa_check.py` contains published SigGen/SigVer/RFC6979,
+  independent affine/HMAC deterministic signing, complete signature/digest/key
+  byte mutations, strict profile/malformed DER, infinity and rejection controls,
+  and direct OpenSSL DER interoperability. Only its interop section has run:
+  the actual Bend DER signing API produced four OpenSSL-verified signatures;
+  Bend's public DER verifier accepted four OpenSSL signatures and rejected four
+  altered digests. Guarded Bun execution passed 12 cases in 57.424s, peak
+  140.8 MiB. The independent reference signer matched the actual Bend output.
+  Expanded `ecdsa_der_check.py` adds all second-INTEGER length mutations to the
+  prior matrix. Existing frozen native/Bun codec builds each pass 1388 cases
+  in 0.284s/1.415s, with guarded peaks 20.5/76.8 MiB. Both evaluator scripts
+  parse. Full native/Bun signature matrices, native combined scheme, primary
+  transfer/registration and fresh package/repository gates remain required.
+  Evidence: `interop-bun-evidence.json`, `interop-bun-resource.json`,
+  `der-{native,bun}.log`, their resource reports and
+  `scheme-source-provenance.json` under the same artifact directory.
+
+  Compiler diagnosis found that the primary original `field256.bend` already
+  crosses 512 MiB during `--check-only`, before C compilation. An isolated
+  trial replaces four 32-byte-case public constant tables with eight U32 words
+  each and bounded byte extraction. All other arithmetic bodies are unchanged.
+  That field module now type-checks at 329.8 MiB and 144 closed checks pass
+  for all 128 constant bytes plus out-of-range indices, peak 338.7 MiB. Its
+  full file adapter still crosses the cutoff even with `--check-only`; native
+  adapter builds also stop, with/without low-memory runtime mode. This trial
+  is not transferred or accepted: fresh native/Bun bigint differential checks
+  and all dependent package/repository gates are still required. Source,
+  prefix diagnosis, failed logs, reports and trial hashes are retained in
+  `ecdsa256/compiler-profile/`. No full gate was restarted during recovery.
+  Exact next action: reduce the field adapter/type-checking workload under
+  the unchanged 512 MiB recovery cutoff, then run its full native/Bun 4178-case
+  differential evaluator before considering a primary transfer. Revalidate
+  point/ECDH/signature sources against whichever field version is accepted,
+  finish their native/Bun matrices, then rerun the failed repository/RTC gate
+  sequentially under the guard. Preserve the entire 19-box contract: RSA,
+  timing/erasure, certificates, Bend TLS/DTLS, secure signaling, IPv6/TURN,
+  SCTP/data channels and decoded/rendered direct/relay audio/video remain open.
+
 - 2026-10-01 (resource recovery): Added `tools/build_guard.py` and its usage
   documentation. It refuses concurrent guarded jobs across checkouts and
   pre-existing same-user Bend compilers, forces Moon's default concurrency to

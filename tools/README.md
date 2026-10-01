@@ -4,7 +4,8 @@ Run compilation and package/repository checks through `build_guard.py` after
 the 2026-10-01 resource incident. The lock is shared across Grounds checkouts.
 The guard refuses a second guarded job or an existing same-user Bend process,
 sets `MOON_CONCURRENCY=1`, and samples the entire spawned process group every
-0.1 seconds. macOS uses the greater of RSS and `proc_pid_rusage` physical
+0.02 seconds. macOS uses `proc_listpids` to avoid spawning `ps` on each sample,
+and takes the greater of RSS and `proc_pid_rusage` physical
 footprint per process, including compressed memory. Linux measures RSS.
 Measurement errors fail closed. A memory cutoff, timeout, interruption or
 leftover child kills the owned process group; unrelated processes are untouched.
