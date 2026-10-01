@@ -96,11 +96,28 @@ def validated(state: State, mapped: Pairs.Ref, generation: U32) -> Maybe<&2, Ste
     case State{a, registry, secret, peer, pending, mode}:
       attempt_maybe(A.validated(a, mapped, generation), registry, secret, peer, pending, mode)
 
+def invalidated(state: State, mapped: Pairs.Ref, generation: U32) -> Maybe<&2, Step>:
+  match state:
+    case State{a, registry, secret, peer, pending, mode}:
+      attempt_maybe(A.invalidated(a, mapped, generation), registry, secret, peer, pending, mode)
+
 def queue_nomination(state: State, reference: Pairs.Ref, generation: U32) -> Maybe<&2, Step>:
   match state:
     case State{a, registry, secret, Some{peer}, pending, mode}:
       attempt_maybe(A.queue_nomination(a, reference, generation), registry, secret, Some{peer}, pending, mode)
     case _: None{}
+
+def component_pending(values: List<&2, Pending>, +id: U32, +component: U32, +rev: List<&2, Pending>) -> List<&2, Pending>:
+  match values:
+    case Nil{}: List.reverse(&2, Pending, rev)
+    case Con{Pending{+ref, +request}, tail}:
+      component_pending(tail, id, component, Bool.pick(List<&2, Pending>, S.component_ref(ref, id, component), rev,
+        Con{Pending{ref, request}, rev}))
+
+def conclude(state: State, +id: U32, +component: U32, generation: U32) -> Maybe<&2, Step>:
+  match state:
+    case State{a, registry, secret, peer, pending, mode}:
+      attempt_maybe(A.conclude(a, id, component, generation), registry, secret, peer, component_pending(pending, id, component, []), mode)
 
 def materialized(step: Maybe<&2, A.Step>, registry: R.State, secret: Incoming.Secret, peer: Maybe<&2, Ice.Credentials>, mode: Auth.Mode,
                  +reference: Pairs.Ref) -> Maybe<&2, Step>:
@@ -244,6 +261,57 @@ def receive(state: State, +reference: Pairs.Ref, raw: List<&2, U32>, now: Nat) -
       received_local(Bool.pick(Maybe<&2, C.Local>, C.address_valid(source), R.local(streams, id, component, base), None{}),
         State{a, R.State{streams, next, count, limit}, secret, peer, pending, mode}, Pairs.Ref{id, component, base, source}, raw, now)
 
+# Concluded components still serve authenticated Binding requests. Admission of
+# a new nomination is decided by the lifecycle owner before a success is sent;
+# this path never learns candidates, enqueues checks or restores removed pairs.
+def reply_role(value: Maybe<&2, A.State>, old: State, +reference: Pairs.Ref, request: Incoming.Request,
+               reply: List<&2, U32>, switched: Bool) -> Step:
+  match value old:
+    case Some{a} State{_, registry, secret, peer, pending, mode}:
+      Step{State{a, registry, secret, peer, pending, mode}, [Reply{reference, reply, 0}, Accepted{reference, request, switched}]}
+    case _ s: Step{s, [Invalid{}]}
+
+def reply_admitted(ok: Bool, +state: State, +reference: Pairs.Ref, +request: Incoming.Request,
+                   reply: List<&2, U32>, role: Ice.Role, switched: Bool) -> Step:
+  match ok state request:
+    case True{} State{+a, registry, secret, peer, pending, mode} q:
+      reply_role(A.switch_role(a, role), State{a, registry, secret, peer, pending, mode}, reference, q, reply, switched)
+    case False{} State{a, registry, +secret, peer, pending, mode} Incoming.Request{tx, _, _, _, _, algorithm}:
+      incoming(Incoming.reject(tx, 400, [], Incoming.Protected{Incoming.key(secret), algorithm}),
+        State{a, registry, secret, peer, pending, mode}, reference)
+
+def reply_bound(ok: Bool, +state: State, +reference: Pairs.Ref, +request: Incoming.Request,
+                reply: List<&2, U32>, role: Ice.Role, switched: Bool, allow_nomination: Bool) -> Step:
+  match ok request:
+    case False{} _: Step{state, [Reply{reference, reply, 0}, Unbound{reference}]}
+    case True{} Incoming.Request{tx, remote, priority, sent_role, +nominate, algorithm}:
+      reply_admitted(Bool.or(Bool.not(nominate), allow_nomination), state, reference,
+        Incoming.Request{tx, remote, priority, sent_role, nominate, algorithm}, reply, role, switched)
+
+def reply_decision(decision: Incoming.Decision, +state: State, +reference: Pairs.Ref, allow_nomination: Bool) -> Step:
+  match decision state:
+    case Incoming.Accepted{reply, +request, role, switched} State{+a, +registry, +secret, +peer, +pending, +mode}:
+      reply_bound(peer_matches(peer, request), State{a, registry, secret, peer, pending, mode}, reference, request, reply, role, switched, allow_nomination)
+    case d s: incoming(d, s, reference)
+
+def reply_packet(packet: Maybe<&2, Stun.Packet>, +state: State, +reference: Pairs.Ref, +raw: List<&2, U32>, now: Nat, allow_nomination: Bool) -> Step:
+  match packet state reference:
+    case Some{Stun.Packet{1, _, _}} State{+a, registry, +secret, peer, pending, mode} Pairs.Ref{+id, +component, +base, +source}:
+      reply_decision(Incoming.receive(raw, secret, role(a), source), State{a, registry, secret, peer, pending, mode},
+        Pairs.Ref{id, component, base, source}, allow_nomination)
+    case _ s r: receive(s, r, raw, now)
+
+def reply_local(local: Maybe<&2, C.Local>, +state: State, reference: Pairs.Ref, +raw: List<&2, U32>, now: Nat, allow_nomination: Bool) -> Step:
+  match local:
+    case None{}: Step{state, [Invalid{}]}
+    case Some{_}: reply_packet(Stun.parse(raw), state, reference, raw, now, allow_nomination)
+
+def reply_only(state: State, +reference: Pairs.Ref, raw: List<&2, U32>, now: Nat, allow_nomination: Bool) -> Step:
+  match state reference:
+    case State{a, R.State{+streams, next, count, limit}, secret, peer, pending, mode} Pairs.Ref{+id, +component, +base, +source}:
+      reply_local(Bool.pick(Maybe<&2, C.Local>, C.address_valid(source), R.local(streams, id, component, base), None{}),
+        State{a, R.State{streams, next, count, limit}, secret, peer, pending, mode}, Pairs.Ref{id, component, base, source}, raw, now, allow_nomination)
+
 def peer_same(peer: Maybe<&2, Ice.Credentials>, +credentials: Ice.Credentials) -> Bool:
   match peer credentials:
     case None{} _: True{}
@@ -328,6 +396,28 @@ def start_intent(state: State, transaction: List<&2, U32>, policy: Retry.Policy,
     case State{a, registry, secret, None{}, pending, mode}: Step{State{a, registry, secret, None{}, pending, mode}, [WaitingCredentials{}]}
     case State{a, registry, secret, Some{peer}, pending, mode}:
       intent_drained(drain(State{a, registry, secret, Some{peer}, pending, mode}), transaction, policy, target, now)
+
+# Multiple components/streams can have a queued regular nomination. Bind the
+# flag to whichever reference actually wins after deferred work drains.
+def intents_choice(choice: S.Choice, state: State, transaction: List<&2, U32>, policy: Retry.Policy, targets: List<&2, Pairs.Ref>, now: Nat) -> Step:
+  match choice state:
+    case S.Selected{_, Pairs.Ref{+id, +component, +base, +remote}, _, _} State{a, R.State{+ss, next, count, limit}, secret, peer, pending, mode}:
+      intent_local(R.local(ss, id, component, base), State{a, R.State{ss, next, count, limit}, secret, peer, pending, mode}, transaction, policy,
+        S.contains(targets, Pairs.Ref{id, component, base, remote}, False{}), now)
+    case S.Idle{schedule} State{A.State{_, engine, records, +policies}, registry, secret, peer, pending, mode}:
+      Step{State{A.State{schedule, engine, records, policies}, registry, secret, peer, pending, mode}, [Attempt{A.Idle{}}]}
+    case _ s: Step{s, [Invalid{}]}
+
+def intents_drained(step: Step, transaction: List<&2, U32>, policy: Retry.Policy, targets: List<&2, Pairs.Ref>, now: Nat) -> Step:
+  match step:
+    case Step{State{A.State{+s, engine, records, +policies}, registry, secret, peer, pending, mode}, prefix}:
+      prefixed(intents_choice(S.select(s), State{A.State{s, engine, records, policies}, registry, secret, peer, pending, mode}, transaction, policy, targets, now), prefix)
+
+def start_intents(state: State, transaction: List<&2, U32>, policy: Retry.Policy, targets: List<&2, Pairs.Ref>, now: Nat) -> Step:
+  match state:
+    case State{a, registry, secret, None{}, pending, mode}: Step{State{a, registry, secret, None{}, pending, mode}, [WaitingCredentials{}]}
+    case State{a, registry, secret, Some{peer}, pending, mode}:
+      intents_drained(drain(State{a, registry, secret, Some{peer}, pending, mode}), transaction, policy, targets, now)
 
 def tick(state: State, now: Nat) -> Step:
   match state:

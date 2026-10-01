@@ -119,9 +119,9 @@ invalid state transitions return `None{}`. Inputs are bounded at 16 streams,
 64 local and 64 remote candidates per stream, unique advertised priorities
 within each side/stream, unique stream IDs and a global limit of 1–256 pairs.
 Sorting retains at most the configured cap per stream while counting all unique
-pairs for the global discard allocation. This bookkeeping records check results;
-valid pairs, nomination and terminal checklist/agent states are still pending.
-It does not choose or send ordinary/triggered checks automatically.
+pairs for the global discard allocation. This formation API records check results;
+the valid-list and lifecycle owners below supply valid paths, nomination and
+terminal state. It does not send ordinary/triggered checks automatically.
 
 `ice_transactions.bend` is a pure shared-socket transaction engine. Its default
 state uses Ta 50 ms and capacity 100; configurable states require Ta 5–60000 ms
@@ -259,8 +259,8 @@ highest Waiting rank, with the lowest component breaking a rank tie. When a
 stream has no Waiting pairs, it thaws Frozen pairs sequentially only for
 foundations with no Waiting or In-Progress pair anywhere in the checklist set.
 It skips streams without work within the same scheduling opportunity. All
-checklists here are schedulable; valid/nominated pairs and terminal/PAC state
-remain agent work. Idle is not a declaration of ICE success or failure.
+checklists here are schedulable; the owners below supply valid/nominated pairs
+and terminal/PAC state. Idle is not a declaration of ICE success or failure.
 These rules follow [RFC 8445 section 6.1.4.2](https://www.rfc-editor.org/rfc/rfc8445.html#section-6.1.4.2).
 
 Selection is speculative: commit the returned scheduler state only when the
@@ -497,22 +497,68 @@ records that no longer have a network entry.
 `Mapped`, `Outcome` and `NonSymmetric` notices carry the actual bound request and
 original attempt before its metadata retires. Generation replacement discards
 old associations/intent/bindings; that ownership guard does not implement a
-complete credential restart. These are evidence primitives: they still leave
-every path `nominated=False`. The next integration applies controlling and
-controlled nomination outcomes, one controlling choice per stream/component,
-unrecoverable nomination failure, related cancellation, selected paths and
-terminal state transitions.
-Dynamic pair-cap pruning,
-deferred-item expiry, consent/restart, PAC terminal-state handling, candidate
+complete credential restart. Used alone, these evidence primitives leave every
+path `nominated=False`.
+
+`ice_agent.bend` owns nomination and lifecycle for one registered UDP/IPv4
+generation. Create it around a fresh `V.State` using `Agent.create(v,
+Agent.defaults())`; its separate state preserves existing Session/V/N constructors.
+The default automatic policy nominates the highest-ranked currently proven
+valid path of each component when `start` is called. Set `Config{39500, False{}}`
+for an application policy, then call `nominate(state, reference)` or
+`nominate_best(state, stream, component)`. Only one controlling plan per component
+can exist; successful nomination concludes that component until restart. A
+plan resolves N's current generating record and repeats its original transport
+reference, including when its authenticated mapping produced another known base.
+`Session.start_intents` binds USE-CANDIDATE to whichever planned reference is
+actually selected after pending work drains. Failed pacing/admission preserves
+the plan. Signed cached bytes, original sent role and generation qualify success;
+an ordinary check or obsolete role cannot nominate. The nominated identity is
+the authenticated response's actual valid mapping. Controlled-side accepted
+intent nominates its associated already-Succeeded path immediately, or the valid
+path produced by its exact triggered request, including retained late listeners.
+
+Component conclusion removes all its checklist pairs, triggered references and
+pending work, stops in-progress retries and retains original response deadlines
+and correlation. Unrelated components keep running. Authenticated Binding server
+processing continues through `Session.reply_only` without restoring checks;
+repeated accepted-path nominations succeed and new nomination paths receive a
+protected 400. Previously accepted parallel nominations can still finish through
+listeners; selection then uses the highest-ranked nominated path. All required
+local-candidate components of a stream must be nominated before `selected` returns
+a path for that stream. All streams must complete for session completion. An
+unrecoverable current nomination removes its chosen valid identity, fails a
+related Succeeded mapped counterpart and records component failure. Late errors
+cannot fail a replacement. Current 487 remains recoverable through role repair.
+
+Call `local_signaled(state, now)` only after sending local credentials and call
+`bind(state, credentials, now)` on receipt of the remote credentials. These gates
+start PAC exactly once in either order. The default is 39500 ms, as recommended
+by [RFC 8863 section 4](https://www.rfc-editor.org/rfc/rfc8863.html#section-4).
+`tick`, other turns and `timeout` include its monotonic boundary: Running cannot
+become Failed before expiry even with no remote candidates. Expiry resumes normal
+failure criteria; a valid path for every component can still await nomination.
+A failed stream fails this owner's session and stops all remaining checks;
+application-specific removal/continuation of failed streams is not supplied.
+Valid-list exhaustion, invalid authenticated mapping and other quarantined core
+faults return a distinct terminal `Faulted{}` owner status, emit a session notice
+and stop all retries without declaring ICE failure before PAC. The IO owner must
+release its sockets and this aborted state on that notice.
+The owner requires registered local candidates to determine required components;
+gathering with no local candidate and explicit component configuration are later
+work. The Binding server remains active after failure and rejects new nominations.
+Nomination/conclusion follows [RFC 8445 sections 7.2.5.3.4, 7.3.1.5 and 8.1](https://www.rfc-editor.org/rfc/rfc8445.html#section-8.1).
+
+Dynamic pair-cap pruning, deferred-item expiry, consent/restart, candidate
 gathering, real-browser ICE, IPv6/TURN, Bend TLS/DTLS, SCTP/data channels and media
 remain open. Generated-code timing safety is unproven; checks use synthetic
 credentials. The session foundation does not satisfy full ICE or WebRTC acceptance.
 Formation and initial state rules follow [RFC 8445 sections 5.1.2 and 6.1.2](https://www.rfc-editor.org/rfc/rfc8445.html#section-6.1.2).
 The [2026-10-01 errata search](https://errata.rfc-editor.org/search/?rfc_number=8445&presentation=records) lists only reported editorial erratum 7526 about a
-broken reference link, with no verified protocol correction. The later agent
-must also implement the PAC timer from [RFC 8863 section 4](https://www.rfc-editor.org/rfc/rfc8863.html#section-4)
-before declaring checklist/session failure; individual failed checks do not
-establish ICE failure.
+broken reference link, with no verified protocol correction. That last successful
+snapshot remains the evidence: a later official errata refresh for RFCs 8445 and
+8863 returned an Internal Error. Individual failed checks do not establish ICE
+failure.
 
 `moon run rtc:check --force` checks the RFC 5769 IPv4 Binding response and malformed inputs in Bend, then uses a separate Python UDP responder to verify two random Binding requests, source port mapping, and rejection of wrong transaction IDs and sources. RFC 5769 request and response HMAC and FINGERPRINT values pass on native and Bun JS; changed content, MAC, key, and CRC fail. Both signers reproduce the legacy RFC request byte for byte.
 
@@ -560,8 +606,8 @@ a protected role conflict, pre-answer success, duplicate requests and both role
 switches. Incoming traffic cannot consume the outgoing response: its correct
 MAC from the wrong source stays raw, its 500 ms retry preserves bytes/port, and
 the correct source completes it. Both targets close and release the bound port.
-This verifies incoming authentication and role decisions; triggered queues,
-role changes, valid pairs and nomination state still need agent integration.
+This fixture verifies incoming authentication and role decisions; the session,
+valid-list and agent fixtures below separately verify their integration.
 
 Pair-reference checks compare role reversal and full-sort bigint ranks with an
 independent Python model, including mirror priorities that exchange positions,
@@ -642,3 +688,17 @@ ordinary and nominated replacements, old listener outcomes/expiry, 487 repair,
 non-symmetric failure ownership, generation isolation, fresh creation and fault
 quarantine. It runs pure owner transitions on native and Bun; it does not add a
 live nomination-owner UDP, browser, selected-path or terminal-state proof.
+
+The agent fixture adds 48 independently signed nomination/lifecycle scenarios per
+target: actual mapped-path nomination, manual/automatic plans, all integrity modes,
+mapped counterpart identity, already-Succeeded and pre-answer controlled intent,
+pacing rollback, current failure/487 repair, late listener isolation, multiple
+components/streams, legacy parallel nomination, selected paths, response-only
+Binding service and PAC gates/exact expiry. Ten independent real UDP scenarios
+per target check ordinary-to-nomination repeats with fresh IDs, loss/unchanged
+retry bytes and port, invalid MAC, current error/timeout, post-conclusion service,
+new-path protected rejection, controlled immediate nomination and port rebinding.
+The UDP fixture uses a declared 1200 ms PAC policy and an 800 ms terminal server
+grace; pure clocks exercise the default 39500 ms PAC boundary. Mapped addresses
+are synthetic authenticated claims. These do not prove NAT, browser ICE, consent,
+restart, IPv6/TURN or data/media delivery.

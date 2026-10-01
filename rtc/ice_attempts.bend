@@ -230,6 +230,30 @@ def validated(state: State, mapped: Pairs.Ref, generation: U32) -> Maybe<&2, Ste
   match state:
     case State{schedule, engine, records, +policies}: validated_change(S.validated(schedule, mapped, generation), engine, records, policies)
 
+def invalidated(state: State, mapped: Pairs.Ref, generation: U32) -> Maybe<&2, Step>:
+  match state:
+    case State{schedule, engine, records, policies}: validated_change(S.invalidated(schedule, mapped, generation), engine, records, policies)
+
+def conclude_stopped(step: Step, rev: List<&2, Notice>, again: State -> List<&2, Notice> -> Step) -> Step:
+  match step:
+    case Step{state, notices}: again(state, List.reverse.go(&2, Notice, notices, rev))
+
+def conclude_tokens(tokens: List<&2, U32>, state: State, rev: List<&2, Notice>) -> Step:
+  match tokens state:
+    case Nil{} s: Step{s, List.reverse(&2, Notice, rev)}
+    case Con{+token, tail} State{schedule, engine, records, policies}:
+      conclude_stopped(stopped(Some{token}, State{schedule, engine, validated_records(Some{token}, records), policies}), rev,
+        s => es => conclude_tokens(tail, s, es))
+
+def concluded(value: Maybe<&2, S.Conclusion>, engine: Tx.State, records: List<&2, Record>, policies: List<&2, PeerMode>) -> Maybe<&2, Step>:
+  match value:
+    case None{}: None{}
+    case Some{S.Conclusion{schedule, tokens}}: Some{conclude_tokens(tokens, State{schedule, engine, records, policies}, [])}
+
+def conclude(state: State, id: U32, component: U32, generation: U32) -> Maybe<&2, Step>:
+  match state:
+    case State{schedule, engine, records, policies}: concluded(S.conclude(schedule, id, component, generation), engine, records, policies)
+
 def repair_pending(token: Maybe<&2, U32>, records: List<&2, Record>) -> Bool:
   match token:
     case None{}: False{}

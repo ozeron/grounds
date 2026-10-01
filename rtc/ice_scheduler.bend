@@ -28,6 +28,9 @@ type Choice is Data:
 type Offer is Data:
   Offer{lists: List<&2, Check.Checklist>, reference: Maybe<&2, Pairs.Ref>}
 
+type Conclusion is Data:
+  Conclusion{state: State, interrupted: List<&2, U32>}
+
 def queues(lists: List<&2, Check.Checklist>, reversed: List<&2, Queue>) -> List<&2, Queue>:
   match lists:
     case Nil{}: List.reverse(&2, Queue, reversed)
@@ -301,6 +304,22 @@ def validated(+state: State, mapped: Pairs.Ref, generation: U32) -> Maybe<&2, Ch
       Bool.pick(Maybe<&2, Change>, U32.is_eq(current, generation),
         validated_position(Pairs.lookup_mapped(lists, mapped), State{lists, qs, fs, role, cursor, next, current, limit}), None{})
 
+def invalidated_position(position: Maybe<&2, Pairs.Position>, state: State) -> Maybe<&2, Change>:
+  match position state:
+    case Some{Pairs.Position{+id, index, Check.CandidatePair{local, remote, rank, Check.Succeeded{}}}} State{lists, +qs, +fs, role, cursor, next, gen, limit}:
+      +wanted = Pairs.reference(id, Check.CandidatePair{local, remote, rank, Check.Succeeded{}})
+      Some{Change{State{Check.replace_stream(lists, id, index, Check.Failed{}, []),
+        replace_queue(qs, id, unqueued(queue_at(qs, id), wanted, []), []), without(fs, wanted, []), role, cursor, next, gen, limit}, flight_at(fs, wanted)}}
+    case _ _: None{}
+
+# An unrecoverable current nomination invalidates its represented valid pair.
+# Only an existing Succeeded counterpart is related; do not fail a new flight.
+def invalidated(+state: State, mapped: Pairs.Ref, generation: U32) -> Maybe<&2, Change>:
+  match state:
+    case State{+lists, +qs, +fs, +role, +cursor, +next, +current, +limit}:
+      Bool.pick(Maybe<&2, Change>, U32.is_eq(current, generation),
+        invalidated_position(Pairs.lookup_mapped(lists, mapped), State{lists, qs, fs, role, cursor, next, current, limit}), None{})
+
 def role_changed(lists: Maybe<&2, List<&2, Check.Checklist>>, qs: List<&2, Queue>, fs: List<&2, Flight>,
                  role: Ice.Role, cursor: Nat, next: Nat, generation: U32, limit: U32) -> Maybe<&2, State>:
   match lists:
@@ -400,3 +419,56 @@ def repair_conflict(+state: State, token: U32, generation: U32, high: U32, low: 
   match state:
     case State{+lists, +qs, +fs, +role, +cursor, +next, +current, +limit}:
       repair_flight(by_token(fs, token), State{lists, qs, fs, role, cursor, next, current, limit}, generation, high, low)
+
+def component_ref(reference: Pairs.Ref, id: U32, component: U32) -> Bool:
+  match reference:
+    case Pairs.Ref{got, comp, _, _}: Bool.and(U32.is_eq(got, id), U32.is_eq(comp, component))
+
+def component_pairs(values: List<&2, Check.CandidatePair>, +component: U32, +rev: List<&2, Check.CandidatePair>) -> List<&2, Check.CandidatePair>:
+  match values:
+    case Nil{}: List.reverse(&2, Check.CandidatePair, rev)
+    case Con{Check.CandidatePair{+local, C.Candidate{+comp, +p, +f, +k, +a}, +rank, +state}, tail}:
+      component_pairs(tail, component, Bool.pick(List<&2, Check.CandidatePair>, U32.is_eq(comp, component), rev,
+        Con{Check.CandidatePair{local, C.Candidate{comp, p, f, k, a}, rank, state}, rev}))
+
+def component_lists(values: List<&2, Check.Checklist>, +id: U32, +component: U32, rev: List<&2, Check.Checklist>) -> List<&2, Check.Checklist>:
+  match values:
+    case Nil{}: List.reverse(&2, Check.Checklist, rev)
+    case Con{Check.Checklist{+got, +pairs}, tail}:
+      component_lists(tail, id, component, Con{Check.Checklist{got,
+        Bool.pick(List<&2, Check.CandidatePair>, U32.is_eq(got, id), component_pairs(pairs, component, []), pairs)}, rev})
+
+def component_refs(values: List<&2, Pairs.Ref>, +id: U32, +component: U32, +rev: List<&2, Pairs.Ref>) -> List<&2, Pairs.Ref>:
+  match values:
+    case Nil{}: List.reverse(&2, Pairs.Ref, rev)
+    case Con{+head, tail}:
+      component_refs(tail, id, component, Bool.pick(List<&2, Pairs.Ref>, component_ref(head, id, component), rev, Con{head, rev}))
+
+def component_queues(values: List<&2, Queue>, +id: U32, +component: U32, rev: List<&2, Queue>) -> List<&2, Queue>:
+  match values:
+    case Nil{}: List.reverse(&2, Queue, rev)
+    case Con{Queue{got, refs}, tail}:
+      component_queues(tail, id, component, Con{Queue{got, component_refs(refs, id, component, [])}, rev})
+
+def component_flights(values: List<&2, Flight>, +id: U32, +component: U32, +rev: List<&2, Flight>, +tokens: List<&2, U32>) -> List<&2, Flight> & List<&2, U32>:
+  match values:
+    case Nil{}: (List.reverse(&2, Flight, rev), List.reverse(&2, U32, tokens))
+    case Con{Flight{+token, +ref, +role}, tail}:
+      component_flights(tail, id, component,
+        Bool.pick(List<&2, Flight>, component_ref(ref, id, component), rev, Con{Flight{token, ref, role}, rev}),
+        Bool.pick(List<&2, U32>, component_ref(ref, id, component), Con{token, tokens}, tokens))
+
+def concluded(result: List<&2, Flight> & List<&2, U32>, lists: List<&2, Check.Checklist>, qs: List<&2, Queue>,
+              role: Ice.Role, cursor: Nat, next: Nat, generation: U32, limit: U32) -> Maybe<&2, Conclusion>:
+  (flights, tokens) = result
+  Some{Conclusion{State{lists, qs, flights, role, cursor, next, generation, limit}, tokens}}
+
+# Remove every pair/trigger for this nominated component. Retain the stream's
+# identity and return affected flights; the transaction owner keeps listeners.
+def conclude(state: State, +id: U32, +component: U32, +generation: U32) -> Maybe<&2, Conclusion>:
+  match state:
+    case State{+lists, qs, fs, role, cursor, next, +current, limit}:
+      Bool.pick(Maybe<&2, Conclusion>, Bool.and(U32.is_eq(current, generation),
+        Bool.and(stream_exists(lists, id, False{}), Bool.and(U32.is_le(1, component), U32.is_le(component, 256)))),
+        concluded(component_flights(fs, id, component, [], []), component_lists(lists, id, component, []),
+          component_queues(qs, id, component, []), role, cursor, next, current, limit), None{})
