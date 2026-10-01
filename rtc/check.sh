@@ -21,6 +21,8 @@ bend ice_valid.bend --check-only
 bend ice_nomination.bend --check-only
 bend ice_agent.bend --check-only
 bend ice_consent.bend --check-only
+bend ice_consent_server.bend --check-only
+bend ice_transport.bend --check-only
 bend examples/auth.bend -o "$tmp/auth" > /dev/null
 python3 examples/auth_check.py "$tmp/auth"
 bend examples/ice_build.bend -o "$tmp/ice_build" > /dev/null
@@ -48,8 +50,12 @@ bend examples/ice_agent.bend -o "$tmp/ice_agent" > /dev/null
 python3 examples/ice_agent_check.py "$tmp/ice_agent"
 bend examples/ice_consent.bend -o "$tmp/ice_consent" > /dev/null
 python3 examples/ice_consent_check.py "$tmp/ice_consent"
+bend examples/ice_transport.bend -o "$tmp/ice_transport" > /dev/null
+python3 examples/ice_transport_check.py "$tmp/ice_transport"
 bend examples/ice_consent_udp.bend -o "$tmp/ice_consent_udp" > /dev/null
 python3 examples/ice_consent_udp_check.py "$tmp/ice_consent_udp"
+bend examples/ice_transport_udp.bend -o "$tmp/ice_transport_udp" > /dev/null
+python3 examples/ice_transport_udp_check.py "$tmp/ice_transport_udp"
 bend examples/ice_agent_udp.bend -o "$tmp/ice_agent_udp" > /dev/null
 python3 examples/ice_agent_udp_check.py "$tmp/ice_agent_udp"
 bend examples/ice_nomination_udp.bend -o "$tmp/ice_nomination_udp" > /dev/null
@@ -104,8 +110,12 @@ if command -v bun > /dev/null 2>&1; then
   python3 examples/ice_agent_check.py bun "$tmp/ice_agent.js"
   bend examples/ice_consent.bend -o "$tmp/ice_consent.js" > /dev/null
   python3 examples/ice_consent_check.py bun "$tmp/ice_consent.js"
+  bend examples/ice_transport.bend -o "$tmp/ice_transport.js" > /dev/null
+  python3 examples/ice_transport_check.py bun "$tmp/ice_transport.js"
   bend examples/ice_consent_udp.bend -o "$tmp/ice_consent_udp.js" > /dev/null
   python3 examples/ice_consent_udp_check.py bun "$tmp/ice_consent_udp.js"
+  bend examples/ice_transport_udp.bend -o "$tmp/ice_transport_udp.js" > /dev/null
+  python3 examples/ice_transport_udp_check.py bun "$tmp/ice_transport_udp.js"
   bend examples/ice_agent_udp.bend -o "$tmp/ice_agent_udp.js" > /dev/null
   python3 examples/ice_agent_udp_check.py bun "$tmp/ice_agent_udp.js"
   bend examples/ice_nomination_udp.bend -o "$tmp/ice_nomination_udp.js" > /dev/null

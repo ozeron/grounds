@@ -714,3 +714,8 @@ def pac_timeout(pac: Pac, +now: Nat, +other: U32) -> U32:
 def timeout(+state: State, +now: Nat, cap: U32) -> U32:
   match state:
     case State{_, _, _, _, pac, _, _}: pac_timeout(pac, now, N.timeout(core(state), now, cap))
+
+def send_gate(state: State, not_before: Nat) -> State:
+  match state:
+    case State{evidence, plans, decisions, streams, pac, config, faulted}:
+      State{N.send_gate(evidence, not_before), plans, decisions, streams, pac, config, faulted}

@@ -600,21 +600,90 @@ transport identity and the deadline even before a timer turn reports expiry.
 `timeout` includes probe, interval and consent deadlines. After consent loss the
 enclosing owner must retain that result and require changed ICE credentials;
 constructing a new consent owner with the lost route's old credentials is
-forbidden. Automatic Agent-to-consent selection, credential restart, retaining
-old-route consent during restart and shared multi-path dispatch are still pending.
-Incoming consent-only Binding requests without ICE PRIORITY/role attributes also
-need a separate authenticated server path; the present ICE request receiver
-requires those attributes. Outgoing probes here use ordinary non-nominating ICE
-Binding requests, authenticated with the selected route's short-term credentials.
-The standalone UDP fixture owns one selected socket and does not prove those
-integration requirements or browser consent behavior. The 2026-10-01 official
-RFC 7675 errata refresh returned an Internal Error; no correction was inferred
-from that failed lookup.
+forbidden. The compatible standalone `start` still emits a non-nominating ICE
+Binding request. `start_binding` adds authenticated consent-only Binding requests
+with USERNAME, integrity and FINGERPRINT; its timing and lifecycle gates are the
+same. `ice_transport.bend` supplies the integrated owner described below. The
+standalone fixture supplies its selected route directly and does not establish
+that integration. Authenticated DTLS closure still needs DTLS integration.
 
-Dynamic pair-cap pruning, deferred-item expiry, integrated consent/restart, candidate
-gathering, real-browser ICE, IPv6/TURN, Bend TLS/DTLS, SCTP/data channels and media
-remain open. Generated-code timing safety is unproven; checks use synthetic
-credentials. The session foundation does not satisfy full ICE or WebRTC acceptance.
+`ice_transport.bend` wraps `ice_agent.bend` with selected-route consent and
+full/full credential restart for registered UDP/IPv4 routes. It derives paths
+from `Agent.selected`, uses each selected candidate's actual base (which may
+be different from the generating check's base), and reads exchanged credentials
+and authenticated endpoint integrity policy from the session. New selections
+start Awaiting and require a fresh round trip on their selected base. Multiple
+stream/component aliases on one physical transport in the same generation share
+one consent slot. Application `route` and `allowed` retain exact logical identity,
+generation and current-time checks. Selection itself cannot grant consent.
+
+The owner emits one authoritative `Transmit{Packet}` at a time. A trusted IO
+adapter rechecks `current_send(state, packet, actual_now)` immediately before
+sending, and calls `acknowledge` only after actual successful IO. Requests from
+ICE and consent share a 5-ms actual-send gate; ICE retains its separate Ta gate.
+While a directive waits for IO, the engine cannot emit a competing request.
+An ICE directive's IO lease ends at its current response-window deadline: it
+cannot keep the transaction alive indefinitely by suppressing retries. `failed`
+releases only the reported directive without advancing successful-send pacing.
+Late issued callbacks can advance actual pacing but cannot mutate a replacement
+ICE generation or release its pending request. `current_reply` separately guards
+unpaced replies at IO time. Nonces and callback records are trusted host inputs;
+applications and signaling must never generate, inspect, or acknowledge them.
+The JSON fixture exposes deterministic synthetic entropy solely as a test seam.
+
+Nonce admission includes active/listening ICE records, outstanding consent and
+recent IDs, plus 64 recently issued request IDs per retained generation. This
+keeps recently completed ordinary/nomination IDs reserved when consent begins.
+Retries preserve their signed bytes and original ID. This bounded cache does not
+replace the lifetime uniqueness supplied by a strong host CSPRNG.
+
+`ice_consent_server.bend` authenticates consent-only requests on selected actual
+base/peer tuples without requiring PRIORITY or ICE role attributes. It checks
+protected USERNAME and integrity, honors SHA-256 precedence, reports unknown
+required protected attributes with signed 420 and a wrong bound remote fragment
+with signed 401, and maps the actual peer source. Protected ICE usage attributes
+pass to the ICE receiver; trailing unprotected attributes cannot change roles,
+trigger checks, or nominate. Incoming consent service never grants outgoing
+application consent. Expired/revoked slots remain sealed under those credentials.
+
+`restart(state, streams, new_secret, now)` builds a fresh ICE generation from
+candidate configuration, preserving the current full/full role and engine limits.
+It clears old checklist/trigger/flight/valid/nomination/deferred state and pending
+directives. Local ufrag and password must both change; `bind` separately requires
+both remote fields to change. Both endpoints' credential reuse is rejected against
+all retained history. History is bounded at 64 generations; further restart is
+explicitly rejected. Dispose the owner and use fresh session credentials to start
+another session. Lite/full role redetermination is not implemented here.
+
+Only selected old consent/server slots survive restart. Their receipt/expiry
+clocks and outstanding probes remain unchanged, and old data remains gated by
+continuing consent while replacement ICE runs. A completed replacement stream
+retires its old aliases immediately; its new route stays closed to application
+data until fresh consent. Protected USERNAME selects old/new credential contexts
+on the same socket. Old ICE requests are reply-only and cannot change replacement
+roles or queues. The retained old role is the role actually reached before
+restart, including post-selection conflicts. Retired historical namespaces are
+ignored. Consent responses resolve physical aliases, while ICE response IDs
+resolve the original logical attempt without rewriting observed base/source
+metadata. A lost old route cannot revive from late success.
+
+Use `tick`, `timeout`, `probe_due`, `probe`, `start`, `receive`, `bind`,
+`local_signaled`, `repair` and `nominate` through this owner once it takes over.
+Do not mutate its nested Agent/Session independently. A slot limit of 1–256
+(default 256) bounds current and retained previous slots together. Exhaustion
+or core failure/fault closes the transport owner; local `close` removes pending
+requests and closes consent states. The IO owner must dispose the state and
+release retained sockets on `Closed` or local cancellation. The UDP fixture
+closes and rebinds its actual ephemeral port after every scenario.
+
+Dynamic pair-cap pruning, deferred-item expiry, gathering/adaptive checklist
+Ta/RTO, real-browser ICE, IPv6/TURN, Bend TLS/DTLS, SCTP/data channels and media
+remain open. Generated-code timing safety is unproven; all new checks use synthetic
+credentials. The integrated owner does not satisfy full ICE/WebRTC acceptance.
+The 2026-10-01 official RFC 7675/8445 verified-errata refresh returned Internal
+Error; no new correction was inferred. Restart and continued consent follow
+[RFC 8445 section 9](https://www.rfc-editor.org/rfc/rfc8445.html#section-9) and
+[RFC 7675 section 5.1](https://www.rfc-editor.org/rfc/rfc7675.html#section-5.1).
 Formation and initial state rules follow [RFC 8445 sections 5.1.2 and 6.1.2](https://www.rfc-editor.org/rfc/rfc8445.html#section-6.1.2).
 The [2026-10-01 errata search](https://errata.rfc-editor.org/search/?rfc_number=8445&presentation=records) lists only reported editorial erratum 7526 about a
 broken reference link, with no verified protocol correction. That last successful
@@ -780,3 +849,20 @@ packets. The fixture supplies a trusted selected route directly; it does not
 exercise nomination-to-consent handoff, multiple paths, restart, browser ICE,
 physical NAT or DTLS/media. C/JS effects remain unchanged; generated-code timing
 safety remains unproven.
+
+
+The integrated transport fixture adds signed nomination/consent/restart scenarios
+on native and Bun. It establishes selection through ordinary checks and regular
+nomination, then verifies role-free probes and incoming service, exact identity
+and deadlines, bounded send leases, shared pacing/nonce admission, mapped bases,
+physical aliases, credential changes/reuse/history limits, overlap/expiry/revocation,
+stale callbacks, role repair/preservation and closed/exhausted cleanup. Independent
+Python peers verify generated MACs, attributes, CRCs and actual-source mappings.
+Seven real UDP scenarios per target exercise the whole nomination-to-consent
+handoff, all integrity modes, incoming consent service, first-probe loss,
+one-shot randomized requests, actual application gating, protected 403 and
+measured default 30-second expiry. During a same-socket restart, the replacement
+nomination retransmits while an old consent round trip renews and gates old data;
+new selection retires old credentials before a fresh new consent round trip gates
+new data. Actual source ports are retained throughout and rebound after exit.
+These are local independent peers, not browser/direct/relay/media acceptance.

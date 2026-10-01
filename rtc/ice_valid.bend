@@ -389,3 +389,8 @@ def current_send(state: State, notice: Session.Notice) -> Bool:
 
 def timeout(state: State, now: Nat, cap: U32) -> U32:
   Session.timeout(core(state), now, cap)
+
+def send_gate(state: State, not_before: Nat) -> State:
+  match state:
+    case State{session, learned, foundations, paths, limit, faulted}:
+      State{Session.send_gate(session, not_before), learned, foundations, paths, limit, faulted}

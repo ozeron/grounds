@@ -349,3 +349,9 @@ def sent(state: State, +now: Nat, fresh: Bool) -> State:
   match state:
     case State{entries, +ta, capacity, +next_start, next_send}:
       State{entries, ta, capacity, Bool.pick(Nat, fresh, later(next_start, Nat.add(now, U32.to_nat(ta))), next_start), later(next_send, Nat.add(now, 5n))}
+
+# Share actual-send pacing with other protocol usages on these sockets.
+def send_gate(state: State, not_before: Nat) -> State:
+  match state:
+    case State{entries, ta, capacity, next_start, next_send}:
+      State{entries, ta, capacity, next_start, later(next_send, not_before)}

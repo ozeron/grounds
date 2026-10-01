@@ -419,3 +419,8 @@ def acknowledge(+state: State, +notice: Notice, now: Nat) -> Step:
 def timeout(state: State, now: Nat, cap: U32) -> U32:
   match state:
     case State{_, engine, _, +policies}: Tx.timeout(engine, now, cap)
+
+def send_gate(state: State, not_before: Nat) -> State:
+  match state:
+    case State{schedule, engine, records, policies}:
+      State{schedule, Tx.send_gate(engine, not_before), records, policies}

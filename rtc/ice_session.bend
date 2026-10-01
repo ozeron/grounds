@@ -467,3 +467,8 @@ def create_valid(ok: Bool, +streams: List<&2, Check.Stream>, role: Ice.Role, sec
 def create(+streams: List<&2, Check.Stream>, role: Ice.Role, +secret: Incoming.Secret, mode: Auth.Mode,
            limit: U32, capacity: U32, generation: U32) -> Maybe<&2, State>:
   create_valid(Bool.and(Incoming.secret_valid(secret), R.valid(streams, True{})), streams, role, secret, mode, limit, capacity, generation)
+
+def send_gate(state: State, not_before: Nat) -> State:
+  match state:
+    case State{attempts, registry, secret, peer, pending, mode}:
+      State{A.send_gate(attempts, not_before), registry, secret, peer, pending, mode}

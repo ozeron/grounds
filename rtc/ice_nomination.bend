@@ -390,3 +390,8 @@ def current_send(state: State, notice: Session.Notice) -> Bool:
 
 def timeout(state: State, now: Nat, cap: U32) -> U32:
   V.timeout(core(state), now, cap)
+
+def send_gate(state: State, not_before: Nat) -> State:
+  match state:
+    case State{valid, links, intents, bindings, limit, faulted}:
+      State{V.send_gate(valid, not_before), links, intents, bindings, limit, faulted}

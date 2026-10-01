@@ -129,6 +129,17 @@ def history(fuel: Nat, values: List<&2, List<&2, U32>>) -> List<&2, List<&2, U32
     case _ Nil{}: []
     case 1n+p Con{head, tail}: Con{head, history(p, tail)}
 
+def binding_unsigned(ok: Bool, transaction: List<&2, U32>, credentials: Ice.Credentials) -> Maybe<&2, List<&2, U32>>:
+  match ok:
+    case False{}: None{}
+    case True{}: Ice.unsigned_header(Stun.binding_request(transaction), Ice.attribute(6, Ice.username(credentials)))
+
+# RFC 7675 consent is independent of ICE role and candidate priority. Retain
+# the original ICE-shaped start API while exposing the role-free usage to the
+# integrated selected-transport owner.
+def binding_request(transaction: List<&2, U32>, +credentials: Ice.Credentials, mode: Auth.Mode) -> Maybe<&2, List<&2, U32>>:
+  Ice.signed(binding_unsigned(Ice.valid(credentials), transaction, credentials), Ice.key(credentials), mode)
+
 def admission_raw(raw: Maybe<&2, List<&2, U32>>, step: Step, +transaction: List<&2, U32>, +interval: U32, +now: Nat) -> Start:
   match raw step:
     case Some{+bytes} Step{State{Route{+ref, +gen, creds, check, +mode}, Clock{status, expires, _, +rto, mean, variation}, probes, recent, +token}, events}:
@@ -138,38 +149,41 @@ def admission_raw(raw: Maybe<&2, List<&2, U32>>, step: Step, +transaction: List<
         List.reverse.go(&2, Notice, List.reverse(&2, Notice, events), [Send{ref, gen, U32.from_nat(token), bytes}])}}
     case _ s: Rejected{s}
 
-def admission(ok: Bool, +step: Step, +transaction: List<&2, U32>, jitter: U32, now: Nat) -> Start:
+def admission_usage(ok: Bool, +step: Step, +transaction: List<&2, U32>, jitter: U32, now: Nat, binding: Bool) -> Start:
   match ok step:
     case False{} s: Rejected{s}
     case True{} Step{State{Route{ref, gen, +creds, +check, +mode}, clock, probes, recent, token}, events}:
-      admission_raw(Ice.request(transaction, creds, check, mode),
+      admission_raw(Bool.pick(Maybe<&2, List<&2, U32>>, binding, binding_request(transaction, creds, mode), Ice.request(transaction, creds, check, mode)),
         Step{State{Route{ref, gen, creds, check, mode}, clock, probes, recent, token}, events}, transaction, (4000 + jitter : U32), now)
 
-def start_due(due: Bool, +step: Step, +transaction: List<&2, U32>, +jitter: U32, +now: Nat, at: Nat) -> Start:
+def start_due(due: Bool, +step: Step, +transaction: List<&2, U32>, +jitter: U32, +now: Nat, at: Nat, binding: Bool) -> Start:
   match due step:
     case False{} s: Later{s, at}
     case True{} Step{State{route, clock, +probes, +recent, +token}, events}:
-      admission(Bool.and(Bool.and(U32.is_le(jitter, 2000), Nat.is_le(token, 4294967295n)),
+      admission_usage(Bool.and(Bool.and(U32.is_le(jitter, 2000), Nat.is_le(token, 4294967295n)),
         Bool.and(Bool.not(used(recent, transaction)), Bool.and(Bool.not(pending(probes)), Nat.is_lt(List.length(&2, Probe, probes), 16n)))),
-        Step{State{route, clock, probes, recent, token}, events}, transaction, jitter, now)
+        Step{State{route, clock, probes, recent, token}, events}, transaction, jitter, now, binding)
 
-def start_live(active: Bool, +step: Step, transaction: List<&2, U32>, jitter: U32, +now: Nat, +at: Nat) -> Start:
+def start_live(active: Bool, +step: Step, transaction: List<&2, U32>, jitter: U32, +now: Nat, +at: Nat, binding: Bool) -> Start:
   match active:
     case False{}: Rejected{step}
-    case True{}: start_due(Nat.is_le(at, now), step, transaction, jitter, now, at)
+    case True{}: start_due(Nat.is_le(at, now), step, transaction, jitter, now, at, binding)
 
-def start_ticked(+step: Step, transaction: List<&2, U32>, jitter: U32, +now: Nat, not_before: Nat) -> Start:
+def start_ticked(+step: Step, transaction: List<&2, U32>, jitter: U32, +now: Nat, not_before: Nat, binding: Bool) -> Start:
   match step:
     case Step{State{route, Clock{+status, expires, +next, rto, mean, variation}, probes, recent, token}, events}:
       +at = Tx.later(next, not_before)
       start_live(live(status),
-        Step{State{route, Clock{status, expires, next, rto, mean, variation}, probes, recent, token}, events}, transaction, jitter, now, at)
+        Step{State{route, Clock{status, expires, next, rto, mean, variation}, probes, recent, token}, events}, transaction, jitter, now, at, binding)
 
 # Transaction and jitter must come from trusted OS CSPRNG, never signaling or
 # application input. The example JSON fixture is a synthetic test seam only.
 # not_before is the shared socket's actual-send pacing gate.
 def start(state: State, transaction: List<&2, U32>, jitter: U32, +now: Nat, not_before: Nat) -> Start:
-  start_ticked(tick(state, now), transaction, jitter, now, not_before)
+  start_ticked(tick(state, now), transaction, jitter, now, not_before, False{})
+
+def start_binding(state: State, transaction: List<&2, U32>, jitter: U32, +now: Nat, not_before: Nat) -> Start:
+  start_ticked(tick(state, now), transaction, jitter, now, not_before, True{})
 
 def current_probe(probes: List<&2, Probe>, +token: U32, +bytes: List<&2, U32>, +now: Nat) -> Bool:
   match probes:
