@@ -10,6 +10,7 @@ bend aes128_test.bend
 bend gcm_test.bend
 bend hmac_sha1_test.bend
 bend x25519_test.bend
+bend field256_test.bend
 bend traffic_test.bend
 python3 traffic_type_check.py
 bend PROOF.bend
@@ -23,6 +24,7 @@ bend aead_cli.bend -o "$tmp/aead" > /dev/null
 bend aes128_cli.bend -o "$tmp/aes128" > /dev/null
 bend gcm_cli.bend -o "$tmp/gcm" > /dev/null
 bend field_cli.bend -o "$tmp/field25519" > /dev/null
+bend field256_cli.bend -o "$tmp/field256" > /dev/null
 bend x25519_cli.bend -o "$tmp/x25519" > /dev/null
 bend traffic_cli.bend -o "$tmp/traffic" > /dev/null
 python3 check.py "$tmp/sha256" "$tmp/hkdf"
@@ -34,6 +36,7 @@ python3 aead_check.py "$tmp/aead"
 python3 aes128_check.py "$tmp/aes128"
 python3 gcm_check.py "$tmp/gcm"
 python3 field_check.py "$tmp/field25519"
+python3 field256_check.py "$tmp/field256"
 python3 x25519_check.py --iterated "$tmp/x25519"
 python3 traffic_check.py "$tmp/traffic"
 python3 traffic_aes_check.py "$tmp/traffic"
@@ -46,6 +49,7 @@ if command -v bun > /dev/null 2>&1; then
   bend aes128_cli.bend -o "$tmp/aes128.js" > /dev/null
   bend gcm_cli.bend -o "$tmp/gcm.js" > /dev/null
   bend field_cli.bend -o "$tmp/field25519.js" > /dev/null
+  bend field256_cli.bend -o "$tmp/field256.js" > /dev/null
   bend x25519_cli.bend -o "$tmp/x25519.js" > /dev/null
   bend traffic_cli.bend -o "$tmp/traffic.js" > /dev/null
   python3 sha1_check.py bun "$tmp/sha1.js"
@@ -56,6 +60,7 @@ if command -v bun > /dev/null 2>&1; then
   python3 aes128_check.py bun "$tmp/aes128.js"
   python3 gcm_check.py bun "$tmp/gcm.js"
   python3 field_check.py bun "$tmp/field25519.js"
+  python3 field256_check.py bun "$tmp/field256.js"
   python3 x25519_check.py bun "$tmp/x25519.js"
   python3 traffic_check.py bun "$tmp/traffic.js"
   python3 traffic_aes_check.py bun "$tmp/traffic.js"

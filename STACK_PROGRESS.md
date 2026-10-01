@@ -7,12 +7,67 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 | Layer | Current state | Next proof of progress |
 |---|---|---|
 | `wire` | Byte TCP and IPv4 UDP effects, explicit local-IP binding and OS bound-address/ephemeral-port discovery; OpenSSL TLS effects. UDP handles all octets, zero datagrams, timeout and oversize errors, with same-port/two-IP isolation and failed-bind descriptor checks. Actual SIGTERM/SIGINT stop parked native/Bun loops and release the listener; Bun uses an OS-only C11 atomic signal bridge because its synchronous runtime cannot dispatch JS signal callbacks. Bounded bulk host RNG bytes now pass native/Bun guard/error tests and supply signaling credentials. Public-pattern byte/RNG and retained UDP measurements are recorded; Bend Base supplies monotonic `IO.now`. | Verify IPv6/cancellation and packed storage/long-session allocation, retaining measured baselines; complete crypto/runtime review before secure transport. |
-| `crypto` | Bend SHA-1 for WebSocket challenge, HMAC-SHA1 for legacy STUN integrity, SHA-256, HMAC-SHA256, HKDF-SHA-256, ChaCha20, Poly1305, ChaCha20-Poly1305 AEAD, AES-128 encryption, AES-128-GCM and X25519, plus TLS HKDF labels and distinct affine ChaCha/AES-GCM traffic owners with 64-bit nonces/key updates and AES sending usage limits. Poly1305 products now stay below 2^26; OpenSSL remains in live cookie/TLS paths. | Resolve remaining runtime/erasure review, add mandatory P-256/RSA/ECDSA, then cookie and full handshake integration. |
+| `crypto` | Bend SHA-1 for WebSocket challenge, HMAC-SHA1 for legacy STUN integrity, SHA-256, HMAC-SHA256, HKDF-SHA-256, ChaCha20, Poly1305, ChaCha20-Poly1305 AEAD, AES-128 encryption, AES-128-GCM and X25519; P-256 prime/order arithmetic foundation, plus TLS HKDF labels and distinct affine ChaCha/AES-GCM traffic owners with 64-bit nonces/key updates and AES sending usage limits. Poly1305 products now stay below 2^26; OpenSSL remains in live cookie/TLS paths. | Resolve remaining runtime/erasure review, add mandatory P-256/RSA/ECDSA, then cookie and full handshake integration. |
 | `tls` | Bend protected TLS 1.3 ChaCha20-Poly1305 and AES-128-GCM records and traffic/key lifecycle pass synthetic native/Bun differential tests; AES also reproduces RFC 8448 encrypted records. Live TLS client/server still use OpenSSL C effects; JS TLS effects return `ENOSYS`. | Complete mandatory TLS algorithms, handshake/transcripts, certificates/signatures/trust/hostname checks and real client/server interop; DTLS 1.2 for RTC. |
 | `http` | Bend HTTP/1.1 client/server, routing, JSON, cookies, auth, CORS, multipart, SSE, and server WebSocket handshake/framing/session. Native echo interops with a third-party Python client and Bun's WebSocket API. A bounded local signaling fixture admits exact Host/Origin and a public synthetic cookie before upgrade/UDP allocation; native and Bun exchange SDP with real Chrome and clean up connection-owned ICE state/sockets. | Replace the fixture selector with Bend cookie/HMAC authentication and integrate Bend TLS for browser HTTPS/WSS. |
 | `rtc` | Bend STUN parsing, IPv4 XOR-MAPPED-ADDRESS, SHA-1/SHA-256/dual integrity, FINGERPRINT, authenticated incoming/outgoing ICE Binding exchanges, retained-socket retransmissions and explicit error/integrity outcomes. IPv4 candidate/pair priorities, bounded checklist formation, stable transport references and guarded state transitions, role-driven priority reordering, a paced shared-socket transaction engine with response-only interruption, protected incoming replies and server-side role decisions, FIFO triggered queues, ordinary round-robin/foundation scheduling and generation/sent-role attempt ownership. A bounded session now binds signaled credentials, registered receiving/sending bases, observed peer-reflexive candidates, deferred incoming work, retained attempts and endpoint integrity policies. Authenticated non-symmetric responses fail only their original current pair; interrupted old listeners retire independently. The live owner fixture explicitly binds unicast IPv4 bases and queries actual local ports before candidate formation. An additive valid-list owner resolves authenticated mappings, learns locally peer-reflexive candidates from retained signed-request priority, allocates IP-keyed foundations, reranks by role and keeps late paths separate from replacement flights. A nomination-evidence owner associates current successful checks with their valid paths and retains qualified incoming intent through materialization, exact triggered flights and response-only listeners; already-Succeeded counterparts resolve their actual generating record. A generation lifecycle owner now applies regular controlling/controlled nomination, selects completed stream paths, removes nominated component checks while retaining response listeners, continues authenticated Binding service, and defers failure through PAC. An outer transport owner derives selected physical consent routes, serves authenticated consent-only Binding requests, shares actual-send pacing and recent transaction identity admission, gates logical application routes, and preserves sealed consent loss. Full/full credential restart rebuilds ICE state while retaining only selected old consent/server contexts until replacement selection. Bounded SDP/signaling now binds connection-owned credentials and the actual retained UDP base; real Chrome verifies direct selected pairs, fresh consent, restart and cleanup on native and Bun. Separate unauthenticated discovery remains available. | Complete crypto/runtime foundations and secure signaling, then gathering, IPv6/TURN, DTLS/SCTP and SRTP/media. |
 
 ## Evidence ledger
+
+- 2026-10-01: Added internal pure Bend
+  `field256.bend` for the P-256 coordinate prime and scalar order from NIST
+  SP 800-186 section 3.2.1.3. Canonical values use 32 little-endian bytes in
+  owned 64-cell U32 arrays. Add/subtract use bounded carry/biased borrow and
+  0/255 conditional selection. Multiplication performs two byte-limb Montgomery
+  products to return the ordinary representation, retaining both high carry
+  cells before each canceled-byte shift. Inner product-plus-carry sums are
+  at most 65535; the invariant T<2m permits one final masked subtraction.
+  A fixed 512-bit reducer and bounded schoolbook product remain independent
+  Bend reference paths, with coefficient-plus-carry below 2^21. Inversion
+  uses the public modulus-minus-two exponent and rejects zero after a full
+  32-byte scan. Strict `decode_canonical` validates exact byte length/values
+  and rejects aliases >= the modulus. Reducing/raw helpers have documented
+  operand-profile preconditions; protocol point/private-key parsers still need
+  byte-order, range and curve-point validation. P-256 point operations, ECDH,
+  ECDSA and published curve/signature vectors are not yet implemented.
+  Before transfer, isolated native/Bun runs each pass 4178 independent Python
+  bigint cases across both moduli: all 256 carry/borrow boundaries, modulus
+  aliases, random operands, 512-bit reduction, Montgomery/reference agreement,
+  inverses/zero, strict canonical decoding and malformed lengths. Four closed
+  Bend checks reject bad lengths and U32 values outside the byte range. The
+  primary crypto gate now runs these proofs/adapters/evaluators alongside all
+  existing suites. The initial binary-only draft was replaced with Montgomery
+  multiplication after a correctness-baseline check; no acceptance gate was
+  interrupted. Draft compiler binder/IO issues were corrected before transfer.
+  Artifacts: `/Users/ozeron/.codex/artifacts/grounds/2026-10-01/p256-foundation/`,
+  including the four-file transfer manifest, SP 800-186/source hash and parameter
+  snapshot, focused logs, frozen 378-file primary source/config/fixture manifest,
+  generated C/JS/default Clang arm64 assembly, an 80-function static inventory
+  and arithmetic range/invariant arguments. The current SP 800-186 planning
+  correction concerns section 3.2.2.1; this slice uses section 3.2.1.3.
+  Public loop/index/exponent control and bounded byte arithmetic do not resolve
+  optimized runtime/JIT timing, allocation/scheduling or secret-copy erasure.
+  `PYTHONDONTWRITEBYTECODE=1 moon run crypto:check --force` passes fresh
+  (execution 6m12s415ms, hash
+  `ad4ae771746d6e26bc3964b975a7fe6af9c598f78158e4cc1064aa5da2685b1f`).
+  Native and Bun each pass all 4178 cases in 2.417s and 31.878s respectively.
+  `PYTHONDONTWRITEBYTECODE=1 moon run wire:check --force` passes fresh
+  (execution 1m23s234ms, hash
+  `e85d70cbdcb93b19e6399ed1cdc298f70925844e303e92c737f823c2ce78379f`).
+  Both reports show exit-zero execution and skipped cache hydration.
+  Final `PYTHONDONTWRITEBYTECODE=1 moon run :check` passes all 13 tasks in
+  6m29s759ms: 12 cached and JSON fresh with 706/706 independent cases.
+  Crypto/wire cached hashes match their forced checks; RTC reuses the saved
+  fresh browser/ICE gate with exact hash
+  `a1dca40ee0e2b21637190a491be4cc785bf4eb1afb4de2c243f3694d20246102`.
+  RTC's guarded import closure still includes exactly its five existing crypto
+  modules; the unused arithmetic addition does not require a new RTC run.
+  All 378 frozen source/config/fixture files remain unchanged through the gates.
+  Reports distinguish actual execution from replayed cached logs; RTC/browser
+  and optional live Redis tests were cached, not freshly rerun in this milestone.
+  Exact next action: implement complete P-256 point operations with published/
+  independent ECDH/ECDSA checks, followed by mandatory RSA/certificate signatures
+  and the full TLS handshake. All 19 full-stack acceptance boxes remain unchecked.
 
 - 2026-10-01: Extended the affine TLS
   traffic owners and protected-record evaluator to TLS_AES_128_GCM_SHA256.

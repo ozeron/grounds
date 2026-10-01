@@ -17,6 +17,7 @@ Pure Bend cryptographic primitives. This package implements SHA-1, SHA-256, HMAC
 | `traffic.bend` | `expand_label`, `new_write`, `new_read`, `new_aes128_write`, `new_aes128_read`, `seal`, `open`, `rekey_write`, `rekey_read`, `close_write`, `close_read` | RFC 9846 TLS 1.3 traffic-key/nonce lifecycle for ChaCha20-Poly1305 and AES-128-GCM with SHA-256 |
 | `x25519.bend` | `scalar_mult(scalar, u)`, `public_key(scalar)`, `shared(scalar, peer_public)` | RFC 7748 |
 | `field25519.bend` | Internal `add`, `sub`, `mul`, `square`, `decode`, `encode` | GF(2^255-19) arithmetic used by X25519 |
+| `field256.bend` | Internal P-256 prime/order `add`, `sub`, `mul`, `square`, `invert`, `decode_canonical` | SP 800-186 section 3.2.1.3 arithmetic foundation |
 | `bytes.bend` | `length`, `valid`, `append`, `hex` | Tail-recursive byte-list helpers |
 
 Byte input and output use `List<U32>` with values 0–255. The public calls return `None{}` for an out-of-range byte; `expand` also rejects a PRK other than 32 bytes or a requested length over 8160 bytes. SHA-1 and HMAC-SHA1 return 20 bytes; SHA-256 and HMAC-SHA256 return 32 bytes. The hex helpers are for diagnostics and tests; protocols should use raw bytes.
@@ -195,3 +196,29 @@ Bend key/field copy. Secret ownership/erasure, full generated control/memory
 dependency review, Bun JIT behavior and generated-runtime ABI/stack review remain
 required before live-secret use. The large local signaling fixture still needs
 its separately documented Apple Clang stack-probe workaround.
+
+`field256.bend` supplies arithmetic for the P-256 coordinate prime and scalar
+order. It uses canonical little-endian byte limbs in owned 64-cell U32 arrays;
+its arithmetic helpers require canonical operands. `decode_canonical` validates
+exactly 32 bytes and rejects values at or above the selected modulus; `decode`
+reduces 32-byte aliases, while `decode_wide` reduces validated 64-byte inputs.
+The reducing helpers require their stated byte/length preconditions. Protocol
+point/private-key parsers must use strict decoding and enforce their additional
+range, byte-order and curve-point requirements.
+
+Multiplication uses two byte-limb Montgomery products to return the ordinary
+representation. Inner product-plus-carry sums stay at or below 65535; explicit
+high carry is retained before the canceled low byte is shifted away. Conditional
+modulus subtraction uses 0/255 masks. Wide reduction retains a fixed 512-bit
+binary baseline. Inversion raises a nonzero element to the public modulus minus
+two; zero is rejected after a full 32-byte scan. Source loop counts and indices
+are public; this does not approve optimized runtime/JIT timing or secret erasure.
+
+Native and Bun each pass 4178 independent Python bigint cases across both
+moduli: all 256 binary carry/borrow boundaries, canonical and noncanonical
+operands, random values, 512-bit reduction, Montgomery versus the retained
+binary implementation, inverse/zero behavior, strict decoding and malformed
+lengths. Four closed Bend checks reject bad lengths and U32 values outside the
+byte range. Constants are grounded in [NIST SP 800-186 section 3.2.1.3](https://csrc.nist.gov/pubs/sp/800/186/final).
+This is an arithmetic foundation: P-256 point operations, ECDH, ECDSA and their
+published-vector/independent-implementation interop are still required.
