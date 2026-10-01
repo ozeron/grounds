@@ -70,6 +70,26 @@ def main() -> None:
                 assert got.returncode == 0 and got.stdout.strip() == expected, f"differential len={length}: {got.stdout.strip()} != {expected}"
                 count += 1
 
+        # Public extreme patterns across block/carry boundaries, with both
+        # zero and maximum pads. This reference is integer modular arithmetic.
+        for raw_r in (bytes(16), bytes([1]) + bytes(15), bytes([2]) + bytes(15),
+                      bytes([255]) * 16, bytes([85]) * 16, bytes([170]) * 16):
+            for length in (0, 1, 15, 16, 17, 31, 32, 33, 48, 64, 65, 128, 129, 255, 256, 257):
+                for value in (0, 255):
+                    key = raw_r + bytes([value]) * 16
+                    message = bytes([value]) * length
+                    got = bend(key, message)
+                    assert got.returncode == 0 and got.stdout.strip() == reference(key, message).hex(), (length, value)
+                    count += 1
+        # With r=1, three full blocks sum to p+delta before final canonical
+        # selection. Exercise both sides of p and every representable p..p+4.
+        for delta in range(-19, 5):
+            message = (2**128 - 5 + delta).to_bytes(16, "little") + bytes(32)
+            key = bytes([1]) + bytes(15) + rng.randbytes(16)
+            got = bend(key, message)
+            assert got.returncode == 0 and got.stdout.strip() == reference(key, message).hex(), delta
+            count += 1
+
         assert bend(bytes(31), b"").returncode != 0, "accepted short key"
         assert bend(bytes(33), b"").returncode != 0, "accepted long key"
 

@@ -1,6 +1,6 @@
 # grounds-crypto
 
-Pure Bend cryptographic primitives. This package implements SHA-1, SHA-256, HMAC-SHA1, HMAC-SHA256, HKDF-SHA-256, ChaCha20, Poly1305, ChaCha20-Poly1305 AEAD, and X25519. They are **experimental**: cookie signing and TLS still use OpenSSL while the Bend implementation is verified and its generated code is reviewed for timing behavior. Plain SHA-1 is used only for the WebSocket handshake challenge; HMAC-SHA1 is for the legacy STUN MESSAGE-INTEGRITY attribute.
+Pure Bend cryptographic primitives. This package implements SHA-1, SHA-256, HMAC-SHA1, HMAC-SHA256, HKDF-SHA-256, ChaCha20, Poly1305, ChaCha20-Poly1305 AEAD, AES-128 encryption, AES-128-GCM, and X25519. They are **experimental**: cookie signing and TLS still use OpenSSL while the Bend implementation is verified and its generated code is reviewed for timing behavior. Plain SHA-1 is used only for the WebSocket handshake challenge; HMAC-SHA1 is for the legacy STUN MESSAGE-INTEGRITY attribute.
 
 | Module | Public calls | Source |
 |---|---|---|
@@ -12,6 +12,8 @@ Pure Bend cryptographic primitives. This package implements SHA-1, SHA-256, HMAC
 | `chacha20.bend` | `block(key, nonce, counter)`, `crypt(key, nonce, counter, bytes)` | RFC 8439 |
 | `poly1305.bend` | `mac(one_time_key, bytes)` | RFC 8439 |
 | `aead.bend` | `seal(key, nonce, aad, plaintext)`, `open(key, nonce, aad, ciphertext, tag)` | RFC 8439 |
+| `aes128.bend` | `encrypt(key, block)` | FIPS 197 AES-128 encryption |
+| `gcm.bend` | `seal(key, nonce, aad, plaintext)`, `open(key, nonce, aad, ciphertext, tag)` | SP 800-38D, 96-bit nonce / 128-bit tag profile |
 | `traffic.bend` | `expand_label`, `new_write`, `new_read`, `seal`, `open`, `rekey_write`, `rekey_read`, `close_write`, `close_read` | RFC 9846 TLS 1.3 traffic-key/nonce lifecycle for ChaCha20-Poly1305/SHA-256 |
 | `x25519.bend` | `scalar_mult(scalar, u)`, `public_key(scalar)`, `shared(scalar, peer_public)` | RFC 7748 |
 | `field25519.bend` | Internal `add`, `sub`, `mul`, `square`, `decode`, `encode` | GF(2^255-19) arithmetic used by X25519 |
@@ -20,6 +22,48 @@ Pure Bend cryptographic primitives. This package implements SHA-1, SHA-256, HMAC
 Byte input and output use `List<U32>` with values 0–255. The public calls return `None{}` for an out-of-range byte; `expand` also rejects a PRK other than 32 bytes or a requested length over 8160 bytes. SHA-1 and HMAC-SHA1 return 20 bytes; SHA-256 and HMAC-SHA256 return 32 bytes. The hex helpers are for diagnostics and tests; protocols should use raw bytes.
 
 ChaCha20 requires a 32-byte key and 12-byte nonce. `block` returns 64 keystream bytes; `crypt` XORs a message with successive blocks and rejects a request that would wrap the 32-bit counter. It does **not** authenticate ciphertext. Poly1305 requires a fresh 32-byte one-time key per message. AEAD derives that key from ChaCha20 block zero, encrypts from counter one, authenticates the associated data and ciphertext, and returns plaintext only after checking all 16 tag bytes. The caller must ensure a unique nonce for every message under a key; these calls do not manage nonce allocation.
+
+AES-128 `encrypt` requires exactly 16 valid key bytes and 16 block bytes.
+The S-box computes inversion in GF(2^8) followed by the FIPS affine transform;
+it does not index a table with a secret byte. Key expansion supplies ten rounds
+with column-major state, SubBytes/ShiftRows, MixColumns and AddRoundKey. GCM
+uses only block encryption; AES decryption and 192/256-bit keys are not supplied.
+The internal prepared-key helpers assume validated key/block input and are
+not validating entry points.
+
+AES-128-GCM requires a 16-byte key, 12-byte nonce and full 16-byte tag.
+`seal` returns its own `Sealed{ciphertext, tag}`; `open` returns plaintext only
+after scanning the entire supplied tag. GHASH uses eight 16-bit limbs and fixed
+128-bit multiplication. It processes AAD and ciphertext separately, pads each
+final partial block and authenticates their big-endian 64-bit bit lengths,
+without allocating a combined MAC-input message. Counter encryption starts at
+two, with `nonce || 1` reserved for the tag mask. The plaintext/ciphertext
+limit is 2^36−32 bytes, following SP 800-38D section 5.2.1.1; a larger length
+is rejected before encryption, preventing counter reuse. AAD is limited by
+Bend's representable byte-list length (Nat maximum 2^48−1), which is smaller
+than the published general AEAD bound. Nonce uniqueness and per-key record
+usage limits remain the protocol owner's responsibility; these functions are
+not yet connected to the TLS traffic/record owners.
+
+Native and Bun checks compare all 256 S-box bytes with FIPS 197 Table 4,
+the published cipher example, all 284 AESAVS AES-128 ECB encryption KATs,
+40 independent OpenSSL cases and malformed key/block lengths. GCM checks
+select 150 NIST CAVP cases across every 96-bit-IV/full-tag PT/AAD length group,
+including 32 authentication failures. Independent OpenSSL AES plus Python
+bigint GHASH agrees on round trips through 64 KiB, every tag-byte mutation,
+AAD/ciphertext/key/nonce tampering, 166 field products and 16 compiled
+length/counter boundaries up to the largest Nat. Closed Bend checks reject
+out-of-range bytes. The JSON vector fixtures carry source URLs, archive hashes
+and selection details and participate in Moon's crypto task hash. These are
+informal correctness checks, not NIST validation or timing certification.
+[FIPS 197](https://csrc.nist.gov/pubs/fips/197/final) and
+[SP 800-38D](https://csrc.nist.gov/pubs/sp/800/38/d/final) were reviewed on
+2026-10-01. SP 800-38D remains the final published specification with a revision
+planned. RFC 5116 section 5.1 publishes a one-byte-larger plaintext bound;
+this implementation uses the NIST bound above. The RFC errata snapshot lists
+verified 4008 (decrypt input wording) and 4268 (nonce-persistence example),
+both consistent with this interface. Reported 5219 proposes the NIST plaintext
+bound; it remains reported, so this limit is grounded in the NIST specification.
 
 Run `moon run crypto:check --force`. The check proves that SHA-256 state output is always 32 bytes, compiles the native adapters, tests invalid-byte handling, compares SHA-256 against four published vectors and boundary/binary cases, compares HMAC against RFC 4231 and Python, and checks three RFC 5869 extract/expand vectors plus output-length boundaries. The million-`a` SHA-256 vector exercises a multi-block message.
 
@@ -70,7 +114,21 @@ HMAC-SHA1 is checked against all seven RFC 2202 vectors and eight Python `hmac` 
 
 The check also proves the RFC 8439 quarter-round example, compares the ChaCha20 block and stream functions with RFC 8439 vectors, and checks additional block and stream cases against OpenSSL on native and, when Bun is installed, JS targets. It checks malformed key/nonce lengths and counter limits.
 
-Poly1305 passes nine RFC 8439 vectors and 34 cases against an independent bigint reference. AEAD matches the RFC ciphertext and tag, plus 12 differential records against OpenSSL ChaCha20 and the independent Poly1305 reference, including a 64 KiB seal/open on both native and Bun JS. The check rejects changed key, nonce, associated data, ciphertext and tag bytes, and bad key, nonce and tag lengths. Bend proofs cover invalid-byte rejection and basic MAC input layout. `bytes.bend` avoids JS stack overflow from Bend Base's non-tail list length and append operations on the tested 64 KiB record.
+Poly1305 passes nine RFC 8439 vectors and 250 cases against an independent bigint reference, including extreme clamped-key/block patterns and both sides of final prime selection. AEAD matches the RFC ciphertext and tag, plus 12 differential records against OpenSSL ChaCha20 and the independent Poly1305 reference, including a 64 KiB seal/open on both native and Bun JS. The check rejects changed key, nonce, associated data, ciphertext and tag bytes, and bad key, nonce and tag lengths. Bend proofs cover invalid-byte rejection and basic MAC input layout. `bytes.bend` avoids JS stack overflow from Bend Base's non-tail list length and append operations on the tested 64 KiB record.
+
+Poly1305 now uses thirteen base-2^10 limbs. Coefficient k is bounded by
+(61−4k)·1023²; every product sum and its incoming carry remains below 2^26.
+This avoids the old base-2^13 product coefficients above signed 32-bit range.
+Five fixed normalization passes produce 10-bit digits: after the first fold,
+the second pass has final carry at most one; if that carry propagates to the
+top, limbs 2–12 become zero and the third pass cannot propagate beyond limb
+one. Canonical selection uses 0/1023 masks and XOR 1023 for their complement,
+with no unsigned negative subtraction. Source/range calculations and generated
+C/JS/arm64 assembly are retained under
+`/Users/ozeron/.codex/artifacts/grounds/2026-10-01/aes-gcm/`.
+The numeric-range finding is mitigated at these sites. Reference counting,
+allocator/scheduler behavior, optimized machine code, Bun JIT and key erasure
+remain open review gates before live-secret use.
 
 X25519 accepts 32-byte scalars and public coordinates, clamps scalars, masks the high coordinate bit, reduces noncanonical coordinates, and uses the RFC Montgomery ladder. `scalar_mult` returns the raw result; `shared` rejects an all-zero secret after scanning all output bytes. The field check compares 319 pairs across addition, subtraction, and multiplication against Python big integers on native and Bun, including every byte carry/borrow boundary and all 19 noncanonical coordinates with their high-bit aliases. X25519 checks the RFC function, Alice/Bob, and one-iteration vectors, four OpenSSL key exchanges, malformed lengths, all those coordinate aliases, and four constant/alternating scalar patterns on both targets; native also passes the RFC 1,000 iteration chain. Bend checks prove malformed input is rejected before ladder evaluation.
 

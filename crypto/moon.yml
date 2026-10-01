@@ -8,3 +8,4 @@ tasks:
       - "check.sh"
       - "*.bend"
       - "*.py"
+      - "*_vectors.json"

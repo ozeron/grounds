@@ -6,6 +6,8 @@ trap 'rm -rf "$tmp"' EXIT
 bend test.bend
 bend chacha_test.bend
 bend aead_test.bend
+bend aes128_test.bend
+bend gcm_test.bend
 bend hmac_sha1_test.bend
 bend x25519_test.bend
 bend traffic_test.bend
@@ -18,6 +20,8 @@ bend hkdf_cli.bend -o "$tmp/hkdf" > /dev/null
 bend chacha_cli.bend -o "$tmp/chacha20" > /dev/null
 bend poly1305_cli.bend -o "$tmp/poly1305" > /dev/null
 bend aead_cli.bend -o "$tmp/aead" > /dev/null
+bend aes128_cli.bend -o "$tmp/aes128" > /dev/null
+bend gcm_cli.bend -o "$tmp/gcm" > /dev/null
 bend field_cli.bend -o "$tmp/field25519" > /dev/null
 bend x25519_cli.bend -o "$tmp/x25519" > /dev/null
 bend traffic_cli.bend -o "$tmp/traffic" > /dev/null
@@ -27,6 +31,8 @@ python3 hmac_sha1_check.py "$tmp/hmac_sha1"
 python3 chacha_check.py "$tmp/chacha20"
 python3 poly1305_check.py "$tmp/poly1305"
 python3 aead_check.py "$tmp/aead"
+python3 aes128_check.py "$tmp/aes128"
+python3 gcm_check.py "$tmp/gcm"
 python3 field_check.py "$tmp/field25519"
 python3 x25519_check.py --iterated "$tmp/x25519"
 python3 traffic_check.py "$tmp/traffic"
@@ -36,6 +42,8 @@ if command -v bun > /dev/null 2>&1; then
   bend chacha_cli.bend -o "$tmp/chacha20.js" > /dev/null
   bend poly1305_cli.bend -o "$tmp/poly1305.js" > /dev/null
   bend aead_cli.bend -o "$tmp/aead.js" > /dev/null
+  bend aes128_cli.bend -o "$tmp/aes128.js" > /dev/null
+  bend gcm_cli.bend -o "$tmp/gcm.js" > /dev/null
   bend field_cli.bend -o "$tmp/field25519.js" > /dev/null
   bend x25519_cli.bend -o "$tmp/x25519.js" > /dev/null
   bend traffic_cli.bend -o "$tmp/traffic.js" > /dev/null
@@ -44,6 +52,8 @@ if command -v bun > /dev/null 2>&1; then
   python3 chacha_check.py bun "$tmp/chacha20.js"
   python3 poly1305_check.py bun "$tmp/poly1305.js"
   python3 aead_check.py bun "$tmp/aead.js"
+  python3 aes128_check.py bun "$tmp/aes128.js"
+  python3 gcm_check.py bun "$tmp/gcm.js"
   python3 field_check.py bun "$tmp/field25519.js"
   python3 x25519_check.py bun "$tmp/x25519.js"
   python3 traffic_check.py bun "$tmp/traffic.js"
