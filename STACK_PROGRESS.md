@@ -14,6 +14,37 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 
 ## Evidence ledger
 
+- 2026-10-01 (resource default tightened): Changed the build guard's default
+  cutoff from 1024 to 512 MiB and updated its example. The existing successful
+  subprocess test now omits the memory option and verifies the actual default;
+  all eight real subprocess safety tests pass in 3.057s. No Bend compilation
+  or package/repository check was launched for this change. A fresh process
+  scan found no Bend, Moon, Bun or clang processes; system swap remained
+  10648.50 MB, so absence of compiler processes does not establish that system
+  memory pressure has recovered. Logs, source hashes and the scan are in
+  `ecdsa256/guard-default512-tests.log`, `guard-default512-verification.json`
+  and `resource-current-state.json` under the 2026-10-01 artifact directory.
+  All subsequent goal builds must remain sequential under the 512 MiB guard.
+
+- 2026-10-01 (isolated compiler reduction, not transferred): Replaced the four
+  public P-256 constant tables with eight-word tables indexed by Nat, preserving
+  byte accessors and all arithmetic bodies. Factored the field CLI's argument
+  dispatch with explicitly decreasing public Nat fuel, preserving arithmetic
+  calls and input guards. Native and Bun each pass all 4178 bigint differential
+  cases in 1.436s and 29.048s; 144 closed checks verify every constant byte and
+  out-of-range access. Guarded peaks for those checks are 21.5, 125.8 and
+  128.9 MiB. A two-phase native helper trial, which makes Bend exit before clang
+  starts, built this CLI at 478.9 MiB. Compilation used local
+  `BUN_OPTIONS=--smol BUN_JSC_forceRAMSize=268435456`; these runtime settings
+  are GC scheduling hints, with the separate physical-memory guard enforcing
+  the sampled cutoff. Reports and logs are in `ecdsa256/field-adapter/`.
+  These source changes remain isolated and the helper's final atomic output
+  publication change is still untested. Next: verify that helper on a tiny
+  owned fixture, check the field's existing closed proofs, then transfer the
+  validated field/CLI and integrate the helper into crypto native builds.
+  Revalidate dependent P-256/ECDSA code and fresh crypto/RTC/repository gates
+  under the same cutoff. The full 19-box contract remains unfinished.
+
 - 2026-10-01 (bounded resource and signature progress): Tightened the guard to
   a 0.02-second sample interval. macOS now lists the owned process group with
   `proc_listpids` instead of spawning `ps` on every sample, then reads resident

@@ -12,7 +12,7 @@ leftover child kills the owned process group; unrelated processes are untouched.
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 python3 tools/build_guard.py \
-  --memory-mib 1024 --timeout 3600 --report /tmp/grounds-check-resource.json \
+  --memory-mib 512 --timeout 3600 --report /tmp/grounds-check-resource.json \
   -- moon --concurrency 1 run :check
 ```
 
@@ -22,7 +22,8 @@ inherited process group; detached/daemonized jobs are unsupported. It does not
 limit other applications or unguarded commands. Keep build and test jobs
 sequential and preserve each report. If a build crosses the cutoff, split or
 reduce its compilation workload before retrying; do not raise the limit to
-mask the failure. Start focused recovery builds at 512 MiB.
+mask the failure. The default cutoff is 512 MiB; keep recovery builds at that
+cutoff.
 
 Verify guard behavior without compiling Bend:
 
