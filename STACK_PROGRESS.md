@@ -14,6 +14,59 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 
 ## Evidence ledger
 
+- 2026-10-02 (compiler recipe replay, three more forced gates, JSON cutoff diagnosis):
+  The preceding turn made progress in 5d43366 with fresh isolated HTTP core and
+  UTF-8 gates. Current primary is clean apart from unrelated bounty/. Fresh
+  normal-pressure evidence allowed the previously refused source-only replay:
+  prepare-gates.py reconstructs all 652 tested inputs exactly, emits a 97-file
+  primary-applicable patch, and passes in 1.846 seconds / 33.3 MiB aggregate.
+  Sequential forced IO and HTTP wire checks then pass under unchanged
+  384/320/120 compiler/package cutoffs: IO task 427ms / guard 1.139 seconds,
+  154.2 MiB aggregate / 74.0 MiB individual; HTTP wire task 32.527 seconds /
+  guard 33.094 seconds, 240.8 MiB aggregate / 123.8 MiB individual. Moon
+  metadata records fresh passed task execution/exit zero for both.
+  Router's first forced gate passes units but rejects the law helper Pair,
+  which collides with the new Base.Pair. In the isolated draft only, seven
+  law-helper identifiers and two proof references become SegmentPair; reverse
+  substitution reproduces both original files exactly. No routing implementation
+  or case is altered. The complete forced router gate then passes: task 2.816
+  seconds / guard 3.409 seconds, 192.2 MiB aggregate / 75.4 MiB individual,
+  including the original laws, route example and cold check. The earlier failure
+  is retained. The two helper files are absent from IO/HTTP wire's recorded
+  task hash inputs, preserving their unaffected fresh evidence.
+  prepare-router.py and its 16-file overlay replay all 652 candidate hashes
+  exactly (1.176 seconds / 32.8 MiB aggregate); compatibility-router.patch has
+  99 changed/added files, targets source state 8b2d420 and passes git apply
+  --check on current primary. Its SHA-256 is
+  38e6dc50fedcb005b41e83f983c97b00c940a6d3451e81db98b866905dbffd8d.
+  Neither that patch nor the compiler pin is adopted. The older 93/97-file
+  patch/recipe/source freezes remain historical and unchanged.
+  The complete forced JSON gate still fails at its first mandatory cold check.
+  With the waiting Python validation driver it reaches the aggregate cutoff
+  at 387.8 MiB (5.340 seconds, 257.5 MiB individual). A direct guarded Moon
+  launcher removes that driver's measured 22.5 MiB overhead but still cuts off
+  at 385.5 MiB (5.459 seconds, 276.9 MiB individual). A compiler-only 64 MiB
+  reported-RAM hint, retaining disabled compiler JIT, enabled evaluator JIT and
+  every original source/case, still cuts off at 384.1 MiB (5.299 seconds,
+  270.6 MiB individual). No hard limit is increased. A focused diagnostic
+  runs only the first required json/main.bend cold check without Moon; it
+  crosses the individual cutoff at 322.3 MiB / 342.3 MiB aggregate in 4.407
+  seconds. The compiler frontend itself therefore requires work; removing
+  controllers or changing the RAM hint is insufficient. This focused failure
+  cannot substitute for the full JSON gate. All jobs are terminal and all 652
+  retained source hashes remain unchanged after generator execution and cleanup.
+  Artifacts remain under
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-02/compiler-compatibility/`:
+  gates-preparation.json, router-preparation.json, compatibility-router.patch,
+  prepare-router.py, router-inputs.json and validation/gates-replay-evidence.json,
+  validation/router-and-json-gates-evidence.json, all forced-io/http-wire/router
+  logs/resource/Moon reports, and the four JSON failure/diagnostic reports.
+  Next: profile/refactor the JSON frontend workload with APIs and all original
+  parser/layout/proof/conformance cases preserved, then finish remaining forced
+  package and repository checks before compiler adoption. Primary Bend remains
+  2.0.27. The full 19-item contract, timing/private-secret ownership and secure
+  direct/relay browser data/media evidence remain open; bounty/ is untouched.
+
 - 2026-10-02 (fresh isolated HTTP core and separate UTF-8 gates):
   The previous goal turn made source/verification progress in 8b2d420: dual
   constructor-table admission and shared cold-checker cache inputs. This turn
