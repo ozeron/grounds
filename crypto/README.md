@@ -19,10 +19,21 @@ Pure Bend cryptographic primitives. This package implements SHA-1, SHA-256, HMAC
 | `field25519.bend` | Internal `add`, `sub`, `mul`, `square`, `decode`, `encode` | GF(2^255-19) arithmetic used by X25519 |
 | `p256.bend` | `public_key(private)`, `shared(private, peer_public)`, `decode(peer_public)` | SP 800-186 P-256 / SEC 1 v2.0 ECDH |
 | `ecdsa_scheme256.bend` | `sign_digest(private, digest)`, `verify_digest(peer, digest, signature)` | RFC 6979 / SEC 1 v2.0; strict DER signature boundary |
+| `rsa_encoding.bend` | `mgf1`, `pss_encode_digest`, `pss_verify_digest`, `v15_encode_digest`, `v15_verify_digest` | RFC 8017 SHA-256 signature encoding; RSA exponentiation remains required |
 | `field256.bend` | Internal P-256 prime/order `add`, `sub`, `mul`, `square`, `invert`, `decode_canonical` | SP 800-186 section 3.2.1.3 arithmetic foundation |
 | `bytes.bend` | `length`, `valid`, `append`, `hex` | Tail-recursive byte-list helpers |
 
 Byte input and output use `List<U32>` with values 0–255. The public calls return `None{}` for an out-of-range byte; `expand` also rejects a PRK other than 32 bytes or a requested length over 8160 bytes. SHA-1 and HMAC-SHA1 return 20 bytes; SHA-256 and HMAC-SHA256 return 32 bytes. The hex helpers are for diagnostics and tests; protocols should use raw bytes.
+
+RSA encoding is an experimental component, documented in
+[RSA_REVIEW.md](RSA_REVIEW.md). PSS uses a 32-byte digest, MGF1-SHA-256 and a
+caller-supplied 32-byte salt; `emBits` ranges from 521 through 4096. This is an
+encoding bound, not a permitted TLS key-size policy. PKCS#1 v1.5 uses the exact
+SHA-256 DER DigestInfo including NULL parameters, with encoded lengths 62–512
+bytes. MGF1 accepts valid seeds and output lengths through 512 bytes. Encoding
+returns `None{}` on invalid input; verification returns `False{}`. RSA
+exponentiation, key admission, signature width/range checks, salt generation,
+certificate algorithms and private-key lifecycle are not implemented here.
 
 ChaCha20 requires a 32-byte key and 12-byte nonce. `block` returns 64 keystream bytes; `crypt` XORs a message with successive blocks and rejects a request that would wrap the 32-bit counter. It does **not** authenticate ciphertext. Poly1305 requires a fresh 32-byte one-time key per message. AEAD derives that key from ChaCha20 block zero, encrypts from counter one, authenticates the associated data and ciphertext, and returns plaintext only after checking all 16 tag bytes. The caller must ensure a unique nonce for every message under a key; these calls do not manage nonce allocation.
 
