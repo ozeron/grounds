@@ -32,7 +32,9 @@ class GuardTests(unittest.TestCase):
                    "--report", str(report)]
         if memory is not None:
             command.extend(["--memory-mib", str(memory)])
-        command.extend(["--timeout", str(timeout), "--", sys.executable, "-c", code])
+        if timeout is not None:
+            command.extend(["--timeout", str(timeout)])
+        command.extend(["--", sys.executable, "-c", code])
         return command, report
 
     def run_job(self, name, code, memory=256, timeout=5):
@@ -93,10 +95,12 @@ class GuardTests(unittest.TestCase):
     def test_success_and_single_moon_worker(self):
         report = self.run_job("success", "import os,time; "
                               "assert os.environ['MOON_CONCURRENCY']=='1'; time.sleep(.2)",
-                              memory=None)
+                              memory=None, timeout=None)
         self.assertEqual(report["exit_code"], 0)
         self.assertEqual(report["reason"], "child-exit")
-        self.assertEqual(report["memory_limit_bytes"], 512 * 1024 * 1024)
+        self.assertEqual(report["memory_limit_bytes"], 384 * 1024 * 1024)
+        self.assertEqual(report["process_memory_limit_bytes"], 320 * 1024 * 1024)
+        self.assertEqual(report["timeout_seconds"], 120)
         self.assertGreater(report["peak_bytes"], 0)
         if sys.platform == "darwin":
             self.assertIn("physical-footprint", report["metric"])

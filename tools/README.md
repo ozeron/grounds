@@ -9,9 +9,9 @@ and takes the greater of RSS and `proc_pid_rusage` physical
 footprint per process, including compressed memory. Linux measures RSS.
 Measurement errors fail closed. A memory cutoff, timeout, interruption or
 leftover child kills the owned process group; unrelated processes are untouched.
-The default aggregate cutoff is 512 MiB. For Moon, use a 640 MiB aggregate
-budget and `--process-memory-mib 512`: every compiler, test or runner process
-still has a 512 MiB cutoff, with 128 MiB aggregate headroom for orchestration.
+The defaults are 384 MiB aggregate, 320 MiB per process and a 120-second
+deadline, matching the current focused compiler recovery limits. The aggregate
+budget includes compiler, test and runner processes; it is not added per child.
 The reports retain both the combined peak and the largest individual process.
 
 On macOS the guard also reads `kern.memorystatus_vm_pressure_level` before
@@ -25,21 +25,17 @@ Linux does not currently have this additional system-pressure check; its report
 marks that metric unsupported while retaining process-group RSS monitoring.
 
 ```sh
-PYTHONDONTWRITEBYTECODE=1 python3 tools/build_guard.py \
-  --memory-mib 640 --process-memory-mib 512 --timeout 3600 \
+PYTHONDONTWRITEBYTECODE=1 nice -n 10 python3 tools/build_guard.py \
+  --memory-mib 384 --process-memory-mib 320 --timeout 120 \
   --report /tmp/grounds-check-resource.json \
   -- moon --concurrency 1 run :check
 ```
 
-For Bend 2.0.27 recovery builds, use the locally tested Bun runtime settings:
-
-```sh
-BUN_OPTIONS=--smol BUN_JSC_forceRAMSize=268435456 \
-  PYTHONDONTWRITEBYTECODE=1 python3 tools/build_guard.py \
-  --memory-mib 640 --process-memory-mib 512 --timeout 3600 \
-  --report /tmp/grounds-crypto-resource.json \
-  -- moon --concurrency 1 run crypto:check --force
-```
+Recent isolated compiler diagnostics also use `BUN_OPTIONS=--smol`,
+`BUN_JSC_forceRAMSize=134217728` and `BUN_JSC_useJIT=false`. These are
+invocation-local diagnostic settings. Generated-program tests must record
+their own actual runtime configuration; changing JIT settings does not prove
+default optimizing-JIT acceptance.
 
 Bend's executable embeds Bun. Standalone executables accept runtime flags
 through [BUN_OPTIONS](https://bun.com/docs/bundler/executables#runtime-arguments-via-bun_options);
@@ -58,8 +54,8 @@ stop work because of pressure caused by another application; it does not
 identify the source of pressure or reset accumulated swap. Keep build and test jobs
 sequential and preserve each report. If a build crosses the cutoff, split or
 reduce its compilation workload before retrying; do not raise the individual
-compiler limit to mask the failure. Standalone recovery builds use the default
-512 MiB aggregate cutoff; Moon jobs use the two budgets above.
+compiler limit to mask the failure. A timed-out package/repository check remains
+incomplete; do not omit cases or raise budgets to produce a passing report.
 
 Verify guard behavior without compiling Bend:
 
@@ -74,9 +70,8 @@ closed with `EPERM` when reading its memory. This does not justify ignoring
 memory-read errors for live processes. The 13 self-tests passed on 2026-10-02;
 the failed nested attempts are retained in the extension resource investigation.
 
-Current focused recovery jobs use smaller explicit budgets than the historical
-Moon examples above: 384 MiB aggregate / 320 MiB per compiler process, and
-128/96 MiB for evaluators, with a 120-second deadline and nice 10. Keep the
+Evaluators use smaller explicit budgets: 128 MiB aggregate / 96 MiB per
+process, with a 120-second deadline and nice 10. Keep the
 full package/repository gates pending when these budgets or system pressure
 prevent verification. Do not present a different Bun JIT configuration as
 default optimizing-JIT acceptance; record the actual runtime flags and failed

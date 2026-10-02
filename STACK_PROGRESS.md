@@ -14,6 +14,47 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 
 ## Evidence ledger
 
+- 2026-10-02 (resource defaults and isolated compiler compatibility draft):
+  After the renewed memory complaint, a fresh process inventory finds no
+  Bend/Bun/Moon/Clang build jobs. macOS reports normal pressure at that sample
+  and 7,984.81 MiB swap in use; this does not attribute swap to Bend or prove
+  recovery from the historical multi-gigabyte builds. No Bend compiler or
+  generated-program evaluator is launched in this continuation. The previous response refreshed resource
+  evidence; this turn changes the resource defaults and prepares the next
+  compatibility dependency without a build.
+  `tools/build_guard.py` now defaults to 384 MiB aggregate, 320 MiB per process
+  and 120 seconds, replacing 512 MiB aggregate / no individual limit / one hour.
+  Existing explicit evaluator budgets remain 128/96 MiB. Updated documentation
+  no longer directs current recovery work to the larger historical limits.
+  A real subprocess test omits all three options and verifies the configured
+  defaults in its report. All 13 safety tests pass fresh in 6.681s via
+  `PYTHONDONTWRITEBYTECODE=1 nice -n 10 python3 tools/build_guard_test.py`;
+  the driver never invokes Bend. Cutoffs remain sampled and can overshoot.
+  Artifact log, command, duration and source hashes:
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-02/resource-defaults/`.
+  Official Bend 2.0.34 tagged changelog/compiler source and bundled effects
+  guide confirm three breaking interfaces: argv[0] in IO.args, explicit host
+  in TCP.listen/UDP.bind, and namespace-aware CID plus JS io_eff registration.
+  Prepared an unverified compatibility patch in an isolated archive of
+  6fa32a7: 87 changed files, 79 argument calls in 73 files, ten wildcard binds
+  preserving the old IPv4 behavior, and all 24 custom effects (including legacy
+  cookie compatibility). A shared Io.args preserves user arguments excluding
+  argv[0]; crypto Moon inputs include that dependency. The draft pin is 2.0.34;
+  the primary repository and installed compiler remain 2.0.27. No compiler,
+  kernel or protocol implementation is replaced. Preparation passes at 35.9
+  MiB aggregate under 128/96 MiB cutoffs, in 2.124s. The patch, source hashes,
+  official tagged references, preparation script and resource report are in
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-02/compiler-compatibility/`.
+  This is source preparation, not a compatibility pass or compiler-memory fix.
+  Full package/repository and browser acceptance remain pending; their last
+  failures remain recorded, and none is rerun here.
+  Next: review the isolated effect/name/argv changes, then obtain bounded native
+  and Bun compatibility evidence beginning with the complete field256 matrix
+  and socket/RNG/cookie lifecycle checks, before adopting the draft pin. Compiler
+  work stays stopped during the current resource investigation. Use the updated
+  primary guard with explicit budgets for any later isolated validation.
+  All 19 complete-stack acceptance items remain open; the full goal is active.
+
 - 2026-10-02 (canonical OID and extension envelope owner): Added
   `crypto/oid.bend` and `x509_extensions.bend`, a batch fixture CLI, independent
   numeric OID/re-encoding and exact-envelope oracle, and six closed compiler
