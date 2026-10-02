@@ -1,18 +1,22 @@
 #!/usr/bin/env python3
 """Exercise resource isolation with small real subprocesses, never Bend builds."""
 
+import ctypes
 import json
 import os
 from pathlib import Path
+import runpy
 import signal
 import subprocess
 import sys
 import tempfile
 import time
 import unittest
+from unittest import mock
 
 
 GUARD = Path(__file__).with_name("build_guard.py")
+SystemPressure = runpy.run_path(str(GUARD))["SystemPressure"]
 
 
 class GuardTests(unittest.TestCase):
@@ -71,6 +75,20 @@ class GuardTests(unittest.TestCase):
             f"pathlib.Path({str(marker)!r}).write_text(json.dumps([os.getpid()]+[p.pid for p in children])); "
             "time.sleep(30)"
         )
+
+    def pressure_command(self, name, code, reader):
+        command, report = self.command(name, code)
+        # Patch only the pressure observation in a separate guard process.
+        # Its lock, real child/process-group monitoring and cleanup still run.
+        wrapper = (
+            "import pathlib,runpy,sys; from unittest import mock; "
+            f"namespace=runpy.run_path({str(GUARD)!r}); "
+            f"sys.argv={command[1:]!r}; "
+            f"reader={reader}; "
+            "patch=mock.patch.object(namespace['SystemPressure'],'read',side_effect=reader); "
+            "patch.start(); sys.exit(namespace['main']())"
+        )
+        return [sys.executable, "-c", wrapper], report
 
     def test_success_and_single_moon_worker(self):
         report = self.run_job("success", "import os,time; "
@@ -163,6 +181,84 @@ class GuardTests(unittest.TestCase):
         result = subprocess.run(command, capture_output=True, timeout=5)
         self.assertEqual(result.returncode, 125)
         self.assertEqual(json.loads(report_path.read_text())["reason"], "guard-error")
+
+    def test_pressure_before_launch_refuses_work(self):
+        for level in ("warning", "critical"):
+            with self.subTest(level=level):
+                marker = self.directory / f"{level}-started"
+                command, path = self.pressure_command(
+                    f"pre-{level}", f"import pathlib; pathlib.Path({str(marker)!r}).touch()",
+                    f"lambda: {level!r}",
+                )
+                result = subprocess.run(command, capture_output=True, text=True, timeout=10)
+                report = json.loads(path.read_text())
+                self.assertEqual(result.returncode, 125, result.stderr)
+                self.assertEqual(report["reason"], "system-memory-pressure-before-launch")
+                self.assertEqual(report["system_pressure"], level)
+                self.assertNotIn("pid", report)
+                self.assertFalse(marker.exists())
+
+    def test_pressure_during_job_stops_owned_group_only(self):
+        unrelated = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
+        self.addCleanup(self.stop_process, unrelated)
+        for level in ("warning", "critical"):
+            with self.subTest(level=level):
+                marker = self.directory / f"{level}-pids.json"
+                code = self.spawn_code(1, 0, marker).replace(
+                    "import time; data",
+                    "import signal,time; signal.signal(signal.SIGTERM,signal.SIG_IGN); data",
+                )
+                reader = f"lambda: {level!r} if pathlib.Path({str(marker)!r}).exists() else 'normal'"
+                command, path = self.pressure_command(f"running-{level}", code, reader)
+                result = subprocess.run(command, capture_output=True, text=True, timeout=10)
+                report = json.loads(path.read_text())
+                self.assertEqual(result.returncode, 137, result.stderr)
+                self.assertEqual(report["reason"], "system-memory-pressure")
+                self.assertEqual(report["system_pressure"], level)
+                self.assertGreaterEqual(report["system_pressure_samples"], 2)
+                self.assertLess(report["peak_bytes"], 256 * 1024 * 1024)
+                self.assert_stopped(json.loads(marker.read_text()))
+                self.assertIsNone(unrelated.poll())
+
+    def test_pressure_measurement_error_fails_closed_and_cleans_up(self):
+        marker = self.directory / "pressure-error-pids.json"
+        reader = (
+            f"lambda: (_ for _ in ()).throw(OSError('pressure unavailable')) "
+            f"if pathlib.Path({str(marker)!r}).exists() else 'normal'"
+        )
+        command, path = self.pressure_command("pressure-error", self.spawn_code(1, 0, marker), reader)
+        result = subprocess.run(command, capture_output=True, text=True, timeout=10)
+        report = json.loads(path.read_text())
+        self.assertEqual(result.returncode, 125, result.stderr)
+        self.assertEqual(report["reason"], "guard-error")
+        self.assertIn("pressure unavailable", report["error"])
+        self.assert_stopped(json.loads(marker.read_text()))
+
+    @unittest.skipUnless(sys.platform == "darwin", "macOS sysctl only")
+    def test_native_pressure_decoding_and_invalid_observations(self):
+        pressure = SystemPressure()
+        for value, expected in ((1, "normal"), (2, "warning"), (4, "critical"), (3, None)):
+            with self.subTest(value=value):
+                def observation(_name, output, _size, new_value, new_size):
+                    self.assertIsNone(new_value)
+                    self.assertEqual(new_size, 0)
+                    ctypes.cast(output, ctypes.POINTER(ctypes.c_uint32))[0] = value
+                    return 0
+                with mock.patch.object(pressure.lib, "sysctlbyname", side_effect=observation):
+                    if expected is None:
+                        with self.assertRaisesRegex(RuntimeError, "Unrecognized system memory pressure"):
+                            pressure.read()
+                    else:
+                        self.assertEqual(pressure.read(), expected)
+        with mock.patch.object(pressure.lib, "sysctlbyname", return_value=-1):
+            with self.assertRaisesRegex(OSError, "Cannot measure system memory pressure"):
+                pressure.read()
+        def short_read(_name, _output, size, _new, _new_size):
+            ctypes.cast(size, ctypes.POINTER(ctypes.c_size_t))[0] = 1
+            return 0
+        with mock.patch.object(pressure.lib, "sysctlbyname", side_effect=short_read):
+            with self.assertRaisesRegex(RuntimeError, "pressure byte count"):
+                pressure.read()
 
 
 if __name__ == "__main__":

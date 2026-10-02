@@ -14,6 +14,30 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 
 ## Evidence ledger
 
+- 2026-10-02 (system pressure admission and cutoff): `tools/build_guard.py`
+  now reads macOS `kern.memorystatus_vm_pressure_level` before launch and
+  once per second while a job runs. Warning/critical pressure refuses a new
+  launch (125) or kills only the owned job group (137), independently of its
+  existing aggregate/individual memory cutoffs. Unknown observations and read
+  failures fail closed. Apple's XNU source confirms this sysctl converts internal
+  levels to dispatch flags 1/2/4; no kernel setting was changed. Linux reports
+  this added metric unsupported, retaining its existing RSS guard. All 13 guard
+  tests passed in 6.893 seconds with
+  `PYTHONDONTWRITEBYTECODE=1 python3 tools/build_guard_test.py -v`.
+  New cases inject warning/critical observations before and after launch,
+  exercise real owned-child cleanup (including a TERM-ignoring child), preserve
+  an unrelated process, and verify measurement failure/unknown/short reads.
+  They never induce actual system pressure or compile Bend. A live 1.2-second
+  Python sleep under 128 MiB aggregate / 64 MiB individual caps exited zero:
+  15.6 MiB peak, two actual normal-pressure samples, 1.288 seconds elapsed.
+  Evidence is in
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-02/resource-pressure/normal-live.json`.
+  This adds sampled system-pressure protection, not a hard allocation quota or
+  a diagnosis of the user's earlier 15 GB / 7 GB peaks. The interrupted crypto
+  package gate remains unaccepted and was not restarted. Next: validate the
+  isolated RSA encoding draft with short guarded checks, then reduce or partition
+  the remaining crypto verification workload before reconsidering a full gate.
+
 - 2026-10-02 (build stopped after memory complaint): Terminated the owned
   guard PID 5213 and its crypto gate process group 5221 after the user reported
   Bend processes using 15 GB / 7 GB. Confirmed the terminal session exited 143

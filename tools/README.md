@@ -14,6 +14,16 @@ budget and `--process-memory-mib 512`: every compiler, test or runner process
 still has a 512 MiB cutoff, with 128 MiB aggregate headroom for orchestration.
 The reports retain both the combined peak and the largest individual process.
 
+On macOS the guard also reads `kern.memorystatus_vm_pressure_level` before
+launch and once per second during the job. Warning or critical pressure refuses
+the launch (exit 125), or stops an already running owned process group (exit
+137), even when that group's memory stays below its cutoff. Read errors and
+unknown values fail closed. The sysctl returns dispatch flags, as shown in
+[Apple's XNU implementation](https://github.com/apple-oss-distributions/xnu/blob/main/bsd/kern/kern_memorystatus_notify.c);
+it is read only. Reports record the last observed level and sample count.
+Linux does not currently have this additional system-pressure check; its report
+marks that metric unsupported while retaining process-group RSS monitoring.
+
 ```sh
 PYTHONDONTWRITEBYTECODE=1 python3 tools/build_guard.py \
   --memory-mib 640 --process-memory-mib 512 --timeout 3600 \
@@ -43,7 +53,9 @@ the invocation and do not alter the installed compiler or user configuration.
 This is a sampled cutoff, not a kernel-enforced allocation quota: a fast
 allocation can overshoot between samples. Commands must keep children in their
 inherited process group; detached/daemonized jobs are unsupported. It does not
-limit other applications or unguarded commands. Keep build and test jobs
+limit other applications or unguarded commands. The macOS pressure check can
+stop work because of pressure caused by another application; it does not
+identify the source of pressure or reset accumulated swap. Keep build and test jobs
 sequential and preserve each report. If a build crosses the cutoff, split or
 reduce its compilation workload before retrying; do not raise the individual
 compiler limit to mask the failure. Standalone recovery builds use the default

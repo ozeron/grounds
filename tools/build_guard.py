@@ -16,6 +16,40 @@ import time
 
 MIB = 1024 * 1024
 SAMPLE_INTERVAL = 0.02
+PRESSURE_INTERVAL = 1.0
+
+
+class SystemPressure:
+    """Read macOS pressure notifications without changing kernel state."""
+
+    def __init__(self):
+        self.metric = "unsupported"
+        self.lib = None
+        if sys.platform == "darwin":
+            self.lib = ctypes.CDLL(None, use_errno=True)
+            self.lib.sysctlbyname.argtypes = [
+                ctypes.c_char_p, ctypes.c_void_p, ctypes.POINTER(ctypes.c_size_t),
+                ctypes.c_void_p, ctypes.c_size_t,
+            ]
+            self.lib.sysctlbyname.restype = ctypes.c_int
+            self.metric = "kern.memorystatus_vm_pressure_level"
+
+    def read(self):
+        if self.lib is None:
+            return None
+        value = ctypes.c_uint32()
+        size = ctypes.c_size_t(ctypes.sizeof(value))
+        if self.lib.sysctlbyname(self.metric.encode(), ctypes.byref(value),
+                                 ctypes.byref(size), None, 0) != 0:
+            raise OSError(ctypes.get_errno(), "Cannot measure system memory pressure")
+        if size.value != ctypes.sizeof(value):
+            raise RuntimeError("Unrecognized system pressure byte count")
+        # This sysctl returns dispatch flags, not the kernel's internal enum.
+        # XNU kern_memorystatus_notify.c converts normal/warning/critical to 1/2/4.
+        levels = {1: "normal", 2: "warning", 4: "critical"}
+        if value.value not in levels:
+            raise RuntimeError(f"Unrecognized system memory pressure: {value.value}")
+        return levels[value.value]
 
 
 class Usage(ctypes.Structure):
@@ -143,6 +177,7 @@ def main():
         "process_memory_limit_bytes": (args.process_memory_mib * MIB
                                        if args.process_memory_mib is not None else None),
         "timeout_seconds": args.timeout, "sample_interval_seconds": SAMPLE_INTERVAL,
+        "pressure_interval_seconds": PRESSURE_INTERVAL,
         "peak_bytes": 0, "peak_processes": [], "reason": None,
     }
     job = None
@@ -169,6 +204,14 @@ def main():
             return exit_code
         memory = Memory()
         report["metric"] = memory.metric
+        pressure = SystemPressure()
+        report["system_pressure_metric"] = pressure.metric
+        report["system_pressure"] = pressure.read()
+        report["system_pressure_samples"] = 1
+        if report["system_pressure"] in ("warning", "critical"):
+            report["reason"] = "system-memory-pressure-before-launch"
+            return exit_code
+        next_pressure_check = time.monotonic() + PRESSURE_INTERVAL
         environment = dict(os.environ, MOON_CONCURRENCY="1", PYTHONDONTWRITEBYTECODE="1")
         job = subprocess.Popen(command, start_new_session=True, env=environment,
                                pass_fds=(lock.fileno(),))
@@ -202,6 +245,14 @@ def main():
                 report["reason"] = "memory-cutoff"
                 exit_code = 137
                 break
+            if time.monotonic() >= next_pressure_check:
+                report["system_pressure"] = pressure.read()
+                report["system_pressure_samples"] += 1
+                next_pressure_check = time.monotonic() + PRESSURE_INTERVAL
+                if report["system_pressure"] in ("warning", "critical"):
+                    report["reason"] = "system-memory-pressure"
+                    exit_code = 137
+                    break
             if time.monotonic() - start > args.timeout:
                 report["reason"] = "timeout"
                 exit_code = 124
