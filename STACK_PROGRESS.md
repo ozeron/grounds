@@ -14,6 +14,67 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 
 ## Evidence ledger
 
+- 2026-10-02 (bounded compiler compatibility evidence): The previous goal turn
+  made progress via 1de798a and an isolated upgrade draft. This continuation
+  tests that draft using the updated primary guard, one nice-10 job at a time,
+  384/320 MiB compiler or 128/96 MiB evaluator cutoffs and 120-second deadlines.
+  Official unmodified Bend 2.0.34 now emits the complete field256 CLI's CPU C
+  in 5.333s at 196.3 MiB, clang 21 -O3 builds it in 1.385s at 122.9 MiB, and
+  JS generation passes in 2.768s at 173.4 MiB. BANGS=0 was inspected. Native
+  and both tested Bun binaries pass all 4,178 unchanged bigint/arithmetic,
+  carry/borrow, reduction, inversion/canonical and malformed cases. Native
+  takes 1.599s (23.3 MiB aggregate); Bun 1.3.9 takes 5.852s (70.5 MiB), and
+  Bun 1.3.13 takes 5.786s (73.6 MiB). Actual --version observations identify
+  the .bun executable as 1.3.9 and the selected mise binary as 1.3.13, despite
+  its directory label 1.1.42. The optimizing-JIT evaluator configuration explicitly
+  enables useJIT/useDFGJIT, with --smol and a 64 MiB reported-RAM GC hint.
+  Compiler invocations disable JIT and use the 128 MiB hint; these are separate
+  invocation configurations, not memory quotas or timing/erasure evidence.
+  The draft Io.args needed correction: a match is not an IO-block term, and
+  List<String> is affine. It now returns List.tail(&1, String, values).
+  All eight empty/option/delimiter/space/Unicode byte-preservation cases pass
+  on native/Bun. The first Bun invocation fails because Bun consumes its host
+  delimiter; an independent process.argv probe confirms exactly one removed
+  delimiter. Supplying that host delimiter separately preserves every expected
+  Bend argument. The original failed invocation and probe remain retained.
+  Native socket compilation exposed another ABI change: io_wait_time was
+  removed and parked deadlines are now IoWork.time. The isolated C adapter
+  updates all five reads; native/Bun each pass all 22 UDP literal/ephemeral,
+  byte, same-port-IP, invalid-bind, descriptor and cleanup cases, the real TCP
+  echo of all 256 octets, and receive-timeout none/data/closed outcomes.
+  The unchanged native RNG oracle passes all 20 cases, including 1 MiB and
+  invalid bounds. The complete Bun run fails the 96 MiB individual cutoff.
+  A phase-traced repeat of the unchanged full oracle confirms the failure
+  occurs at the 1,048,576-byte request (148.2 MiB aggregate sampled peak).
+  Chunked and incremental Bend printer experiments do not clear that gate;
+  a smaller GC hint also fails. The last incremental experiment's independent
+  deterministic printer oracle passes all 20 exact-byte/chunk-boundary native
+  cases, but Bun again crosses its cutoff. Those printer changes are rejected
+  and removed from the compatibility draft; the full source snapshot and
+  generated targets remain under history/stream-rng. No RNG size or oracle
+  case is reduced. This is an unresolved byte-list/runtime allocation gate,
+  not proof that switching the compiler fixes the whole stack's memory use.
+  The current 87-file patch includes the affine argv and parked-deadline fixes,
+  applies cleanly, and preserves the full acceptance contract. The official
+  compiler binary still matches the retained release-provenance SHA-256.
+  Frozen source/generated hashes, exact guarded commands, actual runtime flags,
+  all terminal results and rejected initial/streaming drafts are in
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-02/compiler-compatibility/`;
+  validation/evidence.json binds the accepted scope, and the subsequent phase
+  diagnostic/freeze resource reports are retained separately. All observed
+  owned job peaks stay below 197 MiB in this turn; cutoffs can overshoot and
+  fast processes can be missed. A fresh final process inventory finds no
+  Bend/Bun/Moon/Clang jobs. Normal pressure samples do not establish full
+  machine recovery or attribute swap ownership.
+  The primary pin remains 2.0.27. Full custom-effect/cookie/signal/TLS behavior,
+  changed-package forced checks, the repository gate and browser integration
+  remain pending; no package or repository success is claimed or rerun here.
+  Next: measure and resolve large-byte-list allocation, preserving the 1 MiB
+  RNG contract and original checks, then finish the remaining effect/lifecycle
+  and package gates before adopting the upgrade. Continue certificate semantic,
+  trust/hostname and TLS/DTLS integration after those dependencies. All 19
+  complete-stack acceptance items remain open; the full goal stays active.
+
 - 2026-10-02 (resource defaults and isolated compiler compatibility draft):
   After the renewed memory complaint, a fresh process inventory finds no
   Bend/Bun/Moon/Clang build jobs. macOS reports normal pressure at that sample

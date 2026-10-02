@@ -77,6 +77,22 @@ prevent verification. Do not present a different Bun JIT configuration as
 default optimizing-JIT acceptance; record the actual runtime flags and failed
 attempts with the results.
 
+Compiler upgrades must cover consumers of the changed runtime interfaces:
+program-name handling in `IO.args`, explicit socket bind addresses, namespaced
+effect IDs/JS registration and native parked deadlines. Verify actual Bun
+binary versions with `--version`; a mise directory label may differ from the
+binary inside it. For a generated JS program, Bun consumes its own `--`
+delimiter before Bend sees arguments. Supply that host delimiter separately
+when checking Bend's delimiter and literal runtime-option names. Record the
+exact launch command and retain the failing invocation as evidence.
+
+The current isolated 2.0.34 compatibility draft and remaining validation gates
+are referenced in `STACK_PROGRESS.md`. A successful focused arithmetic or
+socket fixture does not justify changing the repository pin or marking a
+package/repository check complete. Keep unsuccessful printer experiments out
+of the draft; preserve all RNG sizes and the original output contract while
+investigating the large-byte-list allocation gate.
+
 `bend_native.sh source.bend new-output` builds CPU fixtures in two steps:
 Bend first emits checked C and exits; clang then compiles with the same C11,
 `-O3`, pthread/math and platform-library flags as
