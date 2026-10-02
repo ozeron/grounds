@@ -148,6 +148,20 @@ construction and validator allocations. Native peaks were about 18/18/30 MiB.
 Packed storage and long-session allocation behavior still need measurement
 before the integrated data/media path is accepted.
 
+The isolated official Bend 2.0.34 compatibility investigation on 2026-10-02
+retains the full 1 MiB RNG contract. Its Bun 1.3.13 count/range diagnostic passes
+at 78.3 MiB; this narrows the unresolved allocation investigation to the printing
+path and its temporary values. The unchanged full RNG output oracle still fails
+the 96 MiB process cutoff. A chunked printer with explicit collection after host
+writes also fails (100.8 MiB sampled individual peak). Those printer/GC changes
+are archived and removed from the compatibility draft; they are not adopted.
+Generated string reversal slices and prepends characters, but these source
+observations do not establish which allocation causes the measured peak.
+The repository stays pinned to 2.0.27, and package/root acceptance is pending.
+Source hashes, generated targets and resource reports are retained under
+`/Users/ozeron/.codex/artifacts/grounds/2026-10-02/compiler-compatibility/`, with
+the rejected source and restoration manifest in `history/chunkloop-rng/`.
+
 The independent Python peer also verifies every echoed octet and rebinds each
 actual released UDP port. Median aggregate loopback echo throughput (both
 directions counted, 200 datagrams per sample) was 8.43/57.21/342.86 MiB/s native

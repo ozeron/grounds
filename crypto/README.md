@@ -183,7 +183,9 @@ bound; it remains reported, so this limit is grounded in the NIST specification.
 
 Run `moon run crypto:check --force` through the sequential
 [build guard](../tools/README.md), using its documented local recovery settings.
-The compiler cutoff is 512 MiB, with a 640 MiB total budget for the Moon job.
+The current local recovery settings are 320 MiB per process, 384 MiB aggregate
+and a 120-second deadline. Evaluator budgets remain 96/128 MiB. These are sampled
+cutoffs, not hard OS memory quotas; full gates remain pending under these limits.
 Native adapters use `tools/bend_native.sh` to release the Bend frontend before
 clang starts. JavaScript generation and all correctness checks remain Bend-based.
 The check proves that SHA-256 state output is always 32 bytes, compiles the native adapters, tests invalid-byte handling, compares SHA-256 against four published vectors and boundary/binary cases, compares HMAC against RFC 4231 and Python, and checks three RFC 5869 extract/expand vectors plus output-length boundaries. The million-`a` SHA-256 vector exercises a multi-block message.

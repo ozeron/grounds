@@ -14,6 +14,46 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 
 ## Evidence ledger
 
+- 2026-10-02 (RNG allocation evidence and experiment cleanup after memory complaint):
+  The preceding response verified that no compiler/evaluator was live, but did
+  not advance implementation. This continuation launches no Bend compiler,
+  generated evaluator or package/root gate. Saved diagnostic evidence from the
+  interrupted investigation changes the next action: `rng_count` traverses the
+  entire 1,048,576-byte result, rejects non-octets and prints count:1048576 on
+  Bun 1.3.13 at 78.3 MiB individual/group in 0.411s. Counting fits the unchanged
+  96 MiB cutoff; that does not prove the complete formatting/output path fits.
+  The chunk-loop printer fails at 121.3 MiB individual, the temporary host-RNG
+  GC trial at 110.2 MiB, and the custom write/GC trial at 100.8 MiB. All three
+  retain the full oracle and end in process-memory-cutoff/137. The initial
+  chunk-loop build failed type checking; its mistakenly launched dependent
+  oracle reports a missing JS file and is excluded from runtime evidence.
+  Inspection of generated take/reverse finds reversed-string construction and
+  character slicing/prepending; this narrows candidates for investigation but
+  does not attribute the measured peak or establish a fix. No acceptance size,
+  case, JIT setting or memory limit is reduced or raised to force success.
+  Four current experiment source files are preserved in
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-02/compiler-compatibility/history/chunkloop-rng/`;
+  its evidence.json binds source/generated hashes and all newer terminal reports.
+  The two experimental random_print effects are removed from the isolated
+  compatibility checkout, its RNG printer is restored, and every one of the
+  646 frozen checkout inputs matches validation/evidence.json again.
+  compatibility.patch retains SHA-256
+  a968550b8ff430b3594b39f39a853a1adf7a4ec40324927bdd8b4355dd4fef1c.
+  The first guarded file archiver fails closed at 23.1 MiB because macOS denies
+  physical-footprint measurement of its ps child (exit 125). Its partial source
+  restoration is independently verified before resuming; the failure report is
+  retained. Inventory is then taken separately, and the completed file archiver
+  passes at 23.2 MiB with 128/96 MiB budgets and a 120-second deadline. The fresh
+  inventory has no Bend/Bun/Clang/Moon jobs; macOS pressure is normal and swap
+  remains 5,488.75 MiB, without attributing swap or the reported historical peaks.
+  Package docs now distinguish the count diagnostic from full output acceptance
+  and remove an obsolete 512/640 MiB recovery instruction. Primary compiler and
+  protocol source remain unchanged. Next: profile and reduce formatter temporary
+  allocation before another bounded candidate evaluation, preserving the full
+  1 MiB/output contract and native/Bun exact-byte checks. Do not automatically
+  restart full gates after the complaint. Forced package/root and browser checks
+  remain pending; every one of the 19 full-stack acceptance items stays open.
+
 - 2026-10-02 (bounded compiler compatibility evidence): The previous goal turn
   made progress via 1de798a and an isolated upgrade draft. This continuation
   tests that draft using the updated primary guard, one nice-10 job at a time,
