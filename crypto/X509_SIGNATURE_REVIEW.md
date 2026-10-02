@@ -18,7 +18,9 @@ OpenSSL operations are independent test references.
 
 This is a mathematical signature result. Time validation is supplied separately
 by [x509_validity](X509_VALIDITY_REVIEW.md); composition with a trusted clock is
-still required. Issuer selection, Name/extension semantics, constraints,
+still required. Extension envelopes and duplicate checks are supplied
+separately by [x509_extensions](X509_EXTENSIONS_REVIEW.md). Issuer selection,
+Name/known extension semantics, critical-extension policy, constraints,
 chain/trust/hostname validation, TLS wire signature
 schemes and handshakes remain required. A signed fixture with invalid time
 contents deliberately verifies. Fresh fixtures also carry a wrong SAN and an

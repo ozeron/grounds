@@ -26,9 +26,11 @@ Pure Bend cryptographic primitives. This package implements SHA-1, SHA-256, HMAC
 | `bytes.bend` | `length`, `valid`, `append`, `hex` | Tail-recursive byte-list helpers |
 | `der.bend` | `decode(bytes)`, `complete(tag, bytes)` | Bounded DER TLV framing for future certificate schemas; preserves exact consumed bytes |
 | `x509_algorithm.bend` | `key(bytes)`, `signature(bytes)`, `compatible(key, signature)` | Public SHA-256 RSA/P-256 certificate algorithm admission; preserves PSS key restrictions |
+| `oid.bend` | `decode(bytes)` | Canonical primitive DER OID admission; retains encoded contents without narrowing arc values |
 | `x509_public_key.bend` | `decode(bytes)` | Complete RSA/PSS or uncompressed P-256 SPKI structural/public-parameter admission; retains algorithm restrictions |
 | `x509_certificate.bend` | `decode(bytes)` | Bounded certificate field framing; retains exact signed bytes and binds supported inner/outer algorithms |
 | `x509_validity.bend` | `decode_time(bytes)`, `decode(bytes)`, `valid_at(bytes, now)` | Strict civil UTC calendar/interval admission and inclusive validity bounds; caller supplies trusted time |
+| `x509_extensions.bend` | `decode(bytes)`, `optional(bytes)` | Exact extension envelopes, canonical OIDs/critical flags and collision-safe duplicate rejection; opaque payloads |
 | `x509_signature.bend` | `verify_signature(issuer_spki, certificate)` | Mathematical issuer-signature verification using admitted key restrictions and original signed bytes; no trust decision |
 
 Byte input and output use `List<U32>` with values 0–255. The public calls return `None{}` for an out-of-range byte; `expand` also rejects a PRK other than 32 bytes or a requested length over 8160 bytes. SHA-1 and HMAC-SHA1 return 20 bytes; SHA-256 and HMAC-SHA256 return 32 bytes. The hex helpers are for diagnostics and tests; protocols should use raw bytes.
@@ -116,6 +118,15 @@ pass 31,545 cases; the signed invalid-time-content fixture now fails this time
 owner. Trusted host-clock integration, Name/extensions, constraints/trust/
 hostname and handshake ownership remain required. See
 [X509_VALIDITY_REVIEW.md](X509_VALIDITY_REVIEW.md).
+
+`oid` and `x509_extensions` admit canonical OIDs and exact nonempty extension
+envelopes, preserving opaque payloads/order and rejecting explicit default
+critical flags and duplicate identities. Native and baseline-JIT Bun each pass
+67,731 cases, including long OIDs and exact hash collisions. The Bun evidence
+explicitly disables DFG optimization within the unchanged memory cutoff;
+default optimizing-JIT resource acceptance remains pending. Known payloads,
+critical-extension policy, Name semantics and trust/hostname still need owners.
+See [X509_EXTENSIONS_REVIEW.md](X509_EXTENSIONS_REVIEW.md).
 
 `rsa_integer_bench.py` measures a precompiled public-power evaluator with frozen
 public operands, including full-width sparse/dense exponents. It checks every

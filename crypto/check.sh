@@ -21,6 +21,7 @@ BUN_JSC_useJIT=false bend x509_algorithm_test.bend
 BUN_JSC_useJIT=false bend x509_public_key_test.bend
 BUN_JSC_useJIT=false bend x509_certificate_test.bend
 BUN_JSC_useJIT=false bend x509_validity_test.bend
+BUN_JSC_useJIT=false bend x509_extensions_test.bend --check-only
 BUN_JSC_useJIT=false bend x509_verify_cli.bend --check-only
 bend traffic_test.bend
 python3 traffic_type_check.py
@@ -52,6 +53,7 @@ BUN_JSC_useJIT=false ../tools/bend_native.sh x509_binding_cli.bend "$tmp/x509_bi
 BUN_JSC_useJIT=false ../tools/bend_native.sh x509_public_key_cli.bend "$tmp/x509_public_key" > /dev/null
 BUN_JSC_useJIT=false ../tools/bend_native.sh x509_certificate_cli.bend "$tmp/x509_certificate" > /dev/null
 BUN_JSC_useJIT=false ../tools/bend_native.sh x509_validity_cli.bend "$tmp/x509_validity" > /dev/null
+BUN_JSC_useJIT=false ../tools/bend_native.sh x509_extensions_cli.bend "$tmp/x509_extensions" > /dev/null
 BUN_JSC_useJIT=false ../tools/bend_native.sh x509_verify_cli.bend "$tmp/x509_verify" > /dev/null
 ../tools/bend_native.sh x25519_cli.bend "$tmp/x25519" > /dev/null
 ../tools/bend_native.sh traffic_write_cli.bend "$tmp/traffic_write" > /dev/null
@@ -77,6 +79,7 @@ python3 x509_algorithm_check.py -- python3 x509_algorithm_fixture.py --key "$tmp
 python3 x509_public_key_check.py -- "$tmp/x509_public_key"
 python3 x509_certificate_check.py -- "$tmp/x509_certificate"
 python3 x509_validity_check.py -- "$tmp/x509_validity"
+python3 x509_extensions_check.py -- "$tmp/x509_extensions"
 python3 x509_signature_check.py -- "$tmp/x509_verify"
 python3 x25519_check.py --iterated "$tmp/x25519"
 python3 traffic_check.py python3 traffic_fixture.py --write "$tmp/traffic_write" --read "$tmp/traffic_read" --
@@ -109,6 +112,7 @@ if command -v bun > /dev/null 2>&1; then
   BUN_JSC_useJIT=false bend x509_public_key_cli.bend -o "$tmp/x509_public_key.js" > /dev/null
   BUN_JSC_useJIT=false bend x509_certificate_cli.bend -o "$tmp/x509_certificate.js" > /dev/null
   BUN_JSC_useJIT=false bend x509_validity_cli.bend -o "$tmp/x509_validity.js" > /dev/null
+  BUN_JSC_useJIT=false bend x509_extensions_cli.bend -o "$tmp/x509_extensions.js" > /dev/null
   BUN_JSC_useJIT=false bend x509_verify_cli.bend -o "$tmp/x509_verify.js" > /dev/null
   bend x25519_cli.bend -o "$tmp/x25519.js" > /dev/null
   bend traffic_write_cli.bend -o "$tmp/traffic_write.js" > /dev/null
@@ -134,6 +138,7 @@ if command -v bun > /dev/null 2>&1; then
   python3 x509_public_key_check.py -- bun "$tmp/x509_public_key.js"
   python3 x509_certificate_check.py -- bun "$tmp/x509_certificate.js"
   python3 x509_validity_check.py -- bun "$tmp/x509_validity.js"
+  python3 x509_extensions_check.py -- bun "$tmp/x509_extensions.js"
   python3 x509_signature_check.py -- bun "$tmp/x509_verify.js"
   python3 x25519_check.py bun "$tmp/x25519.js"
   python3 traffic_check.py python3 traffic_fixture.py --bun --write "$tmp/traffic_write.js" --read "$tmp/traffic_read.js" --

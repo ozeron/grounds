@@ -34,9 +34,12 @@ Supported-profile equality is not a TLS wire SignatureScheme decision.
 
 Calendar/date contents and validity ordering/time checks are supplied
 separately by [x509_validity](X509_VALIDITY_REVIEW.md); callers must apply that
-owner to the extracted validity bytes. Name/RDN values and
-comparison, subject-SPKI validation, extension item/OID/Boolean canonicality,
-duplicates, critical extensions and constraints remain unimplemented here.
+owner to the extracted validity bytes. Extension item/OID/Boolean canonicality
+and duplicate checks are separately supplied by
+[x509_extensions](X509_EXTENSIONS_REVIEW.md); callers must apply that owner to
+the optional extension field. Name/RDN values and comparison, subject-SPKI
+validation, known extension payloads, critical-extension policy and constraints
+remain unimplemented here.
 The matrix explicitly accepts a certificate with invalid time contents to
 demonstrate that framing success cannot authorize a connection; the separate
 time owner now rejects those contents. Issuer-key
