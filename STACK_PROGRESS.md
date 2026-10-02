@@ -7,12 +7,67 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 | Layer | Current state | Next proof of progress |
 |---|---|---|
 | `wire` | Byte TCP and IPv4 UDP effects, explicit local-IP binding and OS bound-address/ephemeral-port discovery; OpenSSL TLS effects. UDP handles all octets, zero datagrams, timeout and oversize errors, with same-port/two-IP isolation and failed-bind descriptor checks. Actual SIGTERM/SIGINT stop parked native/Bun loops and release the listener; Bun uses an OS-only C11 atomic signal bridge because its synchronous runtime cannot dispatch JS signal callbacks. Bounded bulk host RNG bytes now pass native/Bun guard/error tests and supply signaling credentials. Public-pattern byte/RNG and retained UDP measurements are recorded; Bend Base supplies monotonic `IO.now`. | Verify IPv6/cancellation and packed storage/long-session allocation, retaining measured baselines; complete crypto/runtime review before secure transport. |
-| `crypto` | Bend SHA-1 for WebSocket challenge, HMAC-SHA1 for legacy STUN integrity, SHA-256, HMAC-SHA256, HKDF-SHA-256, ChaCha20, Poly1305, ChaCha20-Poly1305 AEAD, AES-128 encryption, AES-128-GCM and X25519; P-256 prime/order arithmetic and uncompressed-point ECDH, plus TLS HKDF labels and distinct affine ChaCha/AES-GCM traffic owners with 64-bit nonces/key updates and AES sending usage limits. Poly1305 products now stay below 2^26; OpenSSL remains in live cookie/TLS paths. | Resolve remaining runtime/erasure review, add mandatory P-256/RSA/ECDSA, then cookie and full handshake integration. |
+| `crypto` | Bend SHA-1 for WebSocket challenge, HMAC-SHA1 for legacy STUN integrity, SHA-256, HMAC-SHA256, HKDF-SHA-256, ChaCha20, Poly1305, ChaCha20-Poly1305 AEAD, AES-128 encryption, AES-128-GCM and X25519; P-256 prime/order arithmetic, uncompressed-point ECDH and experimental P-256/SHA-256 raw/DER ECDSA, plus TLS HKDF labels and distinct affine ChaCha/AES-GCM traffic owners with 64-bit nonces/key updates and AES sending usage limits. Poly1305 products now stay below 2^26; OpenSSL remains in live cookie/TLS paths. | Finish current ECDSA native/Bun/package verification and runtime/erasure review, add mandatory RSA, then cookie and full handshake integration. |
 | `tls` | Bend protected TLS 1.3 ChaCha20-Poly1305 and AES-128-GCM records and traffic/key lifecycle pass synthetic native/Bun differential tests; AES also reproduces RFC 8448 encrypted records. Live TLS client/server still use OpenSSL C effects; JS TLS effects return `ENOSYS`. | Complete mandatory TLS algorithms, handshake/transcripts, certificates/signatures/trust/hostname checks and real client/server interop; DTLS 1.2 for RTC. |
 | `http` | Bend HTTP/1.1 client/server, routing, JSON, cookies, auth, CORS, multipart, SSE, and server WebSocket handshake/framing/session. Native echo interops with a third-party Python client and Bun's WebSocket API. A bounded local signaling fixture admits exact Host/Origin and a public synthetic cookie before upgrade/UDP allocation; native and Bun exchange SDP with real Chrome and clean up connection-owned ICE state/sockets. | Replace the fixture selector with Bend cookie/HMAC authentication and integrate Bend TLS for browser HTTPS/WSS. |
 | `rtc` | Bend STUN parsing, IPv4 XOR-MAPPED-ADDRESS, SHA-1/SHA-256/dual integrity, FINGERPRINT, authenticated incoming/outgoing ICE Binding exchanges, retained-socket retransmissions and explicit error/integrity outcomes. IPv4 candidate/pair priorities, bounded checklist formation, stable transport references and guarded state transitions, role-driven priority reordering, a paced shared-socket transaction engine with response-only interruption, protected incoming replies and server-side role decisions, FIFO triggered queues, ordinary round-robin/foundation scheduling and generation/sent-role attempt ownership. A bounded session now binds signaled credentials, registered receiving/sending bases, observed peer-reflexive candidates, deferred incoming work, retained attempts and endpoint integrity policies. Authenticated non-symmetric responses fail only their original current pair; interrupted old listeners retire independently. The live owner fixture explicitly binds unicast IPv4 bases and queries actual local ports before candidate formation. An additive valid-list owner resolves authenticated mappings, learns locally peer-reflexive candidates from retained signed-request priority, allocates IP-keyed foundations, reranks by role and keeps late paths separate from replacement flights. A nomination-evidence owner associates current successful checks with their valid paths and retains qualified incoming intent through materialization, exact triggered flights and response-only listeners; already-Succeeded counterparts resolve their actual generating record. A generation lifecycle owner now applies regular controlling/controlled nomination, selects completed stream paths, removes nominated component checks while retaining response listeners, continues authenticated Binding service, and defers failure through PAC. An outer transport owner derives selected physical consent routes, serves authenticated consent-only Binding requests, shares actual-send pacing and recent transaction identity admission, gates logical application routes, and preserves sealed consent loss. Full/full credential restart rebuilds ICE state while retaining only selected old consent/server contexts until replacement selection. Bounded SDP/signaling now binds connection-owned credentials and the actual retained UDP base; real Chrome verifies direct selected pairs, fresh consent, restart and cleanup on native and Bun. Separate unauthenticated discovery remains available. | Complete crypto/runtime foundations and secure signaling, then gathering, IPv6/TURN, DTLS/SCTP and SRTP/media. |
 
 ## Evidence ledger
+
+- 2026-10-02 (experimental ECDSA checkpoint under unchanged resource cutoffs):
+  Added Bend P-256/SHA-256 raw digest signing/verification, RFC 6979 deterministic
+  nonce generation and a strict DER signature boundary. Current accepted
+  `p256.bend` and `field256.bend` remain byte-identical. Private/signature/nonce
+  scalars require 1..n-1; digest integers reduce modulo n. Verification validates
+  the SEC1 point, rejects an infinity sum and compares x modulo n. Signing rejects
+  zero r/s, uses the HMAC rejection update and fails closed after 128 candidates.
+  The current RFC Editor search confirms verified RFC 6979 erratum 3812 adds
+  zero-s retry; held editorial 5963 changes notation only. Exact source/review
+  links and unresolved secret-derived branch, runtime/JIT and erasure findings
+  are in `crypto/ECDSA_REVIEW.md`. No live TLS/DTLS path consumes this API.
+  All 30 selected NIST rows match the previously downloaded official archive,
+  and archive/RFC text hashes match the vector manifest. A new NIST fetch returns
+  403; this is local re-verification, not a successful current download.
+  Five narrower evaluators retain each complete Bend operation; Python only
+  routes batches. The discarded combined evaluator crosses the 512 MiB cutoff
+  at 526.5 MiB. The long rejection dispatcher also crosses it at 522.3 MiB;
+  short fixture opcodes preserve its operations and compile below the limit.
+  Initial five native builds peak at 207.2–356.3 MiB; six original closed checks
+  and five JavaScript builds pass at 304.4 MiB. Current primary six closed checks,
+  all five native builds, all 384 native ECDSA cases, all 1,388 native DER cases
+  and all 51 Bun rejection cases pass in the guarded `run-primary-focused.sh`
+  command, peak 363.8 MiB. Native ECDSA takes 12.688s, DER 0.562s; Bun rejection
+  takes 10.474s, including actual zero/n/n+1 nonce-candidate rejection.
+  A slow Bun probe passes all 49 published-vector cases in 376.636s, then is
+  deliberately stopped at 511.202s for a runtime comparison (exit 143).
+  Clearing BUN_OPTIONS alone retains the reported-RAM heuristic and same cutoff
+  but times out at 180.018s, peak 190.7 MiB; it proves no complete matrix or
+  improvement and was not adopted. No overlapping compiler/test jobs ran.
+  Artifacts: `/Users/ozeron/.codex/artifacts/grounds/2026-10-02/ecdsa-current/`,
+  with `probe-provenance.json`, `tested-inputs.json`,
+  `published-vector-provenance.json`, `generated-js-review.json`,
+  `gate-coverage-review.json`, `primary-focused-*`, `primary-native/checks.json`,
+  `primary-native/bun-rejection.json` and `bun-*-resource.json`/logs.
+  The package check retains every previous command and adds the complete native
+  and Bun ECDSA/DER matrices. Full Bun sections and forced crypto/repository gates
+  are pending at this checkpoint; native vectors alone do not accept the package.
+  Next: run fresh guarded `moon --concurrency 1 run crypto:check --force`, inspect
+  the complete result and input stability, then the required repository gate.
+  Preserve all 19 open full-stack boxes; RSA, generated-runtime/erasure approval,
+  Bend cookie/TLS/DTLS and integrated secure browser/relay/data/media remain open.
+
+- 2026-10-02 (unaccepted JSON numeric/value factoring): The compact/pretty
+  generator was reduced from 303 transition rows per loop to 187, then 142 by
+  sharing numeric decisions and leading nonzero-digit handling. A flat candidate
+  still crosses the unchanged 512 MiB cutoff at 560.0 MiB; a grouped numeric
+  candidate crosses at 548.2 MiB during source loading. No candidate passes the
+  constructor/proof/conformance gate. All five original files, including the
+  head template, generator, fast source and two proof sources, are restored
+  byte-identically and reverified before this checkpoint. Rejected sources,
+  traces, resource reports and `restoration.json` are archived in
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-02/json-numeric-recovery/`.
+  Grouping alone is not an accepted recovery. JSON and signaling compiler
+  recovery remain required alongside the signatures/TLS dependency work.
 
 - 2026-10-02 (guarded HTTP core and narrower signaling helpers): Fresh
   `moon --concurrency 1 run http_core:check --force` passes with Bend 2.0.27,

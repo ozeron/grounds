@@ -1,6 +1,6 @@
 # grounds-crypto
 
-Pure Bend cryptographic primitives. This package implements SHA-1, SHA-256, HMAC-SHA1, HMAC-SHA256, HKDF-SHA-256, ChaCha20, Poly1305, ChaCha20-Poly1305 AEAD, AES-128 encryption, AES-128-GCM, X25519 and P-256 ECDH. They are **experimental**: cookie signing and TLS still use OpenSSL while the Bend implementation is verified and its generated code is reviewed for timing behavior. Plain SHA-1 is used only for the WebSocket handshake challenge; HMAC-SHA1 is for the legacy STUN MESSAGE-INTEGRITY attribute.
+Pure Bend cryptographic primitives. This package implements SHA-1, SHA-256, HMAC-SHA1, HMAC-SHA256, HKDF-SHA-256, ChaCha20, Poly1305, ChaCha20-Poly1305 AEAD, AES-128 encryption, AES-128-GCM, X25519, P-256 ECDH and P-256/SHA-256 ECDSA. They are **experimental**: cookie signing and TLS still use OpenSSL while the Bend implementation is verified and its generated code is reviewed for timing behavior. Plain SHA-1 is used only for the WebSocket handshake challenge; HMAC-SHA1 is for the legacy STUN MESSAGE-INTEGRITY attribute.
 
 | Module | Public calls | Source |
 |---|---|---|
@@ -18,6 +18,7 @@ Pure Bend cryptographic primitives. This package implements SHA-1, SHA-256, HMAC
 | `x25519.bend` | `scalar_mult(scalar, u)`, `public_key(scalar)`, `shared(scalar, peer_public)` | RFC 7748 |
 | `field25519.bend` | Internal `add`, `sub`, `mul`, `square`, `decode`, `encode` | GF(2^255-19) arithmetic used by X25519 |
 | `p256.bend` | `public_key(private)`, `shared(private, peer_public)`, `decode(peer_public)` | SP 800-186 P-256 / SEC 1 v2.0 ECDH |
+| `ecdsa_scheme256.bend` | `sign_digest(private, digest)`, `verify_digest(peer, digest, signature)` | RFC 6979 / SEC 1 v2.0; strict DER signature boundary |
 | `field256.bend` | Internal P-256 prime/order `add`, `sub`, `mul`, `square`, `invert`, `decode_canonical` | SP 800-186 section 3.2.1.3 arithmetic foundation |
 | `bytes.bend` | `length`, `valid`, `append`, `hex` | Tail-recursive byte-list helpers |
 
@@ -284,3 +285,38 @@ validating protocol API. The JSON fixture pins the NIST archive URL/hash and is
 included in Moon's crypto input hash. Encoding and validation follow
 [Standards for Efficient Cryptography 1 (SEC 1) v2.0](https://www.secg.org/sec1-v2.pdf),
 sections 2.3.3–2.3.4, 3.2.2 and 3.3.1.
+
+`ecdsa_scheme256.bend` supplies P-256/SHA-256 ECDSA over an already-computed
+32-byte SHA-256 digest. Signing accepts a canonical nonzero 32-byte big-endian
+private scalar and returns a strict DER signature or `None`; verification accepts
+a validated uncompressed 65-byte SEC1 public key and returns `Bool`. Both signature
+scalars must lie in 1..n-1. DER rejects trailing bytes, negative/zero/nonminimal
+integers, non-byte input, wrong tags and long-form length aliases. The internal
+`ecdsa256` verifier and `ecdsa_sign256` signer use r_BE32 || s_BE32. Digest integers
+may exceed n and are reduced in scalar arithmetic; private, signature and nonce
+scalars must be canonical rather than reduced into range.
+
+The signer follows RFC 6979 section 3.2 HMAC-SHA256 initialization and rejection,
+including rejection of zero r and zero s. It tries at most 128 candidates and
+fails closed on exhaustion. Nonce candidates are compared to n, never reduced
+modulo n. Public signature DER encoding is a separate narrow module; certificate
+DER parsing, trust, hostname and TLS handshake ownership are still pending.
+Signing is deterministic for a given private scalar/digest; this API supplies
+neither private-key generation nor a nonce/key storage owner.
+
+The crypto gate retains every previous check and adds six closed byte/exhaustion
+checks, the NIST P-256/SHA-256 SigGen/SigVer rows, RFC 6979 sample/test signatures,
+an independent affine/HMAC oracle, deterministic repeats, digest/key/signature
+mutations, raw/DER range and length failures, infinity rejection, nonce rejection
+transitions and bidirectional OpenSSL DER interop on native and Bun. The separate
+DER matrix has 1,388 canonical, sign-pad, all-bit, range, tag, length and trailing
+cases. These remain correctness gates, not NIST validation or timing approval.
+Each entire operation executes in one Bend evaluator; the Python fixture routes
+batches sequentially among public DER, raw signing, raw verification, DER and
+synthetic rejection evaluators. It does not implement crypto or DER conversion.
+Short rejection-fixture opcodes reduce compiler literal-pattern expansion. No
+protocol consumes the synthetic known-nonce, artificial-point or retry hooks.
+
+See [ECDSA review](ECDSA_REVIEW.md) for the current evidence and unresolved
+generated-runtime/erasure findings. ECDSA is experimental and must use synthetic
+keys until those findings are resolved; it is not connected to a live TLS/DTLS path.
