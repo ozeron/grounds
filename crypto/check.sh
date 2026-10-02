@@ -17,6 +17,7 @@ bend rsa_encoding_test.bend
 bend rsa_integer_test.bend
 bend rsa_signature256_test.bend
 bend der_test.bend
+BUN_JSC_useJIT=false bend x509_algorithm_test.bend
 bend traffic_test.bend
 python3 traffic_type_check.py
 bend PROOF.bend
@@ -41,6 +42,9 @@ bend PROOF.bend
 ../tools/bend_native.sh rsa_integer_cli.bend "$tmp/rsa_integer" > /dev/null
 ../tools/bend_native.sh rsa_signature256_cli.bend "$tmp/rsa_signature" > /dev/null
 ../tools/bend_native.sh der_cli.bend "$tmp/der" > /dev/null
+BUN_JSC_useJIT=false ../tools/bend_native.sh x509_key_cli.bend "$tmp/x509_key" > /dev/null
+BUN_JSC_useJIT=false ../tools/bend_native.sh x509_signature_cli.bend "$tmp/x509_signature" > /dev/null
+BUN_JSC_useJIT=false ../tools/bend_native.sh x509_binding_cli.bend "$tmp/x509_binding" > /dev/null
 ../tools/bend_native.sh x25519_cli.bend "$tmp/x25519" > /dev/null
 ../tools/bend_native.sh traffic_write_cli.bend "$tmp/traffic_write" > /dev/null
 ../tools/bend_native.sh traffic_read_cli.bend "$tmp/traffic_read" > /dev/null
@@ -61,6 +65,7 @@ python3 rsa_encoding_check.py -- "$tmp/rsa_encoding"
 python3 rsa_integer_check.py -- "$tmp/rsa_integer"
 python3 rsa_signature256_check.py -- "$tmp/rsa_signature"
 python3 der_check.py -- "$tmp/der"
+python3 x509_algorithm_check.py -- python3 x509_algorithm_fixture.py --key "$tmp/x509_key" --signature "$tmp/x509_signature" --binding "$tmp/x509_binding" --der "$tmp/der" --
 python3 x25519_check.py --iterated "$tmp/x25519"
 python3 traffic_check.py python3 traffic_fixture.py --write "$tmp/traffic_write" --read "$tmp/traffic_read" --
 python3 traffic_aes_check.py python3 traffic_fixture.py --write "$tmp/traffic_write" --read "$tmp/traffic_read" --
@@ -86,6 +91,9 @@ if command -v bun > /dev/null 2>&1; then
   bend rsa_integer_cli.bend -o "$tmp/rsa_integer.js" > /dev/null
   bend rsa_signature256_cli.bend -o "$tmp/rsa_signature.js" > /dev/null
   bend der_cli.bend -o "$tmp/der.js" > /dev/null
+  BUN_JSC_useJIT=false bend x509_key_cli.bend -o "$tmp/x509_key.js" > /dev/null
+  BUN_JSC_useJIT=false bend x509_signature_cli.bend -o "$tmp/x509_signature.js" > /dev/null
+  BUN_JSC_useJIT=false bend x509_binding_cli.bend -o "$tmp/x509_binding.js" > /dev/null
   bend x25519_cli.bend -o "$tmp/x25519.js" > /dev/null
   bend traffic_write_cli.bend -o "$tmp/traffic_write.js" > /dev/null
   bend traffic_read_cli.bend -o "$tmp/traffic_read.js" > /dev/null
@@ -106,6 +114,7 @@ if command -v bun > /dev/null 2>&1; then
   python3 rsa_integer_check.py -- bun "$tmp/rsa_integer.js"
   python3 rsa_signature256_check.py -- bun "$tmp/rsa_signature.js"
   python3 der_check.py -- bun "$tmp/der.js"
+  python3 x509_algorithm_check.py -- python3 x509_algorithm_fixture.py --bun --key "$tmp/x509_key.js" --signature "$tmp/x509_signature.js" --binding "$tmp/x509_binding.js" --der "$tmp/der.js" --
   python3 x25519_check.py bun "$tmp/x25519.js"
   python3 traffic_check.py python3 traffic_fixture.py --bun --write "$tmp/traffic_write.js" --read "$tmp/traffic_read.js" --
   python3 traffic_aes_check.py python3 traffic_fixture.py --bun --write "$tmp/traffic_write.js" --read "$tmp/traffic_read.js" --

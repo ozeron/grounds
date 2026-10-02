@@ -50,8 +50,9 @@ Apple clang 21 and OpenSSL 3.6.4 are used.
 Evidence: `/Users/ozeron/.codex/artifacts/grounds/2026-10-02/x509-algorithm/`,
 including `evidence.json`, `der-final-build.log`, `der-native.json`,
 `der-bun.json`, fresh primary checks, public fixtures, retained C/JS and resource
-reports. The separate algorithm-admission draft is retained only in that
-isolated checkout: its runtime adapters crossed the unchanged compiler cutoff,
-so it is unverified and is not adopted. RFC 4055/5756/5480/5758 and current
-verified errata were inspected for that next stage. Complete crypto/repository
-gates remain stopped after the memory complaint; the full stack is unfinished.
+reports. That checkpoint's unverified algorithm draft crossed the compiler
+cutoff. A later standalone compiler workaround and both-target verification
+support the now-adopted [algorithm admission module](X509_ALGORITHM_REVIEW.md);
+its separate evidence is in `../x509-admission/` beside this artifact root.
+Complete crypto/repository gates remain stopped after the memory complaint;
+the full stack is unfinished.

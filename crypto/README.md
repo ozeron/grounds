@@ -25,6 +25,7 @@ Pure Bend cryptographic primitives. This package implements SHA-1, SHA-256, HMAC
 | `field256.bend` | Internal P-256 prime/order `add`, `sub`, `mul`, `square`, `invert`, `decode_canonical` | SP 800-186 section 3.2.1.3 arithmetic foundation |
 | `bytes.bend` | `length`, `valid`, `append`, `hex` | Tail-recursive byte-list helpers |
 | `der.bend` | `decode(bytes)`, `complete(tag, bytes)` | Bounded DER TLV framing for future certificate schemas; preserves exact consumed bytes |
+| `x509_algorithm.bend` | `key(bytes)`, `signature(bytes)`, `compatible(key, signature)` | Public SHA-256 RSA/P-256 certificate algorithm admission; preserves PSS key restrictions |
 
 Byte input and output use `List<U32>` with values 0–255. The public calls return `None{}` for an out-of-range byte; `expand` also rejects a PRK other than 32 bytes or a requested length over 8160 bytes. SHA-1 and HMAC-SHA1 return 20 bytes; SHA-256 and HMAC-SHA256 return 32 bytes. The hex helpers are for diagnostics and tests; protocols should use raw bytes.
 
@@ -32,8 +33,16 @@ Byte input and output use `List<U32>` with values 0–255. The public calls retu
 a 65,535-byte input bound. `decode` returns the tag, body, unconsumed rest and
 exact consumed encoding; `complete` additionally requires the selected tag and
 no trailing bytes. Eight closed checks and 1,552 native/Bun oracle cases pass.
-Certificate schemas, primitive-value rules, algorithm/key admission, trust and
+Certificate schemas, primitive-value rules, key-bit admission, trust and
 handshake integration remain required. See [DER_REVIEW.md](DER_REVIEW.md).
+
+`x509_algorithm.bend` parses complete certificate AlgorithmIdentifiers for
+SHA-256 RSA PSS/v1.5 signatures and P-256 ECDSA. RSA and PSS-only key identities
+remain distinct; present PSS parameters bind hash/MGF/trailer and a retained
+minimum salt. Native and Bun each pass 4,563 cases; seven algorithm closed
+checks pass. This does not decode SPKI bits, verify a certificate or implement
+TLS wire SignatureScheme admission. See [X509_ALGORITHM_REVIEW.md](X509_ALGORITHM_REVIEW.md)
+for supported encodings, compiler memory evidence and pending integration.
 
 RSA encoding is an experimental component, documented in
 [RSA_REVIEW.md](RSA_REVIEW.md). PSS uses a 32-byte digest, MGF1-SHA-256 and a
@@ -42,7 +51,7 @@ encoding bound, not a permitted TLS key-size policy. PKCS#1 v1.5 uses the exact
 SHA-256 DER DigestInfo including NULL parameters, with encoded lengths 62–512
 bytes. MGF1 accepts valid seeds and output lengths through 512 bytes. Encoding
 returns `None{}` on invalid input; verification returns `False{}`. RSA
-private exponentiation, salt generation, certificate algorithms and private-key
+private exponentiation, salt generation and private-key
 lifecycle are not implemented here. `rsa_integer.public_operation` separately
 admits canonical unsigned big-endian odd moduli of 2048–4096 bits, canonical
 odd exponents greater than one and below the modulus, and exactly `k` valid
@@ -58,8 +67,9 @@ their complete width. Native and Bun each pass 774 full-signature cases and
 The shift reuses its owned array and clears the vacated high cell. Measured
 array creation decreases; a reduction in peak RAM or execution time has not
 been established. Complete package/repository gates remain pending.
-Certificate algorithm restrictions, key validation and trust remain required
-before integration. See [RSA_REVIEW.md](RSA_REVIEW.md) for evidence and limits.
+Binding the decoded certificate algorithm restrictions to actual key/signature
+verification, key validation and trust remains required before integration.
+See [RSA_REVIEW.md](RSA_REVIEW.md) for evidence and limits.
 
 `rsa_integer_bench.py` measures a precompiled public-power evaluator with frozen
 public operands, including full-width sparse/dense exponents. It checks every
