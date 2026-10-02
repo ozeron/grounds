@@ -14,6 +14,57 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 
 ## Evidence ledger
 
+- 2026-10-02 (JSON pattern expansion diagnosis; failed layouts retired):
+  The preceding user-triggered turn verified that no Bend/Bun/Moon/clang jobs
+  remained and macOS memory pressure was normal; retained swap was 4.8 GiB.
+  This continuation keeps Bend builds stopped and inspects the unmodified
+  official 2.0.34 frontend source. Four previously attempted isolated JSON
+  layouts remain unaccepted: mutually referring per-mode helpers fail the
+  filled-definition rule; mode-before-fuel nesting fails the consumed-binder
+  rule; fuel-first nesting and continuation helpers still cross the unchanged
+  320 MiB individual cutoff during --check-only. The continuation attempt is
+  terminal at 322.3 MiB / 4.260 seconds. The unchanged JSON specification alone
+  passes frontend checking at 88.5 MiB / 1.204 seconds. None of these results
+  completes the JSON package, runtime, conformance or proof gates.
+  Official parse_patt expands character literals through Chr/U32 into 32-bit
+  WCon/Bool patterns. A source-only topology model counts 19,892 Mat nodes per
+  original loop versus 517 with hypothetical atomic character tags; NInt alone
+  expands its 23 transition rows to 2,362 nodes. An independent diagnostic calls
+  the release's unmodified match_flatten with original patterns and synthetic
+  bodies. All 70 per-mode comparisons agree, covering all 35 modes and 303
+  transitions in both representations. It passes in 0.273 seconds / 72.2 MiB
+  under the unchanged standalone 128/96/120 guard, with normal pressure.
+  No Bend loader, type checker, emitter or package build runs in this diagnostic.
+  It uses Bun 1.3.9 with evaluator JIT enabled and collects only discarded
+  synthetic diagnostic trees between modes. This confirms pattern topology,
+  not the precise compiler allocation site or a fix. Splitting modes retains
+  the expanded literal patterns; a classifier is the next hypothesis to test.
+  The earlier diagnostic attempts are retained: Python initially rejects Bend's
+  braced Unicode escape, Node cannot locate the release Base, and a full-matrix
+  Bun count crosses the 96 MiB individual cutoff at 105.2 MiB in 0.273 seconds.
+  No cutoff is raised; sampled limits can overshoot. Mode-sized analysis retains
+  every original transition and is not a reduced parser acceptance suite.
+  All four rejected layouts preserve 606 generator transition templates and
+  six public headers, which does not establish their dispatch or runtime
+  semantics. The latest experiment and its full source freeze are archived;
+  the disposable checkout is restored to all 652 exact router-pair draft hashes
+  in 0.231 seconds / 24.8 MiB, without compilation. Primary parser, compiler
+  pin, accepted 99-file draft patch and previous gate freezes are unchanged.
+  Evidence under
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-02/compiler-compatibility/`
+  includes official-source/frontend-source-provenance.json,
+  validation/json-match-analysis.json, json-match-release-mode-crosscheck.json,
+  json-frontend-diagnosis-evidence.json, json-continuation-inputs.json,
+  json-static-match-* logs/resource reports and json-restore-tested-draft-*;
+  history/ retains every rejected layout and failed diagnostic source.
+  Next: implement a shared Bend character classifier in the isolated draft,
+  preserving raw chars, fatal/EOF/fuel precedence, all six APIs, every original
+  transition and all parser/layout/proof/conformance cases. Establish its
+  unchanged-budget frontend/runtime gates before rerunning the full JSON gate
+  and remaining forced package/root checks. Primary remains Bend 2.0.27;
+  all 19 full-stack requirements, secure direct/relay data/media and timing/
+  private-secret ownership remain open. bounty/ stays untouched and unstaged.
+
 - 2026-10-02 (compiler recipe replay, three more forced gates, JSON cutoff diagnosis):
   The preceding turn made progress in 5d43366 with fresh isolated HTTP core and
   UTF-8 gates. Current primary is clean apart from unrelated bounty/. Fresh
