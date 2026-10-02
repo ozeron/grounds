@@ -14,6 +14,42 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 
 ## Evidence ledger
 
+- 2026-10-02 (issuer-signature integration draft; bounded compiler failure):
+  After framing commit `9c0ff13`, the isolated `x509_signature.bend` draft
+  connects issuer SPKI admission, certificate algorithm compatibility, original
+  TBS SHA-256, RSA PSS/v1.5 and strict-DER P-256 ECDSA verification. Its initial
+  whole CLI type-check passes with unmodified Bend 2.0.27 source, peak 290.3 MiB.
+  Native generation then crosses the unchanged 320 MiB individual cutoff.
+  Diagnostic output reaches C `compile-book` preparation but no per-function
+  emission before cutoff. An isolated compiler experiment adds full GC only
+  at C emission start/after emitter cache clearing; it still cuts off at
+  322.6 MiB. The language kernel is byte-identical to upstream. This unsuccessful
+  compiler patch is not adopted or used as acceptance evidence. Unmodified
+  source JS generation also cuts off. Removing an unnecessary ECDSA private
+  signing-facade import retains public verification/strict DER but both final
+  C/JS generation still cut off at 320.6/320.8 MiB. No verifier runtime result
+  or source-module adoption is claimed; drafts remain in the artifact checkout.
+  Four fresh public fixtures prepare RSA-v1.5/PSS issuers with P-256 subjects,
+  an ECDSA issuer with an RSA subject, and a mathematically signed certificate
+  with deliberately invalid time contents. Fixtures also retain a wrong SAN
+  and unknown critical extension to prevent confusing signature validity with
+  trust. OpenSSL 3.6.4 independently verifies each signed TBS; all temporary
+  synthetic private keys are removed before public export. Peer preparation
+  passes at 32.3 MiB. Independent Python bigint/affine verification validates
+  21 expected cases, including subject-versus-issuer keys, signature tampering,
+  trailing bytes, NULL/absent equivalence and PSS-only/restricted-key bindings.
+  These are peer/oracle results, not Bend results. Every job stays sequential,
+  nice 10, with 120-second deadlines and normal pressure observations under
+  existing 384/320 MiB compiler or 128/96 MiB preparation/evaluation cutoffs;
+  no limits are raised and full gates remain stopped. See the framing artifact
+  directory's `signature-followup.json`, exact resource/log files, isolated GC
+  patch/provenance, `signature-peer-vectors.json` and `signature-oracle-check.py`.
+  Next: localize whole-verifier preparation allocation and reduce retained
+  compiler/source graph without dropping supported signature algorithms;
+  compare any compiler change against known generated C before runtime tests.
+  Continue semantic certificate/time/Name/extensions and trust/TLS integration;
+  all 19 full-stack acceptance boxes remain open.
+
 - 2026-10-02 (certificate field framing; source-native build):
   `crypto/x509_certificate.bend` extracts one complete, bounded certificate
   envelope in Bend and retains original TBSCertificate bytes. Affine public
