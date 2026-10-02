@@ -2,7 +2,8 @@
 
 `rsa_encoding.bend` implements SHA-256 MGF1, EMSA-PSS encoding/admission and
 EMSA-PKCS1-v1_5 encoding/admission in Bend. It is a component of the required
-RSA signature path. RSA signing/verification as a complete scheme, TLS
+RSA signature path. `rsa_integer.bend` now supplies the public RSA primitive.
+RSA signing/verification as a complete scheme, TLS
 certificate handling and live-secret approval remain incomplete.
 
 ## Interface and boundaries
@@ -15,12 +16,12 @@ certificate handling and live-secret approval remain incomplete.
 | `v15_encode_digest(length, digest)` | Encoded length and 32-byte SHA-256 digest | `Maybe` representative; 62–512 bytes, at least eight FF padding bytes |
 | `v15_verify_digest(digest, encoded)` | Valid bytes and 32-byte SHA-256 digest | `Bool`; exact canonical SHA-256 DER DigestInfo with NULL parameters |
 
-These functions do not accept messages or signatures. The PSS caller supplies
+The encoding functions do not accept messages or signatures. The PSS caller supplies
 `emBits = modulusBits - 1`; it must generate a fresh salt using a trusted RNG.
 The v1.5 verifier derives its expected padding width from the supplied encoded
-representative. A future RSA owner must separately enforce the modulus's
-signature/representative width, representative range, valid public/private
-parameters and protocol key-size policy. The 521-bit minimum is a padding
+representative. `rsa_integer.public_operation` enforces public parameter
+admission, signature width and representative range; future scheme/key owners
+still need full parameter validation and protocol policy. The 521-bit minimum is a padding
 boundary, not permission to use a 522-bit RSA key in TLS.
 
 MGF1 emits SHA-256(seed || four-byte big-endian counter) blocks and truncates
@@ -82,10 +83,59 @@ generated-code constant-time behavior or secure erasure. No private key is
 handled by this component; supplied salt/digest lists may still be copied by
 the generated runtime. Synthetic fixtures only until the complete review passes.
 
-Next implement Bend RSA integer conversion, modular exponentiation and
-RSAVP1/RSASP1 with strict primitive admission; connect PSS/v1.5 scheme owners.
-Private operations need blinding, fault checks, key ownership/retirement and
+Next connect the public primitive to PSS/v1.5 scheme owners, then implement
+RSASP1 with private-key admission. Private operations need blinding, fault checks, key ownership/retirement and
 generated-code review. Certificate AlgorithmIdentifiers must bind hash/MGF/salt,
 SPKI restrictions, trust and hostname policy before handshake integration.
 All required native/Bun vectors, malformed cases and independent full-signature
 interop still apply to those future owners.
+
+## Public RSA integer primitive
+
+`rsa_integer.public_operation(modulus, exponent, signature)` implements
+[RFC 8017 RSAVP1](https://www.rfc-editor.org/rfc/rfc8017.html#section-5.2.2)
+in Bend, returning `Maybe` of exactly `k` big-endian bytes. Moduli must be
+canonical unsigned byte strings representing odd 2048–4096-bit integers.
+The public exponent must be canonical, odd, greater than one and below the
+modulus. Signature bytes must be valid, exactly `k` bytes and represent a value
+below the modulus. Zero signature representatives are permitted by the
+primitive; the signature encoding layer determines whether the recovered value
+is admissible. Leading zeros in fixed-width signatures are permitted; aliases
+of the modulus/exponent are rejected.
+
+This assumes a valid RSA public key; parity/size/range admission cannot prove
+the modulus's factor structure or its relationship to the exponent. Public
+exponents are scanned as byte strings, without U32 truncation. Published cases
+cover 21–24-bit exponents, synthetic cases include 65537/U32 maximum and a
+65-bit exponent. Exponents approaching the modulus's full bit length have not
+been benchmarked or accepted as an integrated handshake performance gate.
+
+Integers use 15-bit little-endian limbs in affine 512-cell U32 arrays, at most
+274 limbs plus two carry cells. Coarsely integrated Montgomery multiplication
+follows [HAC algorithm 14.36](https://cacr.uwaterloo.ca/hac/about/chap14.pdf).
+Every inner sum is at most `32767^2 + 2*32767 = 2^30-1`; cancellation preserves
+both high carry cells before division by the radix. A final biased subtraction
+and 0/32767 masks select the canonical result. Four Newton steps compute the
+negative low-limb inverse modulo 32768. R-squared setup starts at the public
+modulus's highest power of two, avoiding its initial trivial doublings.
+
+The public exponent controls multiply branches. This is explicitly a public
+operation; it must not be used as private exponentiation. Arrays are threaded
+through owned states; public operand clones are explicit. Fixed limb loops
+and masked subtraction alone do not prove generated-code timing safety or
+erasure. Those findings remain unresolved for live private-key use.
+
+The exact adopted arithmetic/CLI/checker sources passed 725 independent cases
+on native and Bun: byte conversion 58, negative inverses 155, Montgomery
+products 285, R-squared contexts 57, public powers 39, published RSAVP1
+representatives 110 and parameter/width/range admission 21. Tests span limb
+boundaries through 4096 bits and preserve independently recovered NIST values;
+both outputs are computed by Bend. Eleven closed checks additionally cover
+small arithmetic witnesses and malformed-byte/key/range admission. Full
+PSS/v1.5 signature scheme and private RSA acceptance still remain outstanding.
+
+Artifacts: `/Users/ozeron/.codex/artifacts/grounds/2026-10-02/rsa-integer/`.
+Native/Bun matrices took 1.133s/69.129s and peaked at 24.5/83.2 MiB respectively.
+Native/JS compilation peaked at 238.6/167.7 MiB. All jobs were sequential,
+guarded, nice 10, with a 120-second deadline; compilation/Bun caps were
+384 MiB aggregate / 320 MiB individual. All observed system pressure was normal.
