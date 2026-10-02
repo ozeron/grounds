@@ -2,7 +2,7 @@
 
 `x509_certificate.decode(bytes)` extracts one bounded certificate envelope in
 Bend or returns `None`. It preserves the original DER encoding of TBSCertificate
-for the future signature verifier. This is field framing and selected algorithm
+for `x509_signature`. This is field framing and selected algorithm
 admission; it does not establish certificate validity or trust.
 
 The returned affine public records are `Certificate{tbs, algorithm, signature}`
@@ -37,8 +37,9 @@ comparison, subject-SPKI validation, extension item/OID/Boolean canonicality,
 duplicates, critical extensions and constraints remain unimplemented here.
 The matrix explicitly accepts a certificate with invalid time contents to
 demonstrate that framing success cannot authorize a connection. Issuer-key
-selection, mathematical signature verification, chain/trust/hostname checks,
-TLS scheme admission and handshake integration remain required. Public-key
+selection, chain/trust/hostname checks, TLS scheme admission and handshake
+integration remain required. Mathematical issuer-signature verification is now
+supplied separately by [x509_signature](X509_SIGNATURE_REVIEW.md). Public-key
 admission is separately available in `x509_public_key`; it is not applied to
 the subject merely to extract a certificate's signed fields.
 
