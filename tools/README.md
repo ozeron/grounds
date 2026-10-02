@@ -67,6 +67,21 @@ Verify guard behavior without compiling Bend:
 PYTHONDONTWRITEBYTECODE=1 python3 tools/build_guard_test.py
 ```
 
+Run this small test driver directly as shown: it guards each test workload.
+Wrapping the driver in another guard also monitors its `ps` inspection helpers.
+On this macOS host `/bin/ps` is setuid root, so that outer monitor can fail
+closed with `EPERM` when reading its memory. This does not justify ignoring
+memory-read errors for live processes. The 13 self-tests passed on 2026-10-02;
+the failed nested attempts are retained in the extension resource investigation.
+
+Current focused recovery jobs use smaller explicit budgets than the historical
+Moon examples above: 384 MiB aggregate / 320 MiB per compiler process, and
+128/96 MiB for evaluators, with a 120-second deadline and nice 10. Keep the
+full package/repository gates pending when these budgets or system pressure
+prevent verification. Do not present a different Bun JIT configuration as
+default optimizing-JIT acceptance; record the actual runtime flags and failed
+attempts with the results.
+
 `bend_native.sh source.bend new-output` builds CPU fixtures in two steps:
 Bend first emits checked C and exits; clang then compiles with the same C11,
 `-O3`, pthread/math and platform-library flags as

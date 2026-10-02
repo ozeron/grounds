@@ -14,6 +14,91 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 
 ## Evidence ledger
 
+- 2026-10-02 (guard review and extension allocation investigation): All 13
+  guard self-tests pass fresh in 6.852s, with no Bend build. Two attempts to
+  wrap the test driver in another guard fail closed on memory-read denial
+  (30.8/63.7 MiB sampled aggregate peaks); this host's root-owned setuid `ps`
+  helper is incompatible with that outer monitor. The documented driver guards
+  each small test workload. A speculative exit-race change was removed; guard
+  source/tests are unchanged. `tools/README.md` records the test-driver boundary
+  and current focused budgets.
+  The isolated extension matrix's normal optimizing-JIT Bun run exits 137 at
+  the existing 96 MiB individual cutoff, sampled 123.0 MiB individual / 153.1
+  MiB aggregate. A diagnostic localizes the failure to 8,000 distinct extension
+  entries in 63,876 bytes. The draft printer now accumulates rows directly, and
+  duplicate admission reuses Base `Map.seek` for comparison and insertion
+  instead of a separate has/set traversal. Both rebuilds pass, at 172.1/170.0
+  MiB aggregate peaks, but neither clears the Bun runtime cutoff. A smaller GC
+  hint also fails. Generated targets from before each change are preserved.
+  An admission-only fixture still fails with optimizing JIT (116.6 MiB
+  individual), then passes with all JIT disabled (38.2 MiB) and with only DFG
+  disabled (54.6 MiB, retaining baseline JIT). These are diagnostic cases, not
+  replacement whole-matrix acceptance. The attempted complete baseline-JIT
+  matrix was refused before launch at system warning pressure (exit 125,
+  peak 0); fresh pressure reads remain level 2, swap occupied 3289.75 MiB.
+  No limits are raised, no compiler patch/global upgrade is adopted, and no
+  protocol sources are adopted into the primary checkout. The original native
+  67,725-case result predates the printer/Map changes; fresh final-source native
+  and complete Bun matrices and five compiler checks remain required.
+  All reports, source/generated snapshots, `guard-review.json` and
+  `X509_EXTENSIONS_REVIEW.draft.md` are in
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-02/x509-extensions/`.
+  Next: after normal pressure passes preflight, run the unchanged complete
+  native and baseline-JIT Bun matrices sequentially under 128/96 MiB and
+  120 seconds; retain the optimizing-JIT failure as an unresolved runtime gate.
+  Verify compiler declarations and source/compiler provenance before any
+  adoption. Full package/repository/browser gates remain pending, and all 19
+  complete-stack boxes remain open.
+
+- 2026-10-02 (renewed memory complaint; heavy work stopped): Interrupted the
+  last retained terminal handle and verified no Grounds/Bend build or checker
+  process remained. No new compiler or evaluator was launched after this
+  complaint. Fresh macOS pressure was level 1 (normal), with 3577.81 MiB swap
+  occupied; this does not establish the cause of the reported 15 GB / 7 GB
+  peaks or that all memory effects have cleared. The earlier unsafe overlap
+  incident remains recorded below. Before this complaint, pressure recovered
+  enough for isolated extension preparation, C/JS generation and native
+  evaluation to finish: generation exit 0, 172.9 MiB aggregate peak; native
+  67,725 cases and four CLI errors, exit 0, 38.5 MiB aggregate peak. The original
+  refused preparation report is preserved. Bun and compiler checks remain
+  pending; draft sources have not been adopted and no extension milestone is
+  committed. Resource reports and `memory-complaint-checkpoint.json` are in
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-02/x509-extensions/`.
+  Next: review resource safeguards before any further compiler/evaluator
+  launch. Sampled cutoffs can overshoot and are not kernel allocation quotas.
+  The full goal remains incomplete; all 19 stack acceptance boxes remain open.
+
+- 2026-10-02 (OID/extension draft; pressure preflight refused): After time
+  commit `d0628e3`, prepared isolated `oid.bend`, `x509_extensions.bend`, fixture
+  CLI, five compiler-check declarations and an independent Python numeric-OID/
+  re-encoding and extension-envelope matrix. The proposed decoder retains
+  canonical OID contents without narrowing arc values to U32, checks exact
+  extension fields/critical BOOLEAN/default omission, preserves opaque payloads
+  and order, and uses an affine Base Map keyed by canonical OID hex for duplicate
+  detection. Known payload/critical-extension recognition, Name semantics and
+  constraints/trust remain future owners. No source adoption or passing result
+  is claimed. The matrix is prepared, not run: published X.690 {2,999,3}, every
+  one/two-octet OID content, large numeric arcs, all critical BOOLEAN values,
+  field/DER aliases/truncations/tampering, duplicate positions, 128–8,000 unique
+  records, long shared OID prefixes, exact 65,535/65,536-byte boundaries and
+  eight frozen OpenSSL certificates with absent/present extensions.
+  Even isolated checkout preparation was refused before launch by the existing
+  guard: exit 125, `system-memory-pressure-before-launch`, peak 0 MiB. Fresh
+  sysctl observations remained pressure level 2 (warning), swap used 2504.56 MiB.
+  A process scan found no owned build/check candidates. No unrelated process
+  was stopped, no guard was weakened, and no compiler/evaluator ran. Draft
+  sources remain outside the primary checkout at
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-02/x509-extensions/`; dependency
+  checkout is not yet populated. `preparation-resource.json` preserves the
+  terminal refusal, and `verification-checkpoint.json` records paths and next
+  action. RFC 5280 §4.2 and official ITU-T X.690 (02/2021) §§8.19/11.1/11.5
+  were inspected. Next: once normal pressure passes preflight, run `prepare.py`
+  to populate the frozen `d0628e3` dependencies, then `build.sh`, the native/Bun
+  matrices and compiler checks sequentially, retaining fresh report names and
+  existing 384/320 or 128/96 MiB cutoffs with 120-second deadlines. Resolve any
+  failures before adoption and package wiring. All 19 full-stack boxes remain
+  open; this external resource condition does not complete or narrow the goal.
+
 - 2026-10-02 (certificate civil-time and validity owner): Added
   `crypto/x509_validity.bend` to decode complete DER UTCTime/GeneralizedTime,
   reject malformed/calendar-invalid values, retain ordered validity intervals
