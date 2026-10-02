@@ -14,6 +14,26 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 
 ## Evidence ledger
 
+- 2026-10-02 (build stopped after memory complaint): Terminated the owned
+  guard PID 5213 and its crypto gate process group 5221 after the user reported
+  Bend processes using 15 GB / 7 GB. Confirmed the terminal session exited 143
+  and no owned guard, Bend compiler or ECDSA evaluator remained. This run's
+  sampled peak was 556.8 MiB aggregate and 476.5 MiB individual, at unchanged
+  640/512 MiB limits; these measurements do not establish the cause of the
+  user's reported earlier peaks. System swap still contained 9847.69 MiB;
+  its origin was not attributed. The interrupted gate ran 2027.831 seconds.
+  Bun P-256 completed 609 cases, ECDSA published vectors completed 49 cases
+  and signing completed 60 additional cases (109 cumulative). Remaining
+  ECDSA sections and later package checks did not complete; no full gate is
+  accepted. All 589 frozen tracked inputs still matched b4720b9 before this
+  ledger update. Reports and logs remain under
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-02/ecdsa-current/`, including
+  `crypto-forced-retry-resource.json`, `crypto-forced-retry.log` and
+  `crypto-retry-termination.json`. Do not automatically restart the full gate
+  after this complaint; first resolve the machine resource impact. No compiler
+  limits were raised, unrelated processes were untouched, and the full stack
+  remains incomplete.
+
 - 2026-10-02 (forced crypto gate and X25519 evaluator recovery): The first
   fresh ECDSA-expanded `moon --concurrency 1 run crypto:check --force` on
   4953680 (task hash prefix `54beed3a`) passes all closed/type/ownership checks
