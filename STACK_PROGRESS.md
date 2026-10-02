@@ -14,6 +14,56 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 
 ## Evidence ledger
 
+- 2026-10-02 (bounded public RSA work and generated-JS review): The new
+  `crypto/rsa_integer_bench.py` checks precompiled public powers against Python
+  bigint recovery using the frozen public peer modulus/signature operands.
+  Native passes all nine 2048/3072/4096-bit exponent profiles, three repetitions
+  each; Bun passes all three 2048-bit profiles once and 65537 at 3072/4096 bits
+  three times each. Every invocation returns the exact independently computed
+  k-byte result. The full-width sparse exponent has two set bits; dense is n-2.
+  Alternate exponent/factor relationships are not validated: these are admitted
+  arithmetic operands, not additional certified keys or valid signatures.
+  Native 65537 medians are 0.004083/0.005730/0.008258s; full-width sparse
+  0.066825/0.208241/0.495538s; dense 0.097293/0.316607/0.735184s for increasing
+  widths. Bun's 2048-bit 65537/sparse/dense samples are
+  0.541224/11.113214/16.753540s. Its 3072/4096-bit 65537 medians are
+  0.480855/0.809546s. These times include process startup/file I/O, are only
+  one to three samples, and do not establish handshake latency or timing safety.
+  No larger full-width Bun job is launched after that 16.75s sample; those
+  results remain missing. Public admission is unchanged.
+  All six jobs run sequentially, nice 10, through `tools/build_guard.py
+  --memory-mib 128 --process-memory-mib 96 --timeout 120 --report <artifact>/...
+  -- nice -n 10 python3 crypto/rsa_integer_bench.py --bits <2048|3072|4096>
+  [--profile 65537] [--repeats 1] --report <artifact>/... -- <precompiled evaluator>`.
+  Native peak is 24.7 MiB, Bun 82.5 MiB; all pressure samples are normal.
+  Bun 1.3.13 uses invocation-local `BUN_OPTIONS=--smol` and
+  `BUN_JSC_forceRAMSize=268435456`; no compiler runs and heavy builds stay stopped.
+  Current RSA source/CLI hashes match the original evaluator adoption record.
+  The static generated-JS inventory pins 66 RSA functions and their branch,
+  indexed-access and clone sites. Exponent bits select multiply/clone in
+  `power.bit`: public in this API, unsuitable for a private exponent. Inspected
+  limb indices follow public counters; row bounds and 0/32767 final selection
+  are retained. Ordinary arrays, clones, tagged state and trampolines still
+  allocate. The source model identifies one fresh 512-cell right-shift array
+  per Montgomery limb row and three per R-squared doubling. Dense 4096-bit
+  execution statically creates 1,679,072 right-shift arrays and 878,572,544
+  logical array slots overall; this is not a measured byte allocation or peak.
+  In-place affine shifts and retained public contexts are candidates, not fixes
+  already implemented. Current native source-to-optimized-code mapping, Bun
+  JIT/GC/erasure approval and all private-owner findings remain unresolved.
+  Artifacts (`<artifact>`):
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-02/rsa-signature/`,
+  `cost-native-{2048,3072,4096}.json/log`, `cost-bun-2048.json/log`,
+  `cost-bun-{3072,4096}-65537.json/log`, each guard report and
+  `rsa-generated-review.json` and `rsa-cost-evidence.json`. Benchmark Python parsing, source hashes,
+  fixed deadline/repeat limits and whitespace checks pass. This resolves the
+  previous lack of native full-width public-exponent evidence without accepting
+  an integrated handshake, full signature scheme on Bun, any private operation
+  or package gate. Next: reduce arithmetic allocation under the existing
+  admission contract and retain generated code for native mapping; then finish
+  the Bun signature matrix, certificate algorithm/key admission and private
+  owners. The full goal stays active with all 19 acceptance boxes open.
+
 - 2026-10-02 (native RSA digest-signature checkpoint; heavy builds stopped):
   `rsa_signature256.bend` connects Bend RSAVP1 to strict SHA-256 PSS/v1.5
   verification. PSS binds MGF1-SHA-256 and salt length 32. Its recovered integer

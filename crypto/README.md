@@ -50,6 +50,14 @@ Bun verification and the complete package/repository gates remain pending.
 Certificate algorithm restrictions, key validation and trust remain required
 before integration. See [RSA_REVIEW.md](RSA_REVIEW.md) for evidence and limits.
 
+`rsa_integer_bench.py` measures a precompiled public-power evaluator with frozen
+public operands, including full-width sparse/dense exponents. It checks every
+result against an independent bigint oracle and records startup/file-I/O time;
+it does not compile an evaluator or certify alternate exponents as valid keys.
+Run it through the resource guard. [RSA_REVIEW.md](RSA_REVIEW.md) records the
+native/Bun samples and generated-code allocation findings; integrated
+verification work budgets and native/JIT/erasure review remain required.
+
 ChaCha20 requires a 32-byte key and 12-byte nonce. `block` returns 64 keystream bytes; `crypt` XORs a message with successive blocks and rejects a request that would wrap the 32-bit counter. It does **not** authenticate ciphertext. Poly1305 requires a fresh 32-byte one-time key per message. AEAD derives that key from ChaCha20 block zero, encrypts from counter one, authenticates the associated data and ciphertext, and returns plaintext only after checking all 16 tag bytes. The caller must ensure a unique nonce for every message under a key; these calls do not manage nonce allocation.
 
 AES-128 `encrypt` requires exactly 16 valid key bytes and 16 block bytes.

@@ -198,3 +198,74 @@ builds were not restarted after the latest memory inspection. The check script
 includes both targets for later verification. No private signing, salt owner,
 key retirement, timing/erasure approval, certificate trust or TLS/DTLS interop
 is established by this checkpoint.
+
+## Public-power cost and generated-JavaScript review
+
+`rsa_integer_bench.py` measures the precompiled public-power evaluator against
+Python bigint recovery. It uses frozen public signature/modulus operands and
+tests exponent 65537, a full-width sparse exponent with two set bits, and a
+full-width dense exponent `n-2`. The alternate exponents are admitted arithmetic
+inputs; their relationship to the peer's private factors is not validated, so
+they are not presented as additional valid RSA keys or certificate signatures.
+Every recorded invocation returns the independently computed exactly-k-byte
+result. Measurements include process startup and fixture file I/O; they are
+not isolated operation timings or integrated handshake latency.
+
+| Modulus bits | Exponent | Native seconds, median of 3 | Bun seconds (samples) |
+|---|---|---:|---:|
+| 2048 | 65537 | 0.004083 | 0.541224 (1) |
+| 2048 | full-width sparse | 0.066825 | 11.113214 (1) |
+| 2048 | full-width dense | 0.097293 | 16.753540 (1) |
+| 3072 | 65537 | 0.005730 | 0.480855 (median of 3) |
+| 3072 | full-width sparse | 0.208241 | not run |
+| 3072 | full-width dense | 0.316607 | not run |
+| 4096 | 65537 | 0.008258 | 0.809546 (median of 3) |
+| 4096 | full-width sparse | 0.495538 | not run |
+| 4096 | full-width dense | 0.735184 | not run |
+
+This supplies the previously missing native near-modulus-width exponent
+evidence and a Bun 2048-bit boundary sample. It does not accept a certificate
+owner or handshake performance gate. Larger full-width Bun jobs were not
+launched after the 16.75-second sample; their results remain missing. Native
+checks peak at 24.7 MiB, Bun at 82.5 MiB. All six jobs run sequentially under
+128 MiB aggregate / 96 MiB individual cutoffs, nice 10, with 120-second outer
+deadlines and 90-second evaluator deadlines. Every pressure observation is
+normal. No compiler runs. Bun is 1.3.13 with invocation-local `--smol` and
+`BUN_JSC_forceRAMSize=268435456`. The benchmark repeats range from one to three;
+these few samples do not establish statistical or constant-time guarantees.
+
+`rsa-generated-review.json` pins the current source, native evaluator and
+previously generated JavaScript hashes and inventories all 66 generated RSA
+functions with branch, indexed-access and clone sites. The exponent-bit branch
+selects multiplication and an array clone. In the current API that bit is
+public; this generated path must not become private exponentiation. The
+inspected digit accesses use public counter-derived indices. Inner row sums
+stay at most `2^30-1`; biased subtraction stays in 0..65535, and masked final
+selection uses 0/32767. These observations concern the inspected sites and
+source invariants; native optimized code and Bun JIT/GC remain unapproved.
+
+The generated program allocates ordinary 512-element JavaScript arrays,
+`.slice()` copies, tagged intermediate state and trampoline argument objects.
+The CIOS right shift creates a fresh zero array for every limb row, and
+R-squared setup creates three zero arrays for every modular doubling. For the
+sampled dense 4096-bit input, the source operation model counts 6,128 Montgomery
+calls and 1,679,072 right-shift arrays. Including setup, canonicalization and
+clones gives 878,572,544 logical array slots created. This is a static execution
+count, not a measured allocation-byte total or a memory peak. The bounded
+resident-memory samples must not be confused with cumulative allocation churn.
+
+An in-place affine right shift and a retained public Montgomery context are
+concrete reduction candidates. They are not implemented or accepted by these
+measurements. Certificate work also needs bounded verification scheduling and
+key/AlgorithmIdentifier admission; changing generic RSA admission merely to
+make a benchmark pass is not an approved substitute. The temporary emitted C
+was not retained, so a current native source-to-optimized-code map remains
+missing. No finding here approves private-key timing or erasure.
+
+Evidence: `/Users/ozeron/.codex/artifacts/grounds/2026-10-02/rsa-signature/`,
+`cost-native-{2048,3072,4096}.json/log`, `cost-bun-2048.json/log`,
+`cost-bun-{3072,4096}-65537.json/log`, each accompanying guard report and
+`rsa-generated-review.json` and `rsa-cost-evidence.json`. The evaluator artifacts and original adoption
+hashes are in the neighboring `rsa-integer/` directory. Native/Bun full
+signature acceptance, all package/repository gates and the complete stack
+contract remain open.
