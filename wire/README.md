@@ -149,18 +149,26 @@ Packed storage and long-session allocation behavior still need measurement
 before the integrated data/media path is accepted.
 
 The isolated official Bend 2.0.34 compatibility investigation on 2026-10-02
-retains the full 1 MiB RNG contract. Its Bun 1.3.13 count/range diagnostic passes
-at 78.3 MiB; this narrows the unresolved allocation investigation to the printing
-path and its temporary values. The unchanged full RNG output oracle still fails
-the 96 MiB process cutoff. A chunked printer with explicit collection after host
-writes also fails (100.8 MiB sampled individual peak). Those printer/GC changes
-are archived and removed from the compatibility draft; they are not adopted.
-Generated string reversal slices and prepends characters, but these source
-observations do not establish which allocation causes the measured peak.
-The repository stays pinned to 2.0.27, and package/root acceptance is pending.
-Source hashes, generated targets and resource reports are retained under
+retains the full 1 MiB RNG contract. Its count/range diagnostic passes at 78.3 MiB.
+Instrumented small samples then identify two 32-node word conversions per byte
+in the chunk printer's U32 countdown. The draft replaces that counter with Nat
+fuel, preserving 4096-byte chunks. Its CLI-only OS write effect also collects
+discarded chunks on Bun after writes of at least 8192 characters; host entropy
+acquisition is unchanged. Nat fuel with ordinary `IO.write` still fails the
+cutoff, so collection remains necessary for this measured candidate.
+The full 20-case RNG output matrix and 20-case deterministic exact-byte printer
+matrix now pass on native and Bun 1.3.9/1.3.13, including 1 MiB. Largest sampled
+individual/group peaks are 94.0/119.8 MiB, under 96/128 MiB evaluator cutoffs.
+Bun evaluates with optimizing JIT enabled, `--smol` and a 64 MiB reported-RAM
+GC hint; these settings and sampled cutoffs are not hard OS memory quotas.
+The Bun matrices take 2.5–2.9 seconds each, including all cases; this is public
+CLI formatting evidence, not transport throughput, entropy quality or secret
+timing/erasure evidence. The repository remains pinned to 2.0.27; the 2.0.34
+upgrade draft and printer are unadopted pending the remaining compatibility and
+forced package/root gates. Source hashes, generated targets and reports are in
 `/Users/ozeron/.codex/artifacts/grounds/2026-10-02/compiler-compatibility/`, with
-the rejected source and restoration manifest in `history/chunkloop-rng/`.
+the tested source in `natcounter-files/`, current binding manifest in
+`validation/natcounter-evidence.json`, and rejected drafts preserved in `history/`.
 
 The independent Python peer also verifies every echoed octet and rebinds each
 actual released UDP port. Median aggregate loopback echo throughput (both

@@ -14,6 +14,69 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 
 ## Evidence ledger
 
+- 2026-10-02 (full-size RNG formatter gate resolved in isolated compatibility draft):
+  The previous turn progressed by preserving failed experiments, restoring all
+  frozen inputs and correcting resource docs (8bcbeba). This turn targets the
+  formatter with small guarded diagnostics and sequential bounded builds;
+  full package/root gates are not restarted. Instrumented generated JavaScript
+  on sizes 0/1/16/256/4096/4097 confirms exactly two u32_to_word calls per byte.
+  Each builds 32 WCon nodes, at least 67,108,864 temporary nodes over 1 MiB.
+  The first diagnostic incorrectly registers its exit handler after the CLI's
+  exit and fails to capture the counter; that failure and initial script remain.
+  The corrected diagnostic passes at 43.3 MiB aggregate. This measures allocation
+  work, not peak live memory or secret timing. The Bend chunk counter now uses
+  Nat fuel; generated take decrements a numeric Nat without those conversions.
+  Chunk size remains 4096, and the original 1 MiB RNG contract/oracle is intact.
+  A CLI-only custom OS write effect mirrors Base write and invokes synchronous
+  Bun collection after public writes of at least 8192 characters. Native simply
+  writes and frees its temporary text. Host RNG acquisition code is unchanged.
+  Nat fuel with ordinary IO.write still fails the process cutoff at 127.2 MiB
+  individual / 146.6 MiB aggregate; that rejected source/report is retained.
+  The Nat/write-GC candidate passes the unchanged 20-case real RNG matrix on
+  native (0.903s, 28.2 MiB individual / 40.1 aggregate), Bun 1.3.13 (2.502s,
+  91.2 / 112.8 MiB), and Bun 1.3.9 (2.553s, 89.7 / 111.2 MiB). The independent
+  20-case deterministic exact-byte/chunk-boundary printer matrix also passes:
+  native 0.808s at 23.6 / 24.5 MiB, Bun 1.3.13 2.924s at 94.0 / 119.8 MiB,
+  and Bun 1.3.9 2.516s at 92.7 / 118.5 MiB. Both matrices retain 1 MiB.
+  RNG OS-effect tests now use the registered newer ABI rather than bypassing
+  registration; all 12 existing guard/chunk/order/failure/buffer-clear cases pass
+  on both Bun versions. Each also passes 19 new printer OS-effect cases for exact
+  UTF-8 output, collection thresholds, missing GC support and write failures.
+  The standalone C OS-read harness is prepared from the actual effect source,
+  expanding CID tokens to undefined macros to exclude only the Bend ABI region;
+  all nine unchanged zero/short/interruption/error cases pass with clang
+  -std=c11 -O2 -Wall -Wextra -Werror. This simulates Linux syscall outcomes,
+  not a live Linux kernel, and does not substitute for compiled runtime tests.
+  Standalone C/JS generation uses unmodified official Bend 2.0.34, BANGS=0 and
+  clang 21; generation peaks below 60 MiB, clang below 89 MiB aggregate.
+  All jobs use the primary guard, sequential nice-10 execution, unchanged
+  384/320 MiB compiler or 128/96 MiB evaluator budgets and 120-second deadlines.
+  Compiler JIT is disabled with a 128 MiB reported-RAM hint; evaluators explicitly
+  enable JIT/DFG with --smol and a 64 MiB hint. These sampled protections can
+  overshoot and miss fast processes; the results do not prove hard quotas,
+  erasure/constant-time behavior, entropy quality, or machine swap ownership.
+  Fresh --version observations confirm Bun 1.3.13 and 1.3.9. The compiler and
+  Base source still match official release provenance. The compatibility patch
+  now has 93 changed/added files and applies cleanly to primary; its fresh recipe
+  overlays seven tested RNG/test files. All 650 checkout input hashes, generated
+  target hashes, exact commands, observations and terminal reports are frozen in
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-02/compiler-compatibility/validation/natcounter-evidence.json`.
+  A fresh source-only replay of the updated recipe reconstructs every one of
+  those 650 inputs with identical hashes, and its patch also applies cleanly;
+  it runs no compiler/evaluator and passes at 37.5 MiB aggregate in 1.402s.
+  Replay artifacts are validation/natcounter-replay-evidence.json and
+  validation/natcounter-replay/. Patch ordering may differ; resulting inputs
+  are compared exactly. Primary package/browser acceptance remains separate.
+  Prior recipes, manifests and failed candidates remain in history/; no failed
+  result is overwritten. The patch SHA-256 is
+  9142e13642a21d326cfa1000d97ca28998d06fe41f374ea7a3a8a61f7cc5cf47.
+  Primary protocol source/compiler pin remains unchanged at 2.0.27. Next: finish
+  signal/cookie/TLS and remaining custom-effect lifecycle compatibility, then
+  changed-package/repository gates before considering compiler adoption. Resume
+  certificate semantics/trust/hostname and TLS/DTLS integration after those
+  dependencies. Browser integrated data/media remains pending, the full goal
+  stays active, and all 19 complete-stack acceptance items remain open.
+
 - 2026-10-02 (RNG allocation evidence and experiment cleanup after memory complaint):
   The preceding response verified that no compiler/evaluator was live, but did
   not advance implementation. This continuation launches no Bend compiler,
