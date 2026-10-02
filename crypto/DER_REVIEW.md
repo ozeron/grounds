@@ -24,6 +24,9 @@ Schema owners still need primitive-value validation, field order, nesting,
 SET ordering, defaults, OIDs, BIT STRING padding, integer canonicality and
 certificate-specific constraints. A successfully framed certificate or SPKI
 does not establish valid key bits, a valid signature, trust or a valid hostname.
+The separate [SPKI decoder](X509_PUBLIC_KEY_REVIEW.md) now adds selected RSA/P-256
+structural and public-parameter admission; complete certificate validation
+remains required.
 
 The length rules follow [ITU-T X.690 (2021), sections 8.1.3 and 10.1](https://www.itu.int/rec/T-REC-X.690-202102-I/en),
 reviewed on 2026-10-02. Eight closed checks cover non-byte input, indefinite/

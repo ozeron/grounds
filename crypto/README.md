@@ -26,6 +26,7 @@ Pure Bend cryptographic primitives. This package implements SHA-1, SHA-256, HMAC
 | `bytes.bend` | `length`, `valid`, `append`, `hex` | Tail-recursive byte-list helpers |
 | `der.bend` | `decode(bytes)`, `complete(tag, bytes)` | Bounded DER TLV framing for future certificate schemas; preserves exact consumed bytes |
 | `x509_algorithm.bend` | `key(bytes)`, `signature(bytes)`, `compatible(key, signature)` | Public SHA-256 RSA/P-256 certificate algorithm admission; preserves PSS key restrictions |
+| `x509_public_key.bend` | `decode(bytes)` | Complete RSA/PSS or uncompressed P-256 SPKI structural/public-parameter admission; retains algorithm restrictions |
 
 Byte input and output use `List<U32>` with values 0–255. The public calls return `None{}` for an out-of-range byte; `expand` also rejects a PRK other than 32 bytes or a requested length over 8160 bytes. SHA-1 and HMAC-SHA1 return 20 bytes; SHA-256 and HMAC-SHA256 return 32 bytes. The hex helpers are for diagnostics and tests; protocols should use raw bytes.
 
@@ -33,8 +34,9 @@ Byte input and output use `List<U32>` with values 0–255. The public calls retu
 a 65,535-byte input bound. `decode` returns the tag, body, unconsumed rest and
 exact consumed encoding; `complete` additionally requires the selected tag and
 no trailing bytes. Eight closed checks and 1,552 native/Bun oracle cases pass.
-Certificate schemas, primitive-value rules, key-bit admission, trust and
-handshake integration remain required. See [DER_REVIEW.md](DER_REVIEW.md).
+Complete certificate schemas, primitive-value rules, trust and handshake
+integration remain required. Selected algorithm/SPKI admission is supplied by
+the separate modules below. See [DER_REVIEW.md](DER_REVIEW.md).
 
 `x509_algorithm.bend` parses complete certificate AlgorithmIdentifiers for
 SHA-256 RSA PSS/v1.5 signatures and P-256 ECDSA. RSA and PSS-only key identities
@@ -43,6 +45,15 @@ minimum salt. Native and Bun each pass 4,563 cases; seven algorithm closed
 checks pass. This does not decode SPKI bits, verify a certificate or implement
 TLS wire SignatureScheme admission. See [X509_ALGORITHM_REVIEW.md](X509_ALGORITHM_REVIEW.md)
 for supported encodings, compiler memory evidence and pending integration.
+
+`x509_public_key.decode` admits one exact SPKI SEQUENCE with an octet-aligned
+BIT STRING. RSA INTEGERs normalize only necessary sign padding and retain the
+RSA/PSS key identity; modulus/exponent admission matches the existing public
+RSA primitive. P-256 uses the existing canonical on-curve point decoder.
+Six closed checks and 11,547 independent cases per native/Bun target pass,
+including published NIST points and frozen OpenSSL public keys. RSA factor
+structure, certificate signatures/constraints/trust/hostname and TLS scheme
+binding remain required as applicable. See [X509_PUBLIC_KEY_REVIEW.md](X509_PUBLIC_KEY_REVIEW.md).
 
 RSA encoding is an experimental component, documented in
 [RSA_REVIEW.md](RSA_REVIEW.md). PSS uses a 32-byte digest, MGF1-SHA-256 and a

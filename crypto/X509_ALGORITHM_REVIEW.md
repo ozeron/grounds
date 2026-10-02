@@ -71,7 +71,9 @@ draft builds remain in the adjacent `x509-algorithm/` artifact.
 
 This does not decode SPKI key bits or validate certificates, signatures, inner/
 outer signature consistency, key usage, constraints, chains, trust, times or
-hostnames. TLS wire SignatureScheme admission is separate: RSA key OIDs distinguish
+hostnames. Selected SPKI bits are admitted separately by
+[x509_public_key](X509_PUBLIC_KEY_REVIEW.md). TLS wire SignatureScheme admission
+is separate: RSA key OIDs distinguish
 `rsa_pss_rsae_sha256` from `rsa_pss_pss_sha256`; PKCS#1 v1.5 certificate signatures
 do not authorize TLS 1.3 CertificateVerify
 ([RFC 9846 §4.3.3](https://datatracker.ietf.org/doc/html/rfc9846#section-4.3.3)).
