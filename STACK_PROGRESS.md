@@ -14,6 +14,54 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 
 ## Evidence ledger
 
+- 2026-10-02 (fresh isolated HTTP core and separate UTF-8 gates):
+  The previous goal turn made source/verification progress in 8b2d420: dual
+  constructor-table admission and shared cold-checker cache inputs. This turn
+  resumed one guarded job at a time after normal-pressure preflight, preserving
+  the 384 MiB aggregate / 320 MiB individual / 120-second compiler/package
+  cutoffs. In the retained disposable official-2.0.34 checkout, the three exact
+  HTTP cold fixtures pass (5.998 seconds, 199.8 MiB aggregate / 158.1 MiB
+  individual), then `moon --concurrency 1 run http_core:check --force` passes
+  fresh: task 44.026 seconds, overall guard 44.670 seconds, peak 380.8 MiB
+  aggregate / 157.1 MiB individual. Native and optimizing Bun each pass all 838
+  Base64 cases and 8,320 method cases. All 93 original unit definitions, eight
+  public laws, 17 contract and 100 proof declarations, example/cookie execution
+  and all three cold fixtures pass. Cookie/multipart proof scopes retain all
+  original pure definition bodies while excluding only cookie sign/verify
+  foreign declarations; original APIs/effects remain present and retain their
+  separate native/Bun compatibility checks. This is frontend proof checking,
+  not a claimed proven-kernel --verdict result or generated-code timing safety.
+  Only after that job exited, the separate
+  `moon --concurrency 1 run utf8:check --force` passes: task 723ms, guard 1.453
+  seconds, peak 158.9 MiB aggregate / 74.0 MiB individual. Its Moon run report
+  records passed task execution/exit zero and skipped output hydration. HTTP's
+  project dependency does not itself execute UTF-8. The 652 frozen candidate
+  input hashes match before and after all three jobs. Compiler JIT remains
+  disabled with a 128 MiB reported-RAM hint; package Bun execution uses --smol,
+  a 64 MiB hint and enabled JIT/DFG. These hints are not hard allocation quotas.
+  Evidence is under
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-02/compiler-compatibility/validation/`:
+  `focused-http-cold-*`, `forced-http-core-cold-*`, `forced-utf8-cold-*`,
+  `http-cold-gate-evidence.json` and `http-cold-gate-moon-metadata/` (task logs,
+  hashes, last-run statuses and UTF-8 execution report). The older 93-file
+  compatibility.patch still passes git apply --check against primary and is
+  unchanged. A 14-file gate overlay, gate-inputs.json and prepare-gates.py now
+  describe an exact candidate reconstruction and a primary-targeted adoption
+  patch preserving newer primary docs. That source-only recipe has syntax
+  validation but no execution result: the next guard preflight refused it on
+  macOS warning pressure (level 2), launched no child and recorded zero peak.
+  A fresh observation confirms warning pressure and no Bend/Bun/Moon/clang
+  jobs. Do not attribute that pressure or retained swap to a current Grounds
+  job. No compiler jobs are restarted or cutoffs raised. No new patch/replay
+  acceptance is claimed; compatibility-gates.patch does not yet exist.
+  Next: after fresh normal-pressure evidence, replay prepare-gates.py under the
+  standalone 128/96/120 guard, then run remaining changed-package and repository
+  gates before compiler adoption. Primary remains Bend 2.0.27; the isolated
+  OpenSSL/ENOSYS compatibility successes do not satisfy Bend TLS/cookie crypto.
+  All 19 full-stack acceptance items, secure browser direct/relay data/media,
+  timing/private-secret ownership and full fresh repository acceptance remain
+  open. `bounty/` remains untouched and unstaged.
+
 - 2026-10-02 (resource-control review and cold-type checker compatibility):
   The preceding turn refreshed live process/memory evidence after the user's
   renewed memory complaint. This continuation makes source and verification
