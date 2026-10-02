@@ -32,11 +32,14 @@ salt 32 and trailer 1; SHA-256 RSA v1.5; or P-256/SHA-256 ECDSA. The existing
 algorithm module retains its NULL/absent equivalences and PSS parameter rules.
 Supported-profile equality is not a TLS wire SignatureScheme decision.
 
-Calendar/date contents, validity ordering/current time, Name/RDN values and
+Calendar/date contents and validity ordering/time checks are supplied
+separately by [x509_validity](X509_VALIDITY_REVIEW.md); callers must apply that
+owner to the extracted validity bytes. Name/RDN values and
 comparison, subject-SPKI validation, extension item/OID/Boolean canonicality,
 duplicates, critical extensions and constraints remain unimplemented here.
 The matrix explicitly accepts a certificate with invalid time contents to
-demonstrate that framing success cannot authorize a connection. Issuer-key
+demonstrate that framing success cannot authorize a connection; the separate
+time owner now rejects those contents. Issuer-key
 selection, chain/trust/hostname checks, TLS scheme admission and handshake
 integration remain required. Mathematical issuer-signature verification is now
 supplied separately by [x509_signature](X509_SIGNATURE_REVIEW.md). Public-key

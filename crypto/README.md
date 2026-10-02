@@ -28,6 +28,7 @@ Pure Bend cryptographic primitives. This package implements SHA-1, SHA-256, HMAC
 | `x509_algorithm.bend` | `key(bytes)`, `signature(bytes)`, `compatible(key, signature)` | Public SHA-256 RSA/P-256 certificate algorithm admission; preserves PSS key restrictions |
 | `x509_public_key.bend` | `decode(bytes)` | Complete RSA/PSS or uncompressed P-256 SPKI structural/public-parameter admission; retains algorithm restrictions |
 | `x509_certificate.bend` | `decode(bytes)` | Bounded certificate field framing; retains exact signed bytes and binds supported inner/outer algorithms |
+| `x509_validity.bend` | `decode_time(bytes)`, `decode(bytes)`, `valid_at(bytes, now)` | Strict civil UTC calendar/interval admission and inclusive validity bounds; caller supplies trusted time |
 | `x509_signature.bend` | `verify_signature(issuer_spki, certificate)` | Mathematical issuer-signature verification using admitted key restrictions and original signed bytes; no trust decision |
 
 Byte input and output use `List<U32>` with values 0–255. The public calls return `None{}` for an out-of-range byte; `expand` also rejects a PRK other than 32 bytes or a requested length over 8160 bytes. SHA-1 and HMAC-SHA1 return 20 bytes; SHA-256 and HMAC-SHA256 return 32 bytes. The hex helpers are for diagnostics and tests; protocols should use raw bytes.
@@ -88,8 +89,8 @@ See [RSA_REVIEW.md](RSA_REVIEW.md) for evidence and limits.
 `x509_certificate.decode` preserves original TBSCertificate bytes and all
 mandatory/optional field encodings while binding the inner/outer supported
 SHA-256 signature profiles. Six closed checks and 31,428 independent cases per
-native/Bun target pass. This is framing: time/Name/extension semantics,
-trust/hostname and TLS integration remain
+native/Bun target pass. Calendar/interval checks are supplied by the separate
+validity module; Name/extension semantics, trust/hostname and TLS integration remain
 required. Native evidence uses unmodified Bend 2.0.27 source under Bun 1.3.13;
 packaged native generation still exceeds the local cutoff. See
 [X509_CERTIFICATE_REVIEW.md](X509_CERTIFICATE_REVIEW.md) for fields, constraints,
@@ -100,11 +101,21 @@ certificate, binds key/profile restrictions, hashes the original signed TBS
 encoding and verifies SHA-256 RSA PSS/v1.5 or strict-DER P-256 ECDSA in Bend.
 All 4,825 whole-verifier cases pass on native and Bun; signature math can succeed
 for invalid time contents, a wrong SAN or an unknown critical extension.
-Time/Name/extensions, constraints, chain/trust/hostname and TLS scheme/handshake
+Time checks are supplied separately; Name/extensions, constraints,
+chain/trust/hostname and TLS scheme/handshake
 validation remain required. The focused generated targets use official Bend
 2.0.34 within existing memory cutoffs; the repository remains pinned to 2.0.27
 and full package/compiler compatibility gates remain pending. See
 [X509_SIGNATURE_REVIEW.md](X509_SIGNATURE_REVIEW.md).
+
+`x509_validity` separately admits complete certificate times and ordered
+validity intervals, then checks inclusive bounds against caller-supplied civil
+UTC seconds since year 1. It rejects malformed digits/DER, invalid calendars,
+offsets/fractions and unsupported leap-second encodings. Native and Bun each
+pass 31,545 cases; the signed invalid-time-content fixture now fails this time
+owner. Trusted host-clock integration, Name/extensions, constraints/trust/
+hostname and handshake ownership remain required. See
+[X509_VALIDITY_REVIEW.md](X509_VALIDITY_REVIEW.md).
 
 `rsa_integer_bench.py` measures a precompiled public-power evaluator with frozen
 public operands, including full-width sparse/dense exponents. It checks every
