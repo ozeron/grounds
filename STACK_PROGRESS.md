@@ -14,6 +14,72 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 
 ## Evidence ledger
 
+- 2026-10-03 (Lisbon; full isolated native JSON gate passes):
+  The interrupted run is terminal, not restarted: its guard records aggregate
+  cutoff at 388.8 MiB / 35.163s, with no surviving owned jobs. The goal runtime
+  contained no active objective after interruption; the user's resume request
+  restores the full 19-item contract without narrowing scope. Primary is 1bed380,
+  clean except unrelated bounty/. Pressure is normal and swap has fallen to
+  about 3.02 GiB; no attribution to a specific process is inferred.
+  Stage isolation establishes that original suite frontend checking passes at
+  109.0 MiB / 1.603s, C emission at 311.4 MiB / 7.202s and separate clang at
+  258.5 MiB / 2.317s. The standalone original native suite passes all 318 cases
+  at 36.7 MiB / 0.715s. An earlier runtime launch was refused on warning-level
+  pressure, before execution; it is retried only after fresh normal pressure.
+  scripts/native.sh separates Bend emission from clang with the official CPU
+  flags, honors CC and rejects device/GPU framework dependencies for these CPU
+  fixtures. Check and integration command substitution reverses exactly; no
+  checks or cases are removed. Moon's retained heap still makes aggregate
+  conformance emission too large. A diagnostic dynamic-input suite runner emits
+  C at 202.3 MiB / 5.989s, establishing that embedding the corpus adds substantial
+  compiler work; this diagnostic is not suite acceptance.
+  gen_suite.py retains the complete original pure cases() definition and every
+  expression, but additionally writes ignored suite-data/ files containing kind,
+  original name and exact input bytes. The Bend loader reads all 318 fixtures
+  before the one unchanged S.run. Native and Bun 1.3.13 loaded-value dumps match
+  independently recovered original names, expectations, every text codepoint,
+  invalid UTF-8 byte and case order. All three large rep expressions are retained
+  and independently materialized. Unknown kind, missing LF, empty name and
+  missing file fail before partial output on both engines: eight checks pass.
+  A dump-verifier splitlines mistake is preserved; LF-only framing correctly
+  retains legal Unicode line-separator data. No parser is used to read a manifest.
+  Fresh isolated `moon --concurrency 1 run json:check --force` passes the entire
+  native gate: four cold fixtures, six metadata regressions, unit/proof frontend
+  checks, 318 conformance cases, all stress/big-number reads/CLI checks and 706
+  independent integration cases (376 valid, 330 invalid; seed 1). Stress includes
+  100k escapes/items/digits/depth, 20k fields and 4,003,999-char pretty output.
+  Task 64.618861083s / guard 65.268s, 304.1 MiB aggregate / 218.6 MiB individual,
+  normal pressure, full hash
+  `808f1e3750772567cae777520e17c232c95b8adfcb0165f5e453ed57ae0c5887`.
+  Saved Moon metadata proves passed exit-zero task execution with cache disabled;
+  its timestamps are October 2 UTC. Proof checks remain frontend checks, not
+  --verdict kernel validity. Only README fixture documentation changes afterward;
+  reverse removal recovers its exact gate hash. All other gate hashes match.
+  Additional full Bun conformance remains incomplete: JIT/DFG-enabled runs hit
+  the unchanged 96 MiB individual cutoff at 111.3 MiB / 0.464s (64 MiB RAM hint)
+  and 102.1 MiB / 0.425s (32 MiB hint). A diagnostic prints both load-start and
+  fixtures-loaded before its 111.5 MiB cutoff, locating remaining work in parser
+  execution rather than fixture loading; it does not identify the exact allocator
+  or JIT operation. No cutoff increases, JIT disabling or compiler patch is used.
+  Native gate success is not reported as Bun, compiler adoption or full-stack
+  acceptance. Source-only prepare-json.py replays all 972 source/generated hashes
+  in 1.448s / 43.9 MiB and emits a 114-file compatibility-json.patch that applies
+  to primary without edits. Generated fixtures are rebuilt, not added as duplicate
+  tracked corpus files. Previous 93/97/99-file recipes, patches and freezes remain
+  immutable. Official compiler/Base hashes are refreshed unchanged; selected Bun
+  is verified as 1.3.13 despite its 1.1.42 directory name.
+  Artifacts under the existing compiler-compatibility/ root include
+  validation/json-full-gate-evidence.json, json-runtime-fixtures-moon-metadata/,
+  json-runtime-fixtures-identity.json, native-lf/bun loaded-value identity files,
+  json-fixture-failure-evidence.json, json-gate-provenance-and-bun-stage.json,
+  each named job's command/log/resource reports, json-inputs.json, json-files/,
+  prepare-json.py, json-preparation.json and compatibility-json.patch.
+  Next: reduce the large generated step dispatch's Bun parser workload while
+  preserving all 606 transitions, six APIs and every case; locate the exact
+  resource cause and rerun affected native/Bun gates. Finish all remaining forced
+  package/root checks before pin adoption. Primary stays Bend 2.0.27; all 19
+  full-stack gates remain open, with bounty/ untouched and unstaged.
+
 - 2026-10-02 (JSON cold gates pass; conformance build still bounded out):
   Fresh process inventory finds no surviving Bend/Bun/Moon/compiler jobs and
   macOS pressure is normal; retained swap is 4.64 GiB. All heavy work stays
