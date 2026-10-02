@@ -7,12 +7,70 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 | Layer | Current state | Next proof of progress |
 |---|---|---|
 | `wire` | Byte TCP and IPv4 UDP effects, explicit local-IP binding and OS bound-address/ephemeral-port discovery; OpenSSL TLS effects. UDP handles all octets, zero datagrams, timeout and oversize errors, with same-port/two-IP isolation and failed-bind descriptor checks. Actual SIGTERM/SIGINT stop parked native/Bun loops and release the listener; Bun uses an OS-only C11 atomic signal bridge because its synchronous runtime cannot dispatch JS signal callbacks. Bounded bulk host RNG bytes now pass native/Bun guard/error tests and supply signaling credentials. Public-pattern byte/RNG and retained UDP measurements are recorded; Bend Base supplies monotonic `IO.now`. | Verify IPv6/cancellation and packed storage/long-session allocation, retaining measured baselines; complete crypto/runtime review before secure transport. |
-| `crypto` | Bend SHA-1 for WebSocket challenge, HMAC-SHA1 for legacy STUN integrity, SHA-256, HMAC-SHA256, HKDF-SHA-256, ChaCha20, Poly1305, ChaCha20-Poly1305 AEAD, AES-128 encryption, AES-128-GCM and X25519; P-256 prime/order arithmetic, uncompressed-point ECDH, experimental P-256/SHA-256 raw/DER ECDSA, SHA-256 RSA PSS/v1.5 encoding, variable-size public modular exponentiation/RSAVP1 and full digest-signature verification (native focused checks pass; Bun pending), plus TLS HKDF labels and distinct affine ChaCha/AES-GCM traffic owners with 64-bit nonces/key updates and AES sending usage limits. Poly1305 products now stay below 2^26; OpenSSL remains in live cookie/TLS paths. | Finish current ECDSA and RSA native/Bun/package verification and runtime/erasure review, implement private RSA owners, then cookie and full handshake integration. |
+| `crypto` | Bend SHA-1 for WebSocket challenge, HMAC-SHA1 for legacy STUN integrity, SHA-256, HMAC-SHA256, HKDF-SHA-256, ChaCha20, Poly1305, ChaCha20-Poly1305 AEAD, AES-128 encryption, AES-128-GCM and X25519; P-256 prime/order arithmetic, uncompressed-point ECDH, experimental P-256/SHA-256 raw/DER ECDSA, SHA-256 RSA PSS/v1.5 encoding, variable-size public modular exponentiation/RSAVP1 and full digest-signature verification (725 arithmetic and 774 signature cases pass on native and Bun; in-place limb shift reduces array creation), plus TLS HKDF labels and distinct affine ChaCha/AES-GCM traffic owners with 64-bit nonces/key updates and AES sending usage limits. Poly1305 products now stay below 2^26; OpenSSL remains in live cookie/TLS paths. | Bind certificate AlgorithmIdentifiers/public keys, finish current ECDSA/package verification and runtime/erasure review, implement private RSA owners, then cookie and full handshake integration. |
 | `tls` | Bend protected TLS 1.3 ChaCha20-Poly1305 and AES-128-GCM records and traffic/key lifecycle pass synthetic native/Bun differential tests; AES also reproduces RFC 8448 encrypted records. Live TLS client/server still use OpenSSL C effects; JS TLS effects return `ENOSYS`. | Complete mandatory TLS algorithms, handshake/transcripts, certificates/signatures/trust/hostname checks and real client/server interop; DTLS 1.2 for RTC. |
 | `http` | Bend HTTP/1.1 client/server, routing, JSON, cookies, auth, CORS, multipart, SSE, and server WebSocket handshake/framing/session. Native echo interops with a third-party Python client and Bun's WebSocket API. A bounded local signaling fixture admits exact Host/Origin and a public synthetic cookie before upgrade/UDP allocation; native and Bun exchange SDP with real Chrome and clean up connection-owned ICE state/sockets. | Replace the fixture selector with Bend cookie/HMAC authentication and integrate Bend TLS for browser HTTPS/WSS. |
 | `rtc` | Bend STUN parsing, IPv4 XOR-MAPPED-ADDRESS, SHA-1/SHA-256/dual integrity, FINGERPRINT, authenticated incoming/outgoing ICE Binding exchanges, retained-socket retransmissions and explicit error/integrity outcomes. IPv4 candidate/pair priorities, bounded checklist formation, stable transport references and guarded state transitions, role-driven priority reordering, a paced shared-socket transaction engine with response-only interruption, protected incoming replies and server-side role decisions, FIFO triggered queues, ordinary round-robin/foundation scheduling and generation/sent-role attempt ownership. A bounded session now binds signaled credentials, registered receiving/sending bases, observed peer-reflexive candidates, deferred incoming work, retained attempts and endpoint integrity policies. Authenticated non-symmetric responses fail only their original current pair; interrupted old listeners retire independently. The live owner fixture explicitly binds unicast IPv4 bases and queries actual local ports before candidate formation. An additive valid-list owner resolves authenticated mappings, learns locally peer-reflexive candidates from retained signed-request priority, allocates IP-keyed foundations, reranks by role and keeps late paths separate from replacement flights. A nomination-evidence owner associates current successful checks with their valid paths and retains qualified incoming intent through materialization, exact triggered flights and response-only listeners; already-Succeeded counterparts resolve their actual generating record. A generation lifecycle owner now applies regular controlling/controlled nomination, selects completed stream paths, removes nominated component checks while retaining response listeners, continues authenticated Binding service, and defers failure through PAC. An outer transport owner derives selected physical consent routes, serves authenticated consent-only Binding requests, shares actual-send pacing and recent transaction identity admission, gates logical application routes, and preserves sealed consent loss. Full/full credential restart rebuilds ICE state while retaining only selected old consent/server contexts until replacement selection. Bounded SDP/signaling now binds connection-owned credentials and the actual retained UDP base; real Chrome verifies direct selected pairs, fresh consent, restart and cleanup on native and Bun. Separate unauthenticated discovery remains available. | Complete crypto/runtime foundations and secure signaling, then gathering, IPv6/TURN, DTLS/SCTP and SRTP/media. |
 
 ## Evidence ledger
+
+- 2026-10-02 (in-place RSA shift; focused native/Bun signatures):
+  `rsa_integer.right.go` now reads the next limb before overwriting the current
+  one and clears the vacated high cell in its owned accumulator. This removes
+  the fresh 512-cell array per Montgomery limb row. Both high carry cells are
+  preserved before the shift; all higher cells remain zero. Public parameter
+  admission, arithmetic bounds, final subtraction and exponent scheduling are
+  unchanged. Only the integer module and two added closed shift witnesses
+  change; the checkers, CLIs, fixtures, `crypto/check.sh` and P-256 are unchanged.
+  Thirteen integer and six signature closed checks pass. Fresh uninstrumented
+  native and Bun evaluators each pass 725 arithmetic plus 774 full-signature
+  cases. All previously defined rows/controls remain: Bun signatures run in
+  the existing published/peers/admission/tamper_pss/tamper_v15 sections and
+  their combined counts exactly equal native. Native times are 1.670/2.584s;
+  Bun 68.097s / 181.024s summed across signature sections. This resolves the
+  preceding checkpoint's missing full-signature Bun matrix. Frozen adoption
+  hashes preserve all 409 other source/fixture inputs. Fresh primary closed
+  checks and both native matrices pass in 4.158s with the tested retained
+  binaries, peak 128.8 MiB; all input hashes match.
+  Artifact-only profiling of one 2048-bit exponent-65537 public power measures
+  9,274 -> 6,260 zero arrays and unchanged 20 clones. Both versions return the
+  independent oracle result. The 3,014-array reduction equals 137 limbs times
+  22 Montgomery calls; logical slots fall 4,758,528 -> 3,215,360. These are
+  array counts, not measured physical bytes or peak RAM. The earlier dense
+  4096-bit source model predicts 1,679,072 fewer shift arrays and 18,887,680
+  remaining logical slots; that Bun profile is still unmeasured. Release C,
+  optimized assembly and line-annotated assembly are retained. The optimized
+  release/annotated objects have identical 69,100-byte text and 2,162 relocation
+  semantics. Selected inlined `_spin_1` shift instructions preserve read-before-
+  write ordering and high-cell clearing. This mapping covers that operation
+  only; complete native/runtime/JIT/GC/erasure review remains required.
+  All nine native cost profiles pass three repetitions each. Native 65537
+  medians are 0.004570/0.005772/0.008671s for 2048/3072/4096 bits; sparse
+  0.065100/0.210647/0.508912s; dense 0.095954/0.316718/0.748298s. Bun's single
+  2048-bit samples are 0.524899/11.138857/16.849140s. No demonstrated speedup;
+  these few samples include startup/file I/O and do not accept handshake latency.
+  Every job is sequential and nice 10 under `PYTHONDONTWRITEBYTECODE=1
+  python3 tools/build_guard.py --memory-mib <384|128> --process-memory-mib
+  <320|96> --timeout 120 --report <artifact>/<job>-resource.json -- nice -n 10
+  <job>`. Standalone closed checks/compiles use 384/320 MiB; precompiled
+  evaluation/profiling/benchmark jobs use 128/96 MiB. Scripts `build-integer.sh`,
+  `build-signature.sh` and `map-native.sh` retain C/assembly; matrix jobs call
+  unchanged `rsa_integer_check.py` / `rsa_signature256_check.py [--section ...]`
+  with `--report ... -- <native|bun generated.js>`. `run-primary-focused.sh`
+  repeats primary closed/native checks without recompilation. Maximum compile
+  peak 257.2 MiB; maximum evaluator peak 92.4 MiB; every pressure sample normal.
+  These sampled cutoffs can overshoot; they are not kernel allocation quotas.
+  Bun 1.3.13 uses invocation-local `BUN_OPTIONS=--smol` and
+  `BUN_JSC_forceRAMSize=268435456`; Bend 2.0.27, Python 3.12.8, Apple clang 21.
+  All exact commands, terminal results, input/output hashes and limits are in
+  `<artifact>/evidence.json` and the retained resource reports; `<artifact>` is
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-02/rsa-allocation/`.
+  Full crypto, repository and integrated browser gates remain stopped after
+  the memory complaint. No private operation or timing/erasure approval is
+  claimed. Next: certificate AlgorithmIdentifier/public-key admission and
+  bounded verification scheduling, then private owners and TLS/DTLS integration.
+  Full ECDSA verification and safe package builds also remain outstanding.
+  The complete goal stays active with all 19 acceptance boxes open.
 
 - 2026-10-02 (bounded public RSA work and generated-JS review): The new
   `crypto/rsa_integer_bench.py` checks precompiled public powers against Python

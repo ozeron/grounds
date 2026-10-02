@@ -21,7 +21,7 @@ Pure Bend cryptographic primitives. This package implements SHA-1, SHA-256, HMAC
 | `ecdsa_scheme256.bend` | `sign_digest(private, digest)`, `verify_digest(peer, digest, signature)` | RFC 6979 / SEC 1 v2.0; strict DER signature boundary |
 | `rsa_encoding.bend` | `mgf1`, `pss_encode_digest`, `pss_verify_digest`, `v15_encode_digest`, `v15_verify_digest` | RFC 8017 SHA-256 encoding |
 | `rsa_integer.bend` | `public_operation(modulus, exponent, signature)` | Experimental Bend RSAVP1, 2048–4096-bit RSA public keys |
-| `rsa_signature256.bend` | `verify_pss_digest(modulus, exponent, digest, signature)`, `verify_v15_digest(modulus, exponent, digest, signature)` | Experimental full SHA-256 digest-signature verification; native focused checks pass, Bun pending |
+| `rsa_signature256.bend` | `verify_pss_digest(modulus, exponent, digest, signature)`, `verify_v15_digest(modulus, exponent, digest, signature)` | Experimental full SHA-256 digest-signature verification; 774 focused cases pass on native and Bun |
 | `field256.bend` | Internal P-256 prime/order `add`, `sub`, `mul`, `square`, `invert`, `decode_canonical` | SP 800-186 section 3.2.1.3 arithmetic foundation |
 | `bytes.bend` | `length`, `valid`, `append`, `hex` | Tail-recursive byte-list helpers |
 
@@ -45,8 +45,11 @@ verifiers and returns `False{}` for malformed parameters or failed verification.
 PSS requires SHA-256/MGF1-SHA-256 and exactly 32 salt bytes. It requires a zero
 leading byte before shortening a recovered `k`-byte value to `emLen` when the
 modulus bit length is congruent to one modulo eight; other encodings retain
-their complete width. The native full-signature evaluator passes 774 cases;
-Bun verification and the complete package/repository gates remain pending.
+their complete width. Native and Bun each pass 774 full-signature cases and
+725 public-arithmetic cases with the current in-place Montgomery limb shift.
+The shift reuses its owned array and clears the vacated high cell. Measured
+array creation decreases; a reduction in peak RAM or execution time has not
+been established. Complete package/repository gates remain pending.
 Certificate algorithm restrictions, key validation and trust remain required
 before integration. See [RSA_REVIEW.md](RSA_REVIEW.md) for evidence and limits.
 

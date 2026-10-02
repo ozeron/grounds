@@ -196,19 +196,18 @@ def high.digit(+at: U32, carry: U32, pair: Array<U32> & U32) -> Array<U32>:
 def high(+at: U32, carry: U32, t: Array<U32>) -> Array<U32>:
   high.digit(at, carry, Array.get(U32, t, at))
 
-type RightShift is Type:
-  RightShift{t: Array<U32>, out: Array<U32>}
-
-def right.step(+i: U32, out: Array<U32>, pair: Array<U32> & U32) -> RightShift:
+def right.step(i: U32, pair: Array<U32> & U32) -> Array<U32>:
   (t, value) = pair
-  RightShift{t, Array.set(U32, out, i, value)}
+  Array.set(U32, t, i, value)
 
-def right.go(left: Nat, +i: U32, state: RightShift) -> Array<U32>:
-  match left state:
-    case 0n RightShift{_, out}:
-      out
-    case 1n+p RightShift{t, out}:
-      right.go(p, U32.inc(i), right.step(i, out, Array.get(U32, t, U32.inc(i))))
+# Internal: shift the admitted live prefix low-to-high, reading i+1 before
+# overwriting i. Clear the vacated high cell; all later cells are already zero.
+def right.go(left: Nat, +i: U32, t: Array<U32>) -> Array<U32>:
+  match left:
+    case 0n:
+      Array.set(U32, t, i, 0)
+    case 1n+p:
+      right.go(p, U32.inc(i), right.step(i, Array.get(U32, t, U32.inc(i))))
 
 type Montgomery is Type:
   Montgomery{modulus: Array<U32>, a: Array<U32>, b: Array<U32>, t: Array<U32>}
@@ -217,7 +216,7 @@ def mont.reduced(+limbs: Nat, a: Array<U32>, b: Array<U32>, state: Row) -> Montg
   match state:
     case Row{modulus, t, carry}:
       Montgomery{modulus, a, b,
-        right.go(Nat.add(limbs, 1n), 0, RightShift{high(U32.from_nat(limbs), carry, t), zero()})}
+        right.go(Nat.add(limbs, 1n), 0, high(U32.from_nat(limbs), carry, t))}
 
 def mont.low(+limbs: Nat, inverse: U32, modulus: Array<U32>, a: Array<U32>, b: Array<U32>, pair: Array<U32> & U32) -> Montgomery:
   (t, low) = pair

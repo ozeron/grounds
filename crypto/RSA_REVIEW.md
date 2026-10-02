@@ -3,8 +3,9 @@
 `rsa_encoding.bend` implements SHA-256 MGF1, EMSA-PSS encoding/admission and
 EMSA-PKCS1-v1_5 encoding/admission in Bend. It is a component of the required
 RSA signature path. `rsa_integer.bend` now supplies the public RSA primitive.
-RSA signing/verification as a complete scheme, TLS
-certificate handling and live-secret approval remain incomplete.
+`rsa_signature256.bend` supplies focused public digest-signature verification.
+Private signing, TLS certificate handling and live-secret approval remain
+incomplete.
 
 ## Interface and boundaries
 
@@ -83,8 +84,9 @@ generated-code constant-time behavior or secure erasure. No private key is
 handled by this component; supplied salt/digest lists may still be copied by
 the generated runtime. Synthetic fixtures only until the complete review passes.
 
-Next finish native/Bun verification of the public PSS/v1.5 scheme owner, then
-implement RSASP1 with private-key admission. Private operations need blinding, fault checks, key ownership/retirement and
+The current public PSS/v1.5 owner passes the focused native/Bun matrices below.
+Next bind certificate algorithms and implement RSASP1 with private-key
+admission. Private operations need blinding, fault checks, key ownership/retirement and
 generated-code review. Certificate AlgorithmIdentifiers must bind hash/MGF/salt,
 SPKI restrictions, trust and hostname policy before handshake integration.
 All required native/Bun vectors, malformed cases and independent full-signature
@@ -130,10 +132,11 @@ on native and Bun: byte conversion 58, negative inverses 155, Montgomery
 products 285, R-squared contexts 57, public powers 39, published RSAVP1
 representatives 110 and parameter/width/range admission 21. Tests span limb
 boundaries through 4096 bits and preserve independently recovered NIST values;
-both outputs are computed by Bend. Eleven closed checks additionally cover
-small arithmetic witnesses and malformed-byte/key/range admission. Full
-PSS/v1.5 signature scheme acceptance on both targets and private RSA acceptance
-still remain outstanding.
+both outputs are computed by Bend. At this original checkpoint, eleven closed
+checks additionally covered small arithmetic witnesses and malformed-byte/key/
+range admission. The current allocation checkpoint below adds two shift checks
+and full PSS/v1.5 verification on both targets. Private RSA acceptance remains
+outstanding.
 
 Artifacts: `/Users/ozeron/.codex/artifacts/grounds/2026-10-02/rsa-integer/`.
 Native/Bun matrices took 1.133s/69.129s and peaked at 24.5/83.2 MiB respectively.
@@ -141,7 +144,7 @@ Native/JS compilation peaked at 238.6/167.7 MiB. All jobs were sequential,
 guarded, nice 10, with a 120-second deadline; compilation/Bun caps were
 384 MiB aggregate / 320 MiB individual. All observed system pressure was normal.
 
-## Full digest-signature verification checkpoint
+## Original native digest-signature verification checkpoint
 
 `rsa_signature256.verify_pss_digest(n, e, digest, signature)` and
 `verify_v15_digest(n, e, digest, signature)` perform public exponentiation and
@@ -192,14 +195,14 @@ peak 27.6 MiB, three normal-pressure observations.
 Artifacts: `/Users/ozeron/.codex/artifacts/grounds/2026-10-02/rsa-signature/`,
 especially `native-all-fixed.json/log`, its guard report,
 `prepare-peers-fixed.log`, `prepare_peers.py`, `adopted-inputs.json` and the
-earlier closed/native compilation logs. Bun full-signature verification,
-forced crypto/package checks and repository acceptance remain pending; heavy
-builds were not restarted after the latest memory inspection. The check script
-includes both targets for later verification. No private signing, salt owner,
+earlier closed/native compilation logs. At this checkpoint Bun full-signature
+verification, forced crypto/package checks and repository acceptance were
+pending; heavy builds were not restarted after that memory inspection. The
+check script includes both targets for later verification. No private signing, salt owner,
 key retirement, timing/erasure approval, certificate trust or TLS/DTLS interop
 is established by this checkpoint.
 
-## Public-power cost and generated-JavaScript review
+## Original public-power cost and generated-JavaScript review
 
 `rsa_integer_bench.py` measures the precompiled public-power evaluator against
 Python bigint recovery. It uses frozen public signature/modulus operands and
@@ -234,7 +237,7 @@ normal. No compiler runs. Bun is 1.3.13 with invocation-local `--smol` and
 `BUN_JSC_forceRAMSize=268435456`. The benchmark repeats range from one to three;
 these few samples do not establish statistical or constant-time guarantees.
 
-`rsa-generated-review.json` pins the current source, native evaluator and
+`rsa-generated-review.json` pins that checkpoint's source, native evaluator and
 previously generated JavaScript hashes and inventories all 66 generated RSA
 functions with branch, indexed-access and clone sites. The exponent-bit branch
 selects multiplication and an array clone. In the current API that bit is
@@ -246,26 +249,94 @@ source invariants; native optimized code and Bun JIT/GC remain unapproved.
 
 The generated program allocates ordinary 512-element JavaScript arrays,
 `.slice()` copies, tagged intermediate state and trampoline argument objects.
-The CIOS right shift creates a fresh zero array for every limb row, and
-R-squared setup creates three zero arrays for every modular doubling. For the
+At that checkpoint the CIOS right shift creates a fresh zero array for every
+limb row, and R-squared setup creates three zero arrays for every modular doubling. For the
 sampled dense 4096-bit input, the source operation model counts 6,128 Montgomery
 calls and 1,679,072 right-shift arrays. Including setup, canonicalization and
 clones gives 878,572,544 logical array slots created. This is a static execution
 count, not a measured allocation-byte total or a memory peak. The bounded
 resident-memory samples must not be confused with cumulative allocation churn.
 
-An in-place affine right shift and a retained public Montgomery context are
-concrete reduction candidates. They are not implemented or accepted by these
-measurements. Certificate work also needs bounded verification scheduling and
-key/AlgorithmIdentifier admission; changing generic RSA admission merely to
+An in-place affine right shift and a retained public Montgomery context were
+concrete reduction candidates at that checkpoint. The shift is implemented
+and checked below; the retained context remains a candidate. Certificate work
+also needs bounded verification scheduling and key/AlgorithmIdentifier
+admission; changing generic RSA admission merely to
 make a benchmark pass is not an approved substitute. The temporary emitted C
-was not retained, so a current native source-to-optimized-code map remains
-missing. No finding here approves private-key timing or erasure.
+was not retained at that checkpoint. The limited shift mapping below retains
+current generated C; complete native/runtime review is still required. No
+finding here approves private-key timing or erasure.
 
 Evidence: `/Users/ozeron/.codex/artifacts/grounds/2026-10-02/rsa-signature/`,
 `cost-native-{2048,3072,4096}.json/log`, `cost-bun-2048.json/log`,
 `cost-bun-{3072,4096}-65537.json/log`, each accompanying guard report and
 `rsa-generated-review.json` and `rsa-cost-evidence.json`. The evaluator artifacts and original adoption
-hashes are in the neighboring `rsa-integer/` directory. Native/Bun full
-signature acceptance, all package/repository gates and the complete stack
-contract remain open.
+hashes are in the neighboring `rsa-integer/` directory. Full-signature Bun
+verification was pending at that checkpoint; the current results follow.
+All package/repository gates and the complete stack contract remain open.
+
+## Current in-place shift and full-signature checks
+
+On 2026-10-02, `rsa_integer.right.go` replaces the fresh 512-cell output array
+per Montgomery limb row with an in-place affine shift. It reads cell `i+1`
+before writing cell `i`, advances low-to-high, and clears the vacated high
+cell. The accumulator starts zero; reduction writes only through the two high
+carry cells. Cells above that prefix therefore stay zero across successive
+rows. Both high carries remain available before shifting. Public admission,
+arithmetic bounds, final subtraction and exponent scheduling are unchanged.
+The P-256 arithmetic module is unchanged.
+
+Thirteen closed integer checks and six closed signature checks pass. Fresh
+uninstrumented native and Bun evaluators each pass all 725 integer and 774
+full-signature cases described above. The original checkers, public fixtures,
+CLI inputs and check script are unchanged. The 774 Bun cases run in the
+checker's five existing sections, preserving every row and positive control;
+their combined counts exactly equal native. Native matrices take 1.670s and
+2.584s; Bun takes 68.097s for integers and 181.024s summed across signature
+sections. Adoption checks preserve all 409 other frozen source/fixture inputs.
+Fresh primary closed checks and both native matrices pass in 4.158s using
+the retained binaries, whose source hashes match the primary checkout.
+
+Artifact-only instrumentation counts 512-cell zero-array creation and clones
+for one independently verified 2048-bit public power with exponent 65537.
+Before: 9,274 zero arrays and 20 clones; after: 6,260 zero arrays and 20 clones.
+The 3,014 removed arrays equal 137 limbs times 22 Montgomery calls. Logical
+slots decrease from 4,758,528 to 3,215,360. This measures array-creation counts,
+not physical allocation bytes or peak RAM. Instrumented evaluators are separate
+from the unmodified acceptance evaluators. For the earlier dense 4096-bit
+operand, the static model removes 1,679,072 shift arrays and predicts 18,887,680
+remaining logical slots, down from 878,572,544. That is a source model only;
+the dense 4096-bit Bun execution remains unmeasured.
+
+Generated C, release assembly and annotated assembly are retained. The release
+and line-annotated `-O3` objects have identical 69,100-byte text and 2,162
+relocation semantics. The selected shift is inlined into `_spin_1`; its mapped
+loads read the next public-indexed limb before stores overwrite the current
+one, and the terminal path clears the high cell. This is a map of the inspected
+shift, not complete native/runtime/JIT timing or erasure approval.
+
+The same nine native public-power profiles pass three repetitions each after
+the change. Increasing-width medians are 0.004570/0.005772/0.008671s for 65537,
+0.065100/0.210647/0.508912s for sparse exponents, and
+0.095954/0.316718/0.748298s for dense exponents. Bun's single 2048-bit samples
+are 0.524899/11.138857/16.849140s. These small samples show no demonstrated
+speedup; all include startup/file I/O and retain the earlier operand limits.
+
+All work is sequential, nice 10, with 120-second outer deadlines and macOS
+pressure checks. Standalone compilation/closed checks use sampled 384 MiB
+aggregate / 320 MiB individual cutoffs; evaluators use 128/96 MiB. The largest
+compile peaks at 257.2 MiB; the largest evaluator job at 92.4 MiB. All pressure
+samples are normal. These are sampled kill thresholds, not hard memory quotas.
+Bend 2.0.27, Bun 1.3.13 with invocation-local `--smol` and
+`BUN_JSC_forceRAMSize=268435456`, Python 3.12.8 and Apple clang 21 are used.
+Full crypto/repository builds remain stopped following the memory complaint.
+
+Evidence: `/Users/ozeron/.codex/artifacts/grounds/2026-10-02/rsa-allocation/`,
+especially `evidence.json`, `prepared-inputs.json`, `adopted-inputs.json`,
+`native-all.json`, `bun-all.json`, `signature-native.json`,
+`signature-bun-all.json`, `primary-focused.log`, `array-count.json`,
+`native-shift-map.json`, retained C/assembly and all accompanying guard reports.
+Certificate AlgorithmIdentifier/key admission and bounded verification
+scheduling are next. Private RSA, complete generated-code/erasure review,
+cookie/TLS/DTLS integration and every package/repository/stack gate remain
+required. None is accepted by these focused public-operation checks.

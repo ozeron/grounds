@@ -14,6 +14,15 @@ def bytes_round_trip() -> {R.encode(5n, R.decode([255, 128, 0, 1, 7])) == [255, 
 def montgomery_small() -> {R.result.encode(1n, R.mont(1n, R.inverse_low(3), R.decode([3]), R.decode([1]), R.decode([1]))) == [2] : List<&2, U32>}:
   {==}
 
+def shift_fixture() -> Array<U32>:
+  Array.set(U32, Array.set(U32, Array.set(U32, R.zero(), 0, 17), 1, 32767), 2, 2)
+
+def shift_reads_before_write() -> {R.encode(4n, R.right.go(2n, 0, shift_fixture())) == [0, 1, 127, 255] : List<&2, U32>}:
+  {==}
+
+def shift_clears_high_carry() -> {R.encode(6n, R.right.go(2n, 0, shift_fixture())) == [0, 0, 0, 1, 127, 255] : List<&2, U32>}:
+  {==}
+
 def modulus_fixture() -> List<&2, U32>:
   Con{128, B.append(List.replicate(U32, 254n, 0), [1])}
 
