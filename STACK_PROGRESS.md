@@ -14,6 +14,59 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 
 ## Evidence ledger
 
+- 2026-10-02 (JSON cold gates pass; conformance build still bounded out):
+  Fresh process inventory finds no surviving Bend/Bun/Moon/compiler jobs and
+  macOS pressure is normal; retained swap is 4.64 GiB. All heavy work stays
+  sequential, nice-10, with unchanged 384/320 MiB compiler/package or 128/96
+  MiB standalone budgets, 120-second deadlines and fail-closed pressure checks.
+  These are sampled cutoffs, not OS allocation quotas; overshoot remains
+  possible. No global compiler/runtime change or cutoff increase is made.
+  The isolated shared character classifier retains all 606 original transition
+  templates and six public parser headers. It uses 38 literal codepoint tags,
+  an Other tag and a balanced U32 comparison tree with at most six comparisons.
+  All 263 source probes agree; this is source evidence, not executed classifier
+  conformance. Curried continuations still exceed the individual cutoff.
+  Unary-record continuations and work records containing the input tail check
+  but fail the mandatory cold gate. Their generated C retains shared string
+  constructors; all rejected sources and reports remain archived.
+  The latest layout keeps the input separate from the work state, makes direct
+  recursion consume the input first, and calls that driver directly at both
+  compact/pretty entry points with identical input/fuel. Fatal/EOF/fuel order,
+  raw characters, transition bodies, counters and immediate errors are retained.
+  The CLI frontend now passes in 1.450s / 108.3 MiB aggregate; its actual emitted
+  C cold gate passes in 3.096s / 201.1 MiB aggregate, without shared constructors.
+  The first full forced JSON check passes all four cold fixtures, six metadata
+  regressions and unit frontend checks, then rejects old internal helper names
+  such as arr_f.3 under the official 2.0.34 identifier grammar. Collision-checked
+  renames to arr_f.n3 and corresponding helpers in four proof files and the
+  layout generator reverse exactly to the original files; claims, bodies,
+  literals and comments are unchanged modulo those identifiers. The proof
+  generators reproduce all 652 frozen inputs. PROOF --check-only passes in
+  14.715s / 173.0 MiB. These are frontend checks, not --verdict kernel validation.
+  The subsequent forced JSON gate passes those cold/unit/proof stages, then
+  stops while building the unchanged 318-case native conformance suite: aggregate
+  cutoff at 385.1 MiB / 38.823s, maximum individual 319.8 MiB, normal pressure.
+  A fixture-helper extraction preserves every case expression/order exactly
+  but still crosses the individual cutoff at 320.1 MiB / 6.480s. It is rejected,
+  archived and restored; all 652 proof-name candidate hashes match again in
+  0.239s / 82.4 MiB. Conformance runtime, stress, reads, CLI and independent
+  integration stages have not run. No full JSON or repository acceptance is
+  claimed. The killed Moon run has no completed report; copied cache metadata
+  is explicitly stale, with the guard report and live log recording the attempt.
+  Evidence remains under
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-02/compiler-compatibility/`:
+  validation/json-cold-progress-evidence.json, json-char-input-direct-source-identity.json,
+  json-proof-helper-names-identity.json, json-proof-helper-names-inputs.json,
+  json-suite-helpers-identity.json and each named job's command/log/resource report.
+  The current unadopted candidate differs in seven files from the accepted
+  99-file router draft; that patch/recipe and all historical freezes are unchanged.
+  Release string literals use lazy Lit nodes, so character pattern expansion
+  does not establish the remaining allocation site. Next: isolate suite
+  --check-only from C emission under the same budgets, then reduce the verified
+  workload while retaining all 318 cases before the full JSON and remaining
+  forced package/root gates. Primary remains pinned to Bend 2.0.27; all 19
+  complete-stack requirements stay open. bounty/ is untouched and unstaged.
+
 - 2026-10-02 (JSON pattern expansion diagnosis; failed layouts retired):
   The preceding user-triggered turn verified that no Bend/Bun/Moon/clang jobs
   remained and macOS memory pressure was normal; retained swap was 4.8 GiB.
