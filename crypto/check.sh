@@ -15,6 +15,7 @@ bend p256_test.bend
 bend ecdsa256_test.bend
 bend rsa_encoding_test.bend
 bend rsa_integer_test.bend
+bend rsa_signature256_test.bend
 bend traffic_test.bend
 python3 traffic_type_check.py
 bend PROOF.bend
@@ -37,6 +38,7 @@ bend PROOF.bend
 ../tools/bend_native.sh ecdsa_der256_cli.bend "$tmp/ecdsa_der" > /dev/null
 ../tools/bend_native.sh rsa_encoding_cli.bend "$tmp/rsa_encoding" > /dev/null
 ../tools/bend_native.sh rsa_integer_cli.bend "$tmp/rsa_integer" > /dev/null
+../tools/bend_native.sh rsa_signature256_cli.bend "$tmp/rsa_signature" > /dev/null
 ../tools/bend_native.sh x25519_cli.bend "$tmp/x25519" > /dev/null
 ../tools/bend_native.sh traffic_write_cli.bend "$tmp/traffic_write" > /dev/null
 ../tools/bend_native.sh traffic_read_cli.bend "$tmp/traffic_read" > /dev/null
@@ -55,6 +57,7 @@ python3 ecdsa_check.py -- python3 ecdsa_fixture.py --scheme "$tmp/ecdsa_scheme" 
 python3 ecdsa_der_check.py "$tmp/ecdsa_der"
 python3 rsa_encoding_check.py -- "$tmp/rsa_encoding"
 python3 rsa_integer_check.py -- "$tmp/rsa_integer"
+python3 rsa_signature256_check.py -- "$tmp/rsa_signature"
 python3 x25519_check.py --iterated "$tmp/x25519"
 python3 traffic_check.py python3 traffic_fixture.py --write "$tmp/traffic_write" --read "$tmp/traffic_read" --
 python3 traffic_aes_check.py python3 traffic_fixture.py --write "$tmp/traffic_write" --read "$tmp/traffic_read" --
@@ -78,6 +81,7 @@ if command -v bun > /dev/null 2>&1; then
   bend ecdsa_der256_cli.bend -o "$tmp/ecdsa_der.js" > /dev/null
   bend rsa_encoding_cli.bend -o "$tmp/rsa_encoding.js" > /dev/null
   bend rsa_integer_cli.bend -o "$tmp/rsa_integer.js" > /dev/null
+  bend rsa_signature256_cli.bend -o "$tmp/rsa_signature.js" > /dev/null
   bend x25519_cli.bend -o "$tmp/x25519.js" > /dev/null
   bend traffic_write_cli.bend -o "$tmp/traffic_write.js" > /dev/null
   bend traffic_read_cli.bend -o "$tmp/traffic_read.js" > /dev/null
@@ -96,6 +100,7 @@ if command -v bun > /dev/null 2>&1; then
   python3 ecdsa_der_check.py bun "$tmp/ecdsa_der.js"
   python3 rsa_encoding_check.py -- bun "$tmp/rsa_encoding.js"
   python3 rsa_integer_check.py -- bun "$tmp/rsa_integer.js"
+  python3 rsa_signature256_check.py -- bun "$tmp/rsa_signature.js"
   python3 x25519_check.py bun "$tmp/x25519.js"
   python3 traffic_check.py python3 traffic_fixture.py --bun --write "$tmp/traffic_write.js" --read "$tmp/traffic_read.js" --
   python3 traffic_aes_check.py python3 traffic_fixture.py --bun --write "$tmp/traffic_write.js" --read "$tmp/traffic_read.js" --

@@ -1,6 +1,6 @@
 # grounds-crypto
 
-Pure Bend cryptographic primitives. This package implements SHA-1, SHA-256, HMAC-SHA1, HMAC-SHA256, HKDF-SHA-256, ChaCha20, Poly1305, ChaCha20-Poly1305 AEAD, AES-128 encryption, AES-128-GCM, X25519, P-256 ECDH and P-256/SHA-256 ECDSA. They are **experimental**: cookie signing and TLS still use OpenSSL while the Bend implementation is verified and its generated code is reviewed for timing behavior. Plain SHA-1 is used only for the WebSocket handshake challenge; HMAC-SHA1 is for the legacy STUN MESSAGE-INTEGRITY attribute.
+Pure Bend cryptographic primitives. This package implements SHA-1, SHA-256, HMAC-SHA1, HMAC-SHA256, HKDF-SHA-256, ChaCha20, Poly1305, ChaCha20-Poly1305 AEAD, AES-128 encryption, AES-128-GCM, X25519, P-256 ECDH, P-256/SHA-256 ECDSA and RSA-PSS/v1.5 SHA-256 digest verification. They are **experimental**: cookie signing and TLS still use OpenSSL while the Bend implementation is verified and its generated code is reviewed for timing behavior. Plain SHA-1 is used only for the WebSocket handshake challenge; HMAC-SHA1 is for the legacy STUN MESSAGE-INTEGRITY attribute.
 
 | Module | Public calls | Source |
 |---|---|---|
@@ -19,8 +19,9 @@ Pure Bend cryptographic primitives. This package implements SHA-1, SHA-256, HMAC
 | `field25519.bend` | Internal `add`, `sub`, `mul`, `square`, `decode`, `encode` | GF(2^255-19) arithmetic used by X25519 |
 | `p256.bend` | `public_key(private)`, `shared(private, peer_public)`, `decode(peer_public)` | SP 800-186 P-256 / SEC 1 v2.0 ECDH |
 | `ecdsa_scheme256.bend` | `sign_digest(private, digest)`, `verify_digest(peer, digest, signature)` | RFC 6979 / SEC 1 v2.0; strict DER signature boundary |
-| `rsa_encoding.bend` | `mgf1`, `pss_encode_digest`, `pss_verify_digest`, `v15_encode_digest`, `v15_verify_digest` | RFC 8017 SHA-256 encoding; full signature-scheme owners remain required |
+| `rsa_encoding.bend` | `mgf1`, `pss_encode_digest`, `pss_verify_digest`, `v15_encode_digest`, `v15_verify_digest` | RFC 8017 SHA-256 encoding |
 | `rsa_integer.bend` | `public_operation(modulus, exponent, signature)` | Experimental Bend RSAVP1, 2048–4096-bit RSA public keys |
+| `rsa_signature256.bend` | `verify_pss_digest(modulus, exponent, digest, signature)`, `verify_v15_digest(modulus, exponent, digest, signature)` | Experimental full SHA-256 digest-signature verification; native focused checks pass, Bun pending |
 | `field256.bend` | Internal P-256 prime/order `add`, `sub`, `mul`, `square`, `invert`, `decode_canonical` | SP 800-186 section 3.2.1.3 arithmetic foundation |
 | `bytes.bend` | `length`, `valid`, `append`, `hex` | Tail-recursive byte-list helpers |
 
@@ -39,7 +40,15 @@ admits canonical unsigned big-endian odd moduli of 2048–4096 bits, canonical
 odd exponents greater than one and below the modulus, and exactly `k` valid
 signature bytes representing an integer below the modulus. It returns `k`
 big-endian bytes or `None{}`. This assumes a valid RSA key and does not certify
-factor structure. Connecting the primitive to PSS/v1.5 verification remains next.
+factor structure. `rsa_signature256` connects that primitive to both encoding
+verifiers and returns `False{}` for malformed parameters or failed verification.
+PSS requires SHA-256/MGF1-SHA-256 and exactly 32 salt bytes. It requires a zero
+leading byte before shortening a recovered `k`-byte value to `emLen` when the
+modulus bit length is congruent to one modulo eight; other encodings retain
+their complete width. The native full-signature evaluator passes 774 cases;
+Bun verification and the complete package/repository gates remain pending.
+Certificate algorithm restrictions, key validation and trust remain required
+before integration. See [RSA_REVIEW.md](RSA_REVIEW.md) for evidence and limits.
 
 ChaCha20 requires a 32-byte key and 12-byte nonce. `block` returns 64 keystream bytes; `crypt` XORs a message with successive blocks and rejects a request that would wrap the 32-bit counter. It does **not** authenticate ciphertext. Poly1305 requires a fresh 32-byte one-time key per message. AEAD derives that key from ChaCha20 block zero, encrypts from counter one, authenticates the associated data and ciphertext, and returns plaintext only after checking all 16 tag bytes. The caller must ensure a unique nonce for every message under a key; these calls do not manage nonce allocation.
 

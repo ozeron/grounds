@@ -83,8 +83,8 @@ generated-code constant-time behavior or secure erasure. No private key is
 handled by this component; supplied salt/digest lists may still be copied by
 the generated runtime. Synthetic fixtures only until the complete review passes.
 
-Next connect the public primitive to PSS/v1.5 scheme owners, then implement
-RSASP1 with private-key admission. Private operations need blinding, fault checks, key ownership/retirement and
+Next finish native/Bun verification of the public PSS/v1.5 scheme owner, then
+implement RSASP1 with private-key admission. Private operations need blinding, fault checks, key ownership/retirement and
 generated-code review. Certificate AlgorithmIdentifiers must bind hash/MGF/salt,
 SPKI restrictions, trust and hostname policy before handshake integration.
 All required native/Bun vectors, malformed cases and independent full-signature
@@ -132,10 +132,69 @@ representatives 110 and parameter/width/range admission 21. Tests span limb
 boundaries through 4096 bits and preserve independently recovered NIST values;
 both outputs are computed by Bend. Eleven closed checks additionally cover
 small arithmetic witnesses and malformed-byte/key/range admission. Full
-PSS/v1.5 signature scheme and private RSA acceptance still remain outstanding.
+PSS/v1.5 signature scheme acceptance on both targets and private RSA acceptance
+still remain outstanding.
 
 Artifacts: `/Users/ozeron/.codex/artifacts/grounds/2026-10-02/rsa-integer/`.
 Native/Bun matrices took 1.133s/69.129s and peaked at 24.5/83.2 MiB respectively.
 Native/JS compilation peaked at 238.6/167.7 MiB. All jobs were sequential,
 guarded, nice 10, with a 120-second deadline; compilation/Bun caps were
 384 MiB aggregate / 320 MiB individual. All observed system pressure was normal.
+
+## Full digest-signature verification checkpoint
+
+`rsa_signature256.verify_pss_digest(n, e, digest, signature)` and
+`verify_v15_digest(n, e, digest, signature)` perform public exponentiation and
+strict SHA-256 encoding verification entirely in Bend. Invalid digest byte
+values or lengths return `False` before public exponentiation. Public key and
+signature admission delegates to `rsa_integer.public_operation`; verification
+does not reduce or truncate signature aliases. These APIs assume a valid RSA
+key and a protocol owner that selects and binds the algorithm profile.
+
+[RFC 8017 section 8.1.2](https://www.rfc-editor.org/rfc/rfc8017.html#section-8.1.2)
+requires PSS's recovered integer to fit exactly `ceil((modBits-1)/8)` bytes.
+When `modBits % 8 == 1`, this is one byte shorter than the primitive's `k`-byte
+output: the owner rejects a nonzero leading byte before removing it. Otherwise
+the complete output is retained, including a valid leading zero. v1.5 checks
+the complete `k`-byte canonical SHA-256 encoding with NULL parameters.
+
+The unchanged isolated native executable passes 774 full-signature cases:
+110 published NIST signatures, 34 independently prepared OpenSSL peers,
+52 parameter/range/key rejection cases and controls, and 289 tampering cases
+for each scheme. Every digest byte and every 2048-bit signature byte is
+individually changed. Peer keys are actually 2048, 2049, 2050, 3072 and 4096
+bits; the exact 2049-bit peer uses OpenSSL-generated primes, independent DER
+construction and OpenSSL's private-key check. Tests include the positive
+shortened PSS encoding, a below-modulus representative with an illegal nonzero
+shortening prefix, a valid full-width zero prefix, wrong MGF/hash/salt profiles,
+cross-scheme signatures and noncanonical v1.5 DigestInfo/padding.
+
+The peer generator originally used `pkeyutl -sign` for raw representatives.
+OpenSSL's prehashed signing CLI limits input size, so it was corrected to the
+peer's no-padding private operation (`-decrypt`); public bigint recovery
+independently confirms the exact representative. This is fixture preparation
+only. All retained fixtures contain public values; temporary private keys were
+deleted. NIST integer hex signatures are converted to exactly `k` bytes,
+including published odd-nibble/leading-zero integer representations. The two
+previously documented excluded NIST rows remain excluded.
+
+Six closed checks cover required-prefix handling and non-byte digest rejection.
+They and native compilation passed before the latest resource inspection.
+This continuation reused that binary and started no compiler. The complete
+native matrix took 2.593 seconds and peaked at 27.6 MiB under a 128 MiB aggregate
+/ 96 MiB individual cutoff and 120-second deadline, nice 10. Peer preparation
+peaked at 30.7 MiB; all observed macOS pressure levels were normal. Source hashes
+prove adoption preserves the tested module/CLI/checker/fixtures and all 282
+Bend source files in the isolated checkout. The checker also passes from the
+primary checkout using the existing binary: 774 cases in 2.076 seconds,
+peak 27.6 MiB, three normal-pressure observations.
+
+Artifacts: `/Users/ozeron/.codex/artifacts/grounds/2026-10-02/rsa-signature/`,
+especially `native-all-fixed.json/log`, its guard report,
+`prepare-peers-fixed.log`, `prepare_peers.py`, `adopted-inputs.json` and the
+earlier closed/native compilation logs. Bun full-signature verification,
+forced crypto/package checks and repository acceptance remain pending; heavy
+builds were not restarted after the latest memory inspection. The check script
+includes both targets for later verification. No private signing, salt owner,
+key retirement, timing/erasure approval, certificate trust or TLS/DTLS interop
+is established by this checkpoint.
