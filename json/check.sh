@@ -11,6 +11,9 @@ tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 native() { name=$1; shift; bend "$name.bend" -o "$tmp/$name" > /dev/null && "$tmp/$name" "$@"; }
 
+step "cold-type metadata checker regressions (no Bend compilation)"
+python3 scripts/cold_test.py
+
 python3 scripts/gen_fast.py
 python3 scripts/gen_fast_proof.py
 python3 scripts/gen_layout_proof.py

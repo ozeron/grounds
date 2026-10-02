@@ -9,6 +9,7 @@ tasks:
     inputs:
       - "check.sh"
       - "/tools/bend_native.sh"
+      - "/json/scripts/cold.py"
       - "*.bend"
       - "*.py"
       - "*_vectors.json"

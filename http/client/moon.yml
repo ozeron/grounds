@@ -11,5 +11,6 @@ tasks:
   check:
     command: "./check.sh"
     inputs:
+      - "/json/scripts/cold.py"
       - "*.bend"
       - "tests/*"

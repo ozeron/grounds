@@ -14,6 +14,58 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 
 ## Evidence ledger
 
+- 2026-10-02 (resource-control review and cold-type checker compatibility):
+  The preceding turn refreshed live process/memory evidence after the user's
+  renewed memory complaint. This continuation makes source and verification
+  progress without starting Bend, Bun, clang or package builds. Fresh process
+  inspection finds no such jobs, and macOS pressure remains normal (level 1).
+  This does not attribute retained swap to any current process or prove full
+  machine recovery. The existing guard was reviewed without changing limits:
+  one shared lock, sampled owned process-group memory and pressure checks,
+  immediate owned-group cleanup on cutoff/interruption, and fail-closed pressure
+  reads. All 13 small Python subprocess guard tests pass in 6.863 seconds with
+  `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tools.build_guard_test -v`.
+  These are sampled cutoffs, not OS allocation quotas; detached groups remain
+  unsupported. Compiler/package budgets stay 384 MiB aggregate / 320 MiB per
+  process / 120 seconds, and standalone evaluator budgets stay 128 / 96 / 120.
+  No limits were raised, compiler/kernel modified or global compiler upgraded.
+  `json/scripts/cold.py` now understands both the pinned 2.0.27 CID_HOT_T and
+  official 2.0.34 CID_T hot column. It verifies the runtime accessor, boolean
+  flags and constructor-ID/table correspondence, and fails explicitly for
+  missing, ambiguous, malformed or unfamiliar metadata. Hot types still fail
+  the gate; missing program arguments and compiler failures also fail. Six
+  metadata/CLI regression tests pass without invoking Bend (0.964 seconds,
+  61.0 MiB aggregate / 23.1 MiB individual), and run before compilation in the
+  JSON package check. Seven cached package manifests now include the shared
+  checker; HTTP server already included it and JSON has caching disabled.
+  Independent retained-C checks cover five old/new generated programs in
+  0.135 seconds / 23.3 MiB: the old transport fixtures report 210 and 182 hot
+  constructors, new cookie/TLS fixtures report zero, and the field fixture
+  still reports eight. Injecting sharing into an actually cold constructor is
+  detected in each. The first retained-C fixture mutation incorrectly targeted
+  an already-hot constructor in one program; a freeze assertion caught this,
+  and the corrected v2 evidence retains that failed attempt. No correctness or
+  constant-time conclusion follows from the cold metadata alone.
+  Artifacts are under
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-02/compiler-compatibility/validation/`:
+  `resource-controls-review-evidence.json`, `resource-controls-review-tests.log`,
+  `cold-metadata-regressions-*`, `cold-retained-metadata-v2-*`,
+  `cold-retained-observations-v2.json`, and the 652-input
+  `forced-http-core-cold-inputs.json` source freeze. The checker/cache changes
+  are also copied into the disposable forced checkout, preserving its pure
+  scope helper changes; the previously accepted 93-file compatibility patch
+  and its historical freezes remain unchanged. Primary Bend remains 2.0.27.
+  The latest isolated forced HTTP core attempt, `forced-http-core-scoped2`,
+  passed its existing units, eight laws, examples and cookie oracle, then failed
+  on the old cold-table reader (40.256 seconds, 376.1 MiB aggregate / 157.0 MiB
+  individual). It has not been rerun after this fix. UTF-8 was not automatically
+  checked by that Moon target: its separate forced gate remains required.
+  Next: run the three focused HTTP cold checks sequentially under the unchanged
+  compiler guard, then separate forced HTTP core and UTF-8 checks; retain fresh
+  source/gate evidence before revising the compatibility recipe or compiler pin.
+  Full package/root compatibility, secure integration, timing/secret ownership
+  and all 19 full-stack acceptance items remain open. `bounty/` stays untouched.
+
 - 2026-10-02 (full-size RNG formatter gate resolved in isolated compatibility draft):
   The previous turn progressed by preserving failed experiments, restoring all
   frozen inputs and correcting resource docs (8bcbeba). This turn targets the
