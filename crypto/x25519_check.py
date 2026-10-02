@@ -104,6 +104,32 @@ def main() -> None:
             assert got.returncode == 0 and got.stdout.strip() == expected.hex(), (
                 f"{mode}: {got.stdout.strip()} != {expected.hex()}; {got.stderr.strip()}")
 
+        # Operation names remain exact and case-sensitive after dispatcher
+        # factoring. These failures must precede any crypto output.
+        invalid_modes = {"", "unknown", " public", "public ", "x" * 4096}
+        for name in ("public", "mult", "shared"):
+            invalid_modes.update(name[:i] for i in range(len(name)))
+            invalid_modes.update((name.upper(), name + "x", name + "\n"))
+            for i in range(len(name)):
+                invalid_modes.add(name[:i] + "*" + name[i+1:])
+                invalid_modes.add(name[:i] + "☃" + name[i+1:])
+        admission_cases = 0
+        for mode in sorted(invalid_modes):
+            for coordinate in (None, BASE):
+                got = run(mode, ALICE, coordinate)
+                message = "usage: x25519_cli" if coordinate is None else "unknown X25519 operation"
+                assert got.returncode == 2 and got.stdout == "" and message in got.stderr, (
+                    mode, coordinate, got.returncode, got.stdout, got.stderr)
+                admission_cases += 1
+        for mode, coordinate in (("public", BASE), ("mult", None), ("shared", None)):
+            got = run(mode, ALICE, coordinate)
+            assert got.returncode == 2 and got.stdout == "", (mode, got)
+            admission_cases += 1
+        for args in ([], ["public"], ["public", str(key_path), "extra", "extra"]):
+            got = subprocess.run(binary + args, capture_output=True, text=True)
+            assert got.returncode == 2 and got.stdout == "" and "usage: x25519_cli" in got.stderr, got
+            admission_cases += 1
+
         for key, u, output in VECTORS:
             key, u, output = bytes.fromhex(key), bytes.fromhex(u), bytes.fromhex(output)
             assert reference(key, u) == output
@@ -157,6 +183,7 @@ def main() -> None:
             ), "RFC 7748 1000-iteration vector"
 
     print("X25519: RFC vectors, noncanonical inputs, four OpenSSL differential exchanges and zero rejection passed"
+          + f"; {admission_cases} exact operation/arity failures passed"
           + ("; 1000 iterations passed" if iterated else ""))
 
 

@@ -59,7 +59,12 @@ not adopted. `generated-js-review.json` pins the signer JavaScript digest and
 five exact retry/nonzero function bodies; it records unresolved branches and
 allocation/erasure findings rather than granting timing approval. Complete Bun
 runtime verification and forced crypto/repository gates remain pending at this
-checkpoint. See STACK_PROGRESS.md for subsequent gate results;
+checkpoint. The first forced package gate on 4953680 stops in the existing X25519 evaluator
+at the 512 MiB process cutoff after compiling every new native ECDSA evaluator;
+it is not a package acceptance result. X25519's subsequent consuming exact-name
+fixture recovery passes native/Bun at 144.8 MiB, with its full original matrix,
+124 admission cases per target and the native 1,000-iteration vector intact.
+See STACK_PROGRESS.md for subsequent gate results;
 these focused results alone do not establish full package or stack acceptance.
 
 ## Unresolved timing and erasure findings

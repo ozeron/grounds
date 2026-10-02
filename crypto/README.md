@@ -320,3 +320,12 @@ protocol consumes the synthetic known-nonce, artificial-point or retry hooks.
 See [ECDSA review](ECDSA_REVIEW.md) for the current evidence and unresolved
 generated-runtime/erasure findings. ECDSA is experimental and must use synthetic
 keys until those findings are resolved; it is not connected to a live TLS/DTLS path.
+
+The X25519 evaluator consumes exact `public`, `mult` and `shared` operation
+names with a character-by-character classifier instead of expanded long String
+patterns. The public CLI interface, file-read/error ordering and cryptographic
+functions remain unchanged. Its existing native/Bun vector, differential,
+noncanonical-input and malformed-crypto matrix also checks 124 operation-name
+and arity rejections per target; native retains the RFC 1,000-iteration vector.
+The guarded focused build/check peaks at 144.8 MiB on 2026-10-02. This reduces
+evaluator compiler workload; it does not change or certify X25519 arithmetic.

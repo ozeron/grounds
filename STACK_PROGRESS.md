@@ -14,6 +14,31 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 
 ## Evidence ledger
 
+- 2026-10-02 (forced crypto gate and X25519 evaluator recovery): The first
+  fresh ECDSA-expanded `moon --concurrency 1 run crypto:check --force` on
+  4953680 (task hash prefix `54beed3a`) passes all closed/type/ownership checks
+  and builds every new native ECDSA evaluator, then stops compiling the existing
+  X25519 evaluator. Guard exit 137 after 32.164s, peak 593.30 MiB aggregate and
+  512.03125 MiB individual at the unchanged 640/512 MiB cutoffs. No complete
+  runtime matrix or successful fresh RunReport follows from that stopped run.
+  An affine exact-name classifier replaces only X25519 fixture String literal
+  patterns; the `public`/`mult`/`shared` CLI and original file/error ordering
+  remain. All original X25519 checks are retained. Fresh native/Bun compile
+  and full focused matrices pass, including noncanonical aliases, four OpenSSL
+  exchanges, all-zero/malformed inputs, 124 added exact-mode/arity failures on
+  each target and the native RFC 1,000-iteration vector. The guarded focused
+  command exits zero in 47.349s and peaks at
+  144.84 MiB, rather than crossing 512 MiB in the prior build.
+  Cryptographic core sources, including field, P-256 and X25519 arithmetic,
+  remain unchanged. A first classifier draft's forward-reference error was
+  corrected with a continuation before this passing check; it is not accepted
+  as evidence. Artifacts: `crypto-forced-*`, `primary-forced-inputs.json`,
+  `post-forced-input-delta.json` and `x25519-affine-*` under
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-02/ecdsa-current/`.
+  Next: fresh forced crypto retry with this source change, inspect all native/Bun
+  results and source stability, then the required repository gate. ECDSA's full
+  Bun matrix, generated timing/erasure and all 19 stack boxes remain open.
+
 - 2026-10-02 (experimental ECDSA checkpoint under unchanged resource cutoffs):
   Added Bend P-256/SHA-256 raw digest signing/verification, RFC 6979 deterministic
   nonce generation and a strict DER signature boundary. Current accepted
