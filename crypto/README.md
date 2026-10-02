@@ -24,8 +24,16 @@ Pure Bend cryptographic primitives. This package implements SHA-1, SHA-256, HMAC
 | `rsa_signature256.bend` | `verify_pss_digest(modulus, exponent, digest, signature)`, `verify_v15_digest(modulus, exponent, digest, signature)` | Experimental full SHA-256 digest-signature verification; 774 focused cases pass on native and Bun |
 | `field256.bend` | Internal P-256 prime/order `add`, `sub`, `mul`, `square`, `invert`, `decode_canonical` | SP 800-186 section 3.2.1.3 arithmetic foundation |
 | `bytes.bend` | `length`, `valid`, `append`, `hex` | Tail-recursive byte-list helpers |
+| `der.bend` | `decode(bytes)`, `complete(tag, bytes)` | Bounded DER TLV framing for future certificate schemas; preserves exact consumed bytes |
 
 Byte input and output use `List<U32>` with values 0–255. The public calls return `None{}` for an out-of-range byte; `expand` also rejects a PRK other than 32 bytes or a requested length over 8160 bytes. SHA-1 and HMAC-SHA1 return 20 bytes; SHA-256 and HMAC-SHA256 return 32 bytes. The hex helpers are for diagnostics and tests; protocols should use raw bytes.
+
+`der.bend` supplies single-octet-tag framing with minimal definite lengths and
+a 65,535-byte input bound. `decode` returns the tag, body, unconsumed rest and
+exact consumed encoding; `complete` additionally requires the selected tag and
+no trailing bytes. Eight closed checks and 1,552 native/Bun oracle cases pass.
+Certificate schemas, primitive-value rules, algorithm/key admission, trust and
+handshake integration remain required. See [DER_REVIEW.md](DER_REVIEW.md).
 
 RSA encoding is an experimental component, documented in
 [RSA_REVIEW.md](RSA_REVIEW.md). PSS uses a 32-byte digest, MGF1-SHA-256 and a

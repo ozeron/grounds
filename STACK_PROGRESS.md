@@ -14,6 +14,59 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 
 ## Evidence ledger
 
+- 2026-10-02 (certificate DER framing prerequisite; algorithm draft unverified):
+  `crypto/der.bend` adds bounded TLV framing in Bend, with valid-octet and
+  65,535-byte total-input admission, single-octet tags, minimal definite lengths,
+  truncation rejection and exact consumed-encoding/rest preservation.
+  `complete(tag, bytes)` also enforces the selected tag and no trailing bytes.
+  It does not validate ASN.1 primitive values, schemas, keys or certificates.
+  Eight fresh primary closed checks pass. Isolated native and Bun each pass
+  all 1,552 independent byte-slicing oracle cases: length/tag octets, boundaries
+  through the cap, aliases, every truncation, header/content bits, seeded
+  round trips/rest preservation and four independent public OpenSSL certificates
+  plus their SPKIs. Synthetic private peer keys are removed. The original
+  batched Bun diagnostics crossed the 96 MiB process cutoff; large inputs now
+  run individually with every case retained. Passing Bun takes 2.188s, peak
+  105.3 MiB aggregate / 79.6 MiB individual. Original native takes 1.125s,
+  35.2 MiB; the fresh primary checker with the final batching passes all 1,552
+  in 0.407s. Primary closed/native work totals 0.948s, peak 112.4 MiB.
+  Standalone final closed/C/clang/JS compilation passes in 2.311s, peak
+  178.8 MiB. Inputs/hashes prove the five adopted DER files match the tested
+  isolated copies and all 411 prior source/fixture inputs are preserved, apart
+  from five added check-script commands. `crypto/check.sh` retains all 109
+  original lines in order; Moon's existing source/Python/vector globs cover
+  the five new files. No prior crypto algorithm changes in this milestone.
+  All jobs are sequential, nice 10, with 120-second outer deadlines under
+  `PYTHONDONTWRITEBYTECODE=1 python3 tools/build_guard.py --memory-mib <384|128>
+  --process-memory-mib <320|96> --timeout 120 --report <artifact>/... -- nice
+  -n 10 <job>`. Standalone compiles/closed checks use 384/320 MiB and passing
+  invocation-local `BUN_OPTIONS=--smol BUN_JSC_forceRAMSize=134217728`;
+  evaluators use 128/96 MiB, with Bun's passing invocation using 67108864.
+  Exact jobs are `sh <artifact>/build-der.sh`, `python3 <checker> --report
+  <artifact>/<target>.json -- <native|bun generated.js>` and
+  `sh <artifact>/primary-focused.sh`. All pressure observations are normal;
+  cutoffs are sampled and can overshoot. Bend 2.0.27/Bun 1.3.13/Python 3.12.8,
+  Apple clang 21/OpenSSL 3.6.4. X.690 2021 length/framing clauses were reviewed.
+  The larger algorithm-admission draft remains only in the isolated artifact
+  checkout. Initial syntax/order errors were corrected; combined and split
+  adapters then crossed the unchanged compiler cutoff (sampled 322–348 MiB).
+  A premature driver invocation failed because no evaluator had been produced;
+  it is not a successful algorithm matrix. None of that draft is adopted or
+  reported as verified. RFC 4055/5756/5480/5758 and refreshed errata were read:
+  verified 4055 items 1468/1676 clarify field naming and MGF spelling; 5480
+  items 6670/8026 correct key-usage naming and a curve spelling. Key-usage work
+  must also follow RFC 8813. Held items are retained separately.
+  Artifacts (`<artifact>`):
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-02/x509-algorithm/`,
+  `evidence.json`, `adopted-inputs.json`, public fixtures, retained C/JS,
+  `der-final-build.log`, `der-native.json`, `der-bun.json`, primary logs and
+  all success/failure resource reports. Full crypto/repository/browser gates
+  remain stopped after the memory complaint. DER framing is a prerequisite,
+  not certificate acceptance or TLS interop. Next: isolate/reduce the algorithm
+  parser's compiler workload, verify both targets, then admit SPKI key bits and
+  bind certificate signatures/constraints/trust to the TLS handshake owner.
+  Private owners, runtime/erasure review and all 19 stack boxes remain open.
+
 - 2026-10-02 (in-place RSA shift; focused native/Bun signatures):
   `rsa_integer.right.go` now reads the next limb before overwriting the current
   one and clears the vacated high cell in its owned accumulator. This removes
