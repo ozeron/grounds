@@ -68,7 +68,9 @@ normal JIT. Bend 2.0.27, Bun 1.3.13, Python 3.12.8, Apple clang 21 and OpenSSL
 and the corrected first syntax failure are under
 `/Users/ozeron/.codex/artifacts/grounds/2026-10-02/x509-public-key/`.
 
-Certificate parsing/signature binding, key usage, constraints, time, hostname,
+Certificate field framing is now supplied by
+[X509_CERTIFICATE_REVIEW.md](X509_CERTIFICATE_REVIEW.md). Certificate
+signature verification, key usage, constraints, time, hostname,
 trust/path validation, TLS SignatureScheme admission and handshake integration
 remain required. Existing crypto arithmetic and its unresolved private-owner,
 timing/runtime/erasure findings are unchanged. Full crypto/repository/browser

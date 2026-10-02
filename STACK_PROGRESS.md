@@ -7,12 +7,82 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 | Layer | Current state | Next proof of progress |
 |---|---|---|
 | `wire` | Byte TCP and IPv4 UDP effects, explicit local-IP binding and OS bound-address/ephemeral-port discovery; OpenSSL TLS effects. UDP handles all octets, zero datagrams, timeout and oversize errors, with same-port/two-IP isolation and failed-bind descriptor checks. Actual SIGTERM/SIGINT stop parked native/Bun loops and release the listener; Bun uses an OS-only C11 atomic signal bridge because its synchronous runtime cannot dispatch JS signal callbacks. Bounded bulk host RNG bytes now pass native/Bun guard/error tests and supply signaling credentials. Public-pattern byte/RNG and retained UDP measurements are recorded; Bend Base supplies monotonic `IO.now`. | Verify IPv6/cancellation and packed storage/long-session allocation, retaining measured baselines; complete crypto/runtime review before secure transport. |
-| `crypto` | Bend SHA-1 for WebSocket challenge, HMAC-SHA1 for legacy STUN integrity, SHA-256, HMAC-SHA256, HKDF-SHA-256, ChaCha20, Poly1305, ChaCha20-Poly1305 AEAD, AES-128 encryption, AES-128-GCM and X25519; P-256 prime/order arithmetic, uncompressed-point ECDH, experimental P-256/SHA-256 raw/DER ECDSA, SHA-256 RSA PSS/v1.5 encoding, variable-size public modular exponentiation/RSAVP1 and full digest-signature verification (725 arithmetic and 774 signature cases pass on native and Bun; in-place limb shift reduces array creation), bounded DER, SHA-256 certificate AlgorithmIdentifier admission and RSA/P-256 SPKI public-key decoding, plus TLS HKDF labels and distinct affine ChaCha/AES-GCM traffic owners with 64-bit nonces/key updates and AES sending usage limits. Poly1305 products now stay below 2^26; OpenSSL remains in live cookie/TLS paths. | Bind certificate signatures/constraints/trust and TLS schemes, finish current ECDSA/package verification and runtime/erasure review, implement private RSA owners, then cookie and full handshake integration. |
+| `crypto` | Bend SHA-1 for WebSocket challenge, HMAC-SHA1 for legacy STUN integrity, SHA-256, HMAC-SHA256, HKDF-SHA-256, ChaCha20, Poly1305, ChaCha20-Poly1305 AEAD, AES-128 encryption, AES-128-GCM and X25519; P-256 prime/order arithmetic, uncompressed-point ECDH, experimental P-256/SHA-256 raw/DER ECDSA, SHA-256 RSA PSS/v1.5 encoding, variable-size public modular exponentiation/RSAVP1 and full digest-signature verification (725 arithmetic and 774 signature cases pass on native and Bun; in-place limb shift reduces array creation), bounded DER, SHA-256 certificate AlgorithmIdentifier admission, RSA/P-256 SPKI public-key decoding and certificate field framing preserving exact signed bytes, plus TLS HKDF labels and distinct affine ChaCha/AES-GCM traffic owners with 64-bit nonces/key updates and AES sending usage limits. Poly1305 products now stay below 2^26; OpenSSL remains in live cookie/TLS paths. | Bind certificate signatures/constraints/trust and TLS schemes, finish current ECDSA/package verification and runtime/erasure review, implement private RSA owners, then cookie and full handshake integration. |
 | `tls` | Bend protected TLS 1.3 ChaCha20-Poly1305 and AES-128-GCM records and traffic/key lifecycle pass synthetic native/Bun differential tests; AES also reproduces RFC 8448 encrypted records. Live TLS client/server still use OpenSSL C effects; JS TLS effects return `ENOSYS`. | Complete mandatory TLS algorithms, handshake/transcripts, certificates/signatures/trust/hostname checks and real client/server interop; DTLS 1.2 for RTC. |
 | `http` | Bend HTTP/1.1 client/server, routing, JSON, cookies, auth, CORS, multipart, SSE, and server WebSocket handshake/framing/session. Native echo interops with a third-party Python client and Bun's WebSocket API. A bounded local signaling fixture admits exact Host/Origin and a public synthetic cookie before upgrade/UDP allocation; native and Bun exchange SDP with real Chrome and clean up connection-owned ICE state/sockets. | Replace the fixture selector with Bend cookie/HMAC authentication and integrate Bend TLS for browser HTTPS/WSS. |
 | `rtc` | Bend STUN parsing, IPv4 XOR-MAPPED-ADDRESS, SHA-1/SHA-256/dual integrity, FINGERPRINT, authenticated incoming/outgoing ICE Binding exchanges, retained-socket retransmissions and explicit error/integrity outcomes. IPv4 candidate/pair priorities, bounded checklist formation, stable transport references and guarded state transitions, role-driven priority reordering, a paced shared-socket transaction engine with response-only interruption, protected incoming replies and server-side role decisions, FIFO triggered queues, ordinary round-robin/foundation scheduling and generation/sent-role attempt ownership. A bounded session now binds signaled credentials, registered receiving/sending bases, observed peer-reflexive candidates, deferred incoming work, retained attempts and endpoint integrity policies. Authenticated non-symmetric responses fail only their original current pair; interrupted old listeners retire independently. The live owner fixture explicitly binds unicast IPv4 bases and queries actual local ports before candidate formation. An additive valid-list owner resolves authenticated mappings, learns locally peer-reflexive candidates from retained signed-request priority, allocates IP-keyed foundations, reranks by role and keeps late paths separate from replacement flights. A nomination-evidence owner associates current successful checks with their valid paths and retains qualified incoming intent through materialization, exact triggered flights and response-only listeners; already-Succeeded counterparts resolve their actual generating record. A generation lifecycle owner now applies regular controlling/controlled nomination, selects completed stream paths, removes nominated component checks while retaining response listeners, continues authenticated Binding service, and defers failure through PAC. An outer transport owner derives selected physical consent routes, serves authenticated consent-only Binding requests, shares actual-send pacing and recent transaction identity admission, gates logical application routes, and preserves sealed consent loss. Full/full credential restart rebuilds ICE state while retaining only selected old consent/server contexts until replacement selection. Bounded SDP/signaling now binds connection-owned credentials and the actual retained UDP base; real Chrome verifies direct selected pairs, fresh consent, restart and cleanup on native and Bun. Separate unauthenticated discovery remains available. | Complete crypto/runtime foundations and secure signaling, then gathering, IPv6/TURN, DTLS/SCTP and SRTP/media. |
 
 ## Evidence ledger
+
+- 2026-10-02 (certificate field framing; source-native build):
+  `crypto/x509_certificate.bend` extracts one complete, bounded certificate
+  envelope in Bend and retains original TBSCertificate bytes. Affine public
+  Header/Identity/Tail records retain signed serial INTEGER contents, version,
+  inner algorithm, issuer/validity/subject/SPKI SEQUENCE encodings, optional
+  IDs/extensions and signature payload. A bounded six-field walk admits
+  mandatory tags/order; absent v1 versus explicit v2/v3, minimal signed serial
+  framing, exact two Time tags, version/ordered optional fields, BIT STRING
+  padding and nonempty v3 extension wrapping are checked. Inner/outer supported
+  SHA-256 RSA PSS/v1.5 or P-256 ECDSA profiles must agree. Root octets/65,535-byte
+  admission and DER length/trailing-field checks remain in the existing framer.
+  Time/calendar/order/current-time, Name/RDN, subject-key and extension-item
+  semantics are not validated; a deliberate bad-time-content case documents
+  that framing success cannot authorize a connection. No issuer signature,
+  trust, chain, hostname, TLS scheme or handshake result is claimed.
+  Six fresh primary closed checks pass. Native and normal-JIT Bun each pass
+  all 31,428 independent cases in 9.991/52.577s: exact fields of four frozen
+  public OpenSSL certificates, signed INTEGER aliases, versions/optional
+  presence/order/duplicates, all unique-ID and signature unused-bits counts,
+  mandatory/validity shape and algorithm binding, every truncation/individual
+  bit mutation of all four certificates, seeded mutations, trailing fields
+  and large-input boundaries. Every field and original signed byte is compared
+  against the independent byte-slicing oracle. Cases stream in batches at most
+  32; inputs above 4,096 bytes run alone. Primary native repeats all cases in
+  9.350s (guard total 9.448s); input hashes match both generated targets.
+  Earlier syntax/ownership/descent failures and packaged C-generation cutoffs
+  remain retained. Grouped records alone and a shared mandatory-field walker
+  still cross the unchanged 320 MiB individual cutoff with packaged Bend.
+  A diagnostic source compiler instead completes C generation at 314.0 MiB.
+  Unmodified upstream v2.0.27 source under Bun 1.3.13 then generates byte-identical
+  C at 318.1 MiB. All 1,773 source files match the frozen upstream archive;
+  SHA-256 `0c763567dc08bd297906a0100df149fb211d936df627882f806fa88a98feff68`.
+  Apple clang 21 builds that C at -O3, and the packaged compiler emits final JS;
+  source generation also reproduces the previous SPKI packaged-compiler C
+  byte for byte at 292.9 MiB, providing a separate known-output comparison.
+  the sequential clang/JS job peaks at 297.3 MiB. No compiler/kernel changes
+  are adopted; this does not establish the cause of the memory difference or
+  a passing packaged-native build. Primary closed checking peaks at 212.3 MiB;
+  native/Bun evaluator peaks are 29.4/92.0 MiB aggregate (Bun individual 64.0).
+  Primary native peak is 30.8 MiB. Source provenance checking peaks at 24.6 MiB.
+  Jobs remain sequential, nice 10, with 120-second deadlines under
+  `PYTHONDONTWRITEBYTECODE=1 python3 tools/build_guard.py --memory-mib <384|128>
+  --process-memory-mib <320|96> --timeout 120 --report <artifact>/... -- nice
+  -n 10 <job>`. Compiler environment: `BEND_NO_TELEMETRY=1 BUN_OPTIONS=--smol
+  BUN_JSC_forceRAMSize=134217728 BUN_JSC_useJIT=false`; generated Bun uses normal
+  JIT with `BUN_OPTIONS=--smol BUN_JSC_forceRAMSize=67108864`. Every pressure
+  sample is normal; cutoffs are sampled and can overshoot, not kernel quotas.
+  Exact jobs: unmodified `bun <v2.0.27 source>/bend2/main.ts <certificate_cli>
+  -o <artifact>/certificate.c`, `sh <artifact>/build-parser-final-targets.sh`,
+  `python3 <checker> --report ... -- <native|bun generated.js>`, primary
+  `bend crypto/x509_certificate_test.bend --check-only` and primary native
+  checker. Bend 2.0.27, Bun 1.3.13, Python 3.12.8, Apple clang 21; previous
+  OpenSSL 3.6.4 public fixtures are reused. Review: RFC 5280 §§4.1–4.1.2,
+  RFC 4055/5758; existing verified errata evidence is retained. Remaining
+  semantic/path work must apply current 5280 updates, its six verified errata
+  and RFC 8813. See `crypto/X509_CERTIFICATE_REVIEW.md` for API and limitations.
+  Artifacts: `/Users/ozeron/.codex/artifacts/grounds/2026-10-02/x509-certificate/`,
+  with retained generated targets, complete reports, compiler provenance,
+  original/passing drafts, failed attempts, input hashes and `evidence.json`.
+  All 435 of 436 previous source/fixture/script inputs except `crypto/check.sh`
+  remain unchanged; five added check commands preserve all 128 prior lines.
+  Existing Moon globs cover all four new source/check files. No cryptographic
+  arithmetic, existing fixture, protocol effect or bounty input changes.
+  Full `moon run crypto:check --force`, repository and browser gates remain
+  stopped after the memory complaint; all 19 stack boxes remain open. Next:
+  bind admitted issuer keys and original signed bytes to Bend mathematical
+  signature verification, then implement time/Name/extensions, constraints,
+  trust/hostname, TLS scheme admission and handshakes. The unverified signature
+  integration draft remains isolated in the artifact checkout, not adopted.
 
 - 2026-10-02 (SPKI public-key admission): `crypto/x509_public_key.bend`
   decodes one bounded, exact SubjectPublicKeyInfo in Bend. Its SEQUENCE must

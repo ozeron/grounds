@@ -27,6 +27,7 @@ Pure Bend cryptographic primitives. This package implements SHA-1, SHA-256, HMAC
 | `der.bend` | `decode(bytes)`, `complete(tag, bytes)` | Bounded DER TLV framing for future certificate schemas; preserves exact consumed bytes |
 | `x509_algorithm.bend` | `key(bytes)`, `signature(bytes)`, `compatible(key, signature)` | Public SHA-256 RSA/P-256 certificate algorithm admission; preserves PSS key restrictions |
 | `x509_public_key.bend` | `decode(bytes)` | Complete RSA/PSS or uncompressed P-256 SPKI structural/public-parameter admission; retains algorithm restrictions |
+| `x509_certificate.bend` | `decode(bytes)` | Bounded certificate field framing; retains exact signed bytes and binds supported inner/outer algorithms |
 
 Byte input and output use `List<U32>` with values 0–255. The public calls return `None{}` for an out-of-range byte; `expand` also rejects a PRK other than 32 bytes or a requested length over 8160 bytes. SHA-1 and HMAC-SHA1 return 20 bytes; SHA-256 and HMAC-SHA256 return 32 bytes. The hex helpers are for diagnostics and tests; protocols should use raw bytes.
 
@@ -81,6 +82,16 @@ been established. Complete package/repository gates remain pending.
 Binding the decoded certificate algorithm restrictions to actual key/signature
 verification, key validation and trust remains required before integration.
 See [RSA_REVIEW.md](RSA_REVIEW.md) for evidence and limits.
+
+`x509_certificate.decode` preserves original TBSCertificate bytes and all
+mandatory/optional field encodings while binding the inner/outer supported
+SHA-256 signature profiles. Six closed checks and 31,428 independent cases per
+native/Bun target pass. This is framing: time/Name/extension semantics,
+issuer-key signature verification, trust/hostname and TLS integration remain
+required. Native evidence uses unmodified Bend 2.0.27 source under Bun 1.3.13;
+packaged native generation still exceeds the local cutoff. See
+[X509_CERTIFICATE_REVIEW.md](X509_CERTIFICATE_REVIEW.md) for fields, constraints,
+compiler provenance, measured resources and reproducible commands.
 
 `rsa_integer_bench.py` measures a precompiled public-power evaluator with frozen
 public operands, including full-width sparse/dense exponents. It checks every
@@ -311,8 +322,8 @@ operands, random values, 512-bit reduction, Montgomery versus the retained
 binary implementation, inverse/zero behavior, strict decoding and malformed
 lengths. Four closed Bend checks reject bad lengths and U32 values outside the
 byte range. Constants are grounded in [NIST SP 800-186 section 3.2.1.3](https://csrc.nist.gov/pubs/sp/800/186/final).
-This arithmetic foundation supports the P-256 module below. ECDSA/RSA signatures
-and full TLS/DTLS certificate/handshake integration remain required.
+This arithmetic foundation supports the P-256 module below. Complete signature
+integration and TLS/DTLS certificate/handshake validation remain required.
 
 
 `p256.bend` accepts exactly 32 big-endian private-scalar bytes in 1..n−1.
@@ -366,7 +377,7 @@ The signer follows RFC 6979 section 3.2 HMAC-SHA256 initialization and rejection
 including rejection of zero r and zero s. It tries at most 128 candidates and
 fails closed on exhaustion. Nonce candidates are compared to n, never reduced
 modulo n. Public signature DER encoding is a separate narrow module; certificate
-DER parsing, trust, hostname and TLS handshake ownership are still pending.
+semantic validation, trust, hostname and TLS handshake ownership remain pending.
 Signing is deterministic for a given private scalar/digest; this API supplies
 neither private-key generation nor a nonce/key storage owner.
 
