@@ -15,21 +15,12 @@ type Scan is Type:
 def range(+value: U32, low: U32, high: U32) -> Bool:
   Bool.and(U32.is_ge(value, low), U32.is_le(value, high))
 
+# PrintableString alphabet: A-Z, a-z, space, '() +,-./0-9:=?.
+# Numeric ranges avoid expanding twelve U32 literal patterns into Word trees.
 def printable(+byte: U32) -> Bool:
-  match byte:
-    case 32: True{}
-    case 39: True{}
-    case 40: True{}
-    case 41: True{}
-    case 43: True{}
-    case 44: True{}
-    case 45: True{}
-    case 46: True{}
-    case 47: True{}
-    case 58: True{}
-    case 61: True{}
-    case 63: True{}
-    case byte: Bool.or(range(byte, 48, 57), Bool.or(range(byte, 65, 90), range(byte, 97, 122)))
+  Bool.or(range(byte, 65, 90), Bool.or(range(byte, 97, 122),
+    Bool.or(range(byte, 39, 41), Bool.or(range(byte, 43, 58),
+      Bool.or(U32.is_eq(byte, 32), Bool.or(U32.is_eq(byte, 61), U32.is_eq(byte, 63)))))))
 
 def scalar(+code: U32) -> Bool:
   Bool.and(U32.is_le(code, 1114111), Bool.not(range(code, 55296, 57343)))
@@ -78,31 +69,30 @@ def text(tag: U32, bytes: List<&2, U32>) -> Maybe<&1, U32>:
     case 30: bmp(bytes, 0, True{})
     case _: None{}
 
-def standard(attribute: U32) -> Rule:
-  match attribute:
-    case 3: Rule{1, 1, 64}
-    case 4: Rule{1, 1, 32768}
-    case 5: Rule{2, 1, 64}
-    case 6: Rule{2, 2, 2}
-    case 7: Rule{1, 1, 128}
-    case 8: Rule{1, 1, 128}
-    case 10: Rule{1, 1, 64}
-    case 11: Rule{1, 1, 64}
-    case 12: Rule{1, 1, 64}
-    case 41: Rule{1, 1, 32768}
-    case 42: Rule{1, 1, 32768}
-    case 43: Rule{1, 1, 32768}
-    case 44: Rule{1, 1, 32768}
-    case 46: Rule{2, 0, 65535}
-    case 65: Rule{1, 1, 128}
-    case _: Rule{0, 0, 0}
+def standard(+attribute: U32) -> Rule:
+  Bool.pick(Rule, U32.is_eq(attribute, 6), Rule{2, 2, 2},
+    Bool.pick(Rule, U32.is_eq(attribute, 5), Rule{2, 1, 64},
+      Bool.pick(Rule, U32.is_eq(attribute, 46), Rule{2, 0, 65535},
+        Bool.pick(Rule, Bool.or(U32.is_eq(attribute, 3), range(attribute, 10, 12)), Rule{1, 1, 64},
+          Bool.pick(Rule, Bool.or(U32.is_eq(attribute, 4), range(attribute, 41, 44)), Rule{1, 1, 32768},
+            Bool.pick(Rule, Bool.or(range(attribute, 7, 8), U32.is_eq(attribute, 65)), Rule{1, 1, 128},
+              Rule{0, 0, 0}))))))
+
+# Compare exact OID contents without expanding each U32 literal into Word cases.
+def rule.same(a: List<&2, U32>, b: List<&2, U32>, equal: Bool) -> Bool:
+  match a b:
+    case Nil{} Nil{}: equal
+    case Con{x, xs} Con{y, ys}: rule.same(xs, ys, Bool.and(equal, U32.is_eq(x, y)))
+    case _ _: False{}
+
+def rule.other(+oid: List<&2, U32>) -> Rule:
+  Bool.pick(Rule, rule.same(oid, [9,146,38,137,147,242,44,100,1,25], True{}), Rule{3, 0, 65535},
+    Bool.pick(Rule, rule.same(oid, [42,134,72,134,247,13,1,9,1], True{}), Rule{3, 1, 255}, Rule{0, 0, 0}))
 
 def rule(oid: List<&2, U32>) -> Rule:
   match oid:
     case Con{85, Con{4, Con{attribute, Nil{}}}}: standard(attribute)
-    case [9,146,38,137,147,242,44,100,1,25]: Rule{3, 0, 65535}
-    case [42,134,72,134,247,13,1,9,1]: Rule{3, 1, 255}
-    case _: Rule{0, 0, 0}
+    case oid: rule.other(oid)
 
 def permitted(valid: Bool, processed: Bool) -> Maybe<&1, Bool>:
   match valid:

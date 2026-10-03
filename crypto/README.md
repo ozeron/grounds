@@ -707,33 +707,47 @@ interpretation and SIZE bounds require a T.61 owner; octet length is not a
 substitute. An empty Name is structurally permitted for subjects, while
 `inspect(...,False)` and the certificate adapter reject an empty issuer.
 `pair` runs both actual Names through one shared schema traversal.
-The current extension/TLS-purpose owner has not yet integrated these Name
-checks. Its unchanged `Admission` remains partial policy processing. An
-unadopted candidate adds malformed-Name, empty-issuer and empty CA/CRL-subject
-rejection; its compiler gates remain blocked. Unknown attributes and Teletex
-also need their owners before authorization.
+The extension/TLS-purpose owner now applies this shared schema to both actual
+Names. It rejects malformed Names and an empty issuer, and rejects an empty
+subject for a CA or a certificate whose key usage includes cRLSign, even when
+a valid critical SAN is present. Its five-field `Admission` remains partial
+policy processing. Structurally valid unknown attributes and Teletex remain
+deferred and require their owners before complete authorization.
 
 This is not normalized Name equality or chain authorization. RFC 4518 string
 preparation, RFC 9549 IDNA2008/domain constraints, GeneralName directoryName
 integration, issuer/subject binding across a chain, trust, revocation and
 trusted-time composition remain required.
 
-Official Bend 2.0.34 native and optimizing-JIT Bun each pass 8,507 independent
-Name checks, including exact attribute/RDN retention, string/tag/SIZE boundaries,
-SET ordering, malformed later attributes, 65,535-octet admission and actual
-issuer/subject extraction. Thirteen new public synthetic signed fixtures include
-Unicode Names, malformed Names, deferred forms and future empty-CA/CRL-subject
-controls. Their `future_profile_expected` values describe unfinished composition;
-the Name adapter alone does not enforce those full-profile rules. Independent
-OpenSSL digest verification and frozen verified Bend signature programs accept
-all 13 originals; Bend rejects all 13 signature-bit changes on each target.
+Official Bend 2.0.34 native and optimizing-JIT Bun each pass 11,195 independent
+Name checks, preserving the original 8,507 cases and adding all 128 canonical
+single-octet standard attribute arcs across seven value tags and three lengths.
+Both targets also pass 28,319 integrated extension/TLS-purpose cases, including
+all prior policy cases, actual issuer/subject schema failures, signed Name
+controls and empty CA/CRL-subject permutations. The seven signed admission gaps
+recorded by the previous baseline are now rejected. The 13 public signed
+fixtures use `policy_expected` for this adopted partial policy; the field rename
+changes no DER, signatures or expectations. Their prior independent OpenSSL
+digest and frozen Bend signature-math evidence remains applicable: all originals
+are valid signatures, while all signature-bit changes fail on both targets.
 
-The final runtime corpus peaks at 91.7 MiB aggregate / 60.7 MiB individual in
-10.303 s under unchanged limits. The modern seven-literal proof frontend and
-native/JS builds pass. Pinned 2.0.27's final Name proof frontend reaches its
-individual cutoff (327.1 MiB aggregate, 2.521 s), so no pinned Name pass follows.
-The attempted whole-policy integration and focused policy probe also reach
-compiler cutoffs and are archived without adoption. Baseline signed controls
-reproduce seven missing Name/empty-CA/CRL policy rejections. Commands, manifests,
-corpus/signature results, archived candidates and failures are in
-`/Users/ozeron/.codex/artifacts/grounds/2026-10-03/name/`.
+A diagnostic copy of the exact official tagged compiler localizes significant
+memory growth to U32 literal-pattern expansion, notably `printable` and OID
+classification. Equivalent range predicates and tail-recursive exact OID
+comparison preserve the rules while reducing the scoped modern Name build peak
+from 289.9 to 192.2 MiB. The integrated modern proof frontend/native/JS build
+passes at 313.3 MiB aggregate / 309.4 MiB individual in 24.677 s. The complete
+four-corpus runtime job peaks at 109.7 / 75.6 MiB in 48.588 s. These are scoped
+2.0.34 artifact results; the primary pin remains 2.0.27. Diagnostic compiler
+instrumentation is not installed or used for acceptance, and live heap retention
+or exact allocation counts are not established.
+
+Pinned 2.0.27 now passes the seven Name literal checks' proof frontend, but its
+Name CLI emission still hits the individual cutoff (324.7 MiB aggregate /
+320.7 MiB individual); its complete policy proof frontend also stops at the
+individual cutoff. No pinned runtime or kernel-verdict pass follows. Fresh
+forced crypto and root repository gates fail under the unchanged aggregate
+limit before package completion, at 390.9 and 391.0 MiB. All heavy jobs remain
+sequential and pressure stays normal. Exact commands, input/program hashes,
+compiler traces, complete corpus reports and limitations are under
+`/Users/ozeron/.codex/artifacts/grounds/2026-10-03/compiler-name/`.

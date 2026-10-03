@@ -4,6 +4,7 @@ import ./x509_constraints.bend as C
 import ./x509_certificate.bend as X
 import ./x509_eku.bend as K
 import ./x509_san.bend as S
+import ./x509_name_schema.bend as N
 
 # An extension-processing result, not a certificate authorization. The exact
 # recognized payloads/critical flags survive; unsupported noncritical entries
@@ -108,10 +109,49 @@ def certificate.subject(valid: Bool, extensions: Maybe<&2, List<&2, U32>>) -> Ma
     case True{}: optional(extensions)
     case False{}: None{}
 
+def certificate.ca(value: Maybe<&1, C.Basic>) -> Bool:
+  match value:
+    case Some{C.Basic{ca, _}}: ca
+    case None{}: True{}
+
+def certificate.crl(value: Maybe<&1, C.Usage>) -> Bool:
+  match value:
+    case Some{C.Usage{bits}}: U32.is_ne(U32.and(bits, 2), 0)
+    case None{}: True{}
+
+def certificate.nonempty_basic(value: Maybe<&2, List<&2, U32>>) -> Bool:
+  match value:
+    case Some{bytes}: certificate.ca(C.basic(bytes))
+    case None{}: False{}
+
+def certificate.nonempty_usage(value: Maybe<&2, List<&2, U32>>) -> Bool:
+  match value:
+    case Some{bytes}: certificate.crl(C.usage(bytes))
+    case None{}: False{}
+
+def certificate.empty_checked(requires_name: Bool, state: Admission) -> Maybe<&1, Admission>:
+  match requires_name:
+    case False{}: Some{state}
+    case True{}: None{}
+
+def certificate.empty(subject: List<&2, U32>, state: Maybe<&1, Admission>) -> Maybe<&1, Admission>:
+  match subject state:
+    case [48,0] Some{Admission{+basic, bc, +usage, uc, deferred}}:
+      certificate.empty_checked(Bool.or(certificate.nonempty_basic(basic), certificate.nonempty_usage(usage)),
+        Admission{basic, bc, usage, uc, deferred})
+    case _ state: state
+
+def certificate.names(names: Maybe<&1, Bool>, +subject: List<&2, U32>, +extensions: Maybe<&2, List<&2, U32>>) -> Maybe<&1, Admission>:
+  match names:
+    # Unknown attributes/Teletex remain pending: this result is partial policy
+    # processing, not a normalized Name match or certificate authorization.
+    case Some{_}: certificate.empty(subject, certificate.subject(S.subject(subject, extensions), extensions))
+    case None{}: None{}
+
 def certificate.decoded(value: Maybe<&1, X.Certificate>) -> Maybe<&1, Admission>:
   match value:
-    case Some{X.Certificate{X.Tbs{_, X.Identity{_, _, subject, _}, X.Tail{_, _, +extensions}}, _, _}}:
-      certificate.subject(S.subject(subject, extensions), extensions)
+    case Some{X.Certificate{X.Tbs{_, X.Identity{issuer, _, +subject, _}, X.Tail{_, _, extensions}}, _, _}}:
+      certificate.names(N.pair(issuer, subject), subject, extensions)
     case None{}: None{}
 
 def certificate(bytes: List<&2, U32>) -> Maybe<&1, Admission>:

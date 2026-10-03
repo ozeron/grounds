@@ -129,6 +129,10 @@ def cases():
     yield add('empty-subject', b'\x30\x00', expected='supported|')
     yield add('empty-issuer', b'\x30\x00', mode='1', expected='none')
     yield add('empty-RDN', b'\x30\x02\x31\x00', expected='none')
+    for arc in range(128):
+        for tag in (12, 19, 20, 22, 28, 30, 4):
+            for body in (b'', b'a', b'aa'):
+                yield add('all-standard-single-octet-arcs', name(attribute(bytes([85, 4, arc]), tag, body)))
     for tag in (12, 19, 20, 22, 28, 30):
         for byte in range(256):
             yield add('all-octets-typed-string', name(attribute(tag=tag, body=bytes([byte]))))

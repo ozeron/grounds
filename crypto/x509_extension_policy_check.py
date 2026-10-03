@@ -14,6 +14,7 @@ import x509_constraints_check as B
 import x509_extensions_check as E
 import x509_eku_check as K
 import x509_san_check as S
+import x509_name_check as N
 
 ROOT = Path(__file__).parent
 BC, KU, EKU = (bytes.fromhex(value) for value in ('551d13', '551d0f', '551d25'))
@@ -87,8 +88,16 @@ def oracle(data):
 def certificate(data):
     try:
         parsed = C.parse(data)
+        N.inspect(parsed['issuer'], False)
+        N.inspect(parsed['subject'])
         if not S.subject(parsed['subject'], parsed['extensions']):
             return 'none'
+        if parsed['subject'] == b'\x30\x00' and parsed['extensions'] is not None:
+            for _, body, _ in C.elements(A.complete(parsed['extensions'], 48)):
+                fields = C.elements(body)
+                oid, payload = fields[0][1], fields[-1][1]
+                if oid == BC and basic(payload)[0] or oid == KU and usage(payload) & (1 << 6):
+                    return 'none'
         return oracle(parsed['extensions'])
     except (ValueError, IndexError):
         return 'none'
@@ -125,6 +134,13 @@ def cases():
             assert actual == expected, (group, actual, expected)
         return group, mode, data, actual
     yield add('absent', '2', None, 'absent|absent|')
+    for peer in json.loads((ROOT/'x509_name_vectors.json').read_text())['records']:
+        data = bytes.fromhex(peer['certificate_der'])
+        row = add('signed-Name-profile-controls', '1', data)
+        assert (row[3] != 'none') == peer['policy_expected'], peer['name']
+        yield row
+        for role, allow in itertools.product((False, True), repeat=2):
+            yield add('TLS-signed-Name-profile-controls', f'4/{int(role)}/{int(allow)}', data, str(peer['policy_expected']).lower())
     for group, mode, payload, _, _ in S.cases():
         if mode == '0':
             for critical in (False, True):
@@ -133,6 +149,22 @@ def cases():
     outer = C.elements(A.complete(source, 48))
     fields = C.elements(outer[0][1])
     fields = fields[1:] if fields[0][0] == 160 else fields
+    for field in (2, 4):
+        for encoded_name in (b'\x30\x00', b'\x30\x02\x31\x00',
+                             N.name(N.attribute(body=b'\xff')),
+                             N.name(N.attribute(tag=30, body=b'\xd8\x00')),
+                             N.name(N.attribute(tag=20, body=b'legacy')),
+                             N.name(N.attribute(oid=b'\x2a\x03', tag=4, body=b'x')),
+                             N.name(N.attribute(b'\x55\x04\x06', 19, b'US')),
+                             N.name(N.attribute(b'\x55\x04\x06', 12, b'US')),
+                             N.name(N.attribute(body=b'b')+N.attribute(body=b'a'))):
+            mandatory = [item[2] for item in fields[:6]]
+            mandatory[field] = encoded_name
+            tbs = A.tlv(48, b''.join(mandatory))
+            cert = C.assemble(tbs, outer[1][2])
+            yield add('certificate-actual-Name-schema', '1', cert)
+            for role, allow in itertools.product((False, True), repeat=2):
+                yield add('TLS-certificate-actual-Name-schema', f'4/{int(role)}/{int(allow)}', cert)
     for subject_bytes in (b'\x30\x00', fields[4][2]):
         mandatory = [field[2] for field in fields[:6]]
         mandatory[4] = subject_bytes
@@ -143,6 +175,16 @@ def cases():
                 extensions = A.tlv(48, extension(SAN, payload, critical))
                 tbs = A.tlv(48, A.tlv(160, b'\x02\x01\x02')+b''.join(mandatory)+A.tlv(163, extensions))
                 yield add('certificate-empty-subject-critical-SAN', '1', C.assemble(tbs, outer[1][2]))
+    for subject_bytes, ca, mask in itertools.product((b'\x30\x00', fields[4][2]), (False, True), (None, 1, 64, 65, 33, 97)):
+        mandatory = [field[2] for field in fields[:6]]
+        mandatory[4] = subject_bytes
+        san = extension(SAN, A.tlv(48, A.tlv(130, b'api.example.test')), True)
+        extensions = A.tlv(48, extension(BC, B.basic(ca), True)+san+(b'' if mask is None else extension(KU, B.usage(mask), True)))
+        tbs = A.tlv(48, A.tlv(160, b'\x02\x01\x02')+b''.join(mandatory)+A.tlv(163, extensions))
+        cert = C.assemble(tbs, outer[1][2])
+        yield add('CA-CRL-nonempty-subject-required', '1', cert, 'none' if not N.parse(subject_bytes)[0] and (ca or mask is not None and mask & 64) else None)
+        for role, allow in itertools.product((False, True), repeat=2):
+            yield add('TLS-CA-CRL-nonempty-subject-required', f'4/{int(role)}/{int(allow)}', cert)
     vector_file = ROOT/'x509_san_vectors.json'
     if vector_file.exists():
         for peer in json.loads(vector_file.read_text())['records']:
