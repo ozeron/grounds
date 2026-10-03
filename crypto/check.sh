@@ -27,6 +27,7 @@ bend x509_eku_test.bend
 bend x509_identity_test.bend
 bend x509_hostname_test.bend --check-only
 bend x509_san_test.bend --check-only
+bend unicode32_profile_test.bend --check-only
 bend x509_name_test.bend --check-only
 bend x509_extension_policy_test.bend
 BUN_JSC_useJIT=false bend x509_verify_cli.bend --check-only
@@ -68,6 +69,7 @@ BUN_JSC_useJIT=false ../tools/bend_native.sh x509_extensions_cli.bend "$tmp/x509
 ../tools/bend_native.sh x509_identity_cli.bend "$tmp/x509_identity" > /dev/null
 ../tools/bend_native.sh x509_hostname_cli.bend "$tmp/x509_hostname" > /dev/null
 ../tools/bend_native.sh x509_san_cli.bend "$tmp/x509_san" > /dev/null
+../tools/bend_native.sh unicode32_profile_cli.bend "$tmp/unicode32_profile" > /dev/null
 ../tools/bend_native.sh x509_name_cli.bend "$tmp/x509_name" > /dev/null
 ../tools/bend_native.sh x509_extension_policy_cli.bend "$tmp/x509_extension_policy" > /dev/null
 BUN_JSC_useJIT=false ../tools/bend_native.sh x509_verify_cli.bend "$tmp/x509_verify" > /dev/null
@@ -102,6 +104,7 @@ python3 x509_eku_check.py -- "$tmp/x509_eku"
 python3 x509_hostname_check.py --scope identity -- "$tmp/x509_identity"
 python3 x509_hostname_check.py -- "$tmp/x509_hostname"
 python3 x509_san_check.py -- "$tmp/x509_san"
+python3 unicode32_profile_check.py -- "$tmp/unicode32_profile"
 python3 x509_name_check.py -- "$tmp/x509_name"
 python3 x509_extension_policy_check.py --signature-binary "$tmp/x509_verify" -- "$tmp/x509_extension_policy"
 python3 x509_signature_check.py -- "$tmp/x509_verify"
@@ -143,6 +146,7 @@ if command -v bun > /dev/null 2>&1; then
   bend x509_identity_cli.bend -o "$tmp/x509_identity.js" > /dev/null
   bend x509_hostname_cli.bend -o "$tmp/x509_hostname.js" > /dev/null
   bend x509_san_cli.bend -o "$tmp/x509_san.js" > /dev/null
+  bend unicode32_profile_cli.bend -o "$tmp/unicode32_profile.js" > /dev/null
   bend x509_name_cli.bend -o "$tmp/x509_name.js" > /dev/null
   bend x509_extension_policy_cli.bend -o "$tmp/x509_extension_policy.js" > /dev/null
   BUN_JSC_useJIT=false bend x509_verify_cli.bend -o "$tmp/x509_verify.js" > /dev/null
@@ -177,6 +181,7 @@ if command -v bun > /dev/null 2>&1; then
   python3 x509_hostname_check.py --scope identity -- bun "$tmp/x509_identity.js"
   python3 x509_hostname_check.py -- bun "$tmp/x509_hostname.js"
   python3 x509_san_check.py -- bun "$tmp/x509_san.js"
+  python3 unicode32_profile_check.py -- bun "$tmp/unicode32_profile.js"
   python3 x509_name_check.py -- bun "$tmp/x509_name.js"
   python3 x509_extension_policy_check.py --bun --signature-binary "$tmp/x509_verify.js" -- bun "$tmp/x509_extension_policy.js"
   python3 x509_signature_check.py -- bun "$tmp/x509_verify.js"

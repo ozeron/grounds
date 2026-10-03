@@ -38,6 +38,7 @@ Pure Bend cryptographic primitives. This package implements SHA-1, SHA-256, HMAC
 | `x509_identity.bend` | `dns(pattern,reference)`, `ip(presented,reference)` | Typed ASCII DNS/IP comparison; complete leftmost wildcard only, exact IP octets |
 | `x509_hostname.bend` | `frame(bytes)`, `san(bytes,kind,reference)`, `extensions(bytes,kind,reference)`, `certificate(bytes,kind,reference)` | Actual SAN-field DNS/IP identity matching without CN fallback; framing preserves other forms for pending schema/profile processing |
 | `x509_san.bend` | `inspect(bytes)`, `permits(result,critical)`, `subject(subject,extensions)`, `certificate(bytes)` | Selected DNS/IP SAN admission and empty-subject critical-SAN binding; other name forms remain deferred |
+| `unicode32_profile.bend` | `tables()`, `flags(state,code)`, `map_code(code)` | Full Unicode 3.2 RFC 4518 literal mapping/prohibition/combining-mark properties; preserves table ownership; case folding/NFKC and complete preparation remain pending |
 | `x509_name_schema.bend` | `inspect(bytes,allow_empty)`, `pair(issuer,subject)` | Shared RDN/attribute/string syntax checks without retaining a Name collection |
 | `x509_name.bend` | `decode(bytes)`, `inspect(bytes,allow_empty)`, `pair(issuer,subject)` | RDN/attribute framing, DER SET ordering and selected typed attribute syntax; preserve original attributes and defer unknown types/Teletex |
 | `x509_name_certificate.bend` | `certificate(bytes)` | Inspect actual issuer/subject fields; an issuer must be nonempty |
@@ -751,3 +752,58 @@ limit before package completion, at 390.9 and 391.0 MiB. All heavy jobs remain
 sequential and pressure stays normal. Exact commands, input/program hashes,
 compiler traces, complete corpus reports and limitations are under
 `/Users/ozeron/.codex/artifacts/grounds/2026-10-03/compiler-name/`.
+
+`unicode32_profile` supplies the Unicode 3.2 property foundation required by
+[RFC 5280 section 7.1](https://www.rfc-editor.org/rfc/rfc5280.html#section-7.1)
+and [RFC 4518](https://www.rfc-editor.org/rfc/rfc4518.html). Its 396 unassigned
+ranges come from RFC 3454 Table A.1; its 112 combining-mark ranges come from
+RFC 4518's expressly definitive Appendix A. Sorted ranges are compiled as
+constants and searched in Bend, using retained affine arrays. Runtime C/JS do
+not perform Unicode classification or preparation. `flags(state,code)` returns
+the retained tables and an integer mask: 1 literal deletion, 2 map to SPACE,
+4 prohibited after normalization, 8 combining mark. The prohibitions include
+unassigned, private-use, noncharacter, surrogate, C.8 display/deprecated codes,
+U+FFFD and values outside Unicode. `map_code` distinguishes `Removed`,
+`Mapped{code}` and `Invalid`, so invalid scalar input cannot become a legitimate
+deletion. Non-scalar input is invalid; otherwise this helper applies only the
+literal mapping, retaining prohibited characters until the proper later stage.
+
+The variation-selector deletion range applies verified
+[erratum 860](https://www.rfc-editor.org/errata/eid860): FE00-FE0F. The definitive
+mark appendix differs from Unicode 3.2 categories at three values: U+05BD is
+omitted; U+094E/U+094F are included. The independent Python oracle uses its
+frozen 3.2 UCD/stringprep properties with these explicit normative exceptions.
+No unverified correction replaces the definitive appendix. Official search
+results expose verified entries 860/1757/1758/7213; direct live listing/query
+refreshes failed. The substring-space corrections remain relevant to the future
+complete preparation owner.
+
+Pinned Bend 2.0.27 and scoped official 2.0.34 native and optimizing-JIT Bun
+all pass the identical 2,244,608 property/mapping checks per target: every
+1,114,112 Unicode code point, including surrogates and all planes, plus 8,192
+out-of-repertoire U32 values. Invalid scalar status is checked independently
+of property flags. Corpus SHA-256 is
+`a2f70f2d299fa869b928c4bded9524df7ab371d0cf467c048e9bb06dd30b88ca`.
+Eight literal checks pass both proof frontends; no separate kernel verdict is
+claimed. Modern build peak is 98.0 MiB; pinned build is 122.4 MiB. Modern native
+and Bun corpora finish in 0.834 s / 2.053 s at 32.1 / 88.4 MiB aggregate.
+The two pinned corpora finish in 8.536 s at 102.4 MiB aggregate / 75.8 MiB
+individual. All retain the existing sequential guards and JIT/DFG settings.
+
+The offline `unicode32_generate.py --source-dir <snapshots> --output-dir <dir>`
+reproduces `unicode32_ranges.bend` and `unicode32_ranges.json` from SHA-pinned
+RFC 3454/4518 text. Regeneration matches both committed artifacts exactly.
+The sources, complete Unicode 3.2 data/normalization-test snapshots, commands,
+program hashes and four corpus reports are frozen under
+`/Users/ozeron/.codex/artifacts/grounds/2026-10-03/unicode32/`.
+The first capped normalization download and an incorrect end-marker assertion
+are archived as rejected preparation; the accepted 2,025,975-byte snapshot
+contains its actual END OF FILE marker. No Bend normalization result follows
+from that download.
+
+RFC 3454 B.2 case folding, complete Unicode 3.2 NFKC, combining-mark-aware
+insignificant-space handling, complete transcoding/preparation and normalized
+RDN/Name equality/subtree matching remain required. This property module is
+not yet composed into Name or certificate authorization. Fresh forced crypto
+and root gates still stop before package completion at unchanged aggregate
+cutoffs, 387.8 / 397.9 MiB; neither is package/repository acceptance.
