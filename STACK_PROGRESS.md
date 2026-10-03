@@ -14,6 +14,39 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 
 ## Evidence ledger
 
+- 2026-10-03 (Lisbon; bounded JSON formatter/runtime diagnostics):
+  Resumed the active full-stack goal from hostname commit `fedfa34`. Verified
+  all 998 inputs of that milestone's official Bend 2.0.34 candidate before
+  making a separate private copy. Primary source and `bounty/` were untouched.
+  Tested separate indentation chunks, 32-character reversal blocks, their
+  combination in both formatters, and reading each chunk before joining it.
+  Full-suite attempts retain every original case and comparison; the isolated
+  phase probe retains original case 33, the 500-level nested-array fixture.
+  All runtime attempts kept optimizing JIT enabled and the existing 128-MiB
+  aggregate / 96-MiB individual / 120-second cutoffs. No formatter change passed
+  the full Bun conformance gate; observed runtime peaks were 98.5–123.0 MiB.
+  Changing GC hints, serializing JIT/GC without disabling JIT or DFG, and an
+  immediate allocator-purge diagnostic also failed to establish a passing gate.
+  Bun validated the serial JIT/GC flags and reported JIT/DFG enabled. The GC/JIT
+  log shows full collections and Baseline/DFG/FTL compilation of the small
+  character counter. These observations do not identify the allocation cause.
+  Additional heap/RSS measurements were inserted only into diagnostic IO.print
+  effects; instrumentation changes timing and cannot qualify as acceptance.
+  One diagnostic used an invalid option (`gcLogLevel`); Bun rejected it before
+  running, and the corrected diagnostic used `logGC=1`.
+  No changes from these experiments were adopted. Archived rejected source and
+  generated programs, then restored the private candidate and reverified all
+  998 hashes. Durable commands, logs, resource reports, program hashes, option
+  source references and limitations are in
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-03/json-indent/evidence.json`.
+  All 18 jobs ran sequentially, pressure remained normal, and no owned jobs
+  remained after cleanup. No full repository/package gate was rerun for this
+  documentation-only update; previously recorded gate failures remain open.
+  Next action: compare an isolated hash-verified official Bun release with the
+  unchanged 318-case candidate and the same guards, retaining optimizing JIT;
+  avoid global installation or SDK adoption until complete package gates pass.
+  All 19 full-stack acceptance boxes remain open and the goal stays active.
+
 - 2026-10-03 (Lisbon; typed DNS/IP and actual SAN-field identity matching):
   The previous turn made progress with EKU/purpose commit 799f52d. New
   x509_identity.bend supplies pure ASCII LDH/A-label DNS and exact IP comparison.
