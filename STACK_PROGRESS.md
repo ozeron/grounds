@@ -14,6 +14,25 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 
 ## Evidence ledger
 
+- 2026-10-03 (Lisbon; user-authorized 1 GiB resource guard):
+  The user explicitly requested a one-gigabyte RAM limit. Changed the default
+  aggregate owned-process-tree and individual-process limits to 1024 MiB,
+  superseding the prior 384/320 MiB compiler and 128/96 MiB evaluator limits.
+  Jobs remain sequential under the shared lock, with macOS pressure checks,
+  owned-group cleanup, 20 ms sampling and the existing 120-second timeout.
+  All 13 guard tests pass in 6.748 s, including default limits, memory and
+  individual cutoffs, failed commands, lock exclusion, timeout, interruption,
+  child cleanup and pressure refusal/termination. This is a sampled guard
+  cutoff; previous reports retain the limits actually used at their time.
+  The current continuation runner is archived under
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-03/http-bend-cookies/run_job.py`
+  and explicitly records 1024/1024 MiB for each new job. The original contract's
+  nineteen acceptance gates and 120-second job timeout are unchanged.
+  The user also requested an Astra low-reasoning subagent for persistent
+  blockers. Its read-only cookie/package review identifies the package timeout
+  and direct invalid-scalar constructor coverage as remaining follow-ups;
+  no concrete cookie functional defect was found. No extra heavy job ran.
+
 - 2026-10-03 (Lisbon; composed Unicode 3.2 stored-value preparation):
   Added pure Bend literal mapping, optional published B.2 folding, exact NFKC,
   post-normalization prohibition and combining-mark-aware stored SPACE handling.

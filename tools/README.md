@@ -9,8 +9,10 @@ and takes the greater of RSS and `proc_pid_rusage` physical
 footprint per process, including compressed memory. Linux measures RSS.
 Measurement errors fail closed. A memory cutoff, timeout, interruption or
 leftover child kills the owned process group; unrelated processes are untouched.
-The defaults are 384 MiB aggregate, 320 MiB per process and a 120-second
-deadline, matching the current focused compiler recovery limits. The aggregate
+On 2026-10-03 the user requested a 1 GiB RAM limit. Defaults are now
+1024 MiB aggregate and 1024 MiB per process, with the existing 120-second
+deadline. The aggregate cutoff caps the complete owned process tree, rather
+than granting a separate 1 GiB allowance to each child. The aggregate
 budget includes compiler, test and runner processes; it is not added per child.
 The reports retain both the combined peak and the largest individual process.
 
@@ -26,7 +28,7 @@ marks that metric unsupported while retaining process-group RSS monitoring.
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 nice -n 10 python3 tools/build_guard.py \
-  --memory-mib 384 --process-memory-mib 320 --timeout 120 \
+  --memory-mib 1024 --process-memory-mib 1024 --timeout 120 \
   --report /tmp/grounds-check-resource.json \
   -- moon --concurrency 1 run :check
 ```
@@ -53,8 +55,8 @@ limit other applications or unguarded commands. The macOS pressure check can
 stop work because of pressure caused by another application; it does not
 identify the source of pressure or reset accumulated swap. Keep build and test jobs
 sequential and preserve each report. If a build crosses the cutoff, split or
-reduce its compilation workload before retrying; do not raise the individual
-compiler limit to mask the failure. A timed-out package/repository check remains
+reduce its compilation workload before retrying; do not raise the current
+limits without another explicit user request. A timed-out package/repository check remains
 incomplete; do not omit cases or raise budgets to produce a passing report.
 
 Verify guard behavior without compiling Bend:

@@ -18,6 +18,10 @@ execution order and final acceptance gates.
 - Make bounded, reviewable milestone commits with package documentation and
   ledger updates. No push, deploy, publish or external messages without a new
   explicit user request. Use local synthetic credentials and media fixtures.
+- Run heavy work sequentially under the memory/pressure guard. The user's
+  2026-10-03 RAM instruction sets the current aggregate/process limit to
+  1 GiB (1024 MiB), replacing the previous 128/384 MiB limits. Retain the
+  pressure check and current 120-second per-job timeout.
 - Check current RFCs and verified errata before implementation. Document supported
   protocol versions, cipher suites, codecs, optional features and limitations;
   do not label an unsupported feature as passing or omit a required gate.

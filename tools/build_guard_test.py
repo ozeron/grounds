@@ -98,8 +98,8 @@ class GuardTests(unittest.TestCase):
                               memory=None, timeout=None)
         self.assertEqual(report["exit_code"], 0)
         self.assertEqual(report["reason"], "child-exit")
-        self.assertEqual(report["memory_limit_bytes"], 384 * 1024 * 1024)
-        self.assertEqual(report["process_memory_limit_bytes"], 320 * 1024 * 1024)
+        self.assertEqual(report["memory_limit_bytes"], 1024 * 1024 * 1024)
+        self.assertEqual(report["process_memory_limit_bytes"], 1024 * 1024 * 1024)
         self.assertEqual(report["timeout_seconds"], 120)
         self.assertGreater(report["peak_bytes"], 0)
         if sys.platform == "darwin":

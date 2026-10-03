@@ -155,8 +155,8 @@ def stop_group(pgid):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--memory-mib", type=int, default=384)
-    parser.add_argument("--process-memory-mib", type=int, default=320)
+    parser.add_argument("--memory-mib", type=int, default=1024)
+    parser.add_argument("--process-memory-mib", type=int, default=1024)
     parser.add_argument("--timeout", type=float, default=120)
     parser.add_argument("--report", type=Path, required=True)
     parser.add_argument("--lock", type=Path, default=(
