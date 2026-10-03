@@ -37,7 +37,8 @@ Pure Bend cryptographic primitives. This package implements SHA-1, SHA-256, HMAC
 | `x509_eku.bend` | `decode(bytes)`, `permits(eku,purpose,allow_any)`, `tls13(usage,eku,server,allow_any)` | Canonical EKU payloads and explicit purpose permission; TLS 1.3 requires digitalSignature when KU is present |
 | `x509_identity.bend` | `dns(pattern,reference)`, `ip(presented,reference)` | Typed ASCII DNS/IP comparison; complete leftmost wildcard only, exact IP octets |
 | `x509_hostname.bend` | `frame(bytes)`, `san(bytes,kind,reference)`, `extensions(bytes,kind,reference)`, `certificate(bytes,kind,reference)` | Actual SAN-field DNS/IP identity matching without CN fallback; framing preserves other forms for pending schema/profile processing |
-| `x509_extension_policy.bend` | `decode(bytes)`, `optional(bytes)`, `certificate(bytes)`, `tls13_extensions(bytes,server,allow_any)`, `tls13_certificate(bytes,server,allow_any)` | Process basic constraints/KU/EKU, reject unsupported critical extensions, retain pending purpose/identity entries; TLS helpers check purpose permission only |
+| `x509_san.bend` | `inspect(bytes)`, `permits(result,critical)`, `subject(subject,extensions)`, `certificate(bytes)` | Selected DNS/IP SAN admission and empty-subject critical-SAN binding; other name forms remain deferred |
+| `x509_extension_policy.bend` | `decode(bytes)`, `optional(bytes)`, `certificate(bytes)`, `tls13_extensions(bytes,server,allow_any)`, `tls13_certificate(bytes,server,allow_any)` | Process basic constraints/KU/EKU and selected DNS/IP SAN, enforce empty-subject SAN binding, reject unsupported critical extensions, retain pending purpose/identity entries; TLS helpers check purpose permission only |
 | `x509_signature.bend` | `verify_signature(issuer_spki, certificate)` | Mathematical issuer-signature verification using admitted key restrictions and original signed bytes; no trust decision |
 
 Byte input and output use `List<U32>` with values 0–255. The public calls return `None{}` for an out-of-range byte; `expand` also rejects a PRK other than 32 bytes or a requested length over 8160 bytes. SHA-1 and HMAC-SHA1 return 20 bytes; SHA-256 and HMAC-SHA256 return 32 bytes. The hex helpers are for diagnostics and tests; protocols should use raw bytes.
@@ -519,14 +520,14 @@ before dispatch. `certificate` uses the certificate's actual extension field;
 an absent field is distinct from a malformed or empty present sequence.
 The result retains recognized payloads and criticality flags as well as the
 deferred entries, so later owners can process identity/purpose restrictions.
-The unchanged `Admission` constructor retains validated EKU among its deferred
-entries, including critical EKU. Deferred therefore means pending use-specific
+The unchanged `Admission` constructor retains validated EKU and selected SAN
+among its deferred entries, including their critical flags. Deferred means pending use-specific
 processing; it does not mean every entry is unknown or noncritical.
 This follows [RFC 5280 section 4.2](https://www.rfc-editor.org/rfc/rfc5280.html#section-4.2).
 Both official verified-errata forms returned Internal Error on 2026-10-03.
 
 This is a partial extension-processing result, never certificate authorization.
-SAN, key identifiers, Name constraints, policies and the other required
+Other SAN name forms, key identifiers, Name constraints, policies and the other required
 handlers remain to be implemented; unsupported critical forms are rejected
 until their handlers exist. Deferred noncritical entries are not a permission
 to omit a recognized handler in the eventual full validator. Issuer criticality,
@@ -617,10 +618,10 @@ X.400, directoryName and EDI contents are retained without schema admission;
 mailbox/URI/DNS profiles and the other semantic validators are also pending.
 This follows the field layout in
 [RFC 5280 section 4.2.1.6](https://www.rfc-editor.org/rfc/rfc5280.html#section-4.2.1.6).
-The result checks DNS/IP identity permission only. It neither admits the SAN
-extension semantically nor authorizes a peer. Critical SAN remains unsupported
-by `x509_extension_policy` until its complete schema/profile owner exists;
-noncritical SAN remains deferred there. Signature, purpose, trusted time,
+The matcher checks DNS/IP identity permission only. It neither admits the SAN
+extension semantically nor authorizes a peer. `x509_san` separately checks the
+selected DNS/IP payload policy; `x509_extension_policy` retains admitted SAN
+entries for subsequent identity processing. Signature, purpose, trusted time,
 Name/chain/trust, revocation and critical-extension checks remain mandatory.
 The official RFC 9525 errata endpoint and verified-errata query returned
 Internal Error on 2026-10-03; a fresh verified review is outstanding.
@@ -639,3 +640,39 @@ is claimed. The pinned whole-hostname CLI frontend reaches its existing
 individual compiler cutoff before generation; no pinned whole-hostname runtime
 pass follows. Artifacts are under
 `/Users/ozeron/.codex/artifacts/grounds/2026-10-03/hostname/`.
+
+`x509_san.inspect` requires complete nonempty GeneralNames framing and checks
+every DNS pattern against the selected ASCII LDH/A-label and complete left-label
+wildcard policy. This checks A-label spelling, not IDNA decoding/validation.
+IP names require exactly 4 or 16 octets. Malformed later DNS/IP
+names reject the payload even if an earlier name matches. The result is
+`Some{True}` when all names are supported, `Some{False}` when other framed forms
+remain deferred, and `None` for malformed supported data or framing. A critical
+SAN requires every form to be supported. Noncritical deferred forms retain their
+exact bytes; they still need their schema/profile owners. Mailbox/URI syntax,
+OtherName, Name, X.400 and EDI processing remain outstanding.
+
+The certificate extension policy now rejects an empty subject unless a supported
+critical SAN is present. This follows
+[RFC 5280 sections 4.1.2.6 and 4.2.1.6](https://www.rfc-editor.org/rfc/rfc5280.html#section-4.2.1.6).
+The direct [RFC 5280 errata listing](https://www.rfc-editor.org/errata/rfc5280)
+became available on 2026-10-03: its six verified corrections (3579, 5802, 5938,
+6414, 7658 and 7661) do not change this empty-subject/SAN rule. This supersedes
+the unavailable query refresh noted above; RFC 9525's refresh remains unavailable.
+It preserves the `Admission` constructor and critical SAN payload for the later
+identity owner. Nonempty subjects still need Name schema validation. None of
+these functions supplies signature, issuer, time, Name constraints, trust,
+revocation or complete peer authorization.
+
+Official Bend 2.0.34 native and optimizing-JIT Bun pass 1,841 standalone SAN
+cases and 28,044 whole-policy cases per target. Six synthetic signed certificates
+record independent OpenSSL strict-profile results: valid critical DNS/IP with an
+empty subject, invalid absent/noncritical SAN with an empty subject, and a named
+subject. OpenSSL also admits the critical URI fixture; the selected Bend owner
+rejects that deferred form. Bend signature math accepts all six original signed
+certificates and rejects all six signature-bit changes per target, independently
+of SAN policy. Commands, hashes, results and compiler limits are in
+`/Users/ozeron/.codex/artifacts/grounds/2026-10-03/san/`. The pinned
+2.0.27 proof frontend passes; whole CLI generation reaches its individual
+compiler cutoff, so no pinned SAN runtime result is claimed. Full package/compiler
+acceptance and the remaining GeneralName/profile handlers stay required.

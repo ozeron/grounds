@@ -13,9 +13,11 @@ import x509_certificate_check as C
 import x509_constraints_check as B
 import x509_extensions_check as E
 import x509_eku_check as K
+import x509_san_check as S
 
 ROOT = Path(__file__).parent
 BC, KU, EKU = (bytes.fromhex(value) for value in ('551d13', '551d0f', '551d25'))
+SAN = bytes.fromhex('551d11')
 
 
 def basic(data):
@@ -66,6 +68,11 @@ def oracle(data):
             elif oid == EKU:
                 K.decode(payload)
                 opaque.append(f'{oid.hex()}:{"critical:" if critical else ""}{payload.hex()};')
+            elif oid == SAN:
+                status = S.inspect(payload)
+                if status == 'none' or critical and status != 'supported':
+                    raise ValueError('malformed or unsupported critical SAN')
+                opaque.append(f'{oid.hex()}:{"critical:" if critical else ""}{payload.hex()};')
             elif critical:
                 raise ValueError('unsupported critical')
             else:
@@ -79,7 +86,10 @@ def oracle(data):
 
 def certificate(data):
     try:
-        return oracle(C.parse(data)['extensions'])
+        parsed = C.parse(data)
+        if not S.subject(parsed['subject'], parsed['extensions']):
+            return 'none'
+        return oracle(parsed['extensions'])
     except (ValueError, IndexError):
         return 'none'
 
@@ -91,6 +101,8 @@ def extension(oid, payload, critical=False):
 def tls_oracle(mode, data, role, allow_any):
     try:
         if mode == '4':
+            if certificate(data) == 'none':
+                return 'false'
             data = C.parse(data)['extensions']
         if oracle(data) == 'none':
             return 'false'
@@ -113,6 +125,29 @@ def cases():
             assert actual == expected, (group, actual, expected)
         return group, mode, data, actual
     yield add('absent', '2', None, 'absent|absent|')
+    for group, mode, payload, _, _ in S.cases():
+        if mode == '0':
+            for critical in (False, True):
+                yield add('SAN-dispatch-'+group, '0', A.tlv(48, extension(SAN, payload, critical)))
+    source = bytes.fromhex(json.loads((ROOT/'x509_algorithm_vectors.json').read_text())['peers'][0]['certificate_der'])
+    outer = C.elements(A.complete(source, 48))
+    fields = C.elements(outer[0][1])
+    fields = fields[1:] if fields[0][0] == 160 else fields
+    for subject_bytes in (b'\x30\x00', fields[4][2]):
+        mandatory = [field[2] for field in fields[:6]]
+        mandatory[4] = subject_bytes
+        for payload in (A.tlv(48, A.tlv(130, b'api.example.test')),
+                        A.tlv(48, A.tlv(130, b'bad_name.test')),
+                        A.tlv(48, A.tlv(134, b'https://api.example.test'))):
+            for critical in (False, True):
+                extensions = A.tlv(48, extension(SAN, payload, critical))
+                tbs = A.tlv(48, A.tlv(160, b'\x02\x01\x02')+b''.join(mandatory)+A.tlv(163, extensions))
+                yield add('certificate-empty-subject-critical-SAN', '1', C.assemble(tbs, outer[1][2]))
+    vector_file = ROOT/'x509_san_vectors.json'
+    if vector_file.exists():
+        for peer in json.loads(vector_file.read_text())['records']:
+            yield add('signed-SAN-subject-profile', '1', bytes.fromhex(peer['certificate_der']),
+                      None if peer['selected_policy_accepts'] else 'none')
     for critical in (False, True):
         for ca, limit in [(False, None), (True, None), (True, 0), (True, 2**128)]:
             for mask in range(1, 512):
@@ -132,7 +167,7 @@ def cases():
         for value in (b'', b'\x00', b'\x30\x00', bytes(range(256))):
             yield add('unsupported-critical', '0', A.tlv(48, extension(oid, value, True)), 'none')
             yield add('opaque-noncritical', '0', A.tlv(48, extension(oid, value)),
-                      'none' if oid == EKU else f'absent|absent|{oid.hex()}:{value.hex()};')
+                      'none' if oid in (EKU, SAN) else f'absent|absent|{oid.hex()}:{value.hex()};')
     known = extension(BC, B.basic(True), True)
     opaque = [extension(oid, bytes([i])) for i, oid in enumerate(unknowns)]
     for permutation in itertools.permutations(opaque[:3]+[known]):

@@ -3,6 +3,7 @@ import ./x509_extensions.bend as E
 import ./x509_constraints.bend as C
 import ./x509_certificate.bend as X
 import ./x509_eku.bend as K
+import ./x509_san.bend as S
 
 # An extension-processing result, not a certificate authorization. The exact
 # recognized payloads/critical flags survive; unsupported noncritical entries
@@ -17,6 +18,7 @@ def kind(oid: List<&2, U32>) -> U32:
     case Con{85, Con{29, Con{19, Nil{}}}}: 1
     case Con{85, Con{29, Con{15, Nil{}}}}: 2
     case Con{85, Con{29, Con{37, Nil{}}}}: 3
+    case Con{85, Con{29, Con{17, Nil{}}}}: 4
     case _: 0
 
 def basic.valid(value: Maybe<&1, C.Basic>) -> Bool:
@@ -60,11 +62,12 @@ def unknown(critical: Bool, oid: List<&2, U32>, bytes: List<&2, U32>, state: Adm
         Con{E.Extension{oid, False{}, bytes}, deferred}}}
     case _ _: None{}
 
-def dispatch(kind: U32, critical: Bool, oid: List<&2, U32>, +bytes: List<&2, U32>, state: Admission) -> Maybe<&1, Admission>:
+def dispatch(kind: U32, +critical: Bool, oid: List<&2, U32>, +bytes: List<&2, U32>, state: Admission) -> Maybe<&1, Admission>:
   match kind:
     case 1: basic.checked(basic.valid(C.basic(bytes)), critical, bytes, state)
     case 2: usage.checked(usage.valid(C.usage(bytes)), critical, bytes, state)
     case 3: eku.checked(eku.valid(K.decode(bytes)), critical, oid, bytes, state)
+    case 4: eku.checked(S.permits(S.inspect(bytes), critical), critical, oid, bytes, state)
     case _: unknown(critical, oid, bytes, state)
 
 def step(entry: E.Extension, state: Admission) -> Maybe<&1, Admission>:
@@ -100,10 +103,15 @@ def decode(bytes: List<&2, U32>) -> Maybe<&1, Admission>:
 def optional(bytes: Maybe<&2, List<&2, U32>>) -> Maybe<&1, Admission>:
   entries(E.optional(bytes))
 
+def certificate.subject(valid: Bool, extensions: Maybe<&2, List<&2, U32>>) -> Maybe<&1, Admission>:
+  match valid:
+    case True{}: optional(extensions)
+    case False{}: None{}
+
 def certificate.decoded(value: Maybe<&1, X.Certificate>) -> Maybe<&1, Admission>:
   match value:
-    case Some{X.Certificate{X.Tbs{_, _, X.Tail{_, _, extensions}}, _, _}}:
-      optional(extensions)
+    case Some{X.Certificate{X.Tbs{_, X.Identity{_, _, subject, _}, X.Tail{_, _, +extensions}}, _, _}}:
+      certificate.subject(S.subject(subject, extensions), extensions)
     case None{}: None{}
 
 def certificate(bytes: List<&2, U32>) -> Maybe<&1, Admission>:
