@@ -6,6 +6,8 @@ Pure Bend cryptographic primitives. This package implements SHA-1, SHA-256, HMAC
 |---|---|---|
 | `sha1.bend` | `digest(bytes)` | RFC 3174 / WebSocket RFC 6455 challenge |
 | `sha256.bend` | `digest(bytes)`, `digest_hex(bytes)` | FIPS 180-4 / RFC 6234 |
+| `sha256_stream.bend` | `start`, `update`, `finish`, `finish_hex` | RFC 6234 byte-aligned incremental SHA-256 |
+| `sha256_file.bend` | `digest_hex(path)` | Bounded OS reads; Bend streaming SHA-256 |
 | `hmac_sha1.bend` | `digest(key, bytes)` | RFC 2104 / RFC 2202 / STUN RFC 8489 |
 | `hmac.bend` | `digest(key, bytes)`, `digest_hex(key, bytes)` | RFC 2104 / RFC 4231 |
 | `hkdf.bend` | `extract(salt, ikm)`, `expand(length, prk, info)` | RFC 5869 |
@@ -261,6 +263,25 @@ none changes these implemented operations. RFC 9846's TLS label is distinct
 from DTLS 1.3's label; this owner must not be reused for DTLS unchanged.
 
 SHA-256 and HMAC-SHA256 now use `bytes.bend` for length, validation and append traversal. The RTC authentication checks independently compare SHA-256 STUN MACs and maximum-length STUN packet signing on native and Bun; these paths exposed and now avoid Base's non-tail list recursion on JS. The crypto check itself retains the native SHA-256/HMAC/HKDF vectors; RTC supplies this additional compiled JS evidence.
+
+The file-hash CLI streams 4 KiB reads through an affine SHA-256 owner instead
+of retaining a whole-file list. The owner keeps fewer than 64 pending bytes,
+an exact two-word byte count, and the existing Bend compression state. It
+rejects non-byte input, inconsistent buffering and lengths at or above 2^64
+bits, and pads exactly once at finalization. File handling retains at most two
+read chunks, closes on EOF/error/rejected state, and handles short reads until
+EOF. Existing whole-list hash and HMAC APIs remain available. This is hash
+ownership and tested-input correctness, not secret erasure or timing safety.
+
+Native and optimizing-JIT Bun fixtures pass the published million-byte vector,
+all original SHA-256/HMAC/HKDF cases, 275 chunk partitions, 30 length encodings,
+12 state guards, two FIFO streams, and 200 successful plus 200 overflowed hashes
+under a 64-descriptor limit. Two valid type probes pass; stream copying and
+repeated finalization fail. Both pinned Bend 2.0.27 and isolated 2.0.34 are
+verified. [RFC 6234 sections 4.1 and 6.2](https://www.rfc-editor.org/rfc/rfc6234.html#section-4.1)
+were refreshed on 2026-10-03; both official errata queries returned Internal
+Error, so no new verified correction is inferred. Full package/root acceptance
+remains recorded separately in STACK_PROGRESS.md.
 
 SHA-1 is checked against published vectors and Python's `hashlib` on native and Bun JS, including a 64 KiB message on both targets and the million-`a` vector on native. Its sole protocol use here is `Sec-WebSocket-Accept`.
 

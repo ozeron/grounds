@@ -14,6 +14,57 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 
 ## Evidence ledger
 
+- 2026-10-03 (Lisbon; bounded crypto inventory and streaming SHA-256):
+  The previous turn made progress: 7a1bdab fixes traffic-owner test imports and
+  adds positive controls. Isolated staging now preserves all 139 original
+  crypto commands in order, with one existing guarded job per command. Every
+  frontend check, all 32 native builds, all 26 native differential/lifecycle
+  checks and all 32 JS emissions pass. This is staged command evidence, not a
+  forced Moon package result. The first Bun runtime check cuts off at 131.1 MiB
+  aggregate / 105.7 MiB individual / 0.764s. A diagnostic identifies the original
+  published million-byte SHA-256 vector; that vector is not reduced or removed.
+  sha256_stream.bend adds an affine byte-aligned owner with fewer than 64
+  pending bytes, exact two-word length accounting, strict malformed/overflow
+  rejection and one final padding operation, reusing unchanged Bend compression.
+  sha256_file.bend performs 4 KiB OS reads through that owner, tolerates short
+  reads and closes on EOF/error/rejected state. Two decreasing IO counters cover
+  more one-byte reads than the SHA length limit. The existing file CLI now uses
+  this path; whole-list SHA/HMAC/HKDF APIs and implementations are unchanged.
+  Original native/Bun SHA-256, HMAC and HKDF checks pass: 29/11 cases, three
+  RFC 5869 cases and seven length boundaries, including the million-byte vector.
+  With isolated Bend 2.0.34, Bun peak is 80.5 MiB aggregate / 57.0 MiB individual
+  / 2.185s. Optimizing JIT/DFG and the 64 MiB RAM hint remain enabled.
+  Native and Bun additionally pass 275 chunk partitions, 30 exact length
+  encodings, 12 malformed/carry/overflow guards, two real FIFO streams, IO refuel
+  and four error cases. In each engine one process completes 200 ordinary hashes
+  and 200 counter-overflow failures under a 64-descriptor limit. Two valid owner
+  probes compile; copying and repeated finalization fail at the intended location.
+  An initial test-adapter failure used raw IO.args on Bend 2.0.34; its checked
+  adapter now uses the existing Io.args wrapper. Pinned 2.0.27 keeps IO.args.
+  A clean primary-derived pinned checkout passes the same native/Bun original
+  and streaming checks at 94.5 MiB aggregate / 69.3 MiB individual / 5.677s;
+  its largest build stage is 311.2 MiB aggregate / 307.3 MiB individual. Primary
+  source matches this checked proposal. check.sh retains all 139 commands in
+  order and adds five checks/builds (144 total); existing Moon globs cover them.
+  Primary `moon --concurrency 1 run crypto:check --force` reaches aggregate
+  cutoff at 393.7 MiB / 22.137s. Milestone `moon --concurrency 1 run :check`
+  reaches the field256 native frontend then cuts off at 384.7 MiB / 65.823s.
+  Both have normal pressure and terminal guard reports; neither is acceptance.
+  Cutoffs stay unchanged, and sampled overshoot is recorded rather than hidden.
+  Both official RFC 6234 errata queries return Internal Error; refreshed sections
+  4.1/6.2 supply the padding/length specification, with no new correction inferred.
+  Durable artifacts under
+  /Users/ozeron/.codex/artifacts/grounds/2026-10-02/compiler-compatibility/validation/:
+  crypto-stages/plan.json and per-stage logs/resource reports, sha-stream-evidence.json,
+  sha-stream-pinned-final-inputs.json, sha-stream-properties-lifecycle-resource.json,
+  sha-stream-pinned-full-checks-resource.json, and the
+  sha-stream-primary-crypto-forced / sha-stream-primary-root-check command/log/resource
+  reports. Parent sha-stream-inputs.json freezes 977 source/generated inputs.
+  Next: finish the remaining 25 original Bun crypto checks with preserved source
+  and executable identities, then integrate bounded full-package verification.
+  JSON Bun conformance, other package/root gates, compiler adoption, secret
+  timing/erasure review and all 19 full-stack acceptance boxes remain open.
+
 - 2026-10-03 (Lisbon; bounded JSON follow-up and traffic-owner test fix):
   Two JSON experiments are rejected and archived: private per-mode fast-parser
   dispatch still exceeds Bun's individual cutoff, and streaming fixture scoring

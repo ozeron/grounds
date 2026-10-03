@@ -25,8 +25,10 @@ BUN_JSC_useJIT=false bend x509_extensions_test.bend --check-only
 BUN_JSC_useJIT=false bend x509_verify_cli.bend --check-only
 bend traffic_test.bend
 python3 traffic_type_check.py
+python3 sha256_stream_type_check.py
 bend PROOF.bend
 ../tools/bend_native.sh cli.bend "$tmp/sha256" > /dev/null
+../tools/bend_native.sh sha256_stream_cli.bend "$tmp/sha_stream" > /dev/null
 ../tools/bend_native.sh sha1_cli.bend "$tmp/sha1" > /dev/null
 ../tools/bend_native.sh hmac_sha1_cli.bend "$tmp/hmac_sha1" > /dev/null
 ../tools/bend_native.sh hkdf_cli.bend "$tmp/hkdf" > /dev/null
@@ -59,6 +61,7 @@ BUN_JSC_useJIT=false ../tools/bend_native.sh x509_verify_cli.bend "$tmp/x509_ver
 ../tools/bend_native.sh traffic_write_cli.bend "$tmp/traffic_write" > /dev/null
 ../tools/bend_native.sh traffic_read_cli.bend "$tmp/traffic_read" > /dev/null
 python3 check.py "$tmp/sha256" "$tmp/hkdf"
+python3 sha256_stream_check.py "$tmp/sha_stream" "$tmp/sha256"
 python3 sha1_check.py --long "$tmp/sha1"
 python3 hmac_sha1_check.py "$tmp/hmac_sha1"
 python3 chacha_check.py "$tmp/chacha20"
@@ -86,6 +89,7 @@ python3 traffic_check.py python3 traffic_fixture.py --write "$tmp/traffic_write"
 python3 traffic_aes_check.py python3 traffic_fixture.py --write "$tmp/traffic_write" --read "$tmp/traffic_read" --
 if command -v bun > /dev/null 2>&1; then
   bend cli.bend -o "$tmp/sha256.js" > /dev/null
+  bend sha256_stream_cli.bend -o "$tmp/sha_stream.js" > /dev/null
   bend hkdf_cli.bend -o "$tmp/hkdf.js" > /dev/null
   bend sha1_cli.bend -o "$tmp/sha1.js" > /dev/null
   bend hmac_sha1_cli.bend -o "$tmp/hmac_sha1.js" > /dev/null
@@ -118,6 +122,7 @@ if command -v bun > /dev/null 2>&1; then
   bend traffic_write_cli.bend -o "$tmp/traffic_write.js" > /dev/null
   bend traffic_read_cli.bend -o "$tmp/traffic_read.js" > /dev/null
   python3 check.py --bun "$tmp/sha256.js" "$tmp/hkdf.js"
+  python3 sha256_stream_check.py --bun "$tmp/sha_stream.js" "$tmp/sha256.js"
   python3 sha1_check.py bun "$tmp/sha1.js"
   python3 hmac_sha1_check.py bun "$tmp/hmac_sha1.js"
   python3 chacha_check.py bun "$tmp/chacha20.js"

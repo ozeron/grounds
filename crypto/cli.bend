@@ -1,5 +1,5 @@
 import Base
-import ./sha256.bend as Sha
+import ./sha256_file.bend as FileSha
 import ./hmac.bend as Hmac
 import ../io/io.bend as Io
 
@@ -13,8 +13,8 @@ def emit(result: Maybe<&2, String>) -> IO(Unit):
 
 def run(path: String) -> IO(Unit):
   do IO<Unit>:
-    bytes : List<&2, U32> <- Io.read_bytes(path)
-    emit(Sha.digest_hex(bytes))
+    result : Maybe<&2, String> <- FileSha.digest_hex(path)
+    emit(result)
 
 def run_hmac(key_path: String, path: String) -> IO(Unit):
   do IO<Unit>:
