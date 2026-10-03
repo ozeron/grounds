@@ -38,6 +38,9 @@ Pure Bend cryptographic primitives. This package implements SHA-1, SHA-256, HMAC
 | `x509_identity.bend` | `dns(pattern,reference)`, `ip(presented,reference)` | Typed ASCII DNS/IP comparison; complete leftmost wildcard only, exact IP octets |
 | `x509_hostname.bend` | `frame(bytes)`, `san(bytes,kind,reference)`, `extensions(bytes,kind,reference)`, `certificate(bytes,kind,reference)` | Actual SAN-field DNS/IP identity matching without CN fallback; framing preserves other forms for pending schema/profile processing |
 | `x509_san.bend` | `inspect(bytes)`, `permits(result,critical)`, `subject(subject,extensions)`, `certificate(bytes)` | Selected DNS/IP SAN admission and empty-subject critical-SAN binding; other name forms remain deferred |
+| `x509_name_schema.bend` | `inspect(bytes,allow_empty)`, `pair(issuer,subject)` | Shared RDN/attribute/string syntax checks without retaining a Name collection |
+| `x509_name.bend` | `decode(bytes)`, `inspect(bytes,allow_empty)`, `pair(issuer,subject)` | RDN/attribute framing, DER SET ordering and selected typed attribute syntax; preserve original attributes and defer unknown types/Teletex |
+| `x509_name_certificate.bend` | `certificate(bytes)` | Inspect actual issuer/subject fields; an issuer must be nonempty |
 | `x509_extension_policy.bend` | `decode(bytes)`, `optional(bytes)`, `certificate(bytes)`, `tls13_extensions(bytes,server,allow_any)`, `tls13_certificate(bytes,server,allow_any)` | Process basic constraints/KU/EKU and selected DNS/IP SAN, enforce empty-subject SAN binding, reject unsupported critical extensions, retain pending purpose/identity entries; TLS helpers check purpose permission only |
 | `x509_signature.bend` | `verify_signature(issuer_spki, certificate)` | Mathematical issuer-signature verification using admitted key restrictions and original signed bytes; no trust decision |
 
@@ -660,7 +663,7 @@ became available on 2026-10-03: its six verified corrections (3579, 5802, 5938,
 6414, 7658 and 7661) do not change this empty-subject/SAN rule. This supersedes
 the unavailable query refresh noted above; RFC 9525's refresh remains unavailable.
 It preserves the `Admission` constructor and critical SAN payload for the later
-identity owner. Nonempty subjects still need Name schema validation. None of
+identity owner. `x509_name` separately validates selected Name schemas. None of
 these functions supplies signature, issuer, time, Name constraints, trust,
 revocation or complete peer authorization.
 
@@ -676,3 +679,61 @@ of SAN policy. Commands, hashes, results and compiler limits are in
 2.0.27 proof frontend passes; whole CLI generation reaches its individual
 compiler cutoff, so no pinned SAN runtime result is claimed. Full package/compiler
 acceptance and the remaining GeneralName/profile handlers stay required.
+
+`x509_name.decode` retains RDN sequence order and every attribute's canonical
+OID contents, value tag/body and exact original attribute encoding. Each RDN
+must be a nonempty SET of two-field AttributeTypeAndValue sequences; members
+must follow the complete unsigned DER-encoding order, including length bytes,
+with identical encodings permitted. RDNs themselves are never sorted. This
+uses the existing single-octet-tag / 65,535-octet DER envelope boundary.
+
+Known attribute rules cover RFC 5280's common name, country, organization,
+organizational unit, locality, state, title, serial number, DN qualifier, name,
+surname, given name, initials, generation qualifier and pseudonym, plus
+domainComponent and legacy emailAddress. Selected DirectoryString tags support
+strict UTF-8, PrintableString, UCS-2 BMPString and four-octet UniversalString;
+surrogates, overlong/cut UTF-8 and out-of-range scalars fail. SIZE bounds count
+characters rather than UTF-8 octets. PrintableString and IA5-only attributes
+require their declared tag/alphabet; country is exactly two PrintableString
+characters. Country registration, domain/mailbox profiles, IDNA, prohibited
+character mapping and normalized comparison are separate unfinished checks.
+The attribute syntax follows
+[RFC 5280 sections 4.1.2.4/4.1.2.6 and Appendix A.1](https://www.rfc-editor.org/rfc/rfc5280.html#section-4.1.2.4);
+SET ordering follows [X.690 section 11.6](https://www.itu.int/rec/T-REC-X.690-202102-I/en).
+
+Unknown attribute values retain their framed bytes with `supported=False`.
+Nonempty Teletex DirectoryStrings are likewise deferred: their character
+interpretation and SIZE bounds require a T.61 owner; octet length is not a
+substitute. An empty Name is structurally permitted for subjects, while
+`inspect(...,False)` and the certificate adapter reject an empty issuer.
+`pair` runs both actual Names through one shared schema traversal.
+The current extension/TLS-purpose owner has not yet integrated these Name
+checks. Its unchanged `Admission` remains partial policy processing. An
+unadopted candidate adds malformed-Name, empty-issuer and empty CA/CRL-subject
+rejection; its compiler gates remain blocked. Unknown attributes and Teletex
+also need their owners before authorization.
+
+This is not normalized Name equality or chain authorization. RFC 4518 string
+preparation, RFC 9549 IDNA2008/domain constraints, GeneralName directoryName
+integration, issuer/subject binding across a chain, trust, revocation and
+trusted-time composition remain required.
+
+Official Bend 2.0.34 native and optimizing-JIT Bun each pass 8,507 independent
+Name checks, including exact attribute/RDN retention, string/tag/SIZE boundaries,
+SET ordering, malformed later attributes, 65,535-octet admission and actual
+issuer/subject extraction. Thirteen new public synthetic signed fixtures include
+Unicode Names, malformed Names, deferred forms and future empty-CA/CRL-subject
+controls. Their `future_profile_expected` values describe unfinished composition;
+the Name adapter alone does not enforce those full-profile rules. Independent
+OpenSSL digest verification and frozen verified Bend signature programs accept
+all 13 originals; Bend rejects all 13 signature-bit changes on each target.
+
+The final runtime corpus peaks at 91.7 MiB aggregate / 60.7 MiB individual in
+10.303 s under unchanged limits. The modern seven-literal proof frontend and
+native/JS builds pass. Pinned 2.0.27's final Name proof frontend reaches its
+individual cutoff (327.1 MiB aggregate, 2.521 s), so no pinned Name pass follows.
+The attempted whole-policy integration and focused policy probe also reach
+compiler cutoffs and are archived without adoption. Baseline signed controls
+reproduce seven missing Name/empty-CA/CRL policy rejections. Commands, manifests,
+corpus/signature results, archived candidates and failures are in
+`/Users/ozeron/.codex/artifacts/grounds/2026-10-03/name/`.
