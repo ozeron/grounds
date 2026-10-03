@@ -35,6 +35,8 @@ Pure Bend cryptographic primitives. This package implements SHA-1, SHA-256, HMAC
 | `x509_extensions.bend` | `decode(bytes)`, `optional(bytes)` | Exact extension envelopes, canonical OIDs/critical flags and collision-safe duplicate rejection; opaque payloads |
 | `x509_constraints.bend` | `basic(bytes)`, `usage(bytes)`, `path_allows(limit,count)`, `policy(basic,usage)` | Basic-constraints/key-usage payload admission and local consistency; arbitrary-size path limits retained |
 | `x509_eku.bend` | `decode(bytes)`, `permits(eku,purpose,allow_any)`, `tls13(usage,eku,server,allow_any)` | Canonical EKU payloads and explicit purpose permission; TLS 1.3 requires digitalSignature when KU is present |
+| `x509_identity.bend` | `dns(pattern,reference)`, `ip(presented,reference)` | Typed ASCII DNS/IP comparison; complete leftmost wildcard only, exact IP octets |
+| `x509_hostname.bend` | `frame(bytes)`, `san(bytes,kind,reference)`, `extensions(bytes,kind,reference)`, `certificate(bytes,kind,reference)` | Actual SAN-field DNS/IP identity matching without CN fallback; framing preserves other forms for pending schema/profile processing |
 | `x509_extension_policy.bend` | `decode(bytes)`, `optional(bytes)`, `certificate(bytes)`, `tls13_extensions(bytes,server,allow_any)`, `tls13_certificate(bytes,server,allow_any)` | Process basic constraints/KU/EKU, reject unsupported critical extensions, retain pending purpose/identity entries; TLS helpers check purpose permission only |
 | `x509_signature.bend` | `verify_signature(issuer_spki, certificate)` | Mathematical issuer-signature verification using admitted key restrictions and original signed bytes; no trust decision |
 
@@ -585,3 +587,55 @@ and JS generation reach the unchanged 320 MiB individual compiler cutoff;
 no pinned whole-policy runtime pass is claimed. Current
 sources, targets and resource reports live under
 `/Users/ozeron/.codex/artifacts/grounds/2026-10-03/eku/`.
+
+`x509_identity` compares ASCII DNS labels case-insensitively, enforcing LDH
+syntax, 63-byte labels and a 253-byte domain bound. A wildcard is accepted only
+as the complete leftmost label followed by a nonempty domain; it matches one
+nonempty reference label. Partial/multiple wildcards do not match. A presented
+invalid pattern can be ignored while another DNS-ID matches. IP comparison
+requires exactly 4 or 16 valid octets on each side and exact equality, with no
+IPv4/IPv6-mapped alias or subnet matching. These are the DNS/IP comparison
+rules for HTTPS/WSS from
+[RFC 9525 sections 6.2–6.4](https://www.rfc-editor.org/rfc/rfc9525.html#section-6).
+
+Reference construction is mandatory before calling these helpers: DNS-ID and
+IP-ID are distinct types (`kind` 0 and 1 respectively), and callers must select
+the type from the trusted original authority rather than a resolved address or
+presented certificate. Inputs use ASCII LDH/A-label DNS bytes without a terminal
+root dot, or raw network-order IP bytes. U-label conversion, complete IDNA
+validation, textual-IP parsing, URI/SRV identity profiles and public-suffix
+policy remain required owners. Comparing matching ASCII A-label strings does
+not prove they passed IDNA validation.
+
+`x509_hostname` reads the actual SAN OID through strict extension-envelope and
+certificate-field decoding. An absent SAN, duplicate extension, wrong OID or
+malformed complete framing cannot match; subject CN is never a fallback.
+The complete nonempty sequence is framed before searching. Framing checks
+GeneralName choice tags, nonempty IA5 octets, exact IP sizes and canonical
+registered OID contents, retaining raw entries in order. Constructed otherName,
+X.400, directoryName and EDI contents are retained without schema admission;
+mailbox/URI/DNS profiles and the other semantic validators are also pending.
+This follows the field layout in
+[RFC 5280 section 4.2.1.6](https://www.rfc-editor.org/rfc/rfc5280.html#section-4.2.1.6).
+The result checks DNS/IP identity permission only. It neither admits the SAN
+extension semantically nor authorizes a peer. Critical SAN remains unsupported
+by `x509_extension_policy` until its complete schema/profile owner exists;
+noncritical SAN remains deferred there. Signature, purpose, trusted time,
+Name/chain/trust, revocation and critical-extension checks remain mandatory.
+The official RFC 9525 errata endpoint and verified-errata query returned
+Internal Error on 2026-10-03; a fresh verified review is outstanding.
+
+The current matcher passes 5,900 identical independent cases on native and
+optimizing-JIT Bun with both pinned Bend 2.0.27 and isolated official 2.0.34.
+The combined corpus adds 2,447 SAN/framing/certificate cases to those 5,900
+core cases, passing 8,347 identical cases per modern target. It includes 150
+no-CN/no-partial-wildcard OpenSSL 3.6.4 queries against 15 signed
+synthetic certificates. The corpus covers every octet at selected DNS/IP
+positions, label/domain limits, type separation, invalid reference/pattern
+handling, complete malformed/truncated/mutated SAN framing, exact DER bounds,
+entry order, actual extension OIDs/duplicates and certificate versions.
+Six core and three framing declarations pass both frontends; no kernel verdict
+is claimed. The pinned whole-hostname CLI frontend reaches its existing
+individual compiler cutoff before generation; no pinned whole-hostname runtime
+pass follows. Artifacts are under
+`/Users/ozeron/.codex/artifacts/grounds/2026-10-03/hostname/`.

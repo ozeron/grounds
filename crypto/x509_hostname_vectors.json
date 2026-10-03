@@ -1,0 +1,1014 @@
+{
+  "openssl": "OpenSSL 3.6.4 25 Aug 2026 (Library: OpenSSL 3.6.4 25 Aug 2026)",
+  "libcrypto": "/opt/homebrew/Cellar/openssl@3/3.6.4/lib/libcrypto.3.dylib",
+  "host_flags": 36,
+  "private_key": "discarded with temporary directory; all committed material public synthetic",
+  "scope": "DNS/IP service identity only; no chain/time/trust authorization",
+  "records": [
+    {
+      "name": "exact",
+      "certificate_der": "3082030d308201f5a003020102020101300d06092a864886f70d01010b0500301b3119301706035504030c106170692e6578616d706c652e74657374301e170d3236313030333032353432305a170d3236313030353032353432305a301b3119301706035504030c106170692e6578616d706c652e7465737430820122300d06092a864886f70d01010105000382010f003082010a02820101009eb1635ee981f16be7e2e2f2a758be94234c446ceb23b168e371683365ae21c7beddf40a5db62b0fc872ec0ccd63c5ea40cda803a0fc91d7decb08ca727d77ccc5a6221aea5a3bd4c05c373c9bfe6a5a80753adf3fefd780ed8fb30ab7d513c99071420395de759526866f905d696106519b5579b52873e1915f5e449bd6ceac32c9bcef96fdacaa7a13ccb2939c07b97d4253f2984e6233d73b9175ff42850ea678afd35f4533d90e18989159dec132e71cd8dc0ca563bbdbb9b57f41f39d2ec990a1cff22f6848d984479ffbab89a934ed34ff0fef02a4861d390c29eb530c12ac00469713bfb0ef6685a460b452be72b2a68f1e975ba89719626019196d150203010001a35c305a300c0603551d130101ff04023000300e0603551d0f0101ff040403020780301b0603551d110414301282106170692e6578616d706c652e74657374301d0603551d0e0416041489894ba06bfdacdd4d36d706502c8b2c3ae8845f300d06092a864886f70d01010b050003820101001a3ebcf4fb16dc54c4242406ccf30587e483eba5e395fc7418ab86cbed5ed5289053791a08080482156bae570245d5c4c6cd6a4afee905f99a3b932f78f97fe1e6f6e1ca406ecd6526e6f6fd65518fca8ae2a844bfb91b29c427ebea3aff96c19074b26330415f566640de51ea46f99af117add69010620f193bb37d7e593210cb95488f8a82a854f5b1875157103dfe9e62555e91806de32240efd57d55651bf8f11243812f24f8c879335d85524ccedf5baf708a68f6e3819b5d8d411f034472f08b770d50c7454111574d9e8d6e99ac7bc18290b10778e5a847f5f5c4802d5e4687e44799957a1a411f9b28ca4a93745f1c9cc89e4d5afcf1eeb3a44d959a",
+      "issuer_spki": "30820122300d06092a864886f70d01010105000382010f003082010a02820101009eb1635ee981f16be7e2e2f2a758be94234c446ceb23b168e371683365ae21c7beddf40a5db62b0fc872ec0ccd63c5ea40cda803a0fc91d7decb08ca727d77ccc5a6221aea5a3bd4c05c373c9bfe6a5a80753adf3fefd780ed8fb30ab7d513c99071420395de759526866f905d696106519b5579b52873e1915f5e449bd6ceac32c9bcef96fdacaa7a13ccb2939c07b97d4253f2984e6233d73b9175ff42850ea678afd35f4533d90e18989159dec132e71cd8dc0ca563bbdbb9b57f41f39d2ec990a1cff22f6848d984479ffbab89a934ed34ff0fef02a4861d390c29eb530c12ac00469713bfb0ef6685a460b452be72b2a68f1e975ba89719626019196d150203010001",
+      "references": [
+        {
+          "kind": "DNS",
+          "reference": "6170692e6578616d706c652e74657374",
+          "accepted": true,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "4150492e4558414d504c452e54455354",
+          "accepted": true,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "6f746865722e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "646565702e6170692e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "786e2d2d62636865722d6b76612e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "3139322e302e322e31",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "IP",
+          "reference": "c0000201",
+          "accepted": false,
+          "function": "X509_check_ip"
+        },
+        {
+          "kind": "IP",
+          "reference": "20010db8000000000000000000000001",
+          "accepted": false,
+          "function": "X509_check_ip"
+        },
+        {
+          "kind": "IP",
+          "reference": "c0000202",
+          "accepted": false,
+          "function": "X509_check_ip"
+        }
+      ]
+    },
+    {
+      "name": "wildcard",
+      "certificate_der": "3082030b308201f3a003020102020102300d06092a864886f70d01010b0500301b3119301706035504030c106170692e6578616d706c652e74657374301e170d3236313030333032353432305a170d3236313030353032353432305a301b3119301706035504030c106170692e6578616d706c652e7465737430820122300d06092a864886f70d01010105000382010f003082010a02820101009eb1635ee981f16be7e2e2f2a758be94234c446ceb23b168e371683365ae21c7beddf40a5db62b0fc872ec0ccd63c5ea40cda803a0fc91d7decb08ca727d77ccc5a6221aea5a3bd4c05c373c9bfe6a5a80753adf3fefd780ed8fb30ab7d513c99071420395de759526866f905d696106519b5579b52873e1915f5e449bd6ceac32c9bcef96fdacaa7a13ccb2939c07b97d4253f2984e6233d73b9175ff42850ea678afd35f4533d90e18989159dec132e71cd8dc0ca563bbdbb9b57f41f39d2ec990a1cff22f6848d984479ffbab89a934ed34ff0fef02a4861d390c29eb530c12ac00469713bfb0ef6685a460b452be72b2a68f1e975ba89719626019196d150203010001a35a3058300c0603551d130101ff04023000300e0603551d0f0101ff04040302078030190603551d1104123010820e2a2e6578616d706c652e74657374301d0603551d0e0416041489894ba06bfdacdd4d36d706502c8b2c3ae8845f300d06092a864886f70d01010b050003820101005f540858dad7cc9e3d5ef97f295c5f0322e1cdaf8f30eb33c1041bf14e91c4efdb98cd0040431973cae3ebeb7abdf0adc9dddf52aa65cf8f4a5d57732d6728bafa72b105d9b788d2c59eb632be35dd2813c9eeba6be3a6a6fb9673c8821a491918664473d22a9e34b7683226e86173d9ea1d0f55d77a92fe8a98cf6a5fce6d570648563f2f3e77b25092aec7401e304139cbf001241bcad6a41a7b8cb20109f7cbc9c6a5b49bbdc22c0c03d25c3a772c7b427c239cd19a739ea1ff279340c698e33b6e5ce8b5eae285b07ffc2bcbd21ae1de3bcf94ae15c02f39558f22e34be317271236b26a793d8ca20c52a2f1da04a4409b17a390780932cc839e878e87eb",
+      "issuer_spki": "30820122300d06092a864886f70d01010105000382010f003082010a02820101009eb1635ee981f16be7e2e2f2a758be94234c446ceb23b168e371683365ae21c7beddf40a5db62b0fc872ec0ccd63c5ea40cda803a0fc91d7decb08ca727d77ccc5a6221aea5a3bd4c05c373c9bfe6a5a80753adf3fefd780ed8fb30ab7d513c99071420395de759526866f905d696106519b5579b52873e1915f5e449bd6ceac32c9bcef96fdacaa7a13ccb2939c07b97d4253f2984e6233d73b9175ff42850ea678afd35f4533d90e18989159dec132e71cd8dc0ca563bbdbb9b57f41f39d2ec990a1cff22f6848d984479ffbab89a934ed34ff0fef02a4861d390c29eb530c12ac00469713bfb0ef6685a460b452be72b2a68f1e975ba89719626019196d150203010001",
+      "references": [
+        {
+          "kind": "DNS",
+          "reference": "6170692e6578616d706c652e74657374",
+          "accepted": true,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "4150492e4558414d504c452e54455354",
+          "accepted": true,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "6f746865722e6578616d706c652e74657374",
+          "accepted": true,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "646565702e6170692e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "786e2d2d62636865722d6b76612e6578616d706c652e74657374",
+          "accepted": true,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "3139322e302e322e31",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "IP",
+          "reference": "c0000201",
+          "accepted": false,
+          "function": "X509_check_ip"
+        },
+        {
+          "kind": "IP",
+          "reference": "20010db8000000000000000000000001",
+          "accepted": false,
+          "function": "X509_check_ip"
+        },
+        {
+          "kind": "IP",
+          "reference": "c0000202",
+          "accepted": false,
+          "function": "X509_check_ip"
+        }
+      ]
+    },
+    {
+      "name": "case",
+      "certificate_der": "3082030d308201f5a003020102020103300d06092a864886f70d01010b0500301b3119301706035504030c106170692e6578616d706c652e74657374301e170d3236313030333032353432305a170d3236313030353032353432305a301b3119301706035504030c106170692e6578616d706c652e7465737430820122300d06092a864886f70d01010105000382010f003082010a02820101009eb1635ee981f16be7e2e2f2a758be94234c446ceb23b168e371683365ae21c7beddf40a5db62b0fc872ec0ccd63c5ea40cda803a0fc91d7decb08ca727d77ccc5a6221aea5a3bd4c05c373c9bfe6a5a80753adf3fefd780ed8fb30ab7d513c99071420395de759526866f905d696106519b5579b52873e1915f5e449bd6ceac32c9bcef96fdacaa7a13ccb2939c07b97d4253f2984e6233d73b9175ff42850ea678afd35f4533d90e18989159dec132e71cd8dc0ca563bbdbb9b57f41f39d2ec990a1cff22f6848d984479ffbab89a934ed34ff0fef02a4861d390c29eb530c12ac00469713bfb0ef6685a460b452be72b2a68f1e975ba89719626019196d150203010001a35c305a300c0603551d130101ff04023000300e0603551d0f0101ff040403020780301b0603551d110414301282104150492e4578616d706c652e54657374301d0603551d0e0416041489894ba06bfdacdd4d36d706502c8b2c3ae8845f300d06092a864886f70d01010b050003820101000ae95cd1a40a85241e85b5fb6c0f0fd47494f99099b3f3d4610c62d5f94a1f6da0ad70651aee7ac3c22b3051a868bee3ec8b13cd498efe6133d8e9e3fdd0290022f952738fc7ae7691943159594559f2ba57195bb704478a3fade9cfda1b207ba4dade958f3c5369067f9d581897973304f84b97ab3da3271d7bccdb6aa45465a4dd9edf679b912dec7a1588ec37ad95909bf7c369be20a284447c4a4282b8596074a8929573b634883af18639b578ecbb57acac49a7fe1551592ca75efd109279bb0ed42592168da10db96f7dc012295dc1d25e164e3112b08dcd5f041da4fbff68a20e20815b479de63b1139a62d01b5ff918ad648cf4e2382b9c6279c6b93",
+      "issuer_spki": "30820122300d06092a864886f70d01010105000382010f003082010a02820101009eb1635ee981f16be7e2e2f2a758be94234c446ceb23b168e371683365ae21c7beddf40a5db62b0fc872ec0ccd63c5ea40cda803a0fc91d7decb08ca727d77ccc5a6221aea5a3bd4c05c373c9bfe6a5a80753adf3fefd780ed8fb30ab7d513c99071420395de759526866f905d696106519b5579b52873e1915f5e449bd6ceac32c9bcef96fdacaa7a13ccb2939c07b97d4253f2984e6233d73b9175ff42850ea678afd35f4533d90e18989159dec132e71cd8dc0ca563bbdbb9b57f41f39d2ec990a1cff22f6848d984479ffbab89a934ed34ff0fef02a4861d390c29eb530c12ac00469713bfb0ef6685a460b452be72b2a68f1e975ba89719626019196d150203010001",
+      "references": [
+        {
+          "kind": "DNS",
+          "reference": "6170692e6578616d706c652e74657374",
+          "accepted": true,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "4150492e4558414d504c452e54455354",
+          "accepted": true,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "6f746865722e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "646565702e6170692e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "786e2d2d62636865722d6b76612e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "3139322e302e322e31",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "IP",
+          "reference": "c0000201",
+          "accepted": false,
+          "function": "X509_check_ip"
+        },
+        {
+          "kind": "IP",
+          "reference": "20010db8000000000000000000000001",
+          "accepted": false,
+          "function": "X509_check_ip"
+        },
+        {
+          "kind": "IP",
+          "reference": "c0000202",
+          "accepted": false,
+          "function": "X509_check_ip"
+        }
+      ]
+    },
+    {
+      "name": "partial-wildcard",
+      "certificate_der": "3082030e308201f6a003020102020104300d06092a864886f70d01010b0500301b3119301706035504030c106170692e6578616d706c652e74657374301e170d3236313030333032353432305a170d3236313030353032353432305a301b3119301706035504030c106170692e6578616d706c652e7465737430820122300d06092a864886f70d01010105000382010f003082010a02820101009eb1635ee981f16be7e2e2f2a758be94234c446ceb23b168e371683365ae21c7beddf40a5db62b0fc872ec0ccd63c5ea40cda803a0fc91d7decb08ca727d77ccc5a6221aea5a3bd4c05c373c9bfe6a5a80753adf3fefd780ed8fb30ab7d513c99071420395de759526866f905d696106519b5579b52873e1915f5e449bd6ceac32c9bcef96fdacaa7a13ccb2939c07b97d4253f2984e6233d73b9175ff42850ea678afd35f4533d90e18989159dec132e71cd8dc0ca563bbdbb9b57f41f39d2ec990a1cff22f6848d984479ffbab89a934ed34ff0fef02a4861d390c29eb530c12ac00469713bfb0ef6685a460b452be72b2a68f1e975ba89719626019196d150203010001a35d305b300c0603551d130101ff04023000300e0603551d0f0101ff040403020780301c0603551d110415301382116170692a2e6578616d706c652e74657374301d0603551d0e0416041489894ba06bfdacdd4d36d706502c8b2c3ae8845f300d06092a864886f70d01010b0500038201010017952729767689788763be81b5522a5b952373d7b069226fc94f718eced3227fda01934e4fa0dc4ce7f894bb907559d1c7bfa7afca0d5f32916df57dceb354697b9c6f3433bf203e6e5f9e7d724894d1950d3ddeb35799d784c52a12d89aecbd8fde7b1b9440ce89eed1cf65dbc4eb4cad48407170b5b05e67a5342d18c8106d82864a7240957ca6113e3fcac150ae1e711a4ccefd20b1a7efcd24cccddee1533154f699451f9a9b4854237bf1cf64122b1d0c03b8b805a422058b16cf7f571015444d9e7aeaf4f0aee631d6cbb551377d5fc227ddb3de2959ebe91aafe22343981b3f96b1c0bb4d36862b16086733908ac1bf2972ce79410fba3f52d5e66e49",
+      "issuer_spki": "30820122300d06092a864886f70d01010105000382010f003082010a02820101009eb1635ee981f16be7e2e2f2a758be94234c446ceb23b168e371683365ae21c7beddf40a5db62b0fc872ec0ccd63c5ea40cda803a0fc91d7decb08ca727d77ccc5a6221aea5a3bd4c05c373c9bfe6a5a80753adf3fefd780ed8fb30ab7d513c99071420395de759526866f905d696106519b5579b52873e1915f5e449bd6ceac32c9bcef96fdacaa7a13ccb2939c07b97d4253f2984e6233d73b9175ff42850ea678afd35f4533d90e18989159dec132e71cd8dc0ca563bbdbb9b57f41f39d2ec990a1cff22f6848d984479ffbab89a934ed34ff0fef02a4861d390c29eb530c12ac00469713bfb0ef6685a460b452be72b2a68f1e975ba89719626019196d150203010001",
+      "references": [
+        {
+          "kind": "DNS",
+          "reference": "6170692e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "4150492e4558414d504c452e54455354",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "6f746865722e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "646565702e6170692e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "786e2d2d62636865722d6b76612e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "3139322e302e322e31",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "IP",
+          "reference": "c0000201",
+          "accepted": false,
+          "function": "X509_check_ip"
+        },
+        {
+          "kind": "IP",
+          "reference": "20010db8000000000000000000000001",
+          "accepted": false,
+          "function": "X509_check_ip"
+        },
+        {
+          "kind": "IP",
+          "reference": "c0000202",
+          "accepted": false,
+          "function": "X509_check_ip"
+        }
+      ]
+    },
+    {
+      "name": "two-wildcards",
+      "certificate_der": "3082030d308201f5a003020102020105300d06092a864886f70d01010b0500301b3119301706035504030c106170692e6578616d706c652e74657374301e170d3236313030333032353432305a170d3236313030353032353432305a301b3119301706035504030c106170692e6578616d706c652e7465737430820122300d06092a864886f70d01010105000382010f003082010a02820101009eb1635ee981f16be7e2e2f2a758be94234c446ceb23b168e371683365ae21c7beddf40a5db62b0fc872ec0ccd63c5ea40cda803a0fc91d7decb08ca727d77ccc5a6221aea5a3bd4c05c373c9bfe6a5a80753adf3fefd780ed8fb30ab7d513c99071420395de759526866f905d696106519b5579b52873e1915f5e449bd6ceac32c9bcef96fdacaa7a13ccb2939c07b97d4253f2984e6233d73b9175ff42850ea678afd35f4533d90e18989159dec132e71cd8dc0ca563bbdbb9b57f41f39d2ec990a1cff22f6848d984479ffbab89a934ed34ff0fef02a4861d390c29eb530c12ac00469713bfb0ef6685a460b452be72b2a68f1e975ba89719626019196d150203010001a35c305a300c0603551d130101ff04023000300e0603551d0f0101ff040403020780301b0603551d110414301282102a2e2a2e6578616d706c652e74657374301d0603551d0e0416041489894ba06bfdacdd4d36d706502c8b2c3ae8845f300d06092a864886f70d01010b050003820101007e586c4c9246b348f3cb773867fac11ef9e45d1b652d29ebb69475d95b636d720470fe7d6a65cc2476bf8bce02cc3976b5fdb2e9fac7e94616dbf69ffcc8b514cffa697ea5c94216d5ed4b7cfae819e2b6eea41bcd05608feda4dbf557bab387429139105138527747049f428e977edc53df5d7a8cf06b45aa1a241c9fcb7c8e39e190bd0858f69d7b991fdc1b81c759df3af2c5e001babdbcda95b0076ad835b0528b10b8ba2c0f26fef6266049815978e980bcb334f3cfdefb1b1e9f843436b332568deb3e925448a3b60d75b48fcc9db01147d86f37984dd9689307ee75acb350cb43d21a5c27180df780cd2fe61023e5e9cbc3f6def5dc1de005f56dd746",
+      "issuer_spki": "30820122300d06092a864886f70d01010105000382010f003082010a02820101009eb1635ee981f16be7e2e2f2a758be94234c446ceb23b168e371683365ae21c7beddf40a5db62b0fc872ec0ccd63c5ea40cda803a0fc91d7decb08ca727d77ccc5a6221aea5a3bd4c05c373c9bfe6a5a80753adf3fefd780ed8fb30ab7d513c99071420395de759526866f905d696106519b5579b52873e1915f5e449bd6ceac32c9bcef96fdacaa7a13ccb2939c07b97d4253f2984e6233d73b9175ff42850ea678afd35f4533d90e18989159dec132e71cd8dc0ca563bbdbb9b57f41f39d2ec990a1cff22f6848d984479ffbab89a934ed34ff0fef02a4861d390c29eb530c12ac00469713bfb0ef6685a460b452be72b2a68f1e975ba89719626019196d150203010001",
+      "references": [
+        {
+          "kind": "DNS",
+          "reference": "6170692e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "4150492e4558414d504c452e54455354",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "6f746865722e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "646565702e6170692e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "786e2d2d62636865722d6b76612e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "3139322e302e322e31",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "IP",
+          "reference": "c0000201",
+          "accepted": false,
+          "function": "X509_check_ip"
+        },
+        {
+          "kind": "IP",
+          "reference": "20010db8000000000000000000000001",
+          "accepted": false,
+          "function": "X509_check_ip"
+        },
+        {
+          "kind": "IP",
+          "reference": "c0000202",
+          "accepted": false,
+          "function": "X509_check_ip"
+        }
+      ]
+    },
+    {
+      "name": "IDNA-A-label",
+      "certificate_der": "30820317308201ffa003020102020106300d06092a864886f70d01010b0500301b3119301706035504030c106170692e6578616d706c652e74657374301e170d3236313030333032353432305a170d3236313030353032353432305a301b3119301706035504030c106170692e6578616d706c652e7465737430820122300d06092a864886f70d01010105000382010f003082010a02820101009eb1635ee981f16be7e2e2f2a758be94234c446ceb23b168e371683365ae21c7beddf40a5db62b0fc872ec0ccd63c5ea40cda803a0fc91d7decb08ca727d77ccc5a6221aea5a3bd4c05c373c9bfe6a5a80753adf3fefd780ed8fb30ab7d513c99071420395de759526866f905d696106519b5579b52873e1915f5e449bd6ceac32c9bcef96fdacaa7a13ccb2939c07b97d4253f2984e6233d73b9175ff42850ea678afd35f4533d90e18989159dec132e71cd8dc0ca563bbdbb9b57f41f39d2ec990a1cff22f6848d984479ffbab89a934ed34ff0fef02a4861d390c29eb530c12ac00469713bfb0ef6685a460b452be72b2a68f1e975ba89719626019196d150203010001a3663064300c0603551d130101ff04023000300e0603551d0f0101ff04040302078030250603551d11041e301c821a786e2d2d62636865722d6b76612e6578616d706c652e74657374301d0603551d0e0416041489894ba06bfdacdd4d36d706502c8b2c3ae8845f300d06092a864886f70d01010b05000382010100753a3e603e339b3b980eef23120b0b2971ffaf6163cf02d8ba6d962ce23f2e60d599139b9aa9a0fc9dd0f6ac22247a0f9989801d62cc699d766efa4ca77465e3f4f71dc602c3d3b6152f3f636656ffe6d3c37b4d4dff58c34f4c6d03b4aa101e3be7cf93d4c545f8c1c6ec94e1cb93785399ecca60550eee087141db3092e0dbe5902b1df6fe6cc70a13fc59a6b82a478fc98f0f9907de13d254058e69b59d26939c77008b2ef924cdc4d0d531048f7a3a3b70fd1b6b6f6f7e3f2f11ecabb910c864afc5df41138849d1be278973a52683302604f53c82308b63e8f2e9b669e1588975aaad11bc8d33559c324a69a31668ae945e13c1b762953ed35044d89d5d",
+      "issuer_spki": "30820122300d06092a864886f70d01010105000382010f003082010a02820101009eb1635ee981f16be7e2e2f2a758be94234c446ceb23b168e371683365ae21c7beddf40a5db62b0fc872ec0ccd63c5ea40cda803a0fc91d7decb08ca727d77ccc5a6221aea5a3bd4c05c373c9bfe6a5a80753adf3fefd780ed8fb30ab7d513c99071420395de759526866f905d696106519b5579b52873e1915f5e449bd6ceac32c9bcef96fdacaa7a13ccb2939c07b97d4253f2984e6233d73b9175ff42850ea678afd35f4533d90e18989159dec132e71cd8dc0ca563bbdbb9b57f41f39d2ec990a1cff22f6848d984479ffbab89a934ed34ff0fef02a4861d390c29eb530c12ac00469713bfb0ef6685a460b452be72b2a68f1e975ba89719626019196d150203010001",
+      "references": [
+        {
+          "kind": "DNS",
+          "reference": "6170692e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "4150492e4558414d504c452e54455354",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "6f746865722e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "646565702e6170692e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "786e2d2d62636865722d6b76612e6578616d706c652e74657374",
+          "accepted": true,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "3139322e302e322e31",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "IP",
+          "reference": "c0000201",
+          "accepted": false,
+          "function": "X509_check_ip"
+        },
+        {
+          "kind": "IP",
+          "reference": "20010db8000000000000000000000001",
+          "accepted": false,
+          "function": "X509_check_ip"
+        },
+        {
+          "kind": "IP",
+          "reference": "c0000202",
+          "accepted": false,
+          "function": "X509_check_ip"
+        }
+      ]
+    },
+    {
+      "name": "IP-v4",
+      "certificate_der": "30820301308201e9a003020102020107300d06092a864886f70d01010b0500301b3119301706035504030c106170692e6578616d706c652e74657374301e170d3236313030333032353432305a170d3236313030353032353432305a301b3119301706035504030c106170692e6578616d706c652e7465737430820122300d06092a864886f70d01010105000382010f003082010a02820101009eb1635ee981f16be7e2e2f2a758be94234c446ceb23b168e371683365ae21c7beddf40a5db62b0fc872ec0ccd63c5ea40cda803a0fc91d7decb08ca727d77ccc5a6221aea5a3bd4c05c373c9bfe6a5a80753adf3fefd780ed8fb30ab7d513c99071420395de759526866f905d696106519b5579b52873e1915f5e449bd6ceac32c9bcef96fdacaa7a13ccb2939c07b97d4253f2984e6233d73b9175ff42850ea678afd35f4533d90e18989159dec132e71cd8dc0ca563bbdbb9b57f41f39d2ec990a1cff22f6848d984479ffbab89a934ed34ff0fef02a4861d390c29eb530c12ac00469713bfb0ef6685a460b452be72b2a68f1e975ba89719626019196d150203010001a350304e300c0603551d130101ff04023000300e0603551d0f0101ff040403020780300f0603551d11040830068704c0000201301d0603551d0e0416041489894ba06bfdacdd4d36d706502c8b2c3ae8845f300d06092a864886f70d01010b050003820101008503829d904df6a9d432c62ea31ea16a3204215d08f92fa08c056b7b1bce29644b40224f1db0f100e4486ca584bc6c22c47ddc6b6b009ec8025175f3e2de9dd24faf33c8d502d884e763f8991f64dc01030a07dcd83da1a9b2e9fa0e75de4562995c8d584c01346d8724f9900005f6cc52aa54da9894e4d458ab46af098fcee4ca5bb1530ae384dd588cb31c893d03999711353a611deb8c15f3ccce52f498cc8cac0b403b8313c2d1e6674d87bcb69f797a30928bc87a73a78c6a00de16823c33280f6599230eb28b7c00cc29b36db9bd2b1c84a189adcdf96f78109de606faa3f56df6e4a8f9166215a3f8daebc69590695b853e19693494995d49dc92e11e",
+      "issuer_spki": "30820122300d06092a864886f70d01010105000382010f003082010a02820101009eb1635ee981f16be7e2e2f2a758be94234c446ceb23b168e371683365ae21c7beddf40a5db62b0fc872ec0ccd63c5ea40cda803a0fc91d7decb08ca727d77ccc5a6221aea5a3bd4c05c373c9bfe6a5a80753adf3fefd780ed8fb30ab7d513c99071420395de759526866f905d696106519b5579b52873e1915f5e449bd6ceac32c9bcef96fdacaa7a13ccb2939c07b97d4253f2984e6233d73b9175ff42850ea678afd35f4533d90e18989159dec132e71cd8dc0ca563bbdbb9b57f41f39d2ec990a1cff22f6848d984479ffbab89a934ed34ff0fef02a4861d390c29eb530c12ac00469713bfb0ef6685a460b452be72b2a68f1e975ba89719626019196d150203010001",
+      "references": [
+        {
+          "kind": "DNS",
+          "reference": "6170692e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "4150492e4558414d504c452e54455354",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "6f746865722e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "646565702e6170692e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "786e2d2d62636865722d6b76612e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "3139322e302e322e31",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "IP",
+          "reference": "c0000201",
+          "accepted": true,
+          "function": "X509_check_ip"
+        },
+        {
+          "kind": "IP",
+          "reference": "20010db8000000000000000000000001",
+          "accepted": false,
+          "function": "X509_check_ip"
+        },
+        {
+          "kind": "IP",
+          "reference": "c0000202",
+          "accepted": false,
+          "function": "X509_check_ip"
+        }
+      ]
+    },
+    {
+      "name": "IP-v6",
+      "certificate_der": "3082030d308201f5a003020102020108300d06092a864886f70d01010b0500301b3119301706035504030c106170692e6578616d706c652e74657374301e170d3236313030333032353432305a170d3236313030353032353432305a301b3119301706035504030c106170692e6578616d706c652e7465737430820122300d06092a864886f70d01010105000382010f003082010a02820101009eb1635ee981f16be7e2e2f2a758be94234c446ceb23b168e371683365ae21c7beddf40a5db62b0fc872ec0ccd63c5ea40cda803a0fc91d7decb08ca727d77ccc5a6221aea5a3bd4c05c373c9bfe6a5a80753adf3fefd780ed8fb30ab7d513c99071420395de759526866f905d696106519b5579b52873e1915f5e449bd6ceac32c9bcef96fdacaa7a13ccb2939c07b97d4253f2984e6233d73b9175ff42850ea678afd35f4533d90e18989159dec132e71cd8dc0ca563bbdbb9b57f41f39d2ec990a1cff22f6848d984479ffbab89a934ed34ff0fef02a4861d390c29eb530c12ac00469713bfb0ef6685a460b452be72b2a68f1e975ba89719626019196d150203010001a35c305a300c0603551d130101ff04023000300e0603551d0f0101ff040403020780301b0603551d1104143012871020010db8000000000000000000000001301d0603551d0e0416041489894ba06bfdacdd4d36d706502c8b2c3ae8845f300d06092a864886f70d01010b05000382010100022c3d0e7e3463baee805e9a95ebcd347f068846839bb4a6c110ee2d78aac04ecce4f5871f08b8809af386a2f982db6de709cb37b9ebc41e946ed5ad26b6cf7e45e548d0e2e478435b3f16698c7580696fea444c59b0d8b14228bb2602a53362de3117c1221eb4b1ed4311c7d553676b0af146265dd25aa5853bd93490cb5cb8175bcbca62d4d2eb51dc3b5e69523cb43f68a62e78010b679334fc2c7e367b68065db63d79acc55d62da946fd6aee1840556750f9268e8ae86bb2f988d9c191104364e3ebc253874c31c818d3064a56babb8b79138d6ddf250a9d3d6fcf68941115d5f0cc95fc3873fe350a6ea80b3e52afebd354e44012d626d06e2aca56f7a",
+      "issuer_spki": "30820122300d06092a864886f70d01010105000382010f003082010a02820101009eb1635ee981f16be7e2e2f2a758be94234c446ceb23b168e371683365ae21c7beddf40a5db62b0fc872ec0ccd63c5ea40cda803a0fc91d7decb08ca727d77ccc5a6221aea5a3bd4c05c373c9bfe6a5a80753adf3fefd780ed8fb30ab7d513c99071420395de759526866f905d696106519b5579b52873e1915f5e449bd6ceac32c9bcef96fdacaa7a13ccb2939c07b97d4253f2984e6233d73b9175ff42850ea678afd35f4533d90e18989159dec132e71cd8dc0ca563bbdbb9b57f41f39d2ec990a1cff22f6848d984479ffbab89a934ed34ff0fef02a4861d390c29eb530c12ac00469713bfb0ef6685a460b452be72b2a68f1e975ba89719626019196d150203010001",
+      "references": [
+        {
+          "kind": "DNS",
+          "reference": "6170692e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "4150492e4558414d504c452e54455354",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "6f746865722e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "646565702e6170692e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "786e2d2d62636865722d6b76612e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "3139322e302e322e31",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "IP",
+          "reference": "c0000201",
+          "accepted": false,
+          "function": "X509_check_ip"
+        },
+        {
+          "kind": "IP",
+          "reference": "20010db8000000000000000000000001",
+          "accepted": true,
+          "function": "X509_check_ip"
+        },
+        {
+          "kind": "IP",
+          "reference": "c0000202",
+          "accepted": false,
+          "function": "X509_check_ip"
+        }
+      ]
+    },
+    {
+      "name": "mixed",
+      "certificate_der": "308203253082020da003020102020109300d06092a864886f70d01010b0500301b3119301706035504030c106170692e6578616d706c652e74657374301e170d3236313030333032353432305a170d3236313030353032353432305a301b3119301706035504030c106170692e6578616d706c652e7465737430820122300d06092a864886f70d01010105000382010f003082010a02820101009eb1635ee981f16be7e2e2f2a758be94234c446ceb23b168e371683365ae21c7beddf40a5db62b0fc872ec0ccd63c5ea40cda803a0fc91d7decb08ca727d77ccc5a6221aea5a3bd4c05c373c9bfe6a5a80753adf3fefd780ed8fb30ab7d513c99071420395de759526866f905d696106519b5579b52873e1915f5e449bd6ceac32c9bcef96fdacaa7a13ccb2939c07b97d4253f2984e6233d73b9175ff42850ea678afd35f4533d90e18989159dec132e71cd8dc0ca563bbdbb9b57f41f39d2ec990a1cff22f6848d984479ffbab89a934ed34ff0fef02a4861d390c29eb530c12ac00469713bfb0ef6685a460b452be72b2a68f1e975ba89719626019196d150203010001a3743072300c0603551d130101ff04023000300e0603551d0f0101ff04040302078030330603551d11042c302a82106170692e6578616d706c652e746573748704c0000201871020010db8000000000000000000000001301d0603551d0e0416041489894ba06bfdacdd4d36d706502c8b2c3ae8845f300d06092a864886f70d01010b0500038201010013ef17cebd2ba754c9b957b44a5aa2fb0d4f589fe56a73c2d63b727820899961a95c3738604f68d54d9c672f9b14053ffbf6301201ba0a073e8d807a9541d8ed1c58a0d255d47c24e54164943be1fbb959cff41b0d22cec2abd7e6bbf9ca54410a083f02b35632dabd9fb955e311fc073491b77a4679733c2ab24e4d017c5e20608c24d6f1c8a211cb433aad7b53889860d563fd3886588e25589e09e85365a6f45c335628f8bf7fd586ea760a6017008052a2705538a6886971e491d6d5fabea2fa7a2b56346b153edcc934f80d6f49b93ffe9dbfda6070ef823e5bff144fbbb70a6b1eb397d8eeafb21c362432e3593b26de8f247cb8591b66bc92c686cb19",
+      "issuer_spki": "30820122300d06092a864886f70d01010105000382010f003082010a02820101009eb1635ee981f16be7e2e2f2a758be94234c446ceb23b168e371683365ae21c7beddf40a5db62b0fc872ec0ccd63c5ea40cda803a0fc91d7decb08ca727d77ccc5a6221aea5a3bd4c05c373c9bfe6a5a80753adf3fefd780ed8fb30ab7d513c99071420395de759526866f905d696106519b5579b52873e1915f5e449bd6ceac32c9bcef96fdacaa7a13ccb2939c07b97d4253f2984e6233d73b9175ff42850ea678afd35f4533d90e18989159dec132e71cd8dc0ca563bbdbb9b57f41f39d2ec990a1cff22f6848d984479ffbab89a934ed34ff0fef02a4861d390c29eb530c12ac00469713bfb0ef6685a460b452be72b2a68f1e975ba89719626019196d150203010001",
+      "references": [
+        {
+          "kind": "DNS",
+          "reference": "6170692e6578616d706c652e74657374",
+          "accepted": true,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "4150492e4558414d504c452e54455354",
+          "accepted": true,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "6f746865722e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "646565702e6170692e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "786e2d2d62636865722d6b76612e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "3139322e302e322e31",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "IP",
+          "reference": "c0000201",
+          "accepted": true,
+          "function": "X509_check_ip"
+        },
+        {
+          "kind": "IP",
+          "reference": "20010db8000000000000000000000001",
+          "accepted": true,
+          "function": "X509_check_ip"
+        },
+        {
+          "kind": "IP",
+          "reference": "c0000202",
+          "accepted": false,
+          "function": "X509_check_ip"
+        }
+      ]
+    },
+    {
+      "name": "DNS-looking-IP",
+      "certificate_der": "30820306308201eea00302010202010a300d06092a864886f70d01010b0500301b3119301706035504030c106170692e6578616d706c652e74657374301e170d3236313030333032353432305a170d3236313030353032353432305a301b3119301706035504030c106170692e6578616d706c652e7465737430820122300d06092a864886f70d01010105000382010f003082010a02820101009eb1635ee981f16be7e2e2f2a758be94234c446ceb23b168e371683365ae21c7beddf40a5db62b0fc872ec0ccd63c5ea40cda803a0fc91d7decb08ca727d77ccc5a6221aea5a3bd4c05c373c9bfe6a5a80753adf3fefd780ed8fb30ab7d513c99071420395de759526866f905d696106519b5579b52873e1915f5e449bd6ceac32c9bcef96fdacaa7a13ccb2939c07b97d4253f2984e6233d73b9175ff42850ea678afd35f4533d90e18989159dec132e71cd8dc0ca563bbdbb9b57f41f39d2ec990a1cff22f6848d984479ffbab89a934ed34ff0fef02a4861d390c29eb530c12ac00469713bfb0ef6685a460b452be72b2a68f1e975ba89719626019196d150203010001a3553053300c0603551d130101ff04023000300e0603551d0f0101ff04040302078030140603551d11040d300b82093139322e302e322e31301d0603551d0e0416041489894ba06bfdacdd4d36d706502c8b2c3ae8845f300d06092a864886f70d01010b050003820101004bc10c937e19b36449282dbacf78daca4ab2a11b60639b3fbccca1c973887de5271c711a35c9ef6065cc6455f86e5b32b7f4954e52027453b73cee4e127d67a5c5e03b73d7fe8000aaac2e33310063284c7c954c34a5d209d5b8f818de8a0352dd9bce0aa73e665bf7f78776bfd1869d9fe974f83e9b2810aefb89e56a89994426bef7761cbd4a085f4d111b8a702a2df7b9cf4339e05bc834a448d83aa9a962e65def3fec69ffb1d0d6d774078c93e6bf74f56cfcd1e01c7392c91ceaf9e77b6aa0982c401c4e2f2f344a389a1b96a1b4caf59abadcb7b1692faf3cd660d01f35f20dbd64939ca17ceae72b12ebe7372bf6fe93bf9d62ee04248305ddcf857f",
+      "issuer_spki": "30820122300d06092a864886f70d01010105000382010f003082010a02820101009eb1635ee981f16be7e2e2f2a758be94234c446ceb23b168e371683365ae21c7beddf40a5db62b0fc872ec0ccd63c5ea40cda803a0fc91d7decb08ca727d77ccc5a6221aea5a3bd4c05c373c9bfe6a5a80753adf3fefd780ed8fb30ab7d513c99071420395de759526866f905d696106519b5579b52873e1915f5e449bd6ceac32c9bcef96fdacaa7a13ccb2939c07b97d4253f2984e6233d73b9175ff42850ea678afd35f4533d90e18989159dec132e71cd8dc0ca563bbdbb9b57f41f39d2ec990a1cff22f6848d984479ffbab89a934ed34ff0fef02a4861d390c29eb530c12ac00469713bfb0ef6685a460b452be72b2a68f1e975ba89719626019196d150203010001",
+      "references": [
+        {
+          "kind": "DNS",
+          "reference": "6170692e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "4150492e4558414d504c452e54455354",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "6f746865722e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "646565702e6170692e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "786e2d2d62636865722d6b76612e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "3139322e302e322e31",
+          "accepted": true,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "IP",
+          "reference": "c0000201",
+          "accepted": false,
+          "function": "X509_check_ip"
+        },
+        {
+          "kind": "IP",
+          "reference": "20010db8000000000000000000000001",
+          "accepted": false,
+          "function": "X509_check_ip"
+        },
+        {
+          "kind": "IP",
+          "reference": "c0000202",
+          "accepted": false,
+          "function": "X509_check_ip"
+        }
+      ]
+    },
+    {
+      "name": "multiple-DNS",
+      "certificate_der": "3082032130820209a00302010202010b300d06092a864886f70d01010b0500301b3119301706035504030c106170692e6578616d706c652e74657374301e170d3236313030333032353432305a170d3236313030353032353432305a301b3119301706035504030c106170692e6578616d706c652e7465737430820122300d06092a864886f70d01010105000382010f003082010a02820101009eb1635ee981f16be7e2e2f2a758be94234c446ceb23b168e371683365ae21c7beddf40a5db62b0fc872ec0ccd63c5ea40cda803a0fc91d7decb08ca727d77ccc5a6221aea5a3bd4c05c373c9bfe6a5a80753adf3fefd780ed8fb30ab7d513c99071420395de759526866f905d696106519b5579b52873e1915f5e449bd6ceac32c9bcef96fdacaa7a13ccb2939c07b97d4253f2984e6233d73b9175ff42850ea678afd35f4533d90e18989159dec132e71cd8dc0ca563bbdbb9b57f41f39d2ec990a1cff22f6848d984479ffbab89a934ed34ff0fef02a4861d390c29eb530c12ac00469713bfb0ef6685a460b452be72b2a68f1e975ba89719626019196d150203010001a370306e300c0603551d130101ff04023000300e0603551d0f0101ff040403020780302f0603551d1104283026821277726f6e672e6578616d706c652e7465737482106170692e6578616d706c652e74657374301d0603551d0e0416041489894ba06bfdacdd4d36d706502c8b2c3ae8845f300d06092a864886f70d01010b05000382010100082ca2455a6c03c1bc662ce881207cddcd819fcf7a8a5de13964d9d3795459fb219aa613ee972b861f408a8ae47b857d7a4ac2a0e19b446d620d41762b13d81c155ca0f509950cc000878f5d7079a5b45e5460789814edd56639aea6f91b0213ba9b11782dc4843ccee8e54bcee78bb895cd8684582cdb8e350681aa73c84c77fdb8c55890ea404eb17d7438e3448d994c3bba45eb5ffaaf010431c4be6b657f657eaeb0a376c8bf1c9b6b458e34652460724c0b0e06ddd4814d7574fb2f911fb1b63c6e2ebebcc2b43052d726739a9dfd5557960579787d10dbcd8a55088375185c72030e2f181234c7b68ddd7c3eaaea643433f745d35f3ac1d0530a88967d",
+      "issuer_spki": "30820122300d06092a864886f70d01010105000382010f003082010a02820101009eb1635ee981f16be7e2e2f2a758be94234c446ceb23b168e371683365ae21c7beddf40a5db62b0fc872ec0ccd63c5ea40cda803a0fc91d7decb08ca727d77ccc5a6221aea5a3bd4c05c373c9bfe6a5a80753adf3fefd780ed8fb30ab7d513c99071420395de759526866f905d696106519b5579b52873e1915f5e449bd6ceac32c9bcef96fdacaa7a13ccb2939c07b97d4253f2984e6233d73b9175ff42850ea678afd35f4533d90e18989159dec132e71cd8dc0ca563bbdbb9b57f41f39d2ec990a1cff22f6848d984479ffbab89a934ed34ff0fef02a4861d390c29eb530c12ac00469713bfb0ef6685a460b452be72b2a68f1e975ba89719626019196d150203010001",
+      "references": [
+        {
+          "kind": "DNS",
+          "reference": "6170692e6578616d706c652e74657374",
+          "accepted": true,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "4150492e4558414d504c452e54455354",
+          "accepted": true,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "6f746865722e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "646565702e6170692e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "786e2d2d62636865722d6b76612e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "3139322e302e322e31",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "IP",
+          "reference": "c0000201",
+          "accepted": false,
+          "function": "X509_check_ip"
+        },
+        {
+          "kind": "IP",
+          "reference": "20010db8000000000000000000000001",
+          "accepted": false,
+          "function": "X509_check_ip"
+        },
+        {
+          "kind": "IP",
+          "reference": "c0000202",
+          "accepted": false,
+          "function": "X509_check_ip"
+        }
+      ]
+    },
+    {
+      "name": "URI-and-DNS",
+      "certificate_der": "3082032930820211a00302010202010c300d06092a864886f70d01010b0500301b3119301706035504030c106170692e6578616d706c652e74657374301e170d3236313030333032353432305a170d3236313030353032353432305a301b3119301706035504030c106170692e6578616d706c652e7465737430820122300d06092a864886f70d01010105000382010f003082010a02820101009eb1635ee981f16be7e2e2f2a758be94234c446ceb23b168e371683365ae21c7beddf40a5db62b0fc872ec0ccd63c5ea40cda803a0fc91d7decb08ca727d77ccc5a6221aea5a3bd4c05c373c9bfe6a5a80753adf3fefd780ed8fb30ab7d513c99071420395de759526866f905d696106519b5579b52873e1915f5e449bd6ceac32c9bcef96fdacaa7a13ccb2939c07b97d4253f2984e6233d73b9175ff42850ea678afd35f4533d90e18989159dec132e71cd8dc0ca563bbdbb9b57f41f39d2ec990a1cff22f6848d984479ffbab89a934ed34ff0fef02a4861d390c29eb530c12ac00469713bfb0ef6685a460b452be72b2a68f1e975ba89719626019196d150203010001a3783076300c0603551d130101ff04023000300e0603551d0f0101ff04040302078030370603551d110430302e861a68747470733a2f2f77726f6e672e6578616d706c652e7465737482106170692e6578616d706c652e74657374301d0603551d0e0416041489894ba06bfdacdd4d36d706502c8b2c3ae8845f300d06092a864886f70d01010b050003820101002c77a8a7ca2238f61778315ac983eba30e7e478c1cc339bb3b1fdd4b5054a9ed0b6c85bb9b228b22ba7e140aabf03e7f7de605c699f7307935df24b03c796380f513b05b243106e02f2c355ce42610240620a595df55247da515716e43ee907e349feb3c4d9b7c3f52d3a12255ffc59919667399ddb0a8a59d5f25b5fe9671b8089587731a0fedabf7dfba050672174fffeae56843c257236b6c69bdafd0af9f804e0f9c69c88a76df56d7cff4e139ac10536f0c5ba9d5c6e8de4dfaa495ccc4e9588e5d728790007483979ca2470321cd509d817c5e0d327112e1cec8b6f91e13823cae8b26a2528a409dde39885e0cd44cfd57060a5fe14e794d6c5b744369",
+      "issuer_spki": "30820122300d06092a864886f70d01010105000382010f003082010a02820101009eb1635ee981f16be7e2e2f2a758be94234c446ceb23b168e371683365ae21c7beddf40a5db62b0fc872ec0ccd63c5ea40cda803a0fc91d7decb08ca727d77ccc5a6221aea5a3bd4c05c373c9bfe6a5a80753adf3fefd780ed8fb30ab7d513c99071420395de759526866f905d696106519b5579b52873e1915f5e449bd6ceac32c9bcef96fdacaa7a13ccb2939c07b97d4253f2984e6233d73b9175ff42850ea678afd35f4533d90e18989159dec132e71cd8dc0ca563bbdbb9b57f41f39d2ec990a1cff22f6848d984479ffbab89a934ed34ff0fef02a4861d390c29eb530c12ac00469713bfb0ef6685a460b452be72b2a68f1e975ba89719626019196d150203010001",
+      "references": [
+        {
+          "kind": "DNS",
+          "reference": "6170692e6578616d706c652e74657374",
+          "accepted": true,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "4150492e4558414d504c452e54455354",
+          "accepted": true,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "6f746865722e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "646565702e6170692e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "786e2d2d62636865722d6b76612e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "3139322e302e322e31",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "IP",
+          "reference": "c0000201",
+          "accepted": false,
+          "function": "X509_check_ip"
+        },
+        {
+          "kind": "IP",
+          "reference": "20010db8000000000000000000000001",
+          "accepted": false,
+          "function": "X509_check_ip"
+        },
+        {
+          "kind": "IP",
+          "reference": "c0000202",
+          "accepted": false,
+          "function": "X509_check_ip"
+        }
+      ]
+    },
+    {
+      "name": "URI-only",
+      "certificate_der": "30820315308201fda00302010202010d300d06092a864886f70d01010b0500301b3119301706035504030c106170692e6578616d706c652e74657374301e170d3236313030333032353432305a170d3236313030353032353432305a301b3119301706035504030c106170692e6578616d706c652e7465737430820122300d06092a864886f70d01010105000382010f003082010a02820101009eb1635ee981f16be7e2e2f2a758be94234c446ceb23b168e371683365ae21c7beddf40a5db62b0fc872ec0ccd63c5ea40cda803a0fc91d7decb08ca727d77ccc5a6221aea5a3bd4c05c373c9bfe6a5a80753adf3fefd780ed8fb30ab7d513c99071420395de759526866f905d696106519b5579b52873e1915f5e449bd6ceac32c9bcef96fdacaa7a13ccb2939c07b97d4253f2984e6233d73b9175ff42850ea678afd35f4533d90e18989159dec132e71cd8dc0ca563bbdbb9b57f41f39d2ec990a1cff22f6848d984479ffbab89a934ed34ff0fef02a4861d390c29eb530c12ac00469713bfb0ef6685a460b452be72b2a68f1e975ba89719626019196d150203010001a3643062300c0603551d130101ff04023000300e0603551d0f0101ff04040302078030230603551d11041c301a861868747470733a2f2f6170692e6578616d706c652e74657374301d0603551d0e0416041489894ba06bfdacdd4d36d706502c8b2c3ae8845f300d06092a864886f70d01010b050003820101004561c2746d4ec30951d8d0e9ff130d6d83f25f572da51f3e6789b8ad43fc9fa92c74fe5b04c9642a6a1800448b087525d1e8ee393b101ec42a0d2645ac6910fcc8c0ef61ae5ab88fac09933f72008eba2f01343b67e002b0518a3e45316ce3d8ed20b7882aa63290551e80351c4085cd64a05202a1278d7ebe9e8f04f810c1cf0bfbea4e974a74168ccacc0d06bbd60b9d4255641db7dbdcfca4fab052fe8eddfdf0fa3382e7e771417f2864a17d5ae525f7a88d24c7cb9f4b3aabf42a41773204d455e0b387bb2e9cea1c8ed07c41216f1f3310a7d4f9cc115c16692872a4b3e3be3f9dee1ca76a086792ac5e33a00115677d1db84bc20257bc3da0431fdb49",
+      "issuer_spki": "30820122300d06092a864886f70d01010105000382010f003082010a02820101009eb1635ee981f16be7e2e2f2a758be94234c446ceb23b168e371683365ae21c7beddf40a5db62b0fc872ec0ccd63c5ea40cda803a0fc91d7decb08ca727d77ccc5a6221aea5a3bd4c05c373c9bfe6a5a80753adf3fefd780ed8fb30ab7d513c99071420395de759526866f905d696106519b5579b52873e1915f5e449bd6ceac32c9bcef96fdacaa7a13ccb2939c07b97d4253f2984e6233d73b9175ff42850ea678afd35f4533d90e18989159dec132e71cd8dc0ca563bbdbb9b57f41f39d2ec990a1cff22f6848d984479ffbab89a934ed34ff0fef02a4861d390c29eb530c12ac00469713bfb0ef6685a460b452be72b2a68f1e975ba89719626019196d150203010001",
+      "references": [
+        {
+          "kind": "DNS",
+          "reference": "6170692e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "4150492e4558414d504c452e54455354",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "6f746865722e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "646565702e6170692e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "786e2d2d62636865722d6b76612e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "3139322e302e322e31",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "IP",
+          "reference": "c0000201",
+          "accepted": false,
+          "function": "X509_check_ip"
+        },
+        {
+          "kind": "IP",
+          "reference": "20010db8000000000000000000000001",
+          "accepted": false,
+          "function": "X509_check_ip"
+        },
+        {
+          "kind": "IP",
+          "reference": "c0000202",
+          "accepted": false,
+          "function": "X509_check_ip"
+        }
+      ]
+    },
+    {
+      "name": "email-only",
+      "certificate_der": "3082030d308201f5a00302010202010e300d06092a864886f70d01010b0500301b3119301706035504030c106170692e6578616d706c652e74657374301e170d3236313030333032353432315a170d3236313030353032353432315a301b3119301706035504030c106170692e6578616d706c652e7465737430820122300d06092a864886f70d01010105000382010f003082010a02820101009eb1635ee981f16be7e2e2f2a758be94234c446ceb23b168e371683365ae21c7beddf40a5db62b0fc872ec0ccd63c5ea40cda803a0fc91d7decb08ca727d77ccc5a6221aea5a3bd4c05c373c9bfe6a5a80753adf3fefd780ed8fb30ab7d513c99071420395de759526866f905d696106519b5579b52873e1915f5e449bd6ceac32c9bcef96fdacaa7a13ccb2939c07b97d4253f2984e6233d73b9175ff42850ea678afd35f4533d90e18989159dec132e71cd8dc0ca563bbdbb9b57f41f39d2ec990a1cff22f6848d984479ffbab89a934ed34ff0fef02a4861d390c29eb530c12ac00469713bfb0ef6685a460b452be72b2a68f1e975ba89719626019196d150203010001a35c305a300c0603551d130101ff04023000300e0603551d0f0101ff040403020780301b0603551d11041430128110617069406578616d706c652e74657374301d0603551d0e0416041489894ba06bfdacdd4d36d706502c8b2c3ae8845f300d06092a864886f70d01010b050003820101009c585ebe1616af056ec584de819b72a8ed0aca2e3da38be671e7c36d57cf0c656742141802091ed29dffbce004e92e48921a827b2dada9918824c303c3fa70aeb68c4093cd3b4a6dc773b63c1d3106dbe623f22cca63b0da17b9dd71c73e8d112d521c7b13324906c49a31d83d60b7a193bfccffd673e3587373ea62ad5ea03fd606d7ade2c6160ea096951b6885d3325781e891a3bc76b10c180570d7e6c2cef6416a443247ff5eeb618eb1a31e474bd45b31fecf5ff41cfddbc394096eb14482389b13d6b990b8fdaee008c46badf8d6d767c1b4d28d7713b700fc135d94de857a5323635a9929ad6505c053d39ac2087d65907f9bfef2d3fa963d9b033596",
+      "issuer_spki": "30820122300d06092a864886f70d01010105000382010f003082010a02820101009eb1635ee981f16be7e2e2f2a758be94234c446ceb23b168e371683365ae21c7beddf40a5db62b0fc872ec0ccd63c5ea40cda803a0fc91d7decb08ca727d77ccc5a6221aea5a3bd4c05c373c9bfe6a5a80753adf3fefd780ed8fb30ab7d513c99071420395de759526866f905d696106519b5579b52873e1915f5e449bd6ceac32c9bcef96fdacaa7a13ccb2939c07b97d4253f2984e6233d73b9175ff42850ea678afd35f4533d90e18989159dec132e71cd8dc0ca563bbdbb9b57f41f39d2ec990a1cff22f6848d984479ffbab89a934ed34ff0fef02a4861d390c29eb530c12ac00469713bfb0ef6685a460b452be72b2a68f1e975ba89719626019196d150203010001",
+      "references": [
+        {
+          "kind": "DNS",
+          "reference": "6170692e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "4150492e4558414d504c452e54455354",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "6f746865722e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "646565702e6170692e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "786e2d2d62636865722d6b76612e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "3139322e302e322e31",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "IP",
+          "reference": "c0000201",
+          "accepted": false,
+          "function": "X509_check_ip"
+        },
+        {
+          "kind": "IP",
+          "reference": "20010db8000000000000000000000001",
+          "accepted": false,
+          "function": "X509_check_ip"
+        },
+        {
+          "kind": "IP",
+          "reference": "c0000202",
+          "accepted": false,
+          "function": "X509_check_ip"
+        }
+      ]
+    },
+    {
+      "name": "no-SAN",
+      "certificate_der": "308202f0308201d8a00302010202010f300d06092a864886f70d01010b0500301b3119301706035504030c106170692e6578616d706c652e74657374301e170d3236313030333032353432315a170d3236313030353032353432315a301b3119301706035504030c106170692e6578616d706c652e7465737430820122300d06092a864886f70d01010105000382010f003082010a02820101009eb1635ee981f16be7e2e2f2a758be94234c446ceb23b168e371683365ae21c7beddf40a5db62b0fc872ec0ccd63c5ea40cda803a0fc91d7decb08ca727d77ccc5a6221aea5a3bd4c05c373c9bfe6a5a80753adf3fefd780ed8fb30ab7d513c99071420395de759526866f905d696106519b5579b52873e1915f5e449bd6ceac32c9bcef96fdacaa7a13ccb2939c07b97d4253f2984e6233d73b9175ff42850ea678afd35f4533d90e18989159dec132e71cd8dc0ca563bbdbb9b57f41f39d2ec990a1cff22f6848d984479ffbab89a934ed34ff0fef02a4861d390c29eb530c12ac00469713bfb0ef6685a460b452be72b2a68f1e975ba89719626019196d150203010001a33f303d300c0603551d130101ff04023000300e0603551d0f0101ff040403020780301d0603551d0e0416041489894ba06bfdacdd4d36d706502c8b2c3ae8845f300d06092a864886f70d01010b050003820101008f6579073b01d7a69af2912d791db9f4e54edd2d1e6b314a94de254b422c422b0d6866936a41e7e44fe2a957dd8a653ec4ab56307a88bc7669a9e64a85d7ad61e4f19931387d101a8df9e3896a3ef379d08ba64b4c82b5857b80cfa2b36a49a458df0afccfdb490f0f26f1aa7caa6c17983e71b3b0be2647b2f335e27585048e14464784e9ea6e640074e2f83afb3f0ee48f6ead12da130b2efe2d1797687f793fb48a05aa715518cf8a351edeae6cdbfba232f4ee38bb87f7d207af654357f89d9efa0fe18c13bade0111f1c5fd6b6532588b71ba9ee6a1fef804bf61f7addaea6a8982c1a97d7ffc8cd26bb0922fb1ef3b3399474d5d2c3d928149a7f5c4e3",
+      "issuer_spki": "30820122300d06092a864886f70d01010105000382010f003082010a02820101009eb1635ee981f16be7e2e2f2a758be94234c446ceb23b168e371683365ae21c7beddf40a5db62b0fc872ec0ccd63c5ea40cda803a0fc91d7decb08ca727d77ccc5a6221aea5a3bd4c05c373c9bfe6a5a80753adf3fefd780ed8fb30ab7d513c99071420395de759526866f905d696106519b5579b52873e1915f5e449bd6ceac32c9bcef96fdacaa7a13ccb2939c07b97d4253f2984e6233d73b9175ff42850ea678afd35f4533d90e18989159dec132e71cd8dc0ca563bbdbb9b57f41f39d2ec990a1cff22f6848d984479ffbab89a934ed34ff0fef02a4861d390c29eb530c12ac00469713bfb0ef6685a460b452be72b2a68f1e975ba89719626019196d150203010001",
+      "references": [
+        {
+          "kind": "DNS",
+          "reference": "6170692e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "4150492e4558414d504c452e54455354",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "6f746865722e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "646565702e6170692e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "786e2d2d62636865722d6b76612e6578616d706c652e74657374",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "DNS",
+          "reference": "3139322e302e322e31",
+          "accepted": false,
+          "function": "X509_check_host(flags=NO_PARTIAL_WILDCARDS|NEVER_CHECK_SUBJECT)"
+        },
+        {
+          "kind": "IP",
+          "reference": "c0000201",
+          "accepted": false,
+          "function": "X509_check_ip"
+        },
+        {
+          "kind": "IP",
+          "reference": "20010db8000000000000000000000001",
+          "accepted": false,
+          "function": "X509_check_ip"
+        },
+        {
+          "kind": "IP",
+          "reference": "c0000202",
+          "accepted": false,
+          "function": "X509_check_ip"
+        }
+      ]
+    }
+  ]
+}

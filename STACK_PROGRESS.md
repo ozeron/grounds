@@ -7,12 +7,97 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 | Layer | Current state | Next proof of progress |
 |---|---|---|
 | `wire` | Byte TCP and IPv4 UDP effects, explicit local-IP binding and OS bound-address/ephemeral-port discovery; OpenSSL TLS effects. UDP handles all octets, zero datagrams, timeout and oversize errors, with same-port/two-IP isolation and failed-bind descriptor checks. Actual SIGTERM/SIGINT stop parked native/Bun loops and release the listener; Bun uses an OS-only C11 atomic signal bridge because its synchronous runtime cannot dispatch JS signal callbacks. Bounded bulk host RNG bytes now pass native/Bun guard/error tests and supply signaling credentials. Public-pattern byte/RNG and retained UDP measurements are recorded; Bend Base supplies monotonic `IO.now`. | Verify IPv6/cancellation and packed storage/long-session allocation, retaining measured baselines; complete crypto/runtime review before secure transport. |
-| `crypto` | Bend SHA-1 for WebSocket challenge, HMAC-SHA1 for legacy STUN integrity, SHA-256, HMAC-SHA256, HKDF-SHA-256, ChaCha20, Poly1305, ChaCha20-Poly1305 AEAD, AES-128 encryption, AES-128-GCM and X25519; P-256 prime/order arithmetic, uncompressed-point ECDH, experimental P-256/SHA-256 raw/DER ECDSA, SHA-256 RSA PSS/v1.5 encoding, variable-size public modular exponentiation/RSAVP1 and full digest-signature verification (725 arithmetic and 774 signature cases pass on native and Bun; in-place limb shift reduces array creation), bounded DER, SHA-256 certificate AlgorithmIdentifier admission, RSA/P-256 SPKI public-key decoding, certificate field framing preserving exact signed bytes, mathematical issuer-signature verification (4,825 native/Bun cases) and strict civil-time/validity checks (31,545 cases per target using scoped official Bend 2.0.34), canonical OID/extension envelope admission (67,731 native/baseline-JIT Bun cases), BC/KU payload consistency and EKU/TLS-purpose permission (14,565 independent EKU cases on pinned/modern native/Bun; 24,610 whole-policy cases per modern target), plus TLS HKDF labels and distinct affine ChaCha/AES-GCM traffic owners with 64-bit nonces/key updates and AES sending usage limits. Poly1305 products now stay below 2^26; OpenSSL remains in live cookie/TLS paths. | Implement Name and known extension/critical policies, constraints/trust/hostname, trusted-clock composition and TLS schemes; finish current ECDSA/package/compiler compatibility verification and runtime/erasure review, implement private RSA owners, then cookie and full handshake integration. |
+| `crypto` | Bend SHA-1 for WebSocket challenge, HMAC-SHA1 for legacy STUN integrity, SHA-256, HMAC-SHA256, HKDF-SHA-256, ChaCha20, Poly1305, ChaCha20-Poly1305 AEAD, AES-128 encryption, AES-128-GCM and X25519; P-256 prime/order arithmetic, uncompressed-point ECDH, experimental P-256/SHA-256 raw/DER ECDSA, SHA-256 RSA PSS/v1.5 encoding, variable-size public modular exponentiation/RSAVP1 and full digest-signature verification (725 arithmetic and 774 signature cases pass on native and Bun; in-place limb shift reduces array creation), bounded DER, SHA-256 certificate AlgorithmIdentifier admission, RSA/P-256 SPKI public-key decoding, certificate field framing preserving exact signed bytes, mathematical issuer-signature verification (4,825 native/Bun cases) and strict civil-time/validity checks (31,545 cases per target using scoped official Bend 2.0.34), canonical OID/extension envelope admission (67,731 native/baseline-JIT Bun cases), BC/KU payload consistency and EKU/TLS-purpose permission (14,565 independent EKU cases on pinned/modern native/Bun; 24,610 whole-policy cases per modern target), plus DNS/IP identity matching and actual SAN-field queries (5,900 core cases per pinned/modern native/Bun target; 2,447 further framing/certificate cases per modern target), plus TLS HKDF labels and distinct affine ChaCha/AES-GCM traffic owners with 64-bit nonces/key updates and AES sending usage limits. Poly1305 products now stay below 2^26; OpenSSL remains in live cookie/TLS paths. | Implement Name and known extension/critical policies, constraints/trust/hostname, trusted-clock composition and TLS schemes; finish current ECDSA/package/compiler compatibility verification and runtime/erasure review, implement private RSA owners, then cookie and full handshake integration. |
 | `tls` | Bend protected TLS 1.3 ChaCha20-Poly1305 and AES-128-GCM records and traffic/key lifecycle pass synthetic native/Bun differential tests; AES also reproduces RFC 8448 encrypted records. Live TLS client/server still use OpenSSL C effects; JS TLS effects return `ENOSYS`. | Complete mandatory TLS algorithms, handshake/transcripts, certificates/signatures/trust/hostname checks and real client/server interop; DTLS 1.2 for RTC. |
 | `http` | Bend HTTP/1.1 client/server, routing, JSON, cookies, auth, CORS, multipart, SSE, and server WebSocket handshake/framing/session. Native echo interops with a third-party Python client and Bun's WebSocket API. A bounded local signaling fixture admits exact Host/Origin and a public synthetic cookie before upgrade/UDP allocation; native and Bun exchange SDP with real Chrome and clean up connection-owned ICE state/sockets. | Replace the fixture selector with Bend cookie/HMAC authentication and integrate Bend TLS for browser HTTPS/WSS. |
 | `rtc` | Bend STUN parsing, IPv4 XOR-MAPPED-ADDRESS, SHA-1/SHA-256/dual integrity, FINGERPRINT, authenticated incoming/outgoing ICE Binding exchanges, retained-socket retransmissions and explicit error/integrity outcomes. IPv4 candidate/pair priorities, bounded checklist formation, stable transport references and guarded state transitions, role-driven priority reordering, a paced shared-socket transaction engine with response-only interruption, protected incoming replies and server-side role decisions, FIFO triggered queues, ordinary round-robin/foundation scheduling and generation/sent-role attempt ownership. A bounded session now binds signaled credentials, registered receiving/sending bases, observed peer-reflexive candidates, deferred incoming work, retained attempts and endpoint integrity policies. Authenticated non-symmetric responses fail only their original current pair; interrupted old listeners retire independently. The live owner fixture explicitly binds unicast IPv4 bases and queries actual local ports before candidate formation. An additive valid-list owner resolves authenticated mappings, learns locally peer-reflexive candidates from retained signed-request priority, allocates IP-keyed foundations, reranks by role and keeps late paths separate from replacement flights. A nomination-evidence owner associates current successful checks with their valid paths and retains qualified incoming intent through materialization, exact triggered flights and response-only listeners; already-Succeeded counterparts resolve their actual generating record. A generation lifecycle owner now applies regular controlling/controlled nomination, selects completed stream paths, removes nominated component checks while retaining response listeners, continues authenticated Binding service, and defers failure through PAC. An outer transport owner derives selected physical consent routes, serves authenticated consent-only Binding requests, shares actual-send pacing and recent transaction identity admission, gates logical application routes, and preserves sealed consent loss. Full/full credential restart rebuilds ICE state while retaining only selected old consent/server contexts until replacement selection. Bounded SDP/signaling now binds connection-owned credentials and the actual retained UDP base; real Chrome verifies direct selected pairs, fresh consent, restart and cleanup on native and Bun. Separate unauthenticated discovery remains available. | Complete crypto/runtime foundations and secure signaling, then gathering, IPv6/TURN, DTLS/SCTP and SRTP/media. |
 
 ## Evidence ledger
+
+- 2026-10-03 (Lisbon; typed DNS/IP and actual SAN-field identity matching):
+  The previous turn made progress with EKU/purpose commit 799f52d. New
+  x509_identity.bend supplies pure ASCII LDH/A-label DNS and exact IP comparison.
+  DNS comparison folds ASCII case, limits labels to 63 bytes and domains to
+  253 bytes, and accepts only a complete leftmost wildcard followed by a
+  nonempty suffix, matching one reference label. Partial/multiple wildcards,
+  empty labels, invalid reference syntax and prefixes/suffixes cannot match.
+  IP comparison requires 4 or 16 valid octets on both sides and exact equality;
+  IPv4-mapped IPv6 is not an alias. Reference DNS/IP type is selected before
+  matching from the trusted original authority; name matching does not resolve
+  DNS, infer a type or fall back across types.
+
+  x509_hostname.bend frames the whole nonempty bounded GeneralNames sequence
+  before matching. It checks choice tags, nonempty IA5 encodings, exact IP
+  sizes and registered OID canonicality, preserving every entry and its order.
+  Its extension/certificate query reads the actual exact SAN OID through strict
+  envelope/duplicate/field extraction. Absent SAN never falls back to subject
+  CN. OtherName/X.400/directoryName/EDI constructed contents remain raw and
+  semantically pending; retaining them is not schema admission. DNS/mailbox/URI
+  profile validation, empty-subject/critical-SAN binding, URI/SRV matching,
+  Unicode/IDNA conversion/validation, textual-IP reference construction, Name
+  constraints, signatures/purpose/time/chain/trust/revocation and full peer
+  authorization remain required. Inputs for these matchers use ASCII DNS
+  bytes without a terminal root dot or raw network-order IP bytes. No live TLS
+  path consumes the result. The critical registry is unchanged: critical SAN
+  stays unsupported and noncritical SAN stays deferred until its complete owner
+  exists. All earlier crypto/protocol behavior and fixtures remain unchanged.
+
+  Standards: RFC 9525 sections 6.2–6.4 and RFC 5280 section 4.2.1.6. The official
+  RFC 9525 errata endpoint and verified query both returned Internal Error;
+  a fresh verified review remains outstanding. Fifteen synthetic public-only
+  RSA-2048/SHA256 signed certificates are generated and self-signature checked
+  by OpenSSL 3.6.4 with explicit time bypass/local fixture trust. The independent
+  reference captures 150 X509_check_host/X509_check_ip results; hostname flags
+  are NO_PARTIAL_WILDCARDS | NEVER_CHECK_SUBJECT (36). References cover exact,
+  case, one-label wildcard, partial/multiple wildcards, A-labels, IPv4/IPv6,
+  mixed IDs, DNS-looking IP strings, alternate DNS entries, URI/email-only and
+  absent SAN. Type construction remains the application owner's responsibility.
+  Fixture private keys are discarded with their temporary directory. No trust,
+  time, hostname-plus-chain or signing-erasure acceptance is implied.
+
+  Core comparison passes an identical 5,900-case corpus on native and optimizing
+  Bun with both pinned Bend 2.0.27 and isolated official 2.0.34. Each modern
+  whole-hostname target additionally passes 2,447 framing/SAN/certificate cases,
+  8,347 combined; both combined hashes match. Cases include all octets at
+  selected DNS/IP positions, label/domain/IP length bounds, literal policy
+  anchors, randomized names, type separation, all GeneralName tags, malformed
+  later framing, every truncation/bit mutation of a SAN fixture, 8,192 entries,
+  exact 4,096/65,535/65,536 input boundaries, field order and actual certificate
+  versions/OIDs/duplicate handling. Six core and three framing closed checks
+  pass both frontends; no kernel verdict follows.
+
+  Pinned core generation passes at 113.8 MiB aggregate / 111.7 individual /
+  5.675s. Its combined native/Bun checks pass at 90.7 / 61.8 MiB / 8.838s.
+  Modern frontend/builds pass at 275.8 / 255.3 MiB / 24.704s; all four modern
+  runtime runs together pass at 92.3 / 61.8 MiB / 20.217s. Evaluators retain
+  128/96 MiB limits, RAM hint 64 MiB and JIT/DFG enabled. Pinned hostname test
+  frontend passes at 294.6 MiB / 2.800s. The larger whole-hostname CLI frontend
+  reaches the unchanged individual cutoff (323.6 MiB individual, 325.5 aggregate,
+  3.245s), before native or JS generation. No pinned whole-hostname runtime
+  pass is claimed. Initial type errors were corrected by declaring shareable
+  Name records as Data and explicitly duplicating a consumed tag parameter.
+
+  Required primary gates run sequentially with moon --concurrency 1. Forced
+  crypto:check stops during field256 native emission at the aggregate cutoff
+  (384.7 MiB aggregate / 295.5 individual / 71.654s). Root :check reaches the
+  same unchanged stage and cutoff (385.6 / 306.0 MiB / 69.784s). No complete
+  package/repository pass follows. Pressure remains normal; all owned job
+  processes are cleaned up after terminal results. No limit is raised. Removing
+  the ten new identity/hostname commands reproduces the prior driver exactly;
+  it now contains 169 commands. All new cases run in the package driver.
+
+  Sources, 998-input isolated derivative checkout, generated programs, exact
+  commands, reference fixtures, hashes and resource evidence live under
+  /Users/ozeron/.codex/artifacts/grounds/2026-10-03/hostname/; shared guard command/
+  log/resource records remain in compiler-compatibility/validation/hostname-*.
+  The previous 990-file EKU checkout is verified before copying and unchanged.
+  Final staging removes one extra EOF newline in x509_identity.bend; exact
+  byte comparison and separate committed-input hashes record this whitespace-only
+  difference from the frozen verified inputs. No behavior changes or test reruns.
+  STACK_PLAN.md and its 19 acceptance boxes remain unchanged/open.
+  Next: prioritize the outstanding compiler compatibility/adoption gates so
+  whole-package verification can advance, then complete SAN/Name/IDNA profile
+  processing and compose chain/trust/time/purpose/identity before live TLS.
 
 - 2026-10-03 (Lisbon; EKU and TLS certificate-purpose permission):
   x509_eku.bend decodes complete nonempty canonical DER purpose sequences,
