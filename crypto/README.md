@@ -33,6 +33,7 @@ Pure Bend cryptographic primitives. This package implements SHA-1, SHA-256, HMAC
 | `x509_certificate.bend` | `decode(bytes)` | Bounded certificate field framing; retains exact signed bytes and binds supported inner/outer algorithms |
 | `x509_validity.bend` | `decode_time(bytes)`, `decode(bytes)`, `valid_at(bytes, now)` | Strict civil UTC calendar/interval admission and inclusive validity bounds; caller supplies trusted time |
 | `x509_extensions.bend` | `decode(bytes)`, `optional(bytes)` | Exact extension envelopes, canonical OIDs/critical flags and collision-safe duplicate rejection; opaque payloads |
+| `x509_constraints.bend` | `basic(bytes)`, `usage(bytes)`, `path_allows(limit,count)`, `policy(basic,usage)` | Basic-constraints/key-usage payload admission and local consistency; arbitrary-size path limits retained |
 | `x509_signature.bend` | `verify_signature(issuer_spki, certificate)` | Mathematical issuer-signature verification using admitted key restrictions and original signed bytes; no trust decision |
 
 Byte input and output use `List<U32>` with values 0–255. The public calls return `None{}` for an out-of-range byte; `expand` also rejects a PRK other than 32 bytes or a requested length over 8160 bytes. SHA-1 and HMAC-SHA1 return 20 bytes; SHA-256 and HMAC-SHA256 return 32 bytes. The hex helpers are for diagnostics and tests; protocols should use raw bytes.
@@ -126,7 +127,7 @@ envelopes, preserving opaque payloads/order and rejecting explicit default
 critical flags and duplicate identities. Native and baseline-JIT Bun each pass
 67,731 cases, including long OIDs and exact hash collisions. The Bun evidence
 explicitly disables DFG optimization within the unchanged memory cutoff;
-default optimizing-JIT resource acceptance remains pending. Known payloads,
+default optimizing-JIT resource acceptance remains pending. Remaining known payloads,
 critical-extension policy, Name semantics and trust/hostname still need owners.
 See [X509_EXTENSIONS_REVIEW.md](X509_EXTENSIONS_REVIEW.md).
 
@@ -468,3 +469,38 @@ noncanonical-input and malformed-crypto matrix also checks 124 operation-name
 and arity rejections per target; native retains the RFC 1,000-iteration vector.
 The guarded focused build/check peaks at 144.8 MiB on 2026-10-02. This reduces
 evaluator compiler workload; it does not change or certify X25519 arithmetic.
+
+`x509_constraints.bend` decodes the basic-constraints and key-usage extension
+payloads according to [RFC 5280 sections 4.2.1.3 and 4.2.1.9](https://www.rfc-editor.org/rfc/rfc5280.html#section-4.2.1.9)
+and Appendix B. Basic constraints require an omitted default FALSE or canonical
+TRUE, permit a nonnegative canonical path-length INTEGER only with TRUE, and
+retain every INTEGER byte. Limits above U32 are compared without truncation or
+wrap; `path_allows` accepts a U32 count of non-self-issued intermediate CAs.
+The path owner must compute that count correctly. The existing 65,535-byte DER
+input bound applies. Key usage admits nonempty combinations of the nine named
+bits, requires zero padding and omitted trailing zero bits, and returns the
+wire-order mask (digitalSignature=128, keyCertSign=4, decipherOnly=32768).
+
+The public `policy` accepts optional encoded payloads. An absent extension is
+`None`; a malformed present `Some{bytes}` fails closed. It checks that
+keyCertSign implies cA, and that a present key-usage payload permits certificate
+signing when a path-length constraint is present. The selected local policy
+also rejects encipherOnly/decipherOnly without keyAgreement, whose meaning the
+RFC leaves undefined. Pure decoder results and the internal admitted-value
+helpers do not authorize certificate use. The module does not recognize all
+critical extensions, check their criticality, enforce issuer/algorithm/purpose
+profiles, construct a chain, select trust, compare Names, check hostname,
+handle revocation or compose a trusted clock. These remain required integration
+work. Both official verified-errata query forms returned Internal Error on
+2026-10-03; no new correction is inferred.
+
+On 2026-10-03, 7,657 independent integer/bit-set cases pass on native and
+optimizing-JIT Bun for both pinned Bend 2.0.27 and isolated official 2.0.34.
+The identical corpus covers Appendix C payloads, all 511 nonempty bit sets,
+1,533 cross-field combinations, malformed-present versus absent payloads,
+canonical/malformed lengths and padding, huge INTEGERs, depth comparison and
+the exact DER input-size boundary. Eight closed check declarations pass the
+frontend; no kernel `--verdict` claim follows. The four runtime runs together
+peak at 78.1 MiB aggregate / 49.6 MiB individual under the unchanged guard.
+Sources, generated targets, commands and reports are retained under
+`/Users/ozeron/.codex/artifacts/grounds/2026-10-03/constraints/`.

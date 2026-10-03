@@ -14,6 +14,66 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 
 ## Evidence ledger
 
+- 2026-10-03 (Lisbon; Bun crypto completion by sections and constraint payloads):
+  The resumed inventory finishes all 25 remaining original Bun commands with
+  optimizing JIT/DFG enabled, unchanged 128/96 MiB limits and 120-second jobs.
+  Twenty-three pass, including all 4,825 certificate-signature cases at
+  98.391s / 98.9 MiB aggregate / 70.4 MiB individual. The complete ECDSA command
+  times out at 120.018s after vectors/signing; every case subsequently passes
+  through its five existing sections. Their 384 case/group counts and eight
+  OpenSSL interop actions match the complete original native suite exactly.
+  The largest section takes 85.839s; maximum aggregate peak is 103.7 MiB.
+  Original extension-envelope testing hits the individual cutoff at 102.9 MiB
+  (133.3 MiB aggregate sampled overshoot) after 31.582s. Its optimizing-JIT
+  acceptance remains open. All original source/program hashes are unchanged.
+  Section evidence does not turn the timed-out command into a package pass.
+  Durable continuation evidence remains in the 2026-10-02 compiler-compatibility
+  validation directory: crypto-bun-continuation-evidence.json,
+  crypto-ecdsa-bun-sections-evidence.json and their per-command reports/logs.
+
+  x509_constraints.bend adds strict basic-constraints and key-usage payload
+  decoders, exact arbitrary-size nonnegative path limits, bounded-depth
+  comparison without wrap, and a local encoded-payload consistency boundary.
+  Present malformed payloads cannot become absent extensions. DER default
+  FALSE must be omitted; path limits require cA TRUE; key usage requires at
+  least one of nine known bits, minimal named-bit-list length and zero padding.
+  Local policy checks keyCertSign/cA, a present usage's keyCertSign when a path
+  limit exists, and rejects undefined encipherOnly/decipherOnly without
+  keyAgreement. Absent usage is not an issuer-profile authorization. The
+  caller still owns non-self-issued intermediate counting. No trust, Name,
+  critical-extension handling, hostname, revocation, clock or chain decision
+  is supplied by these payload helpers.
+  Final native and optimizing-JIT Bun runs on both pinned Bend 2.0.27 and
+  isolated official 2.0.34 each pass the same 7,657 independent integer/bit-set
+  cases, including RFC Appendix C payloads, all 511 nonempty usage combinations,
+  1,533 cross-field combinations, absence/error separation, arbitrary-size limits,
+  malformed/padding/length/truncation cases and the exact 65,535-byte bound.
+  Eight closed declarations pass frontend checking; no kernel verdict is claimed.
+  The final build stage peaks at 156.4 MiB aggregate / 152.3 MiB individual
+  (10.413s). All four runtime runs together peak at 78.1 MiB aggregate /
+  49.6 MiB individual (18.803s), with the unchanged 64 MiB RAM hint.
+  Every preexisting crypto/math/IO source is retained. All 144 prior check
+  commands remain in order; five additions make 149. Frozen inputs cover 153
+  primary files and 981 isolated source/generated files, with the four new
+  sources identical between trees. Compiler adoption is not implied.
+  Required primary `moon --concurrency 1 run crypto:check --force` cuts off
+  at 394.4 MiB aggregate / 309.1 MiB individual / 23.102s. Milestone
+  `moon --concurrency 1 run :check` reaches the field256 native frontend and
+  cuts off at 386.1 MiB aggregate / 311.7 MiB individual / 67.516s. Both are
+  terminal failures under normal pressure, with sampled overshoot recorded;
+  package/root acceptance remains incomplete. No limits were increased.
+  RFC 5280 sections 4.2.1.3/4.2.1.9 and Appendices B/C were refreshed. Both
+  official verified-errata forms returned Internal Error; no correction is inferred.
+  New artifacts: /Users/ozeron/.codex/artifacts/grounds/2026-10-03/constraints/,
+  including evidence.json, primary-inputs.json, modern-inputs.json, four final
+  runtime reports/targets and build/check scripts. Guard command/log/resource
+  files retain unique constraints-* names in the existing validation directory.
+  Next: admit known extension payloads through an explicit critical-extension
+  policy owner, then implement Name/SAN/hostname and chain/trust composition.
+  Continue bounded package integration and diagnose optimizing-JIT extension
+  and JSON boundaries without removing cases or increasing limits. All 19
+  complete-stack acceptance boxes remain open; the full goal stays active.
+
 - 2026-10-03 (Lisbon; bounded crypto inventory and streaming SHA-256):
   The previous turn made progress: 7a1bdab fixes traffic-owner test imports and
   adds positive controls. Isolated staging now preserves all 139 original
