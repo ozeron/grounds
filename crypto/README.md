@@ -38,8 +38,9 @@ Pure Bend cryptographic primitives. This package implements SHA-1, SHA-256, HMAC
 | `x509_identity.bend` | `dns(pattern,reference)`, `ip(presented,reference)` | Typed ASCII DNS/IP comparison; complete leftmost wildcard only, exact IP octets |
 | `x509_hostname.bend` | `frame(bytes)`, `san(bytes,kind,reference)`, `extensions(bytes,kind,reference)`, `certificate(bytes,kind,reference)` | Actual SAN-field DNS/IP identity matching without CN fallback; framing preserves other forms for pending schema/profile processing |
 | `x509_san.bend` | `inspect(bytes)`, `permits(result,critical)`, `subject(subject,extensions)`, `certificate(bytes)` | Selected DNS/IP SAN admission and empty-subject critical-SAN binding; other name forms remain deferred |
-| `unicode32_profile.bend` | `tables()`, `flags(state,code)`, `map_code(code)` | Full Unicode 3.2 RFC 4518 literal mapping/prohibition/combining-mark properties; preserves table ownership; case folding/NFKC and complete preparation remain pending |
-| `unicode32_fold.bend` | `tables()`, `code(state,code)`, `map_code(state,code)`, `string(state,codes,mapping)` | Exact Unicode 3.2 RFC 3454 B.2 case folding and RFC 4518 literal mapping before folding; NFKC/full preparation remain pending |
+| `unicode32_profile.bend` | `tables()`, `flags(state,code)`, `map_code(code)` | Full Unicode 3.2 RFC 4518 literal mapping/prohibition/combining-mark properties; preserves table ownership; case folding/NFKC are separate modules; complete preparation remains pending |
+| `unicode32_nfkc.bend` | `normalize(state,codes)` | Exact Unicode 3.2 NFKC with authenticated asset tables, packed scalar output and stable canonical ordering; full preparation/Name comparison remain pending |
+| `unicode32_fold.bend` | `tables()`, `code(state,code)`, `map_code(state,code)`, `string(state,codes,mapping)` | Exact Unicode 3.2 RFC 3454 B.2 case folding and RFC 4518 literal mapping before folding; NFKC is separate; full preparation remains pending |
 | `x509_name_schema.bend` | `inspect(bytes,allow_empty)`, `pair(issuer,subject)` | Shared RDN/attribute/string syntax checks without retaining a Name collection |
 | `x509_name.bend` | `decode(bytes)`, `inspect(bytes,allow_empty)`, `pair(issuer,subject)` | RDN/attribute framing, DER SET ordering and selected typed attribute syntax; preserve original attributes and defer unknown types/Teletex |
 | `x509_name_certificate.bend` | `certificate(bytes)` | Inspect actual issuer/subject fields; an issuer must be nonempty |
@@ -802,7 +803,7 @@ are archived as rejected preparation; the accepted 2,025,975-byte snapshot
 contains its actual END OF FILE marker. No Bend normalization result follows
 from that download.
 
-RFC 3454 B.2 case folding, complete Unicode 3.2 NFKC, combining-mark-aware
+Case folding and NFKC are implemented separately below. Combining-mark-aware
 insignificant-space handling, complete transcoding/preparation and normalized
 RDN/Name equality/subtree matching remain required. This property module is
 not yet composed into Name or certificate authorization. Fresh forced crypto
@@ -844,6 +845,74 @@ owned tail-loop reversal do not resolve that pinned-runtime limit. Neither
 the long input nor guard cutoff is reduced to claim a pass. Exact reports and resource evidence
 are under `/Users/ozeron/.codex/artifacts/grounds/2026-10-03/unicode-normalize/`.
 This folding stage is not NFKC, prohibition/SPACE preparation, Name equality,
-chain verification or authorization. Full normalization against the pinned
-Unicode 3.2 vectors, complete stored-value preparation and the pinned-runtime
-large-list resource issue remain open.
+chain verification or authorization. Complete stored-value preparation and
+this folding module's pinned-runtime large-list resource issue remain open.
+The separate packed normalization module follows.
+
+
+`unicode32_nfkc.normalize(state,codes)` implements exact Unicode 3.2 NFKC:
+recursive compatibility decomposition, algorithmic Hangul, stable canonical
+ordering and blocked canonical composition. It retains the affine tables and
+returns `Maybe<Normalized>`; invalid scalars or more than 262,140 input scalars
+return `None`. Empty input is a valid zero-length result. The bound admits the
+fourfold B.2 expansion of every scalar in a 65,535-byte enclosing Name value.
+`Normalized{values,length}` owns packed U32 cells `(scalar << 8) | CCC`; only
+`length` cells are output, and consumers recover scalars with `>> 8`. This API
+retains unassigned/private-use/noncharacter values for the later prohibition
+stage. Literal mapping, folding, post-normalization prohibition and SPACE
+handling are separate stages awaiting composition into stored-value preparation.
+
+`unicode32_nfkc_tables.decode(bytes)` checks byte validity, exact length and
+Bend SHA-256 before creating tables from the pinned 87,660-byte asset. Runtime
+C/JS only read bytes; all table interpretation, lookup and normalization run
+in Bend. The asset has 5,143 recursively expanded decomposition rows, 327
+nonzero combining classes and 917 canonical composition pairs. The binary
+avoids thousands of compiler word literals. Expansion uses a growing packed
+array; ordering keys/scratch arrays are allocated only when needed. Stable
+four-pass radix sorting by starter segment and CCC avoids quadratic insertion
+for an adversarial long combining sequence. Composition overwrites that buffer.
+
+The offline `unicode32_nfkc_generate.py --unicode-data <UnicodeData-3.2.0.txt>
+--exclusions <CompositionExclusions-3.2.0.txt> --normalization-test
+<NormalizationTest-3.2.0.txt> --output-dir <existing-directory>` requires three
+SHA-pinned official sources. The manifest records format, sizes, hashes and
+historical mappings. Regeneration of the binary, metadata Bend/JSON and
+complete deterministic gzip corpus must match the committed files exactly.
+The binary SHA-256 is
+`c5253e66db1ca6f2e156702d0e74adf49af620d95862c259d397dd5b821e6541`.
+Unicode 3.2 predates [Corrigendum 4](https://www.unicode.org/versions/corrigendum4.html):
+U+2F868/U+2F874/U+2F91F/U+2F95F/U+2F9BF retain their original mappings to
+U+2136A/U+5F33/U+43AB/U+7AAE/U+4D57. The generator reads the original data;
+the oracle uses frozen `unicodedata.ucd_3_2_0.normalize`, whose old-version
+results differ from the newer decomposition-property strings for these codes.
+
+`unicode32_nfkc_check.py` checks all 16,992 official rows in all five columns:
+84,960 NFKC results, plus 1,050 independent fixed/random sequence cases and
+seven truncated/extended/modified-asset rejections. `unicode32_nfkc_matrix_check.py`
+compares all 1,114,112 Unicode code points and 8,192 out-of-repertoire U32
+values against the frozen 3.2 oracle. Separate stress processes check every
+output of three exactly 65,535-byte UTF-8 inputs: 18-fold Arabic compatibility
+expansion (393,210 outputs), reversed-class ordering and equal-class stability
+(each 32,767 outputs). A fourth checks the 262,140/262,141 scalar admission
+boundary. Fourteen literal assertions check through both version frontends;
+no separate kernel verdict is claimed.
+
+Focused native/Bun checks and program/source/resource identities are recorded
+under `/Users/ozeron/.codex/artifacts/grounds/2026-10-03/unicode-normalization-owner/`.
+Pinned Bun matrix/stress use `BUN_JSC_forceRAMSize=33554432` (32 MiB GC
+hint), which those mandatory steps set explicitly. This does not disable JIT/DFG
+or change the unchanged 128 MiB aggregate / 96 MiB process guard. With the
+64 MiB hint, the expansion process is stopped by that guard. This normalization
+pass does not resolve the previous folding module's large-list issue, complete
+StringPrep/Name comparison or establish package/repository acceptance.
+
+Final focused suites pass on pinned Bend 2.0.27 and scoped official 2.0.34
+native/Bun. The scalar corpus hash is
+`2ad5780fe9ae1af30aa613d2c1ea0e07dfa85f016632c0b22e14a395960bb2a2`;
+the official/differential corpus hash is
+`14af0910376aade482a7c95fd254106efb03db48bdc9a53ce3ed19e484625d19`.
+Fresh forced crypto and root gates still stop during compilation at aggregate
+memory cutoffs of 392.5 / 391.2 MiB. Scoped success does not change the SDK pin
+or complete either gate. The next owner must compose mapping/folding into
+packed decomposition without materializing the known failing large folded
+list, then apply prohibition and the definitive-Appendix-A SPACE rules.

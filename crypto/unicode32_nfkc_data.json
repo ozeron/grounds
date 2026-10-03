@@ -1,0 +1,55 @@
+{
+  "unicode_version": "3.2.0",
+  "composition_version": "3.1.0",
+  "asset_sha256": "c5253e66db1ca6f2e156702d0e74adf49af620d95862c259d397dd5b821e6541",
+  "bytes": 87660,
+  "format": "GRNF3201 + big-endian U32 index, packed values, CCC rows, composition triples",
+  "sources": {
+    "UnicodeData-3.2.0.txt": "5e444028b6e76d96f9dc509609c5e3222bf609056f35e5fcde7e6fb8a58cd446",
+    "NormalizationTest-3.2.0.txt": "c4513869bb7098d19838be4a1fd5d760843c5804bfe03bd6bbb20623ceb6e57d",
+    "CompositionExclusions-3.2.0.txt": "1d3a450d0f39902710df4972ac4a60ec31fbcb54ffd4d53cd812fc1200c732cb"
+  },
+  "normalization_vectors_gzip_sha256": "6426742593abea5c3a1a92d4f97aa986d5b5bdefa5aaef6ea99f0b4ee7176cff",
+  "decomposition_rows": 5143,
+  "combining_class_rows": 327,
+  "composition_rows": 917,
+  "explicit_exclusions": 81,
+  "max_expansion": 18,
+  "segments": {
+    "index": {
+      "words": 10286,
+      "array_exponent": 14
+    },
+    "values": {
+      "words": 8222,
+      "array_exponent": 14
+    },
+    "classes": {
+      "words": 654,
+      "array_exponent": 10
+    },
+    "composition": {
+      "words": 2751,
+      "array_exponent": 12
+    }
+  },
+  "descriptor": "32 * values offset + length",
+  "packed_value": "256 * scalar + combining class",
+  "pre_corrigendum4": {
+    "2F868": [
+      "2136A"
+    ],
+    "2F874": [
+      "5F33"
+    ],
+    "2F91F": [
+      "43AB"
+    ],
+    "2F95F": [
+      "7AAE"
+    ],
+    "2F9BF": [
+      "4D57"
+    ]
+  }
+}

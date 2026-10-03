@@ -10,3 +10,6 @@ tasks:
       - "*.bend"
       - "*.py"
       - "*_vectors.json"
+      - "unicode32_nfkc_data.json"
+      - "*.bin"
+      - "*.gz"
