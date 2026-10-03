@@ -30,6 +30,7 @@ bend x509_san_test.bend --check-only
 bend unicode32_profile_test.bend --check-only
 bend unicode32_fold_test.bend --check-only
 bend unicode32_nfkc_test.bend --check-only
+bend unicode32_prepare_test.bend --check-only
 bend x509_name_test.bend --check-only
 bend x509_extension_policy_test.bend
 BUN_JSC_useJIT=false bend x509_verify_cli.bend --check-only
@@ -77,6 +78,8 @@ BUN_JSC_useJIT=false ../tools/bend_native.sh x509_extensions_cli.bend "$tmp/x509
 ../tools/bend_native.sh unicode32_nfkc_stress_cli.bend "$tmp/unicode32_nfkc_stress" > /dev/null
 ../tools/bend_native.sh unicode32_nfkc_matrix_cli.bend "$tmp/unicode32_nfkc_matrix" > /dev/null
 ../tools/bend_native.sh unicode32_nfkc_cli.bend "$tmp/unicode32_nfkc" > /dev/null
+../tools/bend_native.sh unicode32_prepare_cli.bend "$tmp/unicode32_prepare" > /dev/null
+../tools/bend_native.sh unicode32_prepare_stress_cli.bend "$tmp/unicode32_prepare_stress" > /dev/null
 ../tools/bend_native.sh x509_name_cli.bend "$tmp/x509_name" > /dev/null
 ../tools/bend_native.sh x509_extension_policy_cli.bend "$tmp/x509_extension_policy" > /dev/null
 BUN_JSC_useJIT=false ../tools/bend_native.sh x509_verify_cli.bend "$tmp/x509_verify" > /dev/null
@@ -117,6 +120,9 @@ python3 unicode32_fold_check.py --stress-only -- "$tmp/unicode32_fold_stress"
 python3 unicode32_nfkc_check.py --asset-controls -- "$tmp/unicode32_nfkc"
 python3 unicode32_nfkc_matrix_check.py -- "$tmp/unicode32_nfkc_matrix"
 python3 unicode32_nfkc_stress_check.py -- "$tmp/unicode32_nfkc_stress"
+python3 unicode32_prepare_check.py --mode fold --asset-controls -- "$tmp/unicode32_prepare"
+python3 unicode32_prepare_check.py --mode exact --asset-controls -- "$tmp/unicode32_prepare"
+python3 unicode32_prepare_stress_check.py -- "$tmp/unicode32_prepare_stress"
 python3 x509_name_check.py -- "$tmp/x509_name"
 python3 x509_extension_policy_check.py --signature-binary "$tmp/x509_verify" -- "$tmp/x509_extension_policy"
 python3 x509_signature_check.py -- "$tmp/x509_verify"
@@ -164,6 +170,8 @@ if command -v bun > /dev/null 2>&1; then
   bend unicode32_nfkc_stress_cli.bend -o "$tmp/unicode32_nfkc_stress.js" > /dev/null
   bend unicode32_nfkc_matrix_cli.bend -o "$tmp/unicode32_nfkc_matrix.js" > /dev/null
   bend unicode32_nfkc_cli.bend -o "$tmp/unicode32_nfkc.js" > /dev/null
+  bend unicode32_prepare_cli.bend -o "$tmp/unicode32_prepare.js" > /dev/null
+  bend unicode32_prepare_stress_cli.bend -o "$tmp/unicode32_prepare_stress.js" > /dev/null
   bend x509_name_cli.bend -o "$tmp/x509_name.js" > /dev/null
   bend x509_extension_policy_cli.bend -o "$tmp/x509_extension_policy.js" > /dev/null
   BUN_JSC_useJIT=false bend x509_verify_cli.bend -o "$tmp/x509_verify.js" > /dev/null
@@ -204,6 +212,9 @@ if command -v bun > /dev/null 2>&1; then
   python3 unicode32_nfkc_check.py --asset-controls -- bun "$tmp/unicode32_nfkc.js"
   BUN_JSC_forceRAMSize=33554432 python3 unicode32_nfkc_matrix_check.py -- bun "$tmp/unicode32_nfkc_matrix.js"
   BUN_JSC_forceRAMSize=33554432 python3 unicode32_nfkc_stress_check.py -- bun "$tmp/unicode32_nfkc_stress.js"
+  BUN_JSC_forceRAMSize=8388608 python3 unicode32_prepare_check.py --mode fold --asset-controls -- bun "$tmp/unicode32_prepare.js"
+  BUN_JSC_forceRAMSize=8388608 python3 unicode32_prepare_check.py --mode exact --asset-controls -- bun "$tmp/unicode32_prepare.js"
+  BUN_JSC_forceRAMSize=4194304 python3 unicode32_prepare_stress_check.py -- bun "$tmp/unicode32_prepare_stress.js"
   python3 x509_name_check.py -- bun "$tmp/x509_name.js"
   python3 x509_extension_policy_check.py --bun --signature-binary "$tmp/x509_verify.js" -- bun "$tmp/x509_extension_policy.js"
   python3 x509_signature_check.py -- bun "$tmp/x509_verify.js"

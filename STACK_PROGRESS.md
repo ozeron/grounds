@@ -7,12 +7,90 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 | Layer | Current state | Next proof of progress |
 |---|---|---|
 | `wire` | Byte TCP and IPv4 UDP effects, explicit local-IP binding and OS bound-address/ephemeral-port discovery; OpenSSL TLS effects. UDP handles all octets, zero datagrams, timeout and oversize errors, with same-port/two-IP isolation and failed-bind descriptor checks. Actual SIGTERM/SIGINT stop parked native/Bun loops and release the listener; Bun uses an OS-only C11 atomic signal bridge because its synchronous runtime cannot dispatch JS signal callbacks. Bounded bulk host RNG bytes now pass native/Bun guard/error tests and supply signaling credentials. Public-pattern byte/RNG and retained UDP measurements are recorded; Bend Base supplies monotonic `IO.now`. | Verify IPv6/cancellation and packed storage/long-session allocation, retaining measured baselines; complete crypto/runtime review before secure transport. |
-| `crypto` | Bend SHA-1 for WebSocket challenge, HMAC-SHA1 for legacy STUN integrity, SHA-256, HMAC-SHA256, HKDF-SHA-256, ChaCha20, Poly1305, ChaCha20-Poly1305 AEAD, AES-128 encryption, AES-128-GCM and X25519; P-256 prime/order arithmetic, uncompressed-point ECDH, experimental P-256/SHA-256 raw/DER ECDSA, SHA-256 RSA PSS/v1.5 encoding, variable-size public modular exponentiation/RSAVP1 and full digest-signature verification (725 arithmetic and 774 signature cases pass on native and Bun; in-place limb shift reduces array creation), bounded DER, SHA-256 certificate AlgorithmIdentifier admission, RSA/P-256 SPKI public-key decoding, certificate field framing preserving exact signed bytes, mathematical issuer-signature verification (4,825 native/Bun cases) and strict civil-time/validity checks (31,545 cases per target using scoped official Bend 2.0.34), canonical OID/extension envelope admission (67,731 native/baseline-JIT Bun cases), BC/KU payload consistency and EKU/TLS-purpose permission (14,565 independent EKU cases on pinned/modern native/Bun; 28,044 whole-policy cases per modern target; selected DNS/IP SAN and empty-subject critical-SAN binding add 1,841 standalone cases per modern target), plus DNS/IP identity matching and actual SAN-field queries (5,900 core cases per pinned/modern native/Bun target; 2,447 further framing/certificate cases per modern target), plus typed Name/RDN/attribute schema and actual issuer/subject queries (11,195 independent cases per modern native/Bun target), now composed into extension/TLS-purpose admission with nonempty issuer and CA/CRL-subject requirements (28,319 whole-policy cases per modern target), plus exact Unicode 3.2 NFKC with authenticated packed tables (84,960 official sequence checks, 1,050 differential cases and 1,122,304 scalar checks per pinned/modern native/Bun target, with full-byte-bound expansion/ordering stress), plus TLS HKDF labels and distinct affine ChaCha/AES-GCM traffic owners with 64-bit nonces/key updates and AES sending usage limits. Poly1305 products now stay below 2^26; OpenSSL remains in live cookie/TLS paths. | Compose complete Unicode 3.2 stored-value mapping/folding/NFKC/prohibition/SPACE preparation and resolve the standalone folding module's pinned Bun large-list limit, Teletex/Name comparison and known extension/critical policies, constraints/trust/hostname, trusted-clock composition and TLS schemes; finish current ECDSA/package/compiler compatibility verification and runtime/erasure review, implement private RSA owners, then cookie and full handshake integration. |
+| `crypto` | Bend SHA-1 for WebSocket challenge, HMAC-SHA1 for legacy STUN integrity, SHA-256, HMAC-SHA256, HKDF-SHA-256, ChaCha20, Poly1305, ChaCha20-Poly1305 AEAD, AES-128 encryption, AES-128-GCM and X25519; P-256 prime/order arithmetic, uncompressed-point ECDH, experimental P-256/SHA-256 raw/DER ECDSA, SHA-256 RSA PSS/v1.5 encoding, variable-size public modular exponentiation/RSAVP1 and full digest-signature verification (725 arithmetic and 774 signature cases pass on native and Bun; in-place limb shift reduces array creation), bounded DER, SHA-256 certificate AlgorithmIdentifier admission, RSA/P-256 SPKI public-key decoding, certificate field framing preserving exact signed bytes, mathematical issuer-signature verification (4,825 native/Bun cases) and strict civil-time/validity checks (31,545 cases per target using scoped official Bend 2.0.34), canonical OID/extension envelope admission (67,731 native/baseline-JIT Bun cases), BC/KU payload consistency and EKU/TLS-purpose permission (14,565 independent EKU cases on pinned/modern native/Bun; 28,044 whole-policy cases per modern target; selected DNS/IP SAN and empty-subject critical-SAN binding add 1,841 standalone cases per modern target), plus DNS/IP identity matching and actual SAN-field queries (5,900 core cases per pinned/modern native/Bun target; 2,447 further framing/certificate cases per modern target), plus typed Name/RDN/attribute schema and actual issuer/subject queries (11,195 independent cases per modern native/Bun target), now composed into extension/TLS-purpose admission with nonempty issuer and CA/CRL-subject requirements (28,319 whole-policy cases per modern target), plus composed Unicode 3.2 stored-value preparation (97,731 exact and folded cases per pinned/modern native/Bun target, with folded full-input stress), and exact Unicode 3.2 NFKC with authenticated packed tables (84,960 official sequence checks, 1,050 differential cases and 1,122,304 scalar checks per pinned/modern native/Bun target, with full-byte-bound expansion/ordering stress), plus TLS HKDF labels and distinct affine ChaCha/AES-GCM traffic owners with 64-bit nonces/key updates and AES sending usage limits. Poly1305 products now stay below 2^26; OpenSSL remains in live cookie/TLS paths. | Integrate verified scalar preparation with string-tag transcoding and Name/RDN comparison; resolve the standalone folding module's pinned Bun large-list limit and Teletex interpretation and known extension/critical policies, constraints/trust/hostname, trusted-clock composition and TLS schemes; finish current ECDSA/package/compiler compatibility verification and runtime/erasure review, implement private RSA owners, then cookie and full handshake integration. |
 | `tls` | Bend protected TLS 1.3 ChaCha20-Poly1305 and AES-128-GCM records and traffic/key lifecycle pass synthetic native/Bun differential tests; AES also reproduces RFC 8448 encrypted records. Live TLS client/server still use OpenSSL C effects; JS TLS effects return `ENOSYS`. | Complete mandatory TLS algorithms, handshake/transcripts, certificates/signatures/trust/hostname checks and real client/server interop; DTLS 1.2 for RTC. |
 | `http` | Bend HTTP/1.1 client/server, routing, JSON, cookies, auth, CORS, multipart, SSE, and server WebSocket handshake/framing/session. Native echo interops with a third-party Python client and Bun's WebSocket API. A bounded local signaling fixture admits exact Host/Origin and a public synthetic cookie before upgrade/UDP allocation; native and Bun exchange SDP with real Chrome and clean up connection-owned ICE state/sockets. | Replace the fixture selector with Bend cookie/HMAC authentication and integrate Bend TLS for browser HTTPS/WSS. |
 | `rtc` | Bend STUN parsing, IPv4 XOR-MAPPED-ADDRESS, SHA-1/SHA-256/dual integrity, FINGERPRINT, authenticated incoming/outgoing ICE Binding exchanges, retained-socket retransmissions and explicit error/integrity outcomes. IPv4 candidate/pair priorities, bounded checklist formation, stable transport references and guarded state transitions, role-driven priority reordering, a paced shared-socket transaction engine with response-only interruption, protected incoming replies and server-side role decisions, FIFO triggered queues, ordinary round-robin/foundation scheduling and generation/sent-role attempt ownership. A bounded session now binds signaled credentials, registered receiving/sending bases, observed peer-reflexive candidates, deferred incoming work, retained attempts and endpoint integrity policies. Authenticated non-symmetric responses fail only their original current pair; interrupted old listeners retire independently. The live owner fixture explicitly binds unicast IPv4 bases and queries actual local ports before candidate formation. An additive valid-list owner resolves authenticated mappings, learns locally peer-reflexive candidates from retained signed-request priority, allocates IP-keyed foundations, reranks by role and keeps late paths separate from replacement flights. A nomination-evidence owner associates current successful checks with their valid paths and retains qualified incoming intent through materialization, exact triggered flights and response-only listeners; already-Succeeded counterparts resolve their actual generating record. A generation lifecycle owner now applies regular controlling/controlled nomination, selects completed stream paths, removes nominated component checks while retaining response listeners, continues authenticated Binding service, and defers failure through PAC. An outer transport owner derives selected physical consent routes, serves authenticated consent-only Binding requests, shares actual-send pacing and recent transaction identity admission, gates logical application routes, and preserves sealed consent loss. Full/full credential restart rebuilds ICE state while retaining only selected old consent/server contexts until replacement selection. Bounded SDP/signaling now binds connection-owned credentials and the actual retained UDP base; real Chrome verifies direct selected pairs, fresh consent, restart and cleanup on native and Bun. Separate unauthenticated discovery remains available. | Complete crypto/runtime foundations and secure signaling, then gathering, IPv6/TURN, DTLS/SCTP and SRTP/media. |
 
 ## Evidence ledger
+
+- 2026-10-03 (Lisbon; composed Unicode 3.2 stored-value preparation):
+  Added pure Bend literal mapping, optional published B.2 folding, exact NFKC,
+  post-normalization prohibition and combining-mark-aware stored SPACE handling.
+  Authenticated retained tables use the existing NFKC owner and a new 21,284-byte
+  preparation asset. Asset SHA-256 is
+  `ad6aa93b373aa4b8a3c46a0ce5098ac93b934704fc85dde1d1b19916c3aa387c`.
+  Independent regeneration checks all 1,371 mappings, 396 unassigned ranges
+  and 112 definitive mark ranges and reproduces all three generated files.
+  C/JS only supply file bytes; Unicode transformations remain in Bend.
+
+  A preflight counts decomposed storage before allocating the full packed
+  buffer; a bounded preceding-scalar cache holds at most 72 packed values.
+  No full folded linked list is materialized. Whole-input canonical ordering
+  and composition precede prohibition. Private-use rejection moves earlier
+  only after auditing all 137,468 values for unchanged literal mapping,
+  absence from B.2, identity NFKC, zero CCC and no composition participation.
+  Other prohibition remains after normalization. SPACE handling compacts
+  runs and expands backward in the same array; normative marks, including
+  CCC-zero marks and appendix exceptions, determine protected SPACE.
+  Existing public property APIs and Name/policy sources remain unchanged.
+
+  Final sealed sources pass on pinned Bend 2.0.27 and scoped official 2.0.34,
+  each on native and optimizing-JIT Bun. Each target checks 97,731 cases in
+  exact mode and another 97,731 in folded mode: 22 literals, 84,960 official
+  normalization input sequences, 1,371 published-fold neighborhoods, 2,048
+  deterministic random sequences and 9,330 exhaustive short SPACE/mark/
+  deletion neighborhoods. All eight reports are complete, start at zero and
+  each reject 14 corrupted/truncated/extended assets. Folded corpus SHA-256 is
+  `a4188b91164e8dc4280c8a30e7933ed703fb6af38de624a778aab986df02dfc6`;
+  exact corpus is
+  `296fd9460a711fcff81b1dcd8b01248a73809f4a46e692b004a7a6bf338da599`.
+  Each target also passes 2,244,608 property/mapping regression checks over
+  1,122,304 code points, corpus SHA-256
+  `a2f70f2d299fa869b928c4bded9524df7ab371d0cf467c048e9bb06dd30b88ca`.
+  Nine folded stress cases pass per target, checking every output including
+  458,747-scalar prepared compatibility expansion and ordering/stability,
+  protected SPACE, full folding, all-space and scalar admission boundaries.
+  The 65,535-scalar U+33C6 fixture encodes to 196,605 UTF-8 bytes: it tests
+  scalar capacity, not a DER byte-valid Name. Caller-owned transcoding and
+  the enclosing 65,535-byte bound remain required. Nine preparation and eight
+  property assertions pass both frontends; no kernel verdict is claimed.
+
+  Final pinned/modern builds take 19.063/10.819 s at 175.7/161.4 MiB
+  aggregate and 171.8/141.0 MiB individual. Final Bun corpus uses an explicit
+  8 MiB GC hint with JIT/DFG enabled. Pinned folded/exact checks take
+  102.336/102.348 s at 112.5/110.5 MiB aggregate and 86.6/84.4 MiB individual;
+  modern takes 41.703/39.243 s at 100.3/98.4 MiB aggregate and 73.9/72.2 MiB
+  individual. Stress explicitly uses a 4 MiB hint: pinned/modern pass in
+  17.672/6.109 s at 118.2/109.9 MiB aggregate and 93.5/85.0 MiB individual.
+  Earlier growing-buffer, separate-output and partial-cache attempts fail
+  within mapping. Diverse exact fixtures require stable private-use admission;
+  final pinned stress still crosses the process cutoff with the 8 MiB hint.
+  Failed runs are retained, and final accepted evidence names the 4 MiB runs.
+  Guards remain unchanged: compiler 384/320 MiB, evaluator 128/96 MiB,
+  120 s timeout. Every heavy job is sequential; pressure stays normal.
+
+  Added eleven mandatory preparation build/check steps and the asset metadata
+  cache input. Fresh forced crypto still stops during proof/compiler work at
+  the aggregate cutoff: 387.9 MiB / 296.6 MiB individual, 33.820 s.
+  Fresh root `moon --concurrency 1 run :check` also stops in fresh crypto:
+  386.4 / 306.1 MiB, 26.907 s. Neither gate completes; no package/repository
+  acceptance follows. Exact commands, runtime wrappers and fresh/cache status
+  are retained. No compiler pin, input, memory cutoff or timeout is relaxed.
+  Docs/ledger change after gates; the tested 13 source/data/checker inputs
+  remain byte-identical. Of 720 prior tracked inputs, only the property module,
+  package checks/cache inputs and README/ledger change; 715 remain identical.
+
+  Final source/program identities, all sixteen accepted runtime reports,
+  audits and successful/failing command/log/resource records are frozen under
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-03/unicode-stored-preparation/`.
+  `accepted-verification-jobs.json` identifies the final reports; earlier
+  programs/reports remain exploratory. `evidence.json` binds the local commit.
+
+  All nineteen full-stack acceptance boxes remain open. Next: integrate
+  string-tag transcoding and Name/RDN equality; resolve package/compiler and
+  standalone-fold limits. Continue Teletex/IDNA, subtree/constraints,
+  trust/time/hostname, TLS/DTLS and integrated direct/relay browser data/media.
 
 - 2026-10-03 (Lisbon; exact Unicode 3.2 NFKC with packed storage):
   Added the pure Bend NFKC owner, authenticated binary table loader,

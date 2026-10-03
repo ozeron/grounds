@@ -39,6 +39,7 @@ Pure Bend cryptographic primitives. This package implements SHA-1, SHA-256, HMAC
 | `x509_hostname.bend` | `frame(bytes)`, `san(bytes,kind,reference)`, `extensions(bytes,kind,reference)`, `certificate(bytes,kind,reference)` | Actual SAN-field DNS/IP identity matching without CN fallback; framing preserves other forms for pending schema/profile processing |
 | `x509_san.bend` | `inspect(bytes)`, `permits(result,critical)`, `subject(subject,extensions)`, `certificate(bytes)` | Selected DNS/IP SAN admission and empty-subject critical-SAN binding; other name forms remain deferred |
 | `unicode32_profile.bend` | `tables()`, `flags(state,code)`, `map_code(code)` | Full Unicode 3.2 RFC 4518 literal mapping/prohibition/combining-mark properties; preserves table ownership; case folding/NFKC are separate modules; complete preparation remains pending |
+| `unicode32_prepare.bend` | `tables(normalization_bytes,profile_bytes)`, `prepare(state,codes,casefold)` | Complete RFC 4518 stored/non-substring scalar preparation after caller transcoding; packed output, optional B.2 case folding; not yet integrated into Name comparison |
 | `unicode32_nfkc.bend` | `normalize(state,codes)` | Exact Unicode 3.2 NFKC with authenticated asset tables, packed scalar output and stable canonical ordering; full preparation/Name comparison remain pending |
 | `unicode32_fold.bend` | `tables()`, `code(state,code)`, `map_code(state,code)`, `string(state,codes,mapping)` | Exact Unicode 3.2 RFC 3454 B.2 case folding and RFC 4518 literal mapping before folding; NFKC is separate; full preparation remains pending |
 | `x509_name_schema.bend` | `inspect(bytes,allow_empty)`, `pair(issuer,subject)` | Shared RDN/attribute/string syntax checks without retaining a Name collection |
@@ -860,7 +861,7 @@ fourfold B.2 expansion of every scalar in a 65,535-byte enclosing Name value.
 `length` cells are output, and consumers recover scalars with `>> 8`. This API
 retains unassigned/private-use/noncharacter values for the later prohibition
 stage. Literal mapping, folding, post-normalization prohibition and SPACE
-handling are separate stages awaiting composition into stored-value preparation.
+handling are composed by the stored-value preparation owner below.
 
 `unicode32_nfkc_tables.decode(bytes)` checks byte validity, exact length and
 Bend SHA-256 before creating tables from the pinned 87,660-byte asset. Runtime
@@ -916,3 +917,104 @@ memory cutoffs of 392.5 / 391.2 MiB. Scoped success does not change the SDK pin
 or complete either gate. The next owner must compose mapping/folding into
 packed decomposition without materializing the known failing large folded
 list, then apply prohibition and the definitive-Appendix-A SPACE rules.
+
+
+`unicode32_prepare` composes stored/non-substring DirectoryString scalar
+preparation after caller-owned transcoding, as specified by
+[RFC 4518](https://www.rfc-editor.org/rfc/inline-errata/rfc4518.html).
+`tables(normalization_bytes,profile_bytes)` validates the exact pinned NFKC
+asset and the separate 21,284-byte B.2/property asset with Bend SHA-256 before
+loading affine arrays. C/JS supply file bytes only. The new asset is generated
+from the SHA-pinned published B.2 vectors and the definitive property-range
+manifest; those existing artifacts remain independently regenerable from
+pinned RFC text. `unicode32_prepare_generate.py --source-dir <crypto>
+--output-dir <existing-directory>` reproduces binary and Bend/JSON metadata.
+The preparation asset SHA-256 is
+`ad6aa93b373aa4b8a3c46a0ce5098ac93b934704fc85dde1d1b19916c3aa387c`.
+
+`prepare(state,codes,casefold)` retains every table owner and returns a packed
+`Maybe<Normalized>`, using the same scalar/CCC representation as NFKC.
+It rejects invalid scalars or more than 65,535 input scalars. The caller must
+already enforce the enclosing DER byte bound and transcode the string tag;
+a 65,535-byte encoded value can have at most 65,535 decoded scalars. For case
+ignore matching use `True`; exact matching uses `False` and still performs
+literal mapping, NFKC, prohibition and stored SPACE handling. Each original
+scalar is mapped/folded to at most four scalars and decomposed into packed
+storage. A preflight pass counts the exact decomposed length before allocating
+the full buffer. A one-scalar cache retains at most 72 packed values, reusing
+folding/decomposition for repeated input without changing whole-input ordering
+or composition. No full folded linked list is materialized. Normalization,
+post-normalization prohibition and the definitive Appendix A mark properties
+are shared with the existing modules. Private-use scalars are rejected before
+allocation: all 137,468 survive literal mapping, B.2 and NFKC unchanged, have
+CCC zero and never occur in composition pairs. A frozen-UCD/table audit proves
+this stable subset; other prohibition still follows normalization, allowing
+U+0341 to normalize to an admissible value. RFC 4518 adds no bidi rejection.
+
+`unicode32_space` delays classification of a SPACE until it has inspected the
+next scalar's definitive mark flag. This preserves SPACE followed by a mark,
+including marks with CCC zero, and treats U+05BD as the normative appendix
+requires rather than inferring from its Unicode category. Regular leading/
+trailing spaces are replaced by one margin SPACE, nonempty internal runs by
+two SPACEs; empty/all-space prepared input produces exactly two SPACEs.
+A first pass checks every normalized value, compacts internal SPACE runs to
+one temporary marked token in the owned array and counts the exact result.
+Mark lookup is needed only immediately after SPACE. A backward pass expands
+marked runs to two SPACEs in the same array and adds the margins, growing only
+if the existing capacity is insufficient. The public result contains no
+temporary bit. No second full-sized output array is allocated.
+A prohibited interior value rejects the whole value before emission. Deleted input remains
+distinct from invalid input. The returned scalar sequence is for equality
+matching, not display, serialization or certificate authorization.
+
+The RFC Editor inline-errata rendering was refreshed for this change. Verified
+1757/1758 correct substring inner-space rules/examples, and 7213 removes an
+unnecessary comma. Verified 9048 corrects an Appendix B typo without changing
+preparation rules; substring/numeric/telephone profiles are outside this
+stored-value API. Existing FE00-FE0F mapping applies verified erratum 860.
+Transcoding integration, Teletex interpretation, Name/RDN equality, subtree/
+constraints and chain/trust/hostname/time composition remain required.
+
+The independent checker uses published B.2 mappings, frozen Unicode 3.2
+normalization and property rules, with explicit normative appendix exceptions.
+Each exact/folded corpus has 97,731 cases: 22 literal cases, every one of the
+84,960 official normalization input sequences, 1,371 published fold
+neighborhoods, 2,048 deterministic random sequences and 9,330 exhaustive
+short SPACE/mark/deletion neighborhoods. It also mutates/truncates/extends
+both assets in 14 rejection cases. Long stress fixtures check every output
+for exactly 65,535-byte compatibility expansion, reordered/equal-class marks,
+CCC-zero protected SPACEs, empty-after-space handling and fourfold folding.
+A separate 65,535-scalar U+33C6 case expands to 262,142 prepared scalars;
+its UTF-8 encoding is 196,605 bytes and tests the looser scalar admission
+bound, not an enclosing DER byte-valid Name. Boundary checks include actual
+`prepare` rejection at 65,536 scalars. Large Python oracle allocations happen
+in a child that exits before the evaluator starts, keeping guarded host/test
+allocations sequential. Each corpus invocation processes two 128-record
+fixture files with one authenticated table owner; each byte-reading action
+returns before the next file. `--start`/`--limit` isolate diagnosis, and their
+reports explicitly mark partial coverage. Complete final evidence is recorded under
+`/Users/ozeron/.codex/artifacts/grounds/2026-10-03/unicode-stored-preparation/`.
+
+The composed Bun corpus checks use an explicit 8 MiB GC hint
+(`BUN_JSC_forceRAMSize=8388608`); the maximum-input stress checks use a
+4 MiB hint (`4194304`). JIT and DFG remain enabled. Guards remain
+384/320 MiB for compilers and 128/96 MiB for evaluators. Earlier growing-buffer,
+separate-output and fold-only cache attempts still crossed the process guard.
+The pinned phase probe localizes its failure to mapping; counted allocation
+plus the bounded decomposition cache clears that stage. In-place SPACE
+handling also avoids a second large output allocation. Diverse exact-mode
+fixtures still crossed the guard at 16/8 MiB before stable private-use rejection;
+those failed runs remain recorded. Final pinned maximum expansion also crosses
+the guard at the 8 MiB hint; the explicit 4 MiB stress hint clears it.
+No input or memory/time
+cutoff is relaxed. Final-source hashes and exact commands distinguish this
+verification from the exploratory reports. Package/repository acceptance and
+complete Name/certificate authorization remain separate required gates.
+
+Final complete preparation checks pass for both matching modes on pinned
+2.0.27 and scoped 2.0.34, each on native and Bun, alongside full property
+regressions and nine folded stress cases per target. The fresh forced crypto
+check still stops during compilation at 387.9 MiB aggregate (33.820 s);
+the fresh root check stops in crypto at 386.4 MiB (26.907 s). Neither gate
+completes. The accepted report manifest distinguishes the final sealed
+programs and 4 MiB Bun stress runs from earlier failed attempts.

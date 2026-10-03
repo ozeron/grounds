@@ -1,0 +1,30 @@
+{
+  "unicode_version": "3.2.0",
+  "format": "GRPR3201 + U32BE B.2 index/values, unassigned ranges, definitive mark ranges",
+  "asset_sha256": "ad6aa93b373aa4b8a3c46a0ce5098ac93b934704fc85dde1d1b19916c3aa387c",
+  "bytes": 21284,
+  "source_artifacts": {
+    "unicode32_fold_vectors.json": "1a20249fc862b1fa010515a753538129e387b8a4e532673de9d307dd9d4c2f87",
+    "unicode32_ranges.json": "04f7088a9b6070888bc32f1dd9b88abe64db90c528e5451fb11f7ff7ed429fe8"
+  },
+  "RFC3454_sha256": "eb722fa698fb7e8823b835d9fd263e4cdb8f1c7b0d234edf7f0e3bd2ccbb2c79",
+  "RFC4518_sha256": "a12b9a04e49cf778f7a26e59d32a2bda02d6d4ab4d4151b6a8cc9db21070a068",
+  "segments": {
+    "index": {
+      "words": 2742,
+      "array_exponent": 12
+    },
+    "values": {
+      "words": 1561,
+      "array_exponent": 11
+    },
+    "unassigned": {
+      "words": 792,
+      "array_exponent": 10
+    },
+    "marks": {
+      "words": 224,
+      "array_exponent": 8
+    }
+  }
+}

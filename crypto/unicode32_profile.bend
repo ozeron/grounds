@@ -75,19 +75,46 @@ def prohibited.fixed(+code: U32) -> Bool:
         Bool.or(U32.is_eq(code, 832), Bool.or(U32.is_eq(code, 833), Bool.or(U32.is_eq(code, 8206),
           Bool.or(U32.is_eq(code, 8207), Bool.or(range(code, 8234, 8238), range(code, 8298, 8303))))))))))))))
 
-def flags.marked(+code: U32, unassigned: Bool, array: Array<U32>, result: Array<U32> & Bool) -> Tables & U32:
+def properties.marked(+code: U32, unassigned: Bool, array: Array<U32>, result: Array<U32> & Bool) -> Tables & U32:
   (marks, mark) = result
-  flags = U32.or(Bool.pick(U32, removed(code), 1, 0), U32.or(Bool.pick(U32, space(code), 2, 0),
-    U32.or(Bool.pick(U32, Bool.or(unassigned, prohibited.fixed(code)), 4, 0), Bool.pick(U32, mark, 8, 0))))
+  flags = U32.or(Bool.pick(U32, Bool.or(unassigned, prohibited.fixed(code)), 4, 0), Bool.pick(U32, mark, 8, 0))
   (Tables{array, marks}, flags)
 
-def flags.unassigned(+code: U32, marks: Array<U32>, result: Array<U32> & Bool) -> Tables & U32:
+def properties.unassigned(+code: U32, marks: Array<U32>, result: Array<U32> & Bool) -> Tables & U32:
   (array, unassigned) = result
-  flags.marked(code, unassigned, array, search(16n, 0, 112, code, marks))
+  properties.marked(code, unassigned, array, search(16n, 0, 112, code, marks))
+
+# SPACE preparation needs a mark lookup only for the scalar immediately after
+# SPACE. Admission still checks every scalar; retain the untouched mark owner.
+def properties.needed(need_mark: Bool, +code: U32, marks: Array<U32>, result: Array<U32> & Bool) -> Tables & U32:
+  match need_mark:
+    case True{}: properties.unassigned(code, marks, result)
+    case False{}:
+      (array, unassigned) = result
+      (Tables{array, marks}, Bool.pick(U32, Bool.or(unassigned, prohibited.fixed(code)), 4, 0))
+
+def properties.admission(state: Tables, +code: U32, need_mark: Bool) -> Tables & U32:
+  match state:
+    case Tables{array, marks}: properties.needed(need_mark, code, marks, search(16n, 0, 396, code, array))
+
+# Only post-normalization admission and definitive marks; do not repeat the
+# already-completed literal mapping work on every expanded output scalar.
+def properties(state: Tables, +code: U32) -> Tables & U32:
+  match state:
+    case Tables{array, marks}: properties.unassigned(code, marks, search(16n, 0, 396, code, array))
+
+def flags.complete(+code: U32, result: Tables & U32) -> Tables & U32:
+  (state, properties) = result
+  (state, U32.or(properties, U32.or(Bool.pick(U32, removed(code), 1, 0), Bool.pick(U32, space(code), 2, 0))))
+
+def flags.marked(+code: U32, unassigned: Bool, array: Array<U32>, result: Array<U32> & Bool) -> Tables & U32:
+  flags.complete(code, properties.marked(code, unassigned, array, result))
+
+def flags.unassigned(+code: U32, marks: Array<U32>, result: Array<U32> & Bool) -> Tables & U32:
+  flags.complete(code, properties.unassigned(code, marks, result))
 
 def flags(state: Tables, +code: U32) -> Tables & U32:
-  match state:
-    case Tables{array, marks}: flags.unassigned(code, marks, search(16n, 0, 396, code, array))
+  flags.complete(code, properties(state, code))
 
 # Literal RFC 4518 mapping only; prohibition belongs after full normalization.
 # Invalid scalar input is distinct from a legitimate deletion.
