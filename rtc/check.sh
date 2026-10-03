@@ -28,11 +28,15 @@ bend ice_transport.bend --check-only
 bend sdp.bend --check-only
 bend signaling.bend --check-only
 bend signaling_auth.bend --check-only
+bend signaling_cookie.bend --check-only
 bend signaling_test.bend
+sh ../tools/bend_native.sh examples/signaling_cookie.bend "$tmp/signaling_cookie" > /dev/null
+python3 examples/signaling_cookie_check.py "$tmp/signaling_cookie"
 sh ../tools/bend_native.sh examples/sdp.bend "$tmp/sdp" > /dev/null
 python3 examples/sdp_check.py "$tmp/sdp"
 sh examples/build_signaling.sh "$tmp/signaling_server" > /dev/null
 python3 examples/signaling_server_check.py "$tmp/signaling_server"
+python3 examples/signaling_cookie_expiry_check.py "$tmp/signaling_server"
 bend examples/auth.bend -o "$tmp/auth" > /dev/null
 python3 examples/auth_check.py "$tmp/auth"
 bend examples/ice_build.bend -o "$tmp/ice_build" > /dev/null
@@ -93,10 +97,13 @@ bend examples/sign.bend -o "$tmp/sign" > /dev/null
 "$tmp/sign"
 
 if command -v bun > /dev/null 2>&1; then
+  bend examples/signaling_cookie.bend -o "$tmp/signaling_cookie.js" > /dev/null
+  python3 examples/signaling_cookie_check.py bun "$tmp/signaling_cookie.js"
   bend examples/sdp.bend -o "$tmp/sdp.js" > /dev/null
   python3 examples/sdp_check.py bun "$tmp/sdp.js"
   bend examples/signaling_server.bend -o "$tmp/signaling_server.js" > /dev/null
   python3 examples/signaling_server_check.py bun "$tmp/signaling_server.js"
+  python3 examples/signaling_cookie_expiry_check.py bun "$tmp/signaling_server.js"
   chrome=${GROUNDS_CHROME:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}
   if [ -x "$chrome" ]; then
     GROUNDS_CHROME="$chrome" bun examples/signaling_browser_check.mjs "$tmp/browser-native" "$tmp/signaling_server"

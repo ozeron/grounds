@@ -558,11 +558,11 @@ def redirect_https(host: String, r: Req.Request) -> Res.Response:
     case Req.Request{_, target, _, _}:
       Res.new(S.permanent_redirect(), [H.Header{"location", "https://" ++ host ++ target}], [])
 
-def step(~h: Req.Request -> IO(Out), p: H1.Parsed, +mh: U32, +tls: Bool, +trust: Bool, +acc: B.Bytes, s: Socket, +left: Nat, +ims: U32, +rms: U32, +dl: Nat, next: B.Bytes -> Nat -> Socket -> IO(Unit)) -> IO(Unit):
+def context.step(~C: Data, ~h: C -> Req.Request -> IO(Out), +context: C, p: H1.Parsed, +mh: U32, +tls: Bool, +trust: Bool, +acc: B.Bytes, s: Socket, +left: Nat, +ims: U32, +rms: U32, +dl: Nat, next: B.Bytes -> Nat -> Socket -> IO(Unit)) -> IO(Unit):
   match p:
     case H1.Parsed{req, +close, rest}:
       do IO<Unit>:
-        out : Out <- h(request_proto(req, tls, trust))
+        out : Out <- h(context, request_proto(req, tls, trust))
         +stop : U32 <- W.wire_stopping()
         respond(out, closing(close, left, stop), Bool.or(close, Bool.not(U32.is_eq(stop, 0))),
           s, rms, rest, acc, mh, next)
@@ -575,31 +575,31 @@ def step(~h: Req.Request -> IO(Out), p: H1.Parsed, +mh: U32, +tls: Bool, +trust:
 
 # a connection: acc is what has come and is not yet a request; fuel counts
 # the requests it may still serve
-def conn(~h: Req.Request -> IO(Out), +fuel: Nat, +mh: U32, +mb: U32, +ims: U32, +rms: U32, +tls: Bool, +trust: Bool, +acc: B.Bytes, +dl: Nat, s: Socket) -> IO(Unit):
+def context.conn(~C: Data, ~h: C -> Req.Request -> IO(Out), +context: C, +fuel: Nat, +mh: U32, +mb: U32, +ims: U32, +rms: U32, +tls: Bool, +trust: Bool, +acc: B.Bytes, +dl: Nat, s: Socket) -> IO(Unit):
   match fuel:
     case 0n:
       W.wire_close(s)
     case 1n+p:
-      step(~h, H1.parse(copy(acc, B.BNil{}), mh, mb), mh, tls, trust, acc, s, p, ims, rms, dl, b => d => sk => conn(~h, p, mh, mb, ims, rms, tls, trust, b, d, sk))
+      context.step(~C, ~h, context, H1.parse(copy(acc, B.BNil{}), mh, mb), mh, tls, trust, acc, s, p, ims, rms, dl, b => d => sk => context.conn(~C, ~h, context, p, mh, mb, ims, rms, tls, trust, b, d, sk))
 
-def handshake_done(~h: Req.Request -> IO(Out), r: Result<&1, &1, U32 & String, Unit>, +mr: Nat, +mh: U32, +mb: U32, +ims: U32, +rms: U32, +trust: Bool, s: Socket) -> IO(Unit):
+def context.handshake_done(~C: Data, ~h: C -> Req.Request -> IO(Out), +context: C, r: Result<&1, &1, U32 & String, Unit>, +mr: Nat, +mh: U32, +mb: U32, +ims: U32, +rms: U32, +trust: Bool, s: Socket) -> IO(Unit):
   match r:
     case Done{_}:
-      conn(~h, mr, mh, mb, ims, rms, True{}, trust, B.BNil{}, 0n, s)
+      context.conn(~C, ~h, context, mr, mh, mb, ims, rms, True{}, trust, B.BNil{}, 0n, s)
     case Fail{_}:
       W.wire_close(s)
 
-def handshook(~h: Req.Request -> IO(Out), +mr: Nat, +mh: U32, +mb: U32, +ims: U32, +rms: U32, +trust: Bool, m: RU()) -> IO(Unit):
+def context.handshook(~C: Data, ~h: C -> Req.Request -> IO(Out), +context: C, +mr: Nat, +mh: U32, +mb: U32, +ims: U32, +rms: U32, +trust: Bool, m: RU()) -> IO(Unit):
   match m:
     case (s, r):
-      handshake_done(~h, r, mr, mh, mb, ims, rms, trust, s)
+      context.handshake_done(~C, ~h, context, r, mr, mh, mb, ims, rms, trust, s)
 
-def begin_conn(~h: Req.Request -> IO(Out), +tls: Bool, +trust: Bool, +mr: Nat, +mh: U32, +mb: U32, +ims: U32, +rms: U32, s: Socket) -> IO(Unit):
+def context.begin_conn(~C: Data, ~h: C -> Req.Request -> IO(Out), +context: C, +tls: Bool, +trust: Bool, +mr: Nat, +mh: U32, +mb: U32, +ims: U32, +rms: U32, s: Socket) -> IO(Unit):
   match tls:
     case True{}:
-      IO.bind(RU(), Unit, W.wire_tls_accept(s, rms), m => handshook(~h, mr, mh, mb, ims, rms, trust, m))
+      IO.bind(RU(), Unit, W.wire_tls_accept(s, rms), m => context.handshook(~C, ~h, context, mr, mh, mb, ims, rms, trust, m))
     case False{}:
-      conn(~h, mr, mh, mb, ims, rms, False{}, trust, B.BNil{}, 0n, s)
+      context.conn(~C, ~h, context, mr, mh, mb, ims, rms, False{}, trust, B.BNil{}, 0n, s)
 
 # a connection, counted live while it runs
 def served(act: IO(Unit)) -> IO(Unit):
@@ -652,12 +652,12 @@ def check.stop(+stop: U32, l: Listener, +dms: U32, k: Listener -> IO(Unit)) -> I
 
 # an accepted connection runs on its own; the loop goes on accepting, and
 # between connections it looks for a stop
-def accepted(~h: Req.Request -> IO(Out), r: Result<&1, &1, U32 & String, Maybe<&1, Socket>>, l: Listener, +mh: U32, +mb: U32, +ims: U32, +rms: U32, +dms: U32, +mr: Nat, +tls: Bool, +trust: Bool, k: Listener -> IO(Unit)) -> IO(Unit):
+def context.accepted(~C: Data, ~h: C -> Req.Request -> IO(Out), +context: C, r: Result<&1, &1, U32 & String, Maybe<&1, Socket>>, l: Listener, +mh: U32, +mb: U32, +ims: U32, +rms: U32, +dms: U32, +mr: Nat, +tls: Bool, +trust: Bool, k: Listener -> IO(Unit)) -> IO(Unit):
   match r:
     case Done{Some{s}}:
       do IO<Unit>:
         n : U32 <- W.wire_live(1)
-        x : Unit <- IO.spawn(Unit, served(begin_conn(~h, tls, trust, mr, mh, mb, ims, rms, s)))
+        x : Unit <- IO.spawn(Unit, served(context.begin_conn(~C, ~h, context, tls, trust, mr, mh, mb, ims, rms, s)))
         k(l)
     case Done{None{}}:
       do IO<Unit>:
@@ -671,14 +671,14 @@ def accepted(~h: Req.Request -> IO(Out), r: Result<&1, &1, U32 & String, Maybe<&
 
 # fuel bounds the turns of the loop: a server's loop is bounded by the
 # outside world, which Bend's termination check sees as a count
-def accept.loop(~h: Req.Request -> IO(Out), +fuel: Nat, +mh: U32, +mb: U32, +ims: U32, +rms: U32, +dms: U32, +mr: Nat, +tls: Bool, +trust: Bool, m: RA()) -> IO(Unit):
+def context.accept.loop(~C: Data, ~h: C -> Req.Request -> IO(Out), +context: C, +fuel: Nat, +mh: U32, +mb: U32, +ims: U32, +rms: U32, +dms: U32, +mr: Nat, +tls: Bool, +trust: Bool, m: RA()) -> IO(Unit):
   match fuel:
     case 0n:
       (l, _) = m
       W.close_listener(l)
     case 1n+p:
       (l, r) = m
-      accepted(~h, r, l, mh, mb, ims, rms, dms, mr, tls, trust, l2 => IO.bind(RA(), Unit, W.wire_accept_timeout(l2, 250), m2 => accept.loop(~h, p, mh, mb, ims, rms, dms, mr, tls, trust, m2)))
+      context.accepted(~C, ~h, context, r, l, mh, mb, ims, rms, dms, mr, tls, trust, l2 => IO.bind(RA(), Unit, W.wire_accept_timeout(l2, 250), m2 => context.accept.loop(~C, ~h, context, p, mh, mb, ims, rms, dms, mr, tls, trust, m2)))
 
 def listen_tls(tls: Maybe<&2, Tls>) -> IO(Bool):
   match tls:
@@ -691,7 +691,7 @@ def listen_tls(tls: Maybe<&2, Tls>) -> IO(Bool):
 
 # answer requests on cfg's port with h, one at a time per connection, many
 # connections at once; h may stream a body
-def serve_out(~h: Req.Request -> IO(Out), cfg: Config) -> IO(Unit):
+def serve_out_context(~C: Data, ~h: C -> Req.Request -> IO(Out), +context: C, cfg: Config) -> IO(Unit):
   match cfg:
     case Config{port, +mh, +mb, mr, +ims, +rms, +dms, tls, +trust}:
       do IO<Unit>:
@@ -699,7 +699,17 @@ def serve_out(~h: Req.Request -> IO(Out), cfg: Config) -> IO(Unit):
         +on : Bool <- listen_tls(tls)
         l : Listener <- IO.try(Listener, W.listen(port))
         m : RA() <- W.wire_accept_timeout(l, 250)
-        accept.loop(~h, 4294967295n, mh, mb, ims, rms, dms, U32.to_nat(mr), on, trust, m)
+        context.accept.loop(~C, ~h, context, 4294967295n, mh, mb, ims, rms, dms, U32.to_nat(mr), on, trust, m)
+
+# The handler remains a closed template; shared runtime configuration is explicit
+# Data, copied into accepted connections and each keep-alive request. It is
+# immutable configuration, not a mutable per-server session store.
+def context.legacy(~h: Req.Request -> IO(Out), context: Unit, r: Req.Request) -> IO(Out):
+  h(r)
+
+# Existing handlers use the same accept/parse/respond path with an empty context.
+def serve_out(~h: Req.Request -> IO(Out), cfg: Config) -> IO(Unit):
+  serve_out_context(~Unit, ~context.legacy(~h), Unit{}, cfg)
 
 def whole(~h: Req.Request -> IO(Res.Response), r: Req.Request) -> IO(Out):
   IO.bind(Res.Response, Out, h(r), res => IO.pure(Out, Whole{res}))

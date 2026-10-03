@@ -72,8 +72,12 @@ try {
   server.stderr.on("data", data => { serverError += data; });
   await until(async () => { if (server.exitCode !== null) throw new Error(`server exited ${server.exitCode}: ${serverError}`); return (await fetch("http://127.0.0.1:8089/")).ok; });
   const chromePath = process.env.GROUNDS_CHROME || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
-  chrome = spawn(chromePath, ["--headless=new", "--no-first-run", "--no-default-browser-check", "--remote-debugging-port=0",
-    `--user-data-dir=${profile}`, "--disable-features=WebRtcHideLocalIpsWithMdns", "about:blank"], {stdio: ["ignore", "ignore", "pipe"]});
+  const extraFlags = JSON.parse(process.env.GROUNDS_CHROME_FLAGS || "[]");
+  if (!Array.isArray(extraFlags) || extraFlags.some(value => typeof value !== "string")) throw new Error("GROUNDS_CHROME_FLAGS must be a JSON string array");
+  const chromeArguments = ["--headless=new", "--no-first-run", "--no-default-browser-check", "--remote-debugging-port=0",
+    `--user-data-dir=${profile}`, "--disable-features=WebRtcHideLocalIpsWithMdns", ...extraFlags, "about:blank"];
+  results.chromeArguments = chromeArguments;
+  chrome = spawn(chromePath, chromeArguments, {stdio: ["ignore", "ignore", "pipe"]});
   chrome.stderr.on("data", data => { chromeError += data; });
   const port = await until(async () => (await readFile(join(profile, "DevToolsActivePort"), "utf8")).split("\n")[0]);
   const targets = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
@@ -104,8 +108,10 @@ try {
   if (!results.deniedOrigin.failed || serverLog.includes("signaling-base:")) throw new Error("denied Origin allocated a UDP base");
   await cdp.send("Page.navigate", {url: "http://127.0.0.1:8089/"});
   await until(async () => (await cdp.evaluate("location.origin")) === "http://127.0.0.1:8089");
+  const issuedCookie = await until(() => Promise.resolve(serverLog.match(/^signaling-cookie:([^\n]+)$/m)?.[1]));
+  results.cookieSource = "Bend minted synthetic session cookie";
   await cdp.evaluate(`(async () => {
-    document.cookie = 'grounds-fixture=local-synthetic-session; SameSite=Strict; Path=/';
+    document.cookie = ${JSON.stringify(issuedCookie + '; SameSite=Strict; Path=/')};
     window.grounds = {pc: new RTCPeerConnection({iceServers: []}), ws: new WebSocket('ws://127.0.0.1:8089/signal'), messages: [], states: []};
     grounds.dc = grounds.pc.createDataChannel('ICE-fixture-only');
     grounds.pc.oniceconnectionstatechange = () => grounds.states.push({at: performance.now(), ice: grounds.pc.iceConnectionState});

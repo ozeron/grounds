@@ -1,6 +1,7 @@
 import Base
 import ../signaling.bend as Signal
 import ../signaling_auth.bend as Access
+import ../signaling_cookie.bend as Cookie
 import ../ice_transport.bend as T
 import ../ice_binding.bend as Ice
 import ../ice_incoming.bend as Incoming
@@ -26,12 +27,36 @@ import ../../wire/wire.bend as W
 import ../../utf8/utf8.bend as U
 
 # Local ICE evaluator: one authenticated WebSocket owns one actual UDP base.
-# Its public synthetic cookie is a test selector. HTTP/WS is plaintext; DTLS,
+# Its Bend-signed cookie and signing key are synthetic fixtures. HTTP/WS is plaintext; DTLS,
 # data and media are intentionally absent. A lifetime never extends on restart.
 # This adapter accepts unfragmented text signaling messages only (<=32768 bytes).
 type Driver is Data:
-  Driver{signal: Signal.State, base: Stun.IPv4, buffer: Bytes.Bytes,
+  Driver{signal: List<&2, Signal.State>, base: Stun.IPv4, buffer: Bytes.Bytes,
          end: Nat, frames: U32, closed: Bool}
+
+# A recursive singleton stores the complete owner across IO continuations.
+# Keeping the large nonrecursive State flattened there inflates the generated
+# global calling convention for every segment. No protocol state is omitted.
+def stored.owner(states: List<&2, Signal.State>) -> Maybe<&2, T.State>:
+  match states:
+    case [state]: Signal.owner(state)
+    case _: None{}
+
+def stored.replace(states: List<&2, Signal.State>, transport: T.State) -> List<&2, Signal.State>:
+  match states:
+    case [state]: [Signal.replace(state, transport)]
+    case _: [Signal.Ended{}]
+
+def stored.answer(states: List<&2, Signal.State>, base: Stun.IPv4) -> String:
+  match states:
+    case [state]: Answer.answer(state, base)
+    case _: ""
+
+def stored.apply(states: List<&2, Signal.State>, command: Signal.Command, base: Stun.IPv4,
+                 secret: Incoming.Secret, role: Ice.Role, now: Nat) -> Signal.Change:
+  match states:
+    case [state]: Signal.apply(state, command, base, secret, role, now)
+    case _: Signal.Rejected{Signal.Ended{}, "invalid stored signaling owner"}
 
 def Reply() -> Type:
   Socket & Socket & Driver
@@ -59,7 +84,7 @@ def udp_done(value: Udp.Reply(), ws: Socket, driver: Driver) -> IO(Reply()):
   (udp, d) = value
   match d driver:
     case Udp.Driver{transport, _, _, _, _, _, _} Driver{state, base, buffer, end, frames, closed}:
-      IO.pure(Reply(), (ws, (udp, Driver{Signal.replace(state, transport), base, buffer, end, frames, closed})))
+      IO.pure(Reply(), (ws, (udp, Driver{stored.replace(state, transport), base, buffer, end, frames, closed})))
 
 def udp_event(notice: T.Notice, owner: Maybe<&2, T.State>, +now: Nat,
               ws: Socket, udp: Socket, +driver: Driver) -> IO(Reply()):
@@ -76,7 +101,7 @@ def event(+notice: T.Notice, ws: Socket, udp: Socket, +driver: Driver) -> IO(Rep
       do IO<Reply()>:
         x : Unit <- Output.event(notice)
         now : Nat <- IO.now()
-        udp_event(notice, Signal.owner(state), now, ws, udp, driver)
+        udp_event(notice, stored.owner(state), now, ws, udp, driver)
 
 def continued(value: Reply(), again: Socket -> Socket -> Driver -> IO(Reply())) -> IO(Reply()):
   (ws, (udp, driver)) = value
@@ -91,7 +116,7 @@ def execute(values: List<&2, T.Notice>, ws: Socket, udp: Socket, driver: Driver)
 def stepped(step: T.Step, ws: Socket, udp: Socket, driver: Driver) -> IO(Reply()):
   match step driver:
     case T.Step{transport, events} Driver{state, base, buffer, end, frames, closed}:
-      execute(events, ws, udp, Driver{Signal.replace(state, transport), base, buffer, end, frames, closed})
+      execute(events, ws, udp, Driver{stored.replace(state, transport), base, buffer, end, frames, closed})
 
 def tick_owner(owner: Maybe<&2, T.State>, now: Nat, ws: Socket, udp: Socket, driver: Driver) -> IO(Reply()):
   match owner:
@@ -104,7 +129,7 @@ def tick(value: Reply()) -> IO(Reply()):
     case Driver{state, _, _, _, _, _}:
       do IO<Reply()>:
         now : Nat <- IO.now()
-        tick_owner(Signal.owner(state), now, ws, udp, driver)
+        tick_owner(stored.owner(state), now, ws, udp, driver)
 
 def begin_owner(owner: Maybe<&2, T.State>, now: Nat, ws: Socket, udp: Socket, +driver: Driver) -> IO(Reply()):
   match owner driver:
@@ -118,7 +143,7 @@ def begin(value: Reply()) -> IO(Reply()):
     case Driver{state, _, _, _, _, _}:
       do IO<Reply()>:
         now : Nat <- IO.now()
-        begin_owner(Signal.owner(state), now, ws, udp, driver)
+        begin_owner(stored.owner(state), now, ws, udp, driver)
 
 def received_owner(owner: Maybe<&2, T.State>, source: Maybe<&2, Stun.IPv4>, +raw: List<&2, U32>,
                    now: Nat, ws: Socket, udp: Socket, +driver: Driver) -> IO(Reply()):
@@ -135,7 +160,7 @@ def received(value: Discovery.RD(), ws: Socket, +driver: Driver) -> IO(Reply()):
     case Done{Some{(host, (port, raw))}} Driver{state, _, _, _, _, _}:
       do IO<Reply()>:
         now : Nat <- IO.now()
-        received_owner(Signal.owner(state), C.address_read(host, port), raw, now, ws, udp, driver)
+        received_owner(stored.owner(state), C.address_read(host, port), raw, now, ws, udp, driver)
     case Done{None{}} d: IO.pure(Reply(), (ws, (udp, d)))
     case Fail{_} d: IO.pure(Reply(), (ws, (udp, stop(d))))
 
@@ -154,16 +179,20 @@ def answer_sent(value: Reply()) -> IO(Reply()):
     case Driver{state, _, _, _, _, False{}}:
       do IO<Reply()>:
         now : Nat <- IO.now()
-        signaled_owner(Signal.owner(state), now, ws, udp, driver)
+        signaled_owner(stored.owner(state), now, ws, udp, driver)
     case d: IO.pure(Reply(), (ws, (udp, d)))
+
+def accepted(+states: List<&2, Signal.State>, events: List<&2, T.Notice>, ws: Socket, udp: Socket,
+             +base: Stun.IPv4, buffer: Bytes.Bytes, end: Nat, frames: U32, closed: Bool) -> IO(Reply()):
+  do IO<Reply()>:
+    x : Unit <- Output.events(events)
+    IO.bind(Reply(), Reply(), send_text(J.encode(J.JArr{[J.JStr{"answer"}, J.JStr{stored.answer(states, base)}]}), ws, udp,
+      Driver{states, base, buffer, end, frames, closed}), answer_sent)
 
 def changed(change: Signal.Change, ws: Socket, udp: Socket, driver: Driver) -> IO(Reply()):
   match change driver:
-    case Signal.Accepted{+state, events} Driver{_, +base, buffer, end, frames, closed}:
-      do IO<Reply()>:
-        x : Unit <- Output.events(events)
-        IO.bind(Reply(), Reply(), send_text(J.encode(J.JArr{[J.JStr{"answer"}, J.JStr{Answer.answer(state, base)}]}), ws, udp,
-          Driver{state, base, buffer, end, frames, closed}), answer_sent)
+    case Signal.Accepted{state, events} Driver{_, base, buffer, end, frames, closed}:
+      accepted([state], events, ws, udp, base, buffer, end, frames, closed)
     case Signal.Rejected{_, reason} d:
       do IO<Reply()>:
         x : Unit <- IO.print("signaling-rejected:" ++ reason)
@@ -189,7 +218,7 @@ def random_offer(value: Result<&1, &2, U32 & String, List<&2, U32>>, command: Si
     case Done{[a, b, c, d, e, f, g, h]} Driver{state, base, _, _, _, _}:
       do IO<Reply()>:
         now : Nat <- IO.now()
-        changed(Signal.apply(state, command, base,
+        changed(stored.apply(state, command, base,
           Incoming.Secret{B.hex(Sign.word_bytes(a, Sign.word_bytes(b, []))),
             B.hex(Sign.word_bytes(c, Sign.word_bytes(d, Sign.word_bytes(e, Sign.word_bytes(f, [])))))},
           Ice.Controlled{g, h}, now), ws, udp, driver)
@@ -267,7 +296,7 @@ def finish(ws: Socket, udp: Socket, driver: Driver) -> IO(Unit):
   match driver:
     case Driver{state, base, _, _, _, _}:
       do IO<Unit>:
-        c : Unit <- close_owner(Signal.owner(state))
+        c : Unit <- close_owner(stored.owner(state))
         x : Unit <- W.wire_close(ws)
         y : Unit <- W.wire_close(udp)
         z : Unit <- IO.print("signaling-closed:" ++ U32.show(C.port(base)))
@@ -298,59 +327,90 @@ def loop(fuel: Nat, ws: Socket, udp: Socket, driver: Driver) -> IO(Unit):
         stopping : U32 <- W.wire_stopping()
         timed(now, stopping, ws, udp, driver, a => b => d => loop(p, a, b, d))
 
-def named_result(result: Result<&1, &1, U32 & String, String & U32>, ws: Socket, udp: Socket, buffer: Bytes.Bytes) -> IO(Unit):
+# Base Nat.min constructs one successor per millisecond and overflows the
+# evaluator stack on ordinary session lifetimes. Compare, then retain a clock.
+def deadline(+end: Nat, +local: Nat) -> Nat:
+  Bool.pick(Nat, Nat.is_le(end, local), end, local)
+
+def named_result(result: Result<&1, &1, U32 & String, String & U32>, ws: Socket, udp: Socket, buffer: Bytes.Bytes, end: Nat) -> IO(Unit):
   match result:
     case Done{(host, +port)}:
       do IO<Unit>:
         +now : Nat <- IO.now()
         x : Unit <- IO.print("signaling-base:" ++ host ++ ":" ++ U32.show(port))
-        loop(8192n, ws, udp, Driver{Signal.Fresh{}, Stun.IPv4{127, 0, 0, 1, port}, buffer, Nat.add(now, 45000n), 0, False{}})
+        loop(8192n, ws, udp, Driver{[Signal.Fresh{}], Stun.IPv4{127, 0, 0, 1, port}, buffer, deadline(end, Nat.add(now, 45000n)), 0, False{}})
     case Fail{_}:
       do IO<Unit>:
         x : Unit <- W.wire_close(ws)
         W.wire_close(udp)
 
-def named(value: Socket & Result<&1, &1, U32 & String, String & U32>, ws: Socket, buffer: Bytes.Bytes) -> IO(Unit):
+def named(value: Socket & Result<&1, &1, U32 & String, String & U32>, ws: Socket, buffer: Bytes.Bytes, end: Nat) -> IO(Unit):
   (udp, result) = value
-  named_result(result, ws, udp, buffer)
+  named_result(result, ws, udp, buffer, end)
 
-def bound(value: Result<&1, &1, U32 & String, Socket>, ws: Socket, buffer: Bytes.Bytes) -> IO(Unit):
+def bound(value: Result<&1, &1, U32 & String, Socket>, ws: Socket, buffer: Bytes.Bytes, end: Nat) -> IO(Unit):
   match value:
     case Done{udp}:
-      IO.bind(Socket & Result<&1, &1, U32 & String, String & U32>, Unit, W.wire_udp_local_address(udp), r => named(r, ws, buffer))
+      IO.bind(Socket & Result<&1, &1, U32 & String, String & U32>, Unit, W.wire_udp_local_address(udp), r => named(r, ws, buffer, end))
     case Fail{_}: W.wire_close(ws)
 
-def session(ws: Socket, buffer: Bytes.Bytes) -> IO(Unit):
-  IO.bind(Result<&1, &1, U32 & String, Socket>, Unit, W.wire_udp_bind("127.0.0.1", 0), r => bound(r, ws, buffer))
+def session(end: Nat, ws: Socket, buffer: Bytes.Bytes) -> IO(Unit):
+  IO.bind(Result<&1, &1, U32 & String, Socket>, Unit, W.wire_udp_bind("127.0.0.1", 0), r => bound(r, ws, buffer, end))
 
-def upgraded(value: Maybe<&2, String>) -> IO(Server.Out):
+def upgraded(end: Nat, value: Maybe<&2, String>) -> IO(Server.Out):
   match value:
-    case Some{key}: IO.pure(Server.Out, Server.Upgrade{key, ws => buffer => session(ws, buffer)})
+    case Some{key}: IO.pure(Server.Out, Server.Upgrade{key, ws => buffer => session(end, ws, buffer)})
     case None{}: IO.pure(Server.Out, Server.Whole{Res.bad_request()})
 
-def capacity(ok: Bool, request: Req.Request) -> IO(Server.Out):
+def capacity(end: Nat, ok: Bool, request: Req.Request) -> IO(Server.Out):
   match ok:
-    case True{}: upgraded(Ws.accept(request))
+    case True{}: upgraded(end, Ws.accept(request))
     case False{}: IO.pure(Server.Out, Server.Whole{Res.text(Status.Status{503}, "fixture connection limit")})
 
-def authorized(decision: Access.Decision, request: Req.Request) -> IO(Server.Out):
+def authorized(end: Nat, decision: Access.Decision, request: Req.Request) -> IO(Server.Out):
   match decision:
     case Access.Allowed{}:
       do IO<Server.Out>:
         n : U32 <- W.wire_live(0)
-        capacity(U32.is_le(n, 8), request)
+        capacity(end, U32.is_le(n, 8), request)
     case Access.DeniedOrigin{}: IO.pure(Server.Out, Server.Whole{Res.text(Status.Status{403}, "denied Origin")})
     case Access.DeniedAuth{}: IO.pure(Server.Out, Server.Whole{Res.text(Status.Status{401}, "failed fixture authentication")})
     case Access.BadRequest{}: IO.pure(Server.Out, Server.Whole{Res.bad_request()})
 
-def dispatch(+request: Req.Request) -> IO(Server.Out):
+def dispatch.end(end: Nat, state: Cookie.State, +request: Req.Request) -> IO(Server.Out):
   match request:
-    case Req.Request{_, "/", _, _}: IO.pure(Server.Out, Server.Whole{Res.html(Status.ok(), "<!doctype html><title>Grounds ICE evaluator</title><p>Local synthetic ICE test peer.</p>")})
+    case Req.Request{_, "/", _, _}:
+      IO.pure(Server.Out, Server.Whole{Res.html(Status.ok(), "<!doctype html><title>Grounds ICE evaluator</title><p>Local synthetic ICE test peer.</p>")})
     case _:
-      authorized(Access.authorize(request, "127.0.0.1:8089", "http://127.0.0.1:8089", "grounds-fixture=local-synthetic-session"), request)
+      do IO<Server.Out>:
+        now : Nat <- IO.now()
+        authorized(end, Cookie.authorize(request, "127.0.0.1:8089", "http://127.0.0.1:8089", state, now), request)
 
-def app(request: Req.Request) -> IO(Server.Out):
-  dispatch(request)
+def dispatch(+state: Cookie.State, request: Req.Request) -> IO(Server.Out):
+  match state:
+    case Cookie.State{_, _, end}: dispatch.end(end, state, request)
+
+def app(state: Cookie.State, request: Req.Request) -> IO(Server.Out):
+  dispatch(state, request)
+
+def serve(+state: Cookie.State, signed: Maybe<&2, String>) -> IO(Unit):
+  match signed:
+    case None{}: IO.die(Unit, 1, "could not mint synthetic cookie")
+    case Some{value}:
+      do IO<Unit>:
+        x : Unit <- IO.print("signaling-cookie:grounds-fixture=" ++ value)
+        Server.serve_out_context(~Cookie.State, ~app, state, Server.Config{8089, 8192, 32768, 8, 5000, 5000, 5000, None{}, False{}})
+
+def setup(valid: Bool, +ttl: U32, +now: Nat) -> IO(Unit):
+  match valid:
+    case False{}: IO.die(Unit, 1, "GROUNDS_SIGNALING_TTL_MS must be 1..300000")
+    case True{}:
+      +state : Cookie.State = Cookie.State{"0123456789abcdef0123456789abcdef",
+        Cookie.payload("local-synthetic-session", Nat.add(now, U32.to_nat(ttl))), Nat.add(now, U32.to_nat(ttl))}
+      serve(state, Cookie.ticket(state))
 
 def main() -> IO(Unit):
-  Server.serve_out(~app, Server.Config{8089, 8192, 32768, 8, 5000, 5000, 5000, None{}, False{}})
+  do IO<Unit>:
+    +ttl : U32 <- Server.env.u32("GROUNDS_SIGNALING_TTL_MS", "GROUNDS_SIGNALING_TTL_MS", 300000)
+    now : Nat <- IO.now()
+    setup(Bool.and(U32.is_gt(ttl, 0), U32.is_le(ttl, 300000)), ttl, now)

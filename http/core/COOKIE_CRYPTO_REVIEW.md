@@ -17,6 +17,16 @@ header/value lengths before cryptographic work. This module does not establish
 cookie expiration, session ownership, key rotation, purpose separation or
 secure transport; those belong in the signaling/application owner.
 
+`rtc/signaling_cookie.bend` now supplies a synthetic owner with an exact
+purpose/session/issuing-deadline payload, trusted monotonic expiry, one bounded
+Cookie field and rejection of duplicate matching pairs. Its independent policy
+fixture passes 374 cases on pinned native and Bun. The Bun HTTP/WS fixture
+mints its cookie in Bend, rejects changed claims/MACs before UDP allocation and
+retires admitted sockets at session expiry. This is local plaintext fixture
+evidence; full native/browser verification, production key lifecycle and Bend
+TLS integration remain pending. Artifacts are in
+`/Users/ozeron/.codex/artifacts/grounds/2026-10-03/signed-signaling-cookie/`.
+
 The source XOR/OR reduction visits every MAC byte rather than returning at
 the first mismatch. Generated JS retains that reduction. Pinned generated C,
 both generated JS programs and pinned native undefined symbols contain no

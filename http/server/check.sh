@@ -6,6 +6,12 @@ cd "$(dirname "$0")"
 tmp=$(mktemp -d)
 pid=
 trap '[ -n "$pid" ] && kill "$pid" 2>/dev/null; rm -rf "$tmp"' EXIT
+sh ../../tools/bend_native.sh examples/context.bend "$tmp/context" > /dev/null
+python3 examples/context_check.py "$tmp/context"
+if command -v bun > /dev/null 2>&1; then
+  bend examples/context.bend -o "$tmp/context.js" > /dev/null
+  python3 examples/context_check.py bun "$tmp/context.js"
+fi
 bend examples/hello.bend -o "$tmp/hello" > /dev/null
 "$tmp/hello" &
 pid=$!

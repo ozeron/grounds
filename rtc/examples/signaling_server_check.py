@@ -1,6 +1,7 @@
 """Real HTTP/WS admissions, restart ownership and actual UDP cleanup checks."""
 import base64
 import hashlib
+import hmac
 import json
 import socket
 import struct
@@ -13,7 +14,8 @@ from sdp_check import BASE, PWD
 
 HOST = "127.0.0.1:8089"
 ORIGIN = "http://" + HOST
-COOKIE = "grounds-fixture=local-synthetic-session"
+COOKIE = None
+SYNTHETIC_KEY = b"0123456789abcdef0123456789abcdef"
 KEY = base64.b64encode(b"GroundsFixture16").decode()
 
 
@@ -107,6 +109,7 @@ def rebind(port):
 
 
 def main():
+    global COOKIE
     # A disposable peer owns every candidate endpoint used in this test.
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as peer:
         peer.bind(("127.0.0.1", 0))
@@ -122,6 +125,14 @@ def main():
         scenarios = 0
         try:
             until(lambda: socket.create_connection(("127.0.0.1", 8089), timeout=0.2).close() is None)
+            COOKIE = until(lambda: next((row.removeprefix("signaling-cookie:").strip()
+                           for row in logs if row.startswith("signaling-cookie:")), None))
+            signed = COOKIE.split("=", 1)[1]
+            payload, tag = signed.rsplit(".", 1)
+            assert payload.startswith("grounds-signal-v1:" + b"local-synthetic-session".hex() + ":")
+            assert hmac.new(SYNTHETIC_KEY, payload.encode(), hashlib.sha256).hexdigest() == tag
+            def other_ticket(value):
+                return "grounds-fixture=" + value + "." + hmac.new(SYNTHETIC_KEY, value.encode(), hashlib.sha256).hexdigest()
             for name, fields, status in [
                 ("missing Origin", [("Host", HOST), ("Cookie", COOKIE)], 403),
                 ("wrong Origin", [("Host", HOST), ("Origin", "http://denied.invalid"), ("Cookie", COOKIE)], 403),
@@ -129,6 +140,15 @@ def main():
                 ("duplicate Origin", [("Host", HOST), ("Origin", ORIGIN), ("Origin", ORIGIN), ("Cookie", COOKIE)], 403),
                 ("missing auth", [("Host", HOST), ("Origin", ORIGIN)], 401),
                 ("wrong auth", [("Host", HOST), ("Origin", ORIGIN), ("Cookie", "grounds-fixture=wrong")], 401),
+                ("legacy selector", [("Host", HOST), ("Origin", ORIGIN), ("Cookie", "grounds-fixture=local-synthetic-session")], 401),
+                ("changed MAC", [("Host", HOST), ("Origin", ORIGIN), ("Cookie", COOKIE[:-1] + ("0" if COOKIE[-1] != "0" else "1"))], 401),
+                ("changed payload", [("Host", HOST), ("Origin", ORIGIN), ("Cookie", "grounds-fixture=x" + signed)], 401),
+                ("wrong session", [("Host", HOST), ("Origin", ORIGIN), ("Cookie", other_ticket(payload.replace(b"local-synthetic-session".hex(), b"other-session".hex())))], 401),
+                ("wrong purpose", [("Host", HOST), ("Origin", ORIGIN), ("Cookie", other_ticket(payload.replace("grounds-signal-v1", "other-purpose")))], 401),
+                ("changed deadline", [("Host", HOST), ("Origin", ORIGIN), ("Cookie", other_ticket(payload + "0"))], 401),
+                ("duplicate cookie pair", [("Host", HOST), ("Origin", ORIGIN), ("Cookie", COOKIE + "; " + COOKIE)], 401),
+                ("malformed tag", [("Host", HOST), ("Origin", ORIGIN), ("Cookie", COOKIE[:-1] + "g")], 401),
+                ("oversized Cookie", [("Host", HOST), ("Origin", ORIGIN), ("Cookie", "x=" + "x"*1025 + "; " + COOKIE)], 401),
                 ("duplicate auth", [("Host", HOST), ("Origin", ORIGIN), ("Cookie", COOKIE), ("Cookie", COOKIE)], 401),
                 ("wrong Host", [("Host", "localhost:8089"), ("Origin", ORIGIN), ("Cookie", COOKIE)], 400),
             ]:

@@ -12,7 +12,7 @@ All existing native/Bun/browser protocol checks remain in `check.sh`; this
 input change does not remove a verification scenario.
 
 The local signaling evaluator is in `examples/signaling_server.bend`. It checks
-an exact Host and Origin and one synthetic fixture cookie before the WebSocket
+an exact Host and Origin and one Bend HMAC-SHA256 signed synthetic session cookie before the WebSocket
 upgrade or UDP allocation. Each upgraded connection owns one retained IPv4 UDP
 base and one `signaling.State`; offers use `["offer", revision, SDP]` and answers
 use `["answer", SDP]`. Revision zero creates the owner. Subsequent revisions must
@@ -50,15 +50,14 @@ importing that fixture's entire CLI. The protocol owners and their send/reply,
 consent and restart decisions remain in the same Bend modules. Package checks
 still include every existing CLI and browser scenario.
 
-The latest guarded full RTC run passes type/admission checks and native SDP,
-then reaches the memory cutoff during signaling C emission. Its new signaling
-runtime and browser checks remain pending; [STACK_PROGRESS.md](../STACK_PROGRESS.md)
-records the current commands, evidence and remaining compiler work.
+Focused runtime checks and full package acceptance have separate evidence;
+[STACK_PROGRESS.md](../STACK_PROGRESS.md) records exact commands, compiler
+versions, guarded cutoffs and remaining verification work.
 
 The adapter caps upgraded fixture connections at eight using the server's live
 connection counter, text messages at 32,768 bytes, frames at 64, revisions at
-0–7 and each connection lifetime at 45 seconds. Restarts never extend that
-lifetime. It supports unfragmented text signaling, ping/pong and valid close
+0–7 and each connection lifetime at the earlier of 45 seconds or the issuing
+session deadline. Restarts never extend that lifetime. It supports unfragmented text signaling, ping/pong and valid close
 frames; fragmented/binary signaling is rejected. Existing general-purpose
 WebSocket framing/session APIs retain their behavior. Close, stop and deadline
 discard the transport and close both sockets; tests rebind the actual UDP port.
@@ -73,14 +72,25 @@ This disables compiler-inserted stack probes for this evaluator only. It is a
 build limitation, not a memory/timing safety finding resolved for the full stack.
 Other checks retain Bend's normal native build. The generated-runtime ABI and
 stack behavior remain part of the required review before production acceptance.
-The fixture uses port 8089, accepts Origin `http://127.0.0.1:8089` and
-cookie `grounds-fixture=local-synthetic-session`, and binds its UDP base to
-127.0.0.1. The current HTTP listener's OS effect listens on all interfaces; the
-cookie is a public synthetic test selector, not deployable authentication.
+The fixture uses port 8089, accepts Origin `http://127.0.0.1:8089` and binds its
+UDP base to 127.0.0.1. Startup prints `signaling-cookie:grounds-fixture=...`;
+the local peer harness receives that Bend-minted cookie. The legacy unsigned
+selector is rejected. `signaling_cookie.bend` owns the signing key, exact
+purpose/session/deadline payload and trusted monotonic expiry. The HTTP server's
+runtime context carries this immutable owner through admissions. Host/Origin
+checks precede cookie HMAC; missing/duplicate Cookie fields or matching pairs,
+values beyond 1,024 characters, malformed MACs and claims from another session,
+purpose or issuing deadline fail before upgrade or UDP allocation. Ordinary
+quoted/percent-encoded values retain the existing cookie decoder behavior.
+`GROUNDS_SIGNALING_TTL_MS` accepts 1–300000 ms (default five minutes); the real
+expiry test uses 2,500 ms and verifies socket/UDP cleanup and stale-cookie denial.
+The HTTP listener still listens on all interfaces and the fixture key/session
+are public synthetic values. Runtime timing/erasure review and production key
+issuance, rotation and revocation remain open.
 This is plaintext HTTP/WS and ICE only. The answer renderer is explicitly a
 fixture in `examples/signaling_answer.bend`: it advertises a public placeholder
-fingerprint and does not implement DTLS. Production authentication, Bend
-cookie/HMAC, HTTPS/WSS, DTLS fingerprint verification, data and media remain open.
+fingerprint and does not implement DTLS. Production key lifecycle, runtime
+review, HTTPS/WSS, DTLS fingerprint verification, data and media remain open.
 
 `examples/signaling_browser_check.mjs` launches an isolated real Chrome profile,
 uses the browser's ICE implementation as a peer, and records offers, answers,
@@ -93,6 +103,9 @@ combined with authenticated packet evidence; DTLS/data/media are not claimed.
 Run `bun examples/signaling_browser_check.mjs <evidence-dir> <server-command...>`
 then `python3 examples/signaling_browser_packets.py <evidence-dir>`. Set
 `GROUNDS_CHROME` to a Chrome executable outside the default macOS location.
+`GROUNDS_CHROME_FLAGS` optionally supplies a JSON array of diagnostic Chrome
+arguments; the artifact records the complete launch arguments. Default launch,
+reduced-process diagnostics and a completed protocol run are distinct evidence.
 `check.sh` runs native/Bun admission and socket tests and this browser evaluator
 when Chrome and Bun are available; an unavailable browser is explicitly skipped
 and cannot satisfy the full stack contract.

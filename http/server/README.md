@@ -42,6 +42,15 @@ def main() -> IO(Unit):
 
 `serve_out` takes a handler that returns `Out`: `Whole{response}`, `Stream{status, headers, body}`, or `Upgrade{accept, session}`. A streamed `body` gets a `Sink` and writes chunks with `send(sink, bytes)` and `send_text(sink, text)`. `examples/stream.bend` streams server-sent events and a 10 MiB download.
 
+`serve_out_context(~C, ~handler, context, cfg)` supplies immutable runtime
+configuration to `handler(context: C, request: Request) -> IO(Out)`, where `C`
+is Data. The handler remains a closed template; the context can come from host
+effects such as configuration, entropy or a monotonic clock. Connections and
+keep-alive requests receive the same context. This does not provide a mutable
+session store or key rotation. Existing `serve_out`, `serve` and `serve_pure`
+use the same server path with an empty context. `examples/context.bend` checks
+an effect-created value across whole responses, streaming and concurrent clients.
+
 `sse(body)` is a 200 `text/event-stream`. Its body writes events with these calls:
 
 | Call | Does |
@@ -101,6 +110,10 @@ Server.serve(~Mw.logger(~Mw.request_id(~Mw.body_limit(~small, ~Mw.recover(~app))
 ## Checks
 
 `moon run http_server:check`:
+
+The runtime-context fixture first checks native and Bun whole/stream responses,
+keep-alive reuse, 32 concurrent requests and graceful shutdown. Existing checks:
+
 1. Builds `examples/hello` and serves it on 8080.
 2. Asserts the curl answer, and keep-alive: curl reports "Re-using existing connection" for two URLs.
 3. Runs `examples/probe.py`: refusals, pipelining, chunked bodies, TE with CL, and a request served while another client waits half-sent.

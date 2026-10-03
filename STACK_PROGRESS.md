@@ -9,10 +9,105 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 | `wire` | Byte TCP and IPv4 UDP effects, explicit local-IP binding and OS bound-address/ephemeral-port discovery; OpenSSL TLS effects. UDP handles all octets, zero datagrams, timeout and oversize errors, with same-port/two-IP isolation and failed-bind descriptor checks. Actual SIGTERM/SIGINT stop parked native/Bun loops and release the listener; Bun uses an OS-only C11 atomic signal bridge because its synchronous runtime cannot dispatch JS signal callbacks. Bounded bulk host RNG bytes now pass native/Bun guard/error tests and supply signaling credentials. Public-pattern byte/RNG and retained UDP measurements are recorded; Bend Base supplies monotonic `IO.now`. | Verify IPv6/cancellation and packed storage/long-session allocation, retaining measured baselines; complete crypto/runtime review before secure transport. |
 | `crypto` | Bend SHA-1 for WebSocket challenge, HMAC-SHA1 for legacy STUN integrity, SHA-256, HMAC-SHA256, HKDF-SHA-256, ChaCha20, Poly1305, ChaCha20-Poly1305 AEAD, AES-128 encryption, AES-128-GCM and X25519; P-256 prime/order arithmetic, uncompressed-point ECDH, experimental P-256/SHA-256 raw/DER ECDSA, SHA-256 RSA PSS/v1.5 encoding, variable-size public modular exponentiation/RSAVP1 and full digest-signature verification (725 arithmetic and 774 signature cases pass on native and Bun; in-place limb shift reduces array creation), bounded DER, SHA-256 certificate AlgorithmIdentifier admission, RSA/P-256 SPKI public-key decoding, certificate field framing preserving exact signed bytes, mathematical issuer-signature verification (4,825 native/Bun cases) and strict civil-time/validity checks (31,545 cases per target using scoped official Bend 2.0.34), canonical OID/extension envelope admission (67,731 native/baseline-JIT Bun cases), BC/KU payload consistency and EKU/TLS-purpose permission (14,565 independent EKU cases on pinned/modern native/Bun; 28,044 whole-policy cases per modern target; selected DNS/IP SAN and empty-subject critical-SAN binding add 1,841 standalone cases per modern target), plus DNS/IP identity matching and actual SAN-field queries (5,900 core cases per pinned/modern native/Bun target; 2,447 further framing/certificate cases per modern target), plus typed Name/RDN/attribute schema and actual issuer/subject queries (11,195 independent cases per modern native/Bun target), now composed into extension/TLS-purpose admission with nonempty issuer and CA/CRL-subject requirements (28,319 whole-policy cases per modern target), plus composed Unicode 3.2 stored-value preparation (97,731 exact and folded cases per pinned/modern native/Bun target, with folded full-input stress), and exact Unicode 3.2 NFKC with authenticated packed tables (84,960 official sequence checks, 1,050 differential cases and 1,122,304 scalar checks per pinned/modern native/Bun target, with full-byte-bound expansion/ordering stress), plus TLS HKDF labels and distinct affine ChaCha/AES-GCM traffic owners with 64-bit nonces/key updates and AES sending usage limits. Poly1305 products now stay below 2^26; Legacy cookie signing and live TLS retain OpenSSL; explicit Bend HTTP cookie signing/verification passes synthetic-key native/Bun checks. | Integrate verified scalar preparation with string-tag transcoding and Name/RDN comparison; resolve the standalone folding module's pinned Bun large-list limit and Teletex interpretation and known extension/critical policies, constraints/trust/hostname, trusted-clock composition and TLS schemes; finish current ECDSA/package/compiler compatibility verification and runtime/erasure review, implement private RSA owners, then cookie and full handshake integration. |
 | `tls` | Bend protected TLS 1.3 ChaCha20-Poly1305 and AES-128-GCM records and traffic/key lifecycle pass synthetic native/Bun differential tests; AES also reproduces RFC 8448 encrypted records. Live TLS client/server still use OpenSSL C effects; JS TLS effects return `ENOSYS`. | Complete mandatory TLS algorithms, handshake/transcripts, certificates/signatures/trust/hostname checks and real client/server interop; DTLS 1.2 for RTC. |
-| `http` | Bend HTTP/1.1 client/server, routing, JSON, cookies, auth, CORS, multipart, SSE, and server WebSocket handshake/framing/session. Native echo interops with a third-party Python client and Bun's WebSocket API. A bounded local signaling fixture admits exact Host/Origin and a public synthetic cookie before upgrade/UDP allocation; native and Bun exchange SDP with real Chrome and clean up connection-owned ICE state/sockets. | Compose the verified Bend cookie/HMAC API into authenticated signaling with session/expiration/key ownership, resolve runtime review, and integrate Bend TLS for browser HTTPS/WSS. |
+| `http` | Bend HTTP/1.1 client/server, routing, JSON, cookies, auth, CORS, multipart, SSE, and server WebSocket handshake/framing/session. Native echo interops with a third-party Python client and Bun's WebSocket API. The HTTP server accepts immutable runtime handler context. The bounded signaling fixture now binds a Bend HMAC-SHA256 cookie to an exact purpose/session/issuing deadline before upgrade/UDP allocation. Its pure admission policy passes native/Bun tests; Bun live signing, denials, restart/reconnect and actual expiry/UDP cleanup pass. Earlier unsigned-cookie native/Chrome interop remains historical evidence. | Complete guarded full native/browser signed-cookie verification and package/root gates; resolve key lifecycle/runtime review and integrate Bend TLS for browser HTTPS/WSS. |
 | `rtc` | Bend STUN parsing, IPv4 XOR-MAPPED-ADDRESS, SHA-1/SHA-256/dual integrity, FINGERPRINT, authenticated incoming/outgoing ICE Binding exchanges, retained-socket retransmissions and explicit error/integrity outcomes. IPv4 candidate/pair priorities, bounded checklist formation, stable transport references and guarded state transitions, role-driven priority reordering, a paced shared-socket transaction engine with response-only interruption, protected incoming replies and server-side role decisions, FIFO triggered queues, ordinary round-robin/foundation scheduling and generation/sent-role attempt ownership. A bounded session now binds signaled credentials, registered receiving/sending bases, observed peer-reflexive candidates, deferred incoming work, retained attempts and endpoint integrity policies. Authenticated non-symmetric responses fail only their original current pair; interrupted old listeners retire independently. The live owner fixture explicitly binds unicast IPv4 bases and queries actual local ports before candidate formation. An additive valid-list owner resolves authenticated mappings, learns locally peer-reflexive candidates from retained signed-request priority, allocates IP-keyed foundations, reranks by role and keeps late paths separate from replacement flights. A nomination-evidence owner associates current successful checks with their valid paths and retains qualified incoming intent through materialization, exact triggered flights and response-only listeners; already-Succeeded counterparts resolve their actual generating record. A generation lifecycle owner now applies regular controlling/controlled nomination, selects completed stream paths, removes nominated component checks while retaining response listeners, continues authenticated Binding service, and defers failure through PAC. An outer transport owner derives selected physical consent routes, serves authenticated consent-only Binding requests, shares actual-send pacing and recent transaction identity admission, gates logical application routes, and preserves sealed consent loss. Full/full credential restart rebuilds ICE state while retaining only selected old consent/server contexts until replacement selection. Bounded SDP/signaling now binds connection-owned credentials and the actual retained UDP base; real Chrome verifies direct selected pairs, fresh consent, restart and cleanup on native and Bun. Separate unauthenticated discovery remains available. | Complete crypto/runtime foundations and secure signaling, then gathering, IPv6/TURN, DTLS/SCTP and SRTP/media. |
 
 ## Evidence ledger
+
+- 2026-10-03 (Lisbon; runtime HTTP context and Bend-signed signaling cookie):
+  The preceding instruction-only turn was no progress; this continuation changes
+  authoritative source and supplies fresh focused evidence. Added
+  `Server.serve_out_context(~C, ~handler, context, cfg)` for immutable Data
+  configuration supplied at runtime. Original documented serve APIs share this
+  accept/parse/respond path with Unit context. The effect-created context
+  fixture passes native and optimizing-JIT Bun whole responses, streaming,
+  keep-alive socket reuse, 32 concurrent clients and graceful shutdown.
+
+  `rtc/signaling_cookie.bend` owns a synthetic signing key, an exact versioned
+  purpose/session/issuing-deadline payload and trusted monotonic expiry. It uses
+  Bend HMAC-SHA256, checks Host/Origin before authentication and rejects missing
+  or duplicate Cookie fields/matching pairs, malformed/changed MACs, wrong
+  claims and raw values beyond 1,024 characters before upgrade/UDP allocation.
+  Existing cookie quote/percent decoding is retained. The live fixture mints
+  its cookie in Bend and carries the owner through the runtime server context;
+  legacy unsigned selector admission is rejected. `GROUNDS_SIGNALING_TTL_MS`
+  bounds issuer lifetime to 1–300000 ms; an upgraded connection ends at the
+  earlier of its original 45-second limit or the issuer deadline. Restart
+  never extends either deadline. The full signaling owner is stored in a
+  recursive singleton across IO continuations to reduce generated calling
+  convention width. No ICE/protocol state or existing scenario is removed.
+
+  Pinned Bend 2.0.27 native and Bun each pass 374 independent Python-HMAC
+  admission/parsing/tampering/expiry cases (0.658s / 0.617s guarded;
+  22.9 / 98.5 MiB aggregate). The final packed Bun server passes all 48 actual
+  HTTP/WS admission, malformed, restart/reconnect, connection-cap and UDP
+  cleanup scenarios (3.723s, 156.1 MiB). Actual 2500-ms cookie expiry closes
+  the admitted WebSocket, releases its UDP port, rejects expired and prior
+  issuer cookies and permits a freshly minted reconnect (2.538s measured
+  expiry; 3.793s guarded, 109.0 MiB). Native/Bun HTTP context runs take
+  0.975 / 2.202s at 26.3 / 110.2 MiB. The native policy executable's undefined
+  symbols contain no host crypto or dynamic loader; emitted policy and final
+  server JS contain no legacy-cookie/host-HMAC references. This cookie-specific
+  audit does not prove whole-native-server dependencies, timing or erasure.
+  RTC transitive cache-input checks, Python and shell syntax, and diff checks
+  pass. New focused checks are mandatory in package scripts.
+
+  All 39 terminal jobs use sequential 1024/1024-MiB sampled memory cutoffs,
+  pressure checks, nice 10 and a 120-second deadline. Compiler JIT is disabled
+  with a 128-MiB GC hint; Bun evaluators explicitly enable JIT/DFG with a
+  64-MiB hint. The final pinned JS emission passes at 834.3 MiB / 16.562s.
+  Pinned full native C emission remains above the cap: 128/64-MiB hints and the
+  packed-state version are all cut off. Astra low was consulted after the two
+  repeated C failures, the two modern binding-ABI failures, repeated Clang
+  failures, browser startup failures and the repeated whole-gate deadline.
+  A shared runtime-handler hypothesis is rejected by a tiny type-check probe
+  (functions are Type rather than duplicable Data), without rewriting the API.
+  A non-tail Base Nat.min overflow in the initial live fixture is fixed by
+  comparing and retaining the earlier clock; final live/expiry tests pass.
+
+  Isolated official Bend 2.0.34 uses the previously recorded custom-effect ABI
+  draft and explicit wildcard bind arguments, including two transitive UDP
+  helpers. Primary pin/protocol modules are not upgraded. Its packed C emission
+  passes at 906.4 MiB / 50.675s. Compared with the unpacked isolated C, shared
+  WL_SIG shrinks from 252 to 229 parameters and output from 16,233,291 to
+  14,682,028 bytes. Clang still exceeds the 1-GiB cap, including an O1 trial
+  before packing and O3 after packing; no full native signaling success is
+  claimed. The emitted calling convention and large flattened pure/IO state
+  remain a concrete compiler/resource problem, not a closed runtime audit.
+
+  Real Chrome 154.0.8037.93 verification is incomplete. Default startup exceeds
+  the aggregate cutoff (1192.3 MiB sampled overshoot). A diagnostic single-
+  process profile stays at 836.0 MiB but Chrome SIGSEGVs before Page.navigate;
+  its zero completed rounds do not constitute a protocol test. Astra's ordinary
+  multiprocess profile preserves sandbox/Origin/site isolation and reduces
+  optional background work, but still hits the cap (1083.8 MiB). No Origin or
+  protocol check is relaxed. Diagnostic Chrome arguments are explicitly recorded
+  via optional GROUNDS_CHROME_FLAGS. Sampled cutoffs can overshoot; they are
+  not kernel-enforced quotas. None of these browser jobs is passing acceptance.
+
+  Required `PYTHONDONTWRITEBYTECODE=1 moon --concurrency 1 run
+  http_server:check rtc:check --force` times out at 120.011s / 775.7 MiB after
+  HTTP context, hello/probes/timeouts/ab, middleware, streaming/shutdown,
+  existing OpenSSL TLS/proxy, auth and CORS evidence. Remaining WebSocket,
+  multipart/cold and RTC stages are incomplete. Required
+  `PYTHONDONTWRITEBYTECODE=1 moon --concurrency 1 run :check` times out at
+  120.013s / 451.0 MiB during native crypto adapter compilation through
+  x509_key_cli. Neither command is a passing package/repository gate. Exact
+  PATH/wrappers, commands, source/generated hashes, failures and raw logs are
+  retained under
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-03/signed-signaling-cookie/`.
+
+  Next: implement an enumerated phase supervisor that monitors Moon and all
+  descendants under the existing 1-GiB aggregate/pressure limits, accepts each
+  expected phase exactly once with its own 120-second deadline and rejects
+  overlaps/missing/failed phases. Preserve all check bodies, shared temporary
+  outputs, cache/input identity and cleanup; stop/wait for fixture servers when
+  their phases finish. Test supervisor invariants before migrating HTTP,
+  crypto and RTC gates. Continue reducing the full native calling convention
+  and establishing a bounded normal Chrome run. Production key issuance,
+  rotation/revocation, generated-runtime timing/erasure, Bend HTTPS/WSS and all
+  TLS/DTLS/data/media/direct/relay contract requirements remain open. Every one
+  of the 19 full-stack acceptance boxes stays unchecked and the goal active.
 
 - 2026-10-03 (Lisbon; explicit Bend HTTP cookie signing and verification):
   Added `http/core/cookie_bend.bend` with IO `sign`/`verify` result shapes

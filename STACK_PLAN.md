@@ -22,6 +22,8 @@ execution order and final acceptance gates.
   2026-10-03 RAM instruction sets the current aggregate/process limit to
   1 GiB (1024 MiB), replacing the previous 128/384 MiB limits. Retain the
   pressure check and current 120-second per-job timeout.
+- After two failed attempts on the same bug, consult an Astra subagent at low
+  reasoning effort before another attempt, as requested on 2026-10-03.
 - Check current RFCs and verified errata before implementation. Document supported
   protocol versions, cipher suites, codecs, optional features and limitations;
   do not label an unsupported feature as passing or omit a required gate.

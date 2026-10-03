@@ -72,8 +72,8 @@ closed with `EPERM` when reading its memory. This does not justify ignoring
 memory-read errors for live processes. The 13 self-tests passed on 2026-10-02;
 the failed nested attempts are retained in the extension resource investigation.
 
-Evaluators use smaller explicit budgets: 128 MiB aggregate / 96 MiB per
-process, with a 120-second deadline and nice 10. Keep the
+Evaluators use the current 1 GiB aggregate/process cap, a 120-second deadline
+and nice 10. Historical reports retain their older explicit budgets. Keep the
 full package/repository gates pending when these budgets or system pressure
 prevent verification. Do not present a different Bun JIT configuration as
 default optimizing-JIT acceptance; record the actual runtime flags and failed
