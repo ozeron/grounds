@@ -14,6 +14,66 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 
 ## Evidence ledger
 
+- 2026-10-03 (Lisbon; certificate critical-extension processing):
+  The previous goal turn made progress with committed constraint decoders and
+  complete Bun ECDSA section evidence. x509_extension_policy.bend now admits
+  actual certificate extension fields through the existing strict envelope/OID/
+  duplicate decoder, processes basic constraints and key usage regardless of
+  criticality, and applies their local consistency policy. Its registry uses
+  exact OID contents; longer prefixes cannot masquerade as recognized IDs.
+  Unsupported critical entries reject the result. Other noncritical entries
+  retain exact OID/payload bytes and their original order for later identity and
+  purpose owners. Recognized payload bytes and criticality flags also survive.
+  Absent extensions are distinct from malformed or empty present sequences.
+  This is a partial processing result, not a certificate or peer authorization.
+  EKU, SAN, identifiers, Name constraints, policy and remaining required handlers,
+  issuer criticality, key/purpose profiles, Name/hostname, time, chain/trust and
+  revocation composition remain open. No live TLS path consumes this result.
+
+  Final independent native and optimizing-JIT Bun runs using isolated official
+  Bend 2.0.34 each pass an identical 19,515-case corpus. It includes every
+  recognized payload regression in both criticality forms, 8,176 bit/criticality/
+  order/policy combinations, malformed and duplicate envelopes, exact input
+  boundaries, deferred-field order, certificate-version extraction and every
+  truncation of a complete fixture. Four existing signed-invalid certificates
+  pass the unchanged Bend mathematical verifier but fail extension policy due
+  to unsupported critical entries. Four controls changing only those critical
+  flags pass extension processing and fail Bend signature verification; the
+  policy and signature obligations remain distinct. The final combined runs
+  take 27.335s and peak at 108.2 MiB aggregate / 81.1 MiB individual, under the
+  unchanged 128/96 MiB evaluator limits and 64 MiB RAM hint, JIT/DFG enabled.
+  Modern build passes at 223.7 MiB aggregate / 219.7 MiB individual / 18.349s.
+  Both versions pass frontend checks and five closed declarations (272.4 MiB
+  aggregate / 4.276s); no kernel verdict is claimed.
+
+  Pinned 2.0.27 native emission cuts off at 320.4 MiB individual / 7.586s.
+  A smaller 64 MiB compiler RAM hint still cuts off at 320.2 MiB / 7.491s.
+  Separate JS emission also cuts off at 321.0 MiB / 3.762s. These are incomplete
+  pinned builds, not passing runtime evidence; the compiler pin remains intact.
+  Required primary `moon --concurrency 1 run crypto:check --force` reaches
+  aggregate cutoff at 391.2 MiB / 307.0 MiB individual / 25.135s. Milestone
+  `moon --concurrency 1 run :check` cuts off during crypto frontend checks at
+  384.5 MiB / 310.4 MiB individual / 24.386s. Both have terminal reports and
+  normal pressure. Sampled overshoot is retained; no memory/time cutoff changes.
+  The first source-evidence capture also hits the small evaluator cutoff while
+  hashing binaries in memory (107.8 MiB / 0.339s). Streaming SHA-256 capture
+  resolves that artifact-only allocation, passing at 23.7 MiB / 0.391s.
+  All 149 previous check commands remain in order; five additions make 154.
+  Preexisting crypto/IO/math/vector sources and all 981 prior isolated inputs
+  remain unchanged. New inputs freeze 157 primary and 985 isolated files, with
+  four identical new sources. Used mathematical verifier binaries and compiler/
+  Base/Bun/Moon identities match the earlier frozen evidence.
+  RFC 5280 section 4.2 was refreshed; both official verified-errata forms return
+  Internal Error, so no correction is inferred. Artifacts:
+  /Users/ozeron/.codex/artifacts/grounds/2026-10-03/extension-policy/, including
+  evidence.json, source-snapshot/, primary-inputs.json, modern-inputs.json, final
+  native/Bun reports/targets and scripts. Unique extension-policy-* guard command,
+  log and resource files remain in the compiler-compatibility validation directory.
+  Next: implement EKU purpose admission/intersection and extend the registry,
+  then SAN/hostname and Name/chain/trust composition. Continue compiler/package
+  resource integration and the outstanding optimizing-JIT JSON/extension gates.
+  All 19 full-stack acceptance boxes remain open; the goal remains active.
+
 - 2026-10-03 (Lisbon; Bun crypto completion by sections and constraint payloads):
   The resumed inventory finishes all 25 remaining original Bun commands with
   optimizing JIT/DFG enabled, unchanged 128/96 MiB limits and 120-second jobs.

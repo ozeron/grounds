@@ -34,6 +34,7 @@ Pure Bend cryptographic primitives. This package implements SHA-1, SHA-256, HMAC
 | `x509_validity.bend` | `decode_time(bytes)`, `decode(bytes)`, `valid_at(bytes, now)` | Strict civil UTC calendar/interval admission and inclusive validity bounds; caller supplies trusted time |
 | `x509_extensions.bend` | `decode(bytes)`, `optional(bytes)` | Exact extension envelopes, canonical OIDs/critical flags and collision-safe duplicate rejection; opaque payloads |
 | `x509_constraints.bend` | `basic(bytes)`, `usage(bytes)`, `path_allows(limit,count)`, `policy(basic,usage)` | Basic-constraints/key-usage payload admission and local consistency; arbitrary-size path limits retained |
+| `x509_extension_policy.bend` | `decode(bytes)`, `optional(bytes)`, `certificate(bytes)` | Process basic constraints/key usage, reject unsupported critical extensions, retain other noncritical entries for later owners |
 | `x509_signature.bend` | `verify_signature(issuer_spki, certificate)` | Mathematical issuer-signature verification using admitted key restrictions and original signed bytes; no trust decision |
 
 Byte input and output use `List<U32>` with values 0–255. The public calls return `None{}` for an out-of-range byte; `expand` also rejects a PRK other than 32 bytes or a requested length over 8160 bytes. SHA-1 and HMAC-SHA1 return 20 bytes; SHA-256 and HMAC-SHA256 return 32 bytes. The hex helpers are for diagnostics and tests; protocols should use raw bytes.
@@ -504,3 +505,41 @@ frontend; no kernel `--verdict` claim follows. The four runtime runs together
 peak at 78.1 MiB aggregate / 49.6 MiB individual under the unchanged guard.
 Sources, generated targets, commands and reports are retained under
 `/Users/ozeron/.codex/artifacts/grounds/2026-10-03/constraints/`.
+
+`x509_extension_policy` connects complete extension-envelope admission to the
+constraint payload decoders. Its current exact-OID registry recognizes basic
+constraints (2.5.29.19) and key usage (2.5.29.15). Recognized payloads must decode
+and pass consistency checks regardless of criticality. Unsupported critical
+entries fail closed; other noncritical entries survive in original order with
+their exact OID and payload bytes. Duplicate OIDs and malformed envelopes fail
+before dispatch. `certificate` uses the certificate's actual extension field;
+an absent field is distinct from a malformed or empty present sequence.
+The result retains recognized payloads and criticality flags as well as the
+deferred entries, so later owners can process identity/purpose restrictions.
+This follows [RFC 5280 section 4.2](https://www.rfc-editor.org/rfc/rfc5280.html#section-4.2).
+Both official verified-errata forms returned Internal Error on 2026-10-03.
+
+This is a partial extension-processing result, never certificate authorization.
+SAN, EKU, key identifiers, Name constraints, policies and the other required
+handlers remain to be implemented; unsupported critical forms are rejected
+until their handlers exist. Deferred noncritical entries are not a permission
+to omit a recognized handler in the eventual full validator. Issuer criticality,
+key/algorithm/purpose profiles, Name matching, hostname, trust, revocation,
+trusted time and chain validation remain required. None of the TLS paths uses
+this partial result to authorize a peer.
+
+Native and optimizing-JIT Bun with isolated official Bend 2.0.34 each pass
+19,515 independent cases, including both criticality forms of every recognized
+payload regression, order/duplicate/malformed cases, unsupported critical and
+deferred noncritical fields, exact input bounds and complete certificate field
+extraction. Four existing signed-invalid certificates still pass Bend signature
+math and now fail this policy due to their unsupported critical extension.
+Changing only the unsupported critical flags admits their extension metadata;
+those four modified certificates fail Bend signature verification, keeping the
+extension-processing and signature obligations separate.
+Pinned Bend 2.0.27 passes the frontend and five closed declarations, but both
+native emission and separate JS emission reach the unchanged 320 MiB individual
+cutoff. A smaller 64 MiB compiler RAM hint does not resolve native emission;
+no cutoff is raised. No pinned runtime or kernel-verdict pass is claimed.
+Artifacts live under
+`/Users/ozeron/.codex/artifacts/grounds/2026-10-03/extension-policy/`.
