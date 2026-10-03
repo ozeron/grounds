@@ -14,6 +14,49 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 
 ## Evidence ledger
 
+- 2026-10-03 (Lisbon; bounded JSON follow-up and traffic-owner test fix):
+  Two JSON experiments are rejected and archived: private per-mode fast-parser
+  dispatch still exceeds Bun's individual cutoff, and streaming fixture scoring
+  still cuts off at 115.3 MiB / 0.417s. The native-passing JSON candidate is
+  restored exactly. Verification covers all 972 expected source/generated
+  inputs; only the separate crypto type-checker fix below differs. The original
+  114-file compatibility-json.patch and native gate freeze remain unchanged.
+  A diagnostic reaches original case 33, i_structure_500_nested_arrays.json.
+  Phase markers show fast pretty construction completes before the reference
+  pretty construction cuts off at 116.8 MiB / 0.410s under the 64 MiB RAM hint.
+  Reading the fast output first changes the last completed phase but still cuts
+  off. Official comp.ts lines 345-354 represent String with native JS strings,
+  concatenation and codepoint-aware slices; per-character SCon heap objects are
+  not inferred for Bun. These markers do not establish the precise string/JIT
+  allocation cause. Unchanged full-suite runs with 8 and 4 MiB RAM hints also
+  cut off, at 102.1 MiB / 0.205s and 99.6 MiB / 0.156s respectively. Optimizing
+  JIT remains enabled and no memory/time cutoff is increased. No experimental
+  parser or fixture-loop change is retained; full Bun conformance stays open.
+  Fresh isolated `moon --concurrency 1 run crypto:check --force` identifies an
+  import failure in traffic_type_check.py before its intended ownership test:
+  a system temporary fixture imports through the hidden .codex artifact path,
+  which Bend 2.0.34 rejects. Module-local temporary fixtures now import
+  ../traffic.bend. Both original copy probes and the direction-confusion probe
+  remain unchanged; two positive retirement controls prevent a general compiler
+  failure from masquerading as successful negative tests. All five probes pass
+  on isolated Bend 2.0.34 (92.8 MiB aggregate / 1.750s), isolated pinned 2.0.27
+  (69.7 MiB / 2.042s), and the primary pinned-compiler sources (69.1 MiB / 2.135s).
+  A full isolated retry passes the frontend/ownership checks and reaches native
+  X25519 compilation, then the unchanged guard timeout stops it at 120.007s:
+  322.8 MiB aggregate / 238.8 MiB individual, normal pressure. This is an
+  incomplete gate, not crypto package acceptance or mathematical validity.
+  Durable evidence lives in
+  /Users/ozeron/.codex/artifacts/grounds/2026-10-02/compiler-compatibility/validation/:
+  json-resource-followup-evidence.json, json-followup-source-evidence-resource.json,
+  crypto-traffic-owner-positive-controls-resource.json,
+  crypto-traffic-owner-primary-pinned-resource.json, and
+  crypto-forced-local-owner-imports-command.json/-resource.json/.log.
+  traffic-owner-inputs.json freezes the isolated derivative candidate at the
+  parent artifact root. Next: preserve every crypto command in bounded build
+  and evaluation stages, then complete fresh native/Bun package verification.
+  JSON Bun memory diagnosis, remaining package/root gates, compiler adoption and
+  all 19 full-stack acceptance boxes remain open. The full goal stays active.
+
 - 2026-10-03 (Lisbon; full isolated native JSON gate passes):
   The interrupted run is terminal, not restarted: its guard records aggregate
   cutoff at 388.8 MiB / 35.163s, with no surviving owned jobs. The goal runtime

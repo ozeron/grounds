@@ -249,6 +249,10 @@ Python test launcher only selects and executes the matching Bend fixture;
 cryptography and lifecycle transitions remain in Bend. Shared formatting and
 synthetic boundary injection live in `traffic_fixture_support.bend`. The
 combined `traffic_cli.bend` remains available, with its original interface.
+`traffic_type_check.py` accepts valid read/write owner retirement and rejects
+copies of either affine owner and read/write direction confusion. Temporary
+fixtures use a module-local import, so compiler import restrictions cannot
+replace the intended ownership diagnostic.
 [RFC 9846](https://www.rfc-editor.org/info/rfc9846/) (July 2026) supersedes
 RFC 8446; sections 4.7.3, 5.3/5.5 and 7.1–7.3 and
 [its errata](https://www.rfc-editor.org/errata/rfc9846) were reviewed on
