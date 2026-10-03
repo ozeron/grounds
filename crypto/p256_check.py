@@ -1,5 +1,6 @@
 """P-256 SEC1/ECDH vectors, independent affine arithmetic and OpenSSL peers."""
 from pathlib import Path
+import argparse
 import json
 import random
 import subprocess
@@ -74,7 +75,18 @@ def openssl_shared(private, peer, private_path, peer_path):
 
 
 def main():
-    binary = sys.argv[1:]
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--phase-prefix', help='Declare each existing 16-case batch as a guarded resource phase')
+    parser.add_argument('binary', nargs=argparse.REMAINDER)
+    arguments = parser.parse_args()
+    binary = arguments.binary
+    if binary[:1] == ['--']:
+        binary = binary[1:]
+    if not binary:
+        parser.error('An evaluator command is required')
+    if arguments.phase_prefix:
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'tools'))
+        from check_phase import announce
     rng = random.Random(0x256EC)
     start = time.monotonic()
     counts = {}
@@ -167,6 +179,9 @@ def main():
 
         # Small batches bound CLI arguments and report the exact failing case.
         for start_index in range(0, len(cases), 16):
+            phase = f'{arguments.phase_prefix}/batch-{start_index // 16:02d}'
+            if arguments.phase_prefix:
+                announce(['start', phase])
             batch = cases[start_index:start_index+16]
             args = []
             for index, (_, op, inputs, _) in enumerate(batch):
@@ -182,6 +197,8 @@ def main():
             for index, ((group, op, _, output), line) in enumerate(zip(batch, lines)):
                 assert line == output, (start_index+index, group, op, line, output)
             print(f'P-256: {start_index+len(batch)}/{len(cases)} cases passed', flush=True)
+            if arguments.phase_prefix:
+                announce(['end', phase, '0'])
     print(f'P-256: {len(cases)} NIST/affine/scaled/infinity/order/canonical/malformed/OpenSSL cases passed in {time.monotonic()-start:.3f}s; {counts}')
 
 

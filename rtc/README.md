@@ -11,6 +11,17 @@ checks cover transitive additions, nested glob scope and unused primitives.
 All existing native/Bun/browser protocol checks remain in `check.sh`; this
 input change does not remove a verification scenario.
 
+`check_phases.json` declares all 160 existing preflight, frontend, native/Bun
+build/admission/packet/lifecycle and browser commands. The original commands
+and arguments remain in order, sharing one temporary directory. Use
+`tools/build_guard.py --phases rtc/check_phases.json` around Moon for one
+aggregate 1 GiB process-tree monitor and a 120-second deadline per declared
+phase; startup, transitions and cleanup have ten-second idle bounds. Missing
+or failed phases reject the run. The existing absent-Bun/Chrome branches now
+record each affected optional phase explicitly. An installed browser that
+fails still fails its phase. The manifest and helper are Moon cache inputs;
+current acceptance results and compiler/browser limits remain in the ledger.
+
 The local signaling evaluator is in `examples/signaling_server.bend`. It checks
 an exact Host and Origin and one Bend HMAC-SHA256 signed synthetic session cookie before the WebSocket
 upgrade or UDP allocation. Each upgraded connection owns one retained IPv4 UDP

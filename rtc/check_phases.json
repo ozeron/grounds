@@ -1,0 +1,645 @@
+{
+  "version": 1,
+  "phases": [
+    {
+      "name": "rtc/preflight/check_inputs",
+      "optional": false
+    },
+    {
+      "name": "rtc/preflight/check_inputs_test",
+      "optional": false
+    },
+    {
+      "name": "rtc/frontend/test",
+      "optional": false
+    },
+    {
+      "name": "rtc/frontend/integrity_test",
+      "optional": false
+    },
+    {
+      "name": "rtc/frontend/fingerprint_test",
+      "optional": false
+    },
+    {
+      "name": "rtc/frontend/sign_test",
+      "optional": false
+    },
+    {
+      "name": "rtc/frontend/sha256_test",
+      "optional": false
+    },
+    {
+      "name": "rtc/frontend/ice_test",
+      "optional": false
+    },
+    {
+      "name": "rtc/frontend/retry_test",
+      "optional": false
+    },
+    {
+      "name": "rtc/frontend/ice_incoming",
+      "optional": false
+    },
+    {
+      "name": "rtc/frontend/ice_pairs",
+      "optional": false
+    },
+    {
+      "name": "rtc/frontend/ice_scheduler",
+      "optional": false
+    },
+    {
+      "name": "rtc/frontend/ice_attempts",
+      "optional": false
+    },
+    {
+      "name": "rtc/frontend/ice_registry",
+      "optional": false
+    },
+    {
+      "name": "rtc/frontend/ice_session",
+      "optional": false
+    },
+    {
+      "name": "rtc/frontend/ice_valid",
+      "optional": false
+    },
+    {
+      "name": "rtc/frontend/ice_nomination",
+      "optional": false
+    },
+    {
+      "name": "rtc/frontend/ice_agent",
+      "optional": false
+    },
+    {
+      "name": "rtc/frontend/ice_consent",
+      "optional": false
+    },
+    {
+      "name": "rtc/frontend/ice_consent_server",
+      "optional": false
+    },
+    {
+      "name": "rtc/frontend/ice_transport",
+      "optional": false
+    },
+    {
+      "name": "rtc/frontend/sdp",
+      "optional": false
+    },
+    {
+      "name": "rtc/frontend/signaling",
+      "optional": false
+    },
+    {
+      "name": "rtc/frontend/signaling_auth",
+      "optional": false
+    },
+    {
+      "name": "rtc/frontend/signaling_cookie",
+      "optional": false
+    },
+    {
+      "name": "rtc/frontend/signaling_test",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/build/signaling_cookie",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/check/signaling_cookie_check",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/build/sdp",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/check/sdp_check",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/build/signaling_server",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/check/signaling_server_check",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/check/signaling_cookie_expiry_check",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/build/auth",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/check/auth_check",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/build/ice_build",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/check/ice_build_check",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/build/ice_exchange",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/check/ice_exchange_check",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/build/retry_schedule",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/check/retry_schedule_check",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/build/ice_retry",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/check/ice_retry_check",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/build/ice_model",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/check/ice_model_check",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/build/ice_pairs",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/check/ice_pairs_check",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/build/ice_scheduler",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/check/ice_scheduler_check",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/build/ice_session",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/check/ice_session_check",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/build/ice_valid",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/check/ice_valid_check",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/check/ice_nomination_request_check",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/build/ice_nomination_evidence",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/check/ice_nomination_evidence_check",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/build/ice_agent",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/check/ice_agent_check",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/build/ice_consent",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/check/ice_consent_check",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/build/ice_transport",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/check/ice_transport_check",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/build/ice_consent_udp",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/check/ice_consent_udp_check",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/build/ice_transport_udp",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/check/ice_transport_udp_check",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/build/ice_agent_udp",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/check/ice_agent_udp_check",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/build/ice_nomination_udp",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/check/ice_nomination_udp_check",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/build/ice_session_udp",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/check/ice_session_udp_check",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/check/ice_valid_udp_check",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/build/ice_clock",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/check/ice_clock_check",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/build/ice_shared",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/check/ice_shared_check",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/build/ice_accept",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/check/ice_accept_check",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/build/ice_duplex",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/check/ice_duplex_check",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/build/binding",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/check/binding_check",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/build/stress",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/check/stress",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/build/integrity",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/check/integrity",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/build/fingerprint",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/check/fingerprint",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/build/sign",
+      "optional": false
+    },
+    {
+      "name": "rtc/native/check/sign",
+      "optional": false
+    },
+    {
+      "name": "rtc/bun/build/signaling_cookie",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/check/signaling_cookie_check",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/build/sdp",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/check/sdp_check",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/build/signaling_server",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/check/signaling_server_check",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/check/signaling_cookie_expiry_check",
+      "optional": true
+    },
+    {
+      "name": "rtc/browser/native_live",
+      "optional": true
+    },
+    {
+      "name": "rtc/browser/native_packets",
+      "optional": true
+    },
+    {
+      "name": "rtc/browser/bun_live",
+      "optional": true
+    },
+    {
+      "name": "rtc/browser/bun_packets",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/build/auth",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/check/auth_check",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/build/ice_build",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/check/ice_build_check",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/build/ice_exchange",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/check/ice_exchange_check",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/build/retry_schedule",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/check/retry_schedule_check",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/build/ice_retry",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/check/ice_retry_check",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/build/ice_model",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/check/ice_model_check",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/build/ice_pairs",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/check/ice_pairs_check",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/build/ice_scheduler",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/check/ice_scheduler_check",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/build/ice_session",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/check/ice_session_check",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/build/ice_valid",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/check/ice_valid_check",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/check/ice_nomination_request_check",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/build/ice_nomination_evidence",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/check/ice_nomination_evidence_check",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/build/ice_agent",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/check/ice_agent_check",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/build/ice_consent",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/check/ice_consent_check",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/build/ice_transport",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/check/ice_transport_check",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/build/ice_consent_udp",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/check/ice_consent_udp_check",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/build/ice_transport_udp",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/check/ice_transport_udp_check",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/build/ice_agent_udp",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/check/ice_agent_udp_check",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/build/ice_nomination_udp",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/check/ice_nomination_udp_check",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/build/ice_session_udp",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/check/ice_session_udp_check",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/check/ice_valid_udp_check",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/build/ice_clock",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/check/ice_clock_check",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/build/ice_shared",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/check/ice_shared_check",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/build/ice_accept",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/check/ice_accept_check",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/build/ice_duplex",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/check/ice_duplex_check",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/build/binding",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/check/binding_check",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/build/stress",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/check/stress",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/build/integrity",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/check/integrity",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/build/fingerprint",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/check/fingerprint",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/build/sign",
+      "optional": true
+    },
+    {
+      "name": "rtc/bun/check/sign",
+      "optional": true
+    }
+  ]
+}

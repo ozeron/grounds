@@ -99,8 +99,11 @@ The HTTP script preserves all check bodies and arguments, shares its temporary
 outputs and stops/waits for each fixture before ending that phase. Its manifest
 and announcement helper are Moon cache inputs. A full fresh run must finish the
 entire declared sequence; passing a subset does not satisfy the package gate.
-Crypto/RTC and a combined root manifest are not yet migrated. Historical failed
-nested runs and the latest actual check results are in `STACK_PROGRESS.md`.
+Crypto and RTC also declare their complete existing check sequences. Crypto's
+long Bun P-256/ECDSA oracles announce the existing batches individually without
+reducing their corpora. A combined root manifest is not yet implemented.
+Migration alone does not complete a package gate: historical failed runs and
+the latest actual check results are in `STACK_PROGRESS.md`.
 
 Evaluators use the current 1 GiB aggregate/process cap, a 120-second deadline
 and nice 10. Historical reports retain their older explicit budgets. Keep the

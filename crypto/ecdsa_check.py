@@ -93,14 +93,23 @@ def reference_verify(peer, digest, signature):
 
 
 class Evaluator:
-    def __init__(self, binary, root):
+    def __init__(self, binary, root, phase_prefix=None):
         self.binary = binary
         self.root = root
         self.counts = Counter()
+        self.phase_prefix = phase_prefix
+        self.batch_index = 0
+        if phase_prefix:
+            sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
+            from check_phase import announce
+            self.announce = announce
 
     def run(self, cases):
         outputs = []
         for offset in range(0, len(cases), 4):
+            phase = f"{self.phase_prefix}/batch-{self.batch_index:03d}"
+            if self.phase_prefix:
+                self.announce(["start", phase])
             portion = cases[offset:offset+4]
             args = []
             for i, (group, operation, inputs, expected) in enumerate(portion):
@@ -118,6 +127,9 @@ class Evaluator:
                 raise AssertionError((offset, [c[:2] for c in portion], actual, expected))
             outputs.extend(actual)
             self.counts.update(case[0] for case in portion)
+            if self.phase_prefix:
+                self.announce(["end", phase, "0"])
+            self.batch_index += 1
         return outputs
 
 
@@ -294,6 +306,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--section", choices=["all", "vectors", "signing", "tampering", "rejection", "interop"], default="all")
     parser.add_argument("--report", type=Path)
+    parser.add_argument("--phase-prefix", help="Declare each existing four-case batch as a guarded resource phase")
     parser.add_argument("binary", nargs=argparse.REMAINDER)
     args = parser.parse_args()
     binary = args.binary[1:] if args.binary[:1] == ["--"] else args.binary
@@ -302,7 +315,7 @@ def main():
     start = time.monotonic()
     vectors = json.loads(Path(__file__).with_name("ecdsa_vectors.json").read_text())
     with tempfile.TemporaryDirectory(prefix="grounds-ecdsa-") as directory:
-        evaluator = Evaluator(binary, Path(directory))
+        evaluator = Evaluator(binary, Path(directory), args.phase_prefix)
         factories = {"vectors": lambda: published(vectors), "signing": differential,
                      "tampering": invalid_cases, "rejection": lambda: rejection_cases(vectors)}
         for section, factory in factories.items():

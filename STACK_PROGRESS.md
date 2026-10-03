@@ -14,6 +14,80 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 
 ## Evidence ledger
 
+- 2026-10-03 (Lisbon; complete check sequences and preserved crypto batches):
+  This continuation declares every original crypto and RTC command as an
+  ordered resource phase under the existing supervisor. Crypto retains all
+  217 commands, including native long/iterated checks, environment overrides,
+  redirects and complete corpora. RTC retains all 160 preflight, frontend,
+  native/Bun packet/lifecycle and browser commands. Shared temporary outputs
+  and failure/cleanup behavior remain. Manifests and the announcement helper
+  are explicit Moon cache inputs. Absent Bun/Chrome branches record individual
+  optional skips; an installed evaluator/browser failure remains a failure.
+  A saved comparison proves all original command arguments and order, with
+  only the two crypto oracle phase-reporting flags added.
+
+  Fresh forced crypto execution of the initial 217-phase sequence passes all
+  126 mandatory native phases, all 46 Bun emissions and the first thirteen
+  Bun oracles. The Bun P-256 oracle then exceeds its whole-phase 120-second
+  deadline after 16/609 cases. The guard stops it at 843.693s overall,
+  647.5 MiB aggregate / 557.6 MiB individual. This is a failed package gate;
+  the full initial manifest and all 185 passed phases remain in the report.
+  Earlier evidence already recorded the complete Bun P-256 suite taking
+  952.617s and the ECDSA suite exceeding a whole-job deadline.
+
+  P-256 now optionally announces its existing 39 sixteen-case batches;
+  ECDSA similarly announces its existing 100 four-case batches across the
+  vectors/signing/tampering/rejection/OpenSSL sections. Case generation,
+  independent oracles, operation order and assertions are unchanged; no
+  corpus is shortened. The complete crypto manifest consequently has 354
+  phases: 126 mandatory and 228 optional Bun phases. Default native CLI
+  invocations still work. One outer guard retains the 1024/1024-MiB sampled
+  caps, pressure checks and lock across every batch; each declared phase
+  retains 120s and startup/transitions/cleanup retain ten-second idle bounds.
+
+  Fresh focused P-256 native passes all 609 cases in 4.246s guarded / 25.2 MiB.
+  Fresh focused Bun passes all 609 in 876.278s guarded / 876.199s oracle,
+  87.2 MiB aggregate / 67.4 MiB individual. All 39 phases pass without skips;
+  the longest is 77.103s. Fresh ECDSA native passes all 384 cases and all 100
+  batch boundaries in 17.276s guarded / 47.5 MiB; its longest batch is 0.998s.
+  This native diagnostic deliberately uses the Bun batch names to validate
+  their declared sequence; its command and case report identify native
+  executables. It provides no fresh Bun ECDSA acceptance. Emitted programs
+  from the forced run are preserved with hashes; arithmetic sources are
+  unchanged. Shell syntax, source/corpus preservation and diff checks pass.
+
+  Required ordinary `PYTHONDONTWRITEBYTECODE=1 moon --concurrency 1 run :check`
+  is stopped by system memory pressure at 57.877s, 443.3 MiB aggregate /
+  358.3 MiB individual, during native crypto compilation through chacha_cli.
+  The pressure state is warning; no further heavy job is launched while it
+  remains warning. This is not a repository pass or a compiler diagnosis.
+  A fresh full 354-phase crypto gate, Bun ECDSA and the full RTC migration
+  gate remain pending. No signed-cookie native/browser acceptance is added.
+
+  The user's escalation rule remains: after two failed attempts on the same
+  bug, consult Astra low before another attempt. The native signed signaling
+  C-emission/Clang memory blocker has prior repeated failures, so Astra low is
+  consulted again before re-entering that build through the RTC gate. Its
+  generated-C inspection identifies the flattened T.State retained by shared
+  ice_transport_effects continuations as the next resource target. Suggested
+  next change: retain the complete transport owner in a recursive singleton,
+  pack before event/output IO, and calculate begin_due admission in a pure
+  helper without holding unpacked state across IO. This advice is not yet
+  implemented or validated; it does not justify another unchanged full run.
+
+  Exact commands, source/compiled-input hashes, original command inventories,
+  comparison proof, terminal guard reports and raw logs are retained under
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-03/crypto-phases/`.
+  The primary compiler remains Bend 2.0.27; Bun is actually 1.3.13 despite
+  its SDK-directory label. Compiler JIT is disabled with a 128-MiB GC hint;
+  Bun evaluators enable optimizing JIT/DFG with a 64-MiB hint or their original
+  smaller explicit hints. These are recorded invocation settings, not quotas.
+  Next: when system pressure permits, complete fresh crypto/RTC verification
+  and the focused native transport packing diagnostic, retaining both targets
+  and the full browser/native/direct/relay/media scope. Compose the root
+  supervisor without claiming cached/subset checks as final acceptance. All
+  nineteen full-stack acceptance boxes remain open; the goal stays active.
+
 - 2026-10-03 (Lisbon; complete HTTP gate under enumerated resource phases):
   The previous turn made progress by committing and freezing the runtime-context
   and signed-cookie milestone at `01b09ed`. This continuation replaces the

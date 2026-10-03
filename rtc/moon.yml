@@ -13,6 +13,8 @@ tasks:
     command: "./check.sh"
     inputs:
       - "check.sh"
+      - "check_phases.json"
+      - "/tools/check_phase.py"
       - "check_inputs.py"
       - "check_inputs_test.py"
       - "*.bend"
