@@ -39,6 +39,7 @@ Pure Bend cryptographic primitives. This package implements SHA-1, SHA-256, HMAC
 | `x509_hostname.bend` | `frame(bytes)`, `san(bytes,kind,reference)`, `extensions(bytes,kind,reference)`, `certificate(bytes,kind,reference)` | Actual SAN-field DNS/IP identity matching without CN fallback; framing preserves other forms for pending schema/profile processing |
 | `x509_san.bend` | `inspect(bytes)`, `permits(result,critical)`, `subject(subject,extensions)`, `certificate(bytes)` | Selected DNS/IP SAN admission and empty-subject critical-SAN binding; other name forms remain deferred |
 | `unicode32_profile.bend` | `tables()`, `flags(state,code)`, `map_code(code)` | Full Unicode 3.2 RFC 4518 literal mapping/prohibition/combining-mark properties; preserves table ownership; case folding/NFKC and complete preparation remain pending |
+| `unicode32_fold.bend` | `tables()`, `code(state,code)`, `map_code(state,code)`, `string(state,codes,mapping)` | Exact Unicode 3.2 RFC 3454 B.2 case folding and RFC 4518 literal mapping before folding; NFKC/full preparation remain pending |
 | `x509_name_schema.bend` | `inspect(bytes,allow_empty)`, `pair(issuer,subject)` | Shared RDN/attribute/string syntax checks without retaining a Name collection |
 | `x509_name.bend` | `decode(bytes)`, `inspect(bytes,allow_empty)`, `pair(issuer,subject)` | RDN/attribute framing, DER SET ordering and selected typed attribute syntax; preserve original attributes and defer unknown types/Teletex |
 | `x509_name_certificate.bend` | `certificate(bytes)` | Inspect actual issuer/subject fields; an issuer must be nonempty |
@@ -807,3 +808,42 @@ RDN/Name equality/subtree matching remain required. This property module is
 not yet composed into Name or certificate authorization. Fresh forced crypto
 and root gates still stop before package completion at unchanged aggregate
 cutoffs, 387.8 / 397.9 MiB; neither is package/repository acceptance.
+
+`unicode32_fold` implements all 1,371 published
+[RFC 3454 B.2 mappings](https://www.rfc-editor.org/rfc/rfc3454.html#appendix-B.2)
+with retained affine tables and a bounded sorted-key lookup. `code` folds one
+valid scalar, preserving its identity when absent from B.2; `map_code` first
+applies RFC 4518 literal deletion/SPACE mapping. `string` performs either mode
+on a scalar list, preserves expansion order, and returns `Invalid` for any
+non-scalar input. Legitimate deletion is `Folded{[]}`. The shared
+`unicode32_lookup` operates on trusted generated sorted key/value rows. No
+host Unicode or case conversion executes in the production path.
+
+The SHA-pinned offline `unicode32_fold_generate.py --source <rfc3454.txt>`
+reproduces the Bend constants, provenance manifest and published-vector JSON.
+Nat constants avoid thousands of elaborated word literals, and literal chunks
+have at most 128 integers: the first monolithic generated JS
+expression exceeds Bun's loader stack limit before evaluation. The chunked
+constants preserve every mapping and pass native/Bun. The independent checker
+reads the published vectors and combines them with the existing frozen 3.2
+literal-property oracle; it does not reconstruct the production descriptor
+lookup. Host Python `stringprep.map_table_b2` is unsuitable as a complete
+Unicode 3.2 oracle: its current-Unicode lowercase operation changes Cherokee
+U+13A0 and unassigned-in-3.2 U+1C90. The literal B.2 identity results are tested.
+
+Native and optimizing-JIT Bun on pinned 2.0.27 and scoped official 2.0.34
+are checked over every Unicode code point plus 8,192 out-of-repertoire U32
+values in both folding modes. Eight whole-list cases cover empty input,
+expansion order, mapping/deletion, historical version behavior and invalid
+interior scalars. A separate 65,535-scalar list of U+33C6 checks every one of the 262,140
+output scalars in the fourfold expansion on both native targets and modern
+Bun. Pinned Bun completes the full scalar/short-list corpus but the expansion
+test hits the unchanged 96 MiB individual guard, even in a separate process;
+its large-list resource acceptance remains open. A smaller heap hint and an
+owned tail-loop reversal do not resolve that pinned-runtime limit. Neither
+the long input nor guard cutoff is reduced to claim a pass. Exact reports and resource evidence
+are under `/Users/ozeron/.codex/artifacts/grounds/2026-10-03/unicode-normalize/`.
+This folding stage is not NFKC, prohibition/SPACE preparation, Name equality,
+chain verification or authorization. Full normalization against the pinned
+Unicode 3.2 vectors, complete stored-value preparation and the pinned-runtime
+large-list resource issue remain open.

@@ -1,0 +1,11 @@
+{
+  "unicode_version": "3.2.0",
+  "source": "https://www.rfc-editor.org/rfc/rfc3454.txt",
+  "source_sha256": "eb722fa698fb7e8823b835d9fd263e4cdb8f1c7b0d234edf7f0e3bd2ccbb2c79",
+  "mapping_count": 1371,
+  "value_count": 1561,
+  "maximum_expansion": 4,
+  "descriptor": "8 * values offset + length",
+  "generated_bend_sha256": "af77bf858e09055fe8ce471bdaeebaabffe31937306d01e740a4366438d104e8",
+  "published_vectors_sha256": "1a20249fc862b1fa010515a753538129e387b8a4e532673de9d307dd9d4c2f87"
+}
