@@ -14,6 +14,30 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 
 ## Evidence ledger
 
+- 2026-10-03 (Lisbon; isolated official Bun release comparison):
+  Compared the recorded 318-case candidate with official Bun 1.4.2, published
+  2026-09-05 according to GitHub release metadata retrieved on 2026-10-03.
+  Downloaded the macOS arm64 archive into artifacts only, checked both GitHub's
+  asset SHA-256 and the release SHASUMS, extracted only its expected executable,
+  and confirmed the binary reports 1.4.2 under the guard. Archive SHA-256 is
+  `90987a3a16d7db556d886ac3d551e7b6d3edf0a1cf43acaed622e8676be1d12f`.
+  Unchanged full conformance still reached the individual cutoff (104.3 MiB,
+  0.905 s); the rejected chunk-reading formatter also failed (110.4 MiB,
+  0.200 s). Runtime option output confirms JIT and DFG remained enabled.
+  These are resource failures, not passing conformance results or evidence of
+  the allocation cause. Sequential guards retained all existing limits and
+  reported normal pressure. The download itself peaked at 40.0 MiB.
+  Commands, release/asset metadata, official checksum verification, binary and
+  program hashes, logs and resource reports are recorded in
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-03/bun-comparison/evidence.json`.
+  Global tools, SDK sources and `bounty/` remain unchanged. This extends the
+  prior diagnostic ledger; it does not qualify a toolchain upgrade or any of
+  the 19 full-stack acceptance boxes. The goal remains active. Next bounded
+  dependency work: inspect runtime allocation at the formatter/read boundary
+  with independent small programs before changing further algorithms; continue
+  certificate schema/critical-policy work independently if compatibility gates
+  remain resource-blocked.
+
 - 2026-10-03 (Lisbon; bounded JSON formatter/runtime diagnostics):
   Resumed the active full-stack goal from hostname commit `fedfa34`. Verified
   all 998 inputs of that milestone's official Bend 2.0.34 candidate before
