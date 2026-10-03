@@ -12,9 +12,10 @@ import x509_algorithm_check as A
 import x509_certificate_check as C
 import x509_constraints_check as B
 import x509_extensions_check as E
+import x509_eku_check as K
 
 ROOT = Path(__file__).parent
-BC, KU = bytes.fromhex('551d13'), bytes.fromhex('551d0f')
+BC, KU, EKU = (bytes.fromhex(value) for value in ('551d13', '551d0f', '551d25'))
 
 
 def basic(data):
@@ -62,6 +63,9 @@ def oracle(data):
             elif oid == KU:
                 mask = usage(payload)
                 recognized[KU] = f'{str(critical).lower()}:{payload.hex()}'
+            elif oid == EKU:
+                K.decode(payload)
+                opaque.append(f'{oid.hex()}:{"critical:" if critical else ""}{payload.hex()};')
             elif critical:
                 raise ValueError('unsupported critical')
             else:
@@ -84,9 +88,27 @@ def extension(oid, payload, critical=False):
     return E.extension(oid, payload, b'\xff' if critical else None)
 
 
+def tls_oracle(mode, data, role, allow_any):
+    try:
+        if mode == '4':
+            data = C.parse(data)['extensions']
+        if oracle(data) == 'none':
+            return 'false'
+        payloads = {}
+        if data is not None:
+            for _, body, _ in C.elements(A.complete(data, 48)):
+                fields = C.elements(body)
+                payloads[fields[0][1]] = fields[-1][1]
+        return str(K.tls(payloads.get(KU), payloads.get(EKU), role == '1', allow_any == '1')).lower()
+    except (ValueError, IndexError):
+        return 'false'
+
+
 def cases():
     def add(group, mode, data, expected=None):
-        actual = certificate(data) if mode == '1' else oracle(data)
+        operation, *flags = mode.split('/')
+        actual = (tls_oracle(operation, data, *flags) if flags else
+                  certificate(data) if mode == '1' else oracle(data))
         if expected is not None:
             assert actual == expected, (group, actual, expected)
         return group, mode, data, actual
@@ -109,7 +131,8 @@ def cases():
     for oid in unknowns:
         for value in (b'', b'\x00', b'\x30\x00', bytes(range(256))):
             yield add('unsupported-critical', '0', A.tlv(48, extension(oid, value, True)), 'none')
-            yield add('opaque-noncritical', '0', A.tlv(48, extension(oid, value)), f'absent|absent|{oid.hex()}:{value.hex()};')
+            yield add('opaque-noncritical', '0', A.tlv(48, extension(oid, value)),
+                      'none' if oid == EKU else f'absent|absent|{oid.hex()}:{value.hex()};')
     known = extension(BC, B.basic(True), True)
     opaque = [extension(oid, bytes([i])) for i, oid in enumerate(unknowns)]
     for permutation in itertools.permutations(opaque[:3]+[known]):
@@ -138,7 +161,7 @@ def cases():
                     parts = C.elements(inner)
                     identifier, payload = parts[0][1], parts[-1][1]
                     critical = len(parts) == 3
-                    if critical and identifier not in (BC, KU):
+                    if critical and identifier not in (BC, KU, EKU):
                         critical = False
                         replaced += 1
                     entries.append(extension(identifier, payload, critical))
@@ -169,6 +192,64 @@ def cases():
                 break
         else:
             raise AssertionError(total)
+    # Keep the historical invalid opaque-EKU cases above. Add canonical EKU
+    # processing in both critical forms and independently exercise purpose use.
+    for group, mode, values, _, expected in K.cases():
+        if mode == '0':
+            for critical in (False, True):
+                data = A.tlv(48, extension(EKU, values[0], critical))
+                yield add('EKU-payload-'+group, '0', data,
+                          'none' if expected == 'none' or len(data) > 65535 else None)
+    good = extension(EKU, K.encoded([K.SERVER]), True)
+    for permutation in itertools.permutations([good, known, opaque[0], opaque[2]]):
+        yield add('validated-EKU-deferred-order', '0', A.tlv(48, b''.join(permutation)))
+    yield add('duplicate-EKU-extension', '0', A.tlv(48, good+good), 'none')
+    payloads = [None, K.encoded([K.SERVER]), K.encoded([K.CLIENT]), K.encoded([K.ANY]),
+                K.encoded([K.SERVER, K.CLIENT]), K.encoded([K.SERVER+b'\x00']),
+                K.encoded([]), A.tlv(48, A.tlv(6, K.SERVER)+A.tlv(6, b'\x81'))]
+    for mask in (None, 1, 2, 4, 8, 16, 32, 64, 128, 256, 5, 17, 129, 257, 511):
+        for eku in payloads:
+            for critical in (False, True):
+                entries = [extension(BC, B.basic(False), True)]
+                if mask is not None:
+                    entries.append(extension(KU, B.usage(mask), critical))
+                if eku is not None:
+                    entries.append(extension(EKU, eku, critical))
+                data = A.tlv(48, b''.join(entries))
+                for role, any_flag in itertools.product(('0', '1'), repeat=2):
+                    yield add('TLS-extension-KU-EKU-policy', f'3/{role}/{any_flag}', data)
+    for data, role, any_flag, expected in (
+            (A.tlv(48, extension(EKU, K.encoded([K.SERVER]), True)), '1', '0', 'true'),
+            (A.tlv(48, extension(EKU, K.encoded([K.SERVER]), True)), '0', '0', 'false'),
+            (A.tlv(48, extension(EKU, K.encoded([K.ANY]), True)), '1', '0', 'false'),
+            (A.tlv(48, extension(EKU, K.encoded([K.ANY]), True)), '1', '1', 'true'),
+            (A.tlv(48, good+extension(b'\x2a\x03', b'', True)), '1', '0', 'false'),
+            (A.tlv(48, good+extension(KU, B.usage(4))), '1', '0', 'false')):
+        yield add('literal-TLS-extension-permission', f'3/{role}/{any_flag}', data, expected)
+    for eku in payloads:
+        for mask in (None, 1, 4, 32, 257):
+            entries = [extension(BC, B.basic(False), True)]
+            if eku is not None:
+                entries.append(extension(EKU, eku, True))
+            if mask is not None:
+                entries.append(extension(KU, B.usage(mask)))
+            tbs = A.tlv(48, A.tlv(160, A.tlv(2, b'\x02'))+b''.join(mandatory)+A.tlv(163, A.tlv(48, b''.join(entries))))
+            data = C.assemble(tbs, outer[1][2])
+            for role, any_flag in itertools.product(('0', '1'), repeat=2):
+                yield add('TLS-certificate-payload-policy', f'4/{role}/{any_flag}', data)
+    for peer in peers:
+        data = bytes.fromhex(peer['certificate_der'])
+        for role, any_flag in itertools.product(('0', '1'), repeat=2):
+            yield add('OpenSSL-certificate-TLS-purpose', f'4/{role}/{any_flag}', data)
+        yield add('malformed-certificate-TLS-purpose', '4/1/0', data[:-1], 'false')
+    tbs = A.tlv(48, b''.join(mandatory))
+    yield add('certificate-absent-KU-EKU-permitted', '4/1/0', C.assemble(tbs, outer[1][2]), 'true')
+    for peer in json.loads((ROOT/'x509_eku_vectors.json').read_text())['records']:
+        data = bytes.fromhex(peer['certificate_der'])
+        assert certificate(data) != 'none', peer['name']
+        yield add('signed-OpenSSL-EKU-metadata', '1', data)
+        for role, expected in (('1', peer['tls13_strict_server']), ('0', peer['tls13_strict_client'])):
+            yield add('signed-OpenSSL-EKU-TLS13-purpose', f'4/{role}/0', data, str(expected).lower())
 
 
 def main():
@@ -188,11 +269,13 @@ def main():
         def evaluate(rows):
             command = binary + ['check']
             for i, (group, mode, data, expected) in enumerate(rows):
-                command.append(mode)
+                operation, *flags = mode.split('/')
+                command.append(operation)
                 if data is not None:
                     path = root / f'{i}.der'
                     path.write_bytes(data)
                     command.append(str(path))
+                command.extend(flags)
                 identity.update(json.dumps([group, mode, data.hex() if data is not None else None, expected]).encode())
             result = subprocess.run(command, capture_output=True, text=True, timeout=25)
             assert result.returncode == 0, (sum(counts.values()), result.returncode, result.stderr)
@@ -212,7 +295,7 @@ def main():
                 batch.append(row)
         if batch:
             evaluate(batch)
-        signature_cases, changed_signature_cases = 0, 0
+        signature_cases, changed_signature_cases, eku_signature_cases = 0, 0, 0
         if args.signature_binary:
             for i, peer in enumerate(json.loads((ROOT/'x509_signature_vectors.json').read_text())['records']):
                 key, cert = root/f'issuer-{i}.der', root/f'signed-{i}.der'
@@ -229,9 +312,18 @@ def main():
                 result = subprocess.run(command, capture_output=True, text=True, timeout=25)
                 assert result.returncode == 0 and result.stdout.strip() == 'false', (i, result.stderr, result.stdout)
                 changed_signature_cases += 1
+            for i, peer in enumerate(json.loads((ROOT/'x509_eku_vectors.json').read_text())['records']):
+                key, cert = root/f'eku-key-{i}.der', root/f'eku-cert-{i}.der'
+                key.write_bytes(bytes.fromhex(peer['issuer_spki']))
+                cert.write_bytes(bytes.fromhex(peer['certificate_der']))
+                command = (['bun'] if args.bun else []) + [str(args.signature_binary), 'verify', str(key), str(cert)]
+                result = subprocess.run(command, capture_output=True, text=True, timeout=25)
+                assert result.returncode == 0 and result.stdout.strip() == 'true', (peer['name'], result.stderr, result.stdout)
+                eku_signature_cases += 1
     report = {'binary': binary, 'total': sum(counts.values()), 'cases': dict(counts),
               'corpus_sha256': identity.hexdigest(), 'valid_Bend_signatures_rejected_by_policy': signature_cases,
               'changed_criticality_controls_rejected_by_Bend_signature': changed_signature_cases,
+              'signed_EKU_fixtures_verified_by_Bend': eku_signature_cases,
               'chain_trust_hostname_or_complete_certificate_authorization': False}
     if args.report:
         args.report.write_text(json.dumps(report, indent=2)+'\n')

@@ -2,6 +2,7 @@ import Base
 import ./x509_extensions.bend as E
 import ./x509_constraints.bend as C
 import ./x509_certificate.bend as X
+import ./x509_eku.bend as K
 
 # An extension-processing result, not a certificate authorization. The exact
 # recognized payloads/critical flags survive; unsupported noncritical entries
@@ -15,6 +16,7 @@ def kind(oid: List<&2, U32>) -> U32:
   match oid:
     case Con{85, Con{29, Con{19, Nil{}}}}: 1
     case Con{85, Con{29, Con{15, Nil{}}}}: 2
+    case Con{85, Con{29, Con{37, Nil{}}}}: 3
     case _: 0
 
 def basic.valid(value: Maybe<&1, C.Basic>) -> Bool:
@@ -26,6 +28,18 @@ def usage.valid(value: Maybe<&1, C.Usage>) -> Bool:
   match value:
     case Some{_}: True{}
     case None{}: False{}
+
+def eku.valid(value: Maybe<&1, List<&2, List<&2, U32>>>) -> Bool:
+  match value:
+    case Some{_}: True{}
+    case None{}: False{}
+
+def eku.checked(valid: Bool, critical: Bool, oid: List<&2, U32>, bytes: List<&2, U32>, state: Admission) -> Maybe<&1, Admission>:
+  match valid state:
+    case True{} Admission{basic, basic_critical, usage, usage_critical, deferred}:
+      Some{Admission{basic, basic_critical, usage, usage_critical,
+        Con{E.Extension{oid, critical, bytes}, deferred}}}
+    case _ _: None{}
 
 def basic.checked(valid: Bool, critical: Bool, bytes: List<&2, U32>, state: Admission) -> Maybe<&1, Admission>:
   match valid state:
@@ -50,6 +64,7 @@ def dispatch(kind: U32, critical: Bool, oid: List<&2, U32>, +bytes: List<&2, U32
   match kind:
     case 1: basic.checked(basic.valid(C.basic(bytes)), critical, bytes, state)
     case 2: usage.checked(usage.valid(C.usage(bytes)), critical, bytes, state)
+    case 3: eku.checked(eku.valid(K.decode(bytes)), critical, oid, bytes, state)
     case _: unknown(critical, oid, bytes, state)
 
 def step(entry: E.Extension, state: Admission) -> Maybe<&1, Admission>:
@@ -93,3 +108,22 @@ def certificate.decoded(value: Maybe<&1, X.Certificate>) -> Maybe<&1, Admission>
 
 def certificate(bytes: List<&2, U32>) -> Maybe<&1, Admission>:
   certificate.decoded(X.decode(bytes))
+
+def eku.find(entries: List<&1, E.Extension>) -> Maybe<&2, List<&2, U32>>:
+  match entries:
+    case Nil{}: None{}
+    case Con{E.Extension{Con{85, Con{29, Con{37, Nil{}}}}, _, bytes}, _}: Some{bytes}
+    case Con{_, rest}: eku.find(rest)
+
+def tls13.admitted(value: Maybe<&1, Admission>, server: Bool, allow_any: Bool) -> Bool:
+  match value:
+    case Some{Admission{_, _, usage, _, deferred}}:
+      K.tls13(usage, eku.find(deferred), server, allow_any)
+    case None{}: False{}
+
+# Purpose permission only; it cannot satisfy signature, trust or identity.
+def tls13_extensions(bytes: List<&2, U32>, server: Bool, allow_any: Bool) -> Bool:
+  tls13.admitted(decode(bytes), server, allow_any)
+
+def tls13_certificate(bytes: List<&2, U32>, server: Bool, allow_any: Bool) -> Bool:
+  tls13.admitted(certificate(bytes), server, allow_any)

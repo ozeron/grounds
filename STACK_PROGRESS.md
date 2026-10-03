@@ -7,12 +7,87 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 | Layer | Current state | Next proof of progress |
 |---|---|---|
 | `wire` | Byte TCP and IPv4 UDP effects, explicit local-IP binding and OS bound-address/ephemeral-port discovery; OpenSSL TLS effects. UDP handles all octets, zero datagrams, timeout and oversize errors, with same-port/two-IP isolation and failed-bind descriptor checks. Actual SIGTERM/SIGINT stop parked native/Bun loops and release the listener; Bun uses an OS-only C11 atomic signal bridge because its synchronous runtime cannot dispatch JS signal callbacks. Bounded bulk host RNG bytes now pass native/Bun guard/error tests and supply signaling credentials. Public-pattern byte/RNG and retained UDP measurements are recorded; Bend Base supplies monotonic `IO.now`. | Verify IPv6/cancellation and packed storage/long-session allocation, retaining measured baselines; complete crypto/runtime review before secure transport. |
-| `crypto` | Bend SHA-1 for WebSocket challenge, HMAC-SHA1 for legacy STUN integrity, SHA-256, HMAC-SHA256, HKDF-SHA-256, ChaCha20, Poly1305, ChaCha20-Poly1305 AEAD, AES-128 encryption, AES-128-GCM and X25519; P-256 prime/order arithmetic, uncompressed-point ECDH, experimental P-256/SHA-256 raw/DER ECDSA, SHA-256 RSA PSS/v1.5 encoding, variable-size public modular exponentiation/RSAVP1 and full digest-signature verification (725 arithmetic and 774 signature cases pass on native and Bun; in-place limb shift reduces array creation), bounded DER, SHA-256 certificate AlgorithmIdentifier admission, RSA/P-256 SPKI public-key decoding, certificate field framing preserving exact signed bytes, mathematical issuer-signature verification (4,825 native/Bun cases) and strict civil-time/validity checks (31,545 cases per target using scoped official Bend 2.0.34), canonical OID/extension envelope admission (67,731 native/baseline-JIT Bun cases), plus TLS HKDF labels and distinct affine ChaCha/AES-GCM traffic owners with 64-bit nonces/key updates and AES sending usage limits. Poly1305 products now stay below 2^26; OpenSSL remains in live cookie/TLS paths. | Implement Name and known extension/critical policies, constraints/trust/hostname, trusted-clock composition and TLS schemes; finish current ECDSA/package/compiler compatibility verification and runtime/erasure review, implement private RSA owners, then cookie and full handshake integration. |
+| `crypto` | Bend SHA-1 for WebSocket challenge, HMAC-SHA1 for legacy STUN integrity, SHA-256, HMAC-SHA256, HKDF-SHA-256, ChaCha20, Poly1305, ChaCha20-Poly1305 AEAD, AES-128 encryption, AES-128-GCM and X25519; P-256 prime/order arithmetic, uncompressed-point ECDH, experimental P-256/SHA-256 raw/DER ECDSA, SHA-256 RSA PSS/v1.5 encoding, variable-size public modular exponentiation/RSAVP1 and full digest-signature verification (725 arithmetic and 774 signature cases pass on native and Bun; in-place limb shift reduces array creation), bounded DER, SHA-256 certificate AlgorithmIdentifier admission, RSA/P-256 SPKI public-key decoding, certificate field framing preserving exact signed bytes, mathematical issuer-signature verification (4,825 native/Bun cases) and strict civil-time/validity checks (31,545 cases per target using scoped official Bend 2.0.34), canonical OID/extension envelope admission (67,731 native/baseline-JIT Bun cases), BC/KU payload consistency and EKU/TLS-purpose permission (14,565 independent EKU cases on pinned/modern native/Bun; 24,610 whole-policy cases per modern target), plus TLS HKDF labels and distinct affine ChaCha/AES-GCM traffic owners with 64-bit nonces/key updates and AES sending usage limits. Poly1305 products now stay below 2^26; OpenSSL remains in live cookie/TLS paths. | Implement Name and known extension/critical policies, constraints/trust/hostname, trusted-clock composition and TLS schemes; finish current ECDSA/package/compiler compatibility verification and runtime/erasure review, implement private RSA owners, then cookie and full handshake integration. |
 | `tls` | Bend protected TLS 1.3 ChaCha20-Poly1305 and AES-128-GCM records and traffic/key lifecycle pass synthetic native/Bun differential tests; AES also reproduces RFC 8448 encrypted records. Live TLS client/server still use OpenSSL C effects; JS TLS effects return `ENOSYS`. | Complete mandatory TLS algorithms, handshake/transcripts, certificates/signatures/trust/hostname checks and real client/server interop; DTLS 1.2 for RTC. |
 | `http` | Bend HTTP/1.1 client/server, routing, JSON, cookies, auth, CORS, multipart, SSE, and server WebSocket handshake/framing/session. Native echo interops with a third-party Python client and Bun's WebSocket API. A bounded local signaling fixture admits exact Host/Origin and a public synthetic cookie before upgrade/UDP allocation; native and Bun exchange SDP with real Chrome and clean up connection-owned ICE state/sockets. | Replace the fixture selector with Bend cookie/HMAC authentication and integrate Bend TLS for browser HTTPS/WSS. |
 | `rtc` | Bend STUN parsing, IPv4 XOR-MAPPED-ADDRESS, SHA-1/SHA-256/dual integrity, FINGERPRINT, authenticated incoming/outgoing ICE Binding exchanges, retained-socket retransmissions and explicit error/integrity outcomes. IPv4 candidate/pair priorities, bounded checklist formation, stable transport references and guarded state transitions, role-driven priority reordering, a paced shared-socket transaction engine with response-only interruption, protected incoming replies and server-side role decisions, FIFO triggered queues, ordinary round-robin/foundation scheduling and generation/sent-role attempt ownership. A bounded session now binds signaled credentials, registered receiving/sending bases, observed peer-reflexive candidates, deferred incoming work, retained attempts and endpoint integrity policies. Authenticated non-symmetric responses fail only their original current pair; interrupted old listeners retire independently. The live owner fixture explicitly binds unicast IPv4 bases and queries actual local ports before candidate formation. An additive valid-list owner resolves authenticated mappings, learns locally peer-reflexive candidates from retained signed-request priority, allocates IP-keyed foundations, reranks by role and keeps late paths separate from replacement flights. A nomination-evidence owner associates current successful checks with their valid paths and retains qualified incoming intent through materialization, exact triggered flights and response-only listeners; already-Succeeded counterparts resolve their actual generating record. A generation lifecycle owner now applies regular controlling/controlled nomination, selects completed stream paths, removes nominated component checks while retaining response listeners, continues authenticated Binding service, and defers failure through PAC. An outer transport owner derives selected physical consent routes, serves authenticated consent-only Binding requests, shares actual-send pacing and recent transaction identity admission, gates logical application routes, and preserves sealed consent loss. Full/full credential restart rebuilds ICE state while retaining only selected old consent/server contexts until replacement selection. Bounded SDP/signaling now binds connection-owned credentials and the actual retained UDP base; real Chrome verifies direct selected pairs, fresh consent, restart and cleanup on native and Bun. Separate unauthenticated discovery remains available. | Complete crypto/runtime foundations and secure signaling, then gathering, IPv6/TURN, DTLS/SCTP and SRTP/media. |
 
 ## Evidence ledger
+
+- 2026-10-03 (Lisbon; EKU and TLS certificate-purpose permission):
+  x509_eku.bend decodes complete nonempty canonical DER purpose sequences,
+  retaining arbitrary-size OID arcs, unknown purposes, order and repeated
+  purpose OIDs. Exact matching happens after the entire payload validates;
+  a matching first item cannot conceal malformed later entries. Absent EKU
+  permits a valid purpose query. anyExtendedKeyUsage requires an explicit
+  application policy; strict callers require the particular purpose. TLS 1.3
+  permission intersects serverAuth/clientAuth with digitalSignature whenever
+  KU is present. The extension registry now processes EKU in both criticality
+  forms, preserving the existing Admission constructor and retaining validated
+  EKU, including its critical flag, for purpose processing. Complete-envelope,
+  duplicate, unsupported-critical and BC/KU consistency checks run before the
+  certificate/extension TLS-purpose helpers. None of this authorizes a peer.
+
+  Standards: RFC 5280 section 4.2.1.12 and current TLS 1.3 RFC 9846 section
+  4.5.1.2, published July 2026 and replacing RFC 8446. The official RFC 5280
+  and RFC 9846 errata endpoints again returned Internal Error; a successful
+  fresh verified-errata review is outstanding. Compatible signature schemes,
+  issuer profiles, Name/hostname, trusted time, chain/trust, revocation and
+  remaining recognized extension handlers remain separate required work.
+
+  Final standalone native and optimizing-JIT Bun runs each pass an identical
+  14,565-case corpus on both pinned Bend 2.0.27 and isolated official 2.0.34.
+  The corpus includes every nonempty KU mask crossed with purpose/policy,
+  malformed/truncated/mutated DER, arbitrary-size arcs, duplicate purposes,
+  absent versus malformed extensions, invalid/exact/prefix queries and exact
+  4,096/65,535/65,536-byte bounds. Six new EKU and five existing policy closed
+  declarations pass both frontends; no kernel --verdict claim follows.
+  Combined pinned native/Bun: 27.462s, 109.6 MiB aggregate / 79.7 MiB individual.
+  Combined modern standalone: 26.253s, 75.8 / 44.3 MiB. Both use unchanged
+  evaluator limits 128/96 MiB, 64 MiB RAM hint and JIT/DFG enabled.
+
+  Whole-extension/certificate policy passes an identical 24,610-case corpus
+  on both modern targets, retaining all 19,515 historical cases while updating
+  opaque-EKU expectations to recognized-payload validation and adding purpose
+  checks. Nine new public-only synthetic signed fixtures reproduce 18 OpenSSL
+  3.6.4 general SSL-purpose results and pass Bend signature math on both
+  targets. Their TLS 1.3 references additionally require digitalSignature:
+  keyEncipherment-only server usage is permitted by the general OpenSSL purpose
+  check but denied for TLS 1.3. Reference time bypass and local fixture trust
+  are explicit; these are not hostname/time/trust acceptance. Four prior
+  signed unsupported-critical fixtures remain rejected by policy despite valid
+  Bend signatures; their four criticality-only controls admit metadata and
+  fail signature math. Combined policy checks: 38.131s, 96.4 MiB aggregate /
+  64.0 MiB individual, with the same evaluator limits and optimizing JIT.
+
+  Standalone pinned native/JS generation passes in 5.854s at 163.3 MiB aggregate /
+  159.4 MiB individual. Modern builds/frontend checks pass in 26.754s at 242.2 /
+  238.1 MiB. Pinned combined-policy frontend checks pass, but native emission
+  reaches the unchanged individual cutoff (320.3 MiB; 324.3 aggregate; 7.038s);
+  separate JS emission reaches 320.8 MiB / 4.473s. No limits are raised or pinned
+  whole-policy runtime pass claimed. One initial CLI frontend failure from a
+  computed match scrutinee was corrected with ordinary parameter dispatch.
+  Two preliminary standalone passes had nondeterministic Python permutation
+  ordering; sorted ordering is used in all four final matching corpus hashes.
+
+  Required primary gates run sequentially with moon --concurrency 1: forced
+  crypto:check reaches the aggregate cutoff during field256 native emission
+  (386.2 MiB aggregate / 298.0 individual / 68.941s); root :check reaches the
+  same stage and cutoff (384.4 / 306.7 MiB / 67.633s). These are not passed
+  package/repository gates. Every guarded stage reports normal pressure, and
+  owned processes are cleaned up after completion/cutoff. The complete original
+  check driver is preserved byte-for-byte after removing exactly five new EKU
+  commands; it now has 159 commands. No cryptographic math or existing fixtures
+  are changed. Compiler upgrade/adoption remains unproved.
+
+  Sources, isolated derivative checkout, generated targets, exact commands,
+  source/tool hashes, OpenSSL references and resource reports are under
+  /Users/ozeron/.codex/artifacts/grounds/2026-10-03/eku/; reports from the shared
+  guard runner remain under compiler-compatibility/validation/eku-*. Previous
+  985-file modern inputs are verified before copying and remain unchanged.
+  STACK_PLAN.md and all 19 full-stack acceptance boxes remain unchanged/open.
+  Next: implement SAN and hostname identity admission, then Name/chain/trust
+  composition; continue compiler compatibility and required secure-stack work.
 
 - 2026-10-03 (Lisbon; certificate critical-extension processing):
   The previous goal turn made progress with committed constraint decoders and

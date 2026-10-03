@@ -34,7 +34,8 @@ Pure Bend cryptographic primitives. This package implements SHA-1, SHA-256, HMAC
 | `x509_validity.bend` | `decode_time(bytes)`, `decode(bytes)`, `valid_at(bytes, now)` | Strict civil UTC calendar/interval admission and inclusive validity bounds; caller supplies trusted time |
 | `x509_extensions.bend` | `decode(bytes)`, `optional(bytes)` | Exact extension envelopes, canonical OIDs/critical flags and collision-safe duplicate rejection; opaque payloads |
 | `x509_constraints.bend` | `basic(bytes)`, `usage(bytes)`, `path_allows(limit,count)`, `policy(basic,usage)` | Basic-constraints/key-usage payload admission and local consistency; arbitrary-size path limits retained |
-| `x509_extension_policy.bend` | `decode(bytes)`, `optional(bytes)`, `certificate(bytes)` | Process basic constraints/key usage, reject unsupported critical extensions, retain other noncritical entries for later owners |
+| `x509_eku.bend` | `decode(bytes)`, `permits(eku,purpose,allow_any)`, `tls13(usage,eku,server,allow_any)` | Canonical EKU payloads and explicit purpose permission; TLS 1.3 requires digitalSignature when KU is present |
+| `x509_extension_policy.bend` | `decode(bytes)`, `optional(bytes)`, `certificate(bytes)`, `tls13_extensions(bytes,server,allow_any)`, `tls13_certificate(bytes,server,allow_any)` | Process basic constraints/KU/EKU, reject unsupported critical extensions, retain pending purpose/identity entries; TLS helpers check purpose permission only |
 | `x509_signature.bend` | `verify_signature(issuer_spki, certificate)` | Mathematical issuer-signature verification using admitted key restrictions and original signed bytes; no trust decision |
 
 Byte input and output use `List<U32>` with values 0–255. The public calls return `None{}` for an out-of-range byte; `expand` also rejects a PRK other than 32 bytes or a requested length over 8160 bytes. SHA-1 and HMAC-SHA1 return 20 bytes; SHA-256 and HMAC-SHA256 return 32 bytes. The hex helpers are for diagnostics and tests; protocols should use raw bytes.
@@ -508,7 +509,7 @@ Sources, generated targets, commands and reports are retained under
 
 `x509_extension_policy` connects complete extension-envelope admission to the
 constraint payload decoders. Its current exact-OID registry recognizes basic
-constraints (2.5.29.19) and key usage (2.5.29.15). Recognized payloads must decode
+constraints (2.5.29.19), key usage (2.5.29.15) and EKU (2.5.29.37). Recognized payloads must decode
 and pass consistency checks regardless of criticality. Unsupported critical
 entries fail closed; other noncritical entries survive in original order with
 their exact OID and payload bytes. Duplicate OIDs and malformed envelopes fail
@@ -516,11 +517,14 @@ before dispatch. `certificate` uses the certificate's actual extension field;
 an absent field is distinct from a malformed or empty present sequence.
 The result retains recognized payloads and criticality flags as well as the
 deferred entries, so later owners can process identity/purpose restrictions.
+The unchanged `Admission` constructor retains validated EKU among its deferred
+entries, including critical EKU. Deferred therefore means pending use-specific
+processing; it does not mean every entry is unknown or noncritical.
 This follows [RFC 5280 section 4.2](https://www.rfc-editor.org/rfc/rfc5280.html#section-4.2).
 Both official verified-errata forms returned Internal Error on 2026-10-03.
 
 This is a partial extension-processing result, never certificate authorization.
-SAN, EKU, key identifiers, Name constraints, policies and the other required
+SAN, key identifiers, Name constraints, policies and the other required
 handlers remain to be implemented; unsupported critical forms are rejected
 until their handlers exist. Deferred noncritical entries are not a permission
 to omit a recognized handler in the eventual full validator. Issuer criticality,
@@ -528,7 +532,7 @@ key/algorithm/purpose profiles, Name matching, hostname, trust, revocation,
 trusted time and chain validation remain required. None of the TLS paths uses
 this partial result to authorize a peer.
 
-Native and optimizing-JIT Bun with isolated official Bend 2.0.34 each pass
+The earlier BC/KU-only revision on isolated official Bend 2.0.34 passed
 19,515 independent cases, including both criticality forms of every recognized
 payload regression, order/duplicate/malformed cases, unsupported critical and
 deferred noncritical fields, exact input bounds and complete certificate field
@@ -541,5 +545,43 @@ Pinned Bend 2.0.27 passes the frontend and five closed declarations, but both
 native emission and separate JS emission reach the unchanged 320 MiB individual
 cutoff. A smaller 64 MiB compiler RAM hint does not resolve native emission;
 no cutoff is raised. No pinned runtime or kernel-verdict pass is claimed.
-Artifacts live under
+Its historical artifacts live under
 `/Users/ozeron/.codex/artifacts/grounds/2026-10-03/extension-policy/`.
+
+`x509_eku` requires a complete, nonempty DER sequence of canonical OIDs within
+the 65,535-byte bound. It preserves arbitrary-size arcs, unknown purposes,
+original order and repeated purpose OIDs; the ASN.1 sequence is not a set.
+`permits` validates the complete payload before matching the exact requested
+OID, so an early match cannot hide a malformed later item. An absent extension
+does not restrict a valid purpose query. `allow_any` is an explicit application
+policy: false requires the specific purpose; true also accepts
+anyExtendedKeyUsage (2.5.29.37.0). These rules follow
+[RFC 5280 section 4.2.1.12](https://www.rfc-editor.org/rfc/rfc5280.html#section-4.2.1.12).
+
+The TLS helpers intersect serverAuth/clientAuth permission with digitalSignature
+when KU is present. The policy helpers first apply complete extension/payload
+admission and BC/KU consistency; standalone `x509_eku.tls13` handles only KU
+encoding and KU/EKU purpose permission. This implements the KU requirement of
+[RFC 9846 section 4.5.1.2](https://datatracker.ietf.org/doc/html/rfc9846#section-4.5.1.2),
+the July 2026 TLS 1.3 revision replacing RFC 8446. It does not check compatible
+signature schemes, Names, issuer profiles, trusted time, chain/trust, revocation
+or hostname. Neither helper authorizes a peer. The official RFC 5280 and RFC
+9846 errata endpoints returned Internal Error on 2026-10-03; a successful fresh
+verified-errata review remains outstanding.
+
+The current EKU revision passes 14,565 identical independent cases on native
+and optimizing-JIT Bun with both pinned Bend 2.0.27 and isolated official
+2.0.34. Whole-extension/certificate policy passes 24,610 identical cases on
+both modern targets. Nine synthetic signed certificates reproduce 18 OpenSSL
+3.6.4 SSL-purpose results and also pass Bend signature math. The fixture with
+only keyEncipherment illustrates why the TLS 1.3 helper is stricter than
+OpenSSL's general SSL-server purpose check. Frozen references explicitly bypass
+time and trust the local fixture; they do not prove trust, time or hostname.
+Unknown and repeated purposes, critical EKU, specific versus any purpose,
+every nonempty KU mask, malformed later items, absent extensions and exact
+input bounds are covered. Six EKU and five existing policy declarations pass
+both frontends; no kernel-verdict claim follows. Pinned whole-policy native
+and JS generation reach the unchanged 320 MiB individual compiler cutoff;
+no pinned whole-policy runtime pass is claimed. Current
+sources, targets and resource reports live under
+`/Users/ozeron/.codex/artifacts/grounds/2026-10-03/eku/`.

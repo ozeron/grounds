@@ -1,0 +1,403 @@
+{
+  "openssl": "OpenSSL 3.6.4 25 Aug 2026 (Library: OpenSSL 3.6.4 25 Aug 2026)",
+  "generation": "synthetic public-only RSA-2048 SHA256 self-signed fixtures; private key discarded with temporary directory",
+  "reference_scope": "OpenSSL SSL-purpose plus TLS 1.3 digitalSignature requirement, not trust/hostname/time acceptance",
+  "records": [
+    {
+      "name": "server-critical",
+      "certificate_der": "3082030e308201f6a003020102020101300d06092a864886f70d01010b0500301e311c301a06035504030c1367726f756e64732d656b752e696e76616c6964301e170d3236313030333032323130365a170d3236313030353032323130365a301e311c301a06035504030c1367726f756e64732d656b752e696e76616c696430820122300d06092a864886f70d01010105000382010f003082010a0282010100dfe30e19904ca6459b1f4fb31e843e88cb7de5c3bf1b245c83cf91fb5352f58245ffaa01643e7bca641f11b013518158db836a55910dc26c4c31349ad762d0e3397f2d2c72ad2b1fc1e619b8fa3e55547e8570ded8a89cf27946d9db78348765ebb126616d3a29527886b8a23e72a0f17bd3359e9cd05275d87fabf8987d3df7bae733f198dcfbf01c9415f529651d9342f299b25df263a78c44bf3f561bf6e924b932ebcbb1f296cc7afc0c2057c21b7cb4574c0c39a55f3dff0757667c10fc9b5fa75854a805b44efe9599c6372c125fd11d8c00b4c940504b8f4ad5cc16a8c84225a7d644c6657b8a11271e4f78d6fb0e2440f2f2596320d64ddb968a9e070203010001a3573055300c0603551d130101ff04023000300e0603551d0f0101ff04040302078030160603551d250101ff040c300a06082b06010505070301301d0603551d0e0416041436b2e0602abda9c2dd7abc64d59314c7e17b2796300d06092a864886f70d01010b05000382010100c62fa84cb22c5e4234f5120a6942a6573ad0809be9ba50f72b4b7fd13f3cefe43aa0e9043def3f7be10eba0f41fd84a89f89870769c1dc06e77b9904070af30cdc24ec6dd830d653686dc50782bb6e191bd4bb153acc29407e85c2a5d4aaad1e1f48163aa33e5ad5c932e702320b27ad94f9d4caa6e3764e71fd76e924e35d222a7489ee0ca7864a2e52d43bad63571197b94a5b9602074777d46b43182762319410ad713176235713b96fca752b7289dd28177ea4829b0908083ee0c860b3d27efe045c5a5648da3b3fc7688b0d2bb58342ff3c3ae9ebdabd59e29faea206427970cda5cbbb19e3df959563755a28ae39d060d5f4826fb3dc8924de19d1d195",
+      "issuer_spki": "30820122300d06092a864886f70d01010105000382010f003082010a0282010100dfe30e19904ca6459b1f4fb31e843e88cb7de5c3bf1b245c83cf91fb5352f58245ffaa01643e7bca641f11b013518158db836a55910dc26c4c31349ad762d0e3397f2d2c72ad2b1fc1e619b8fa3e55547e8570ded8a89cf27946d9db78348765ebb126616d3a29527886b8a23e72a0f17bd3359e9cd05275d87fabf8987d3df7bae733f198dcfbf01c9415f529651d9342f299b25df263a78c44bf3f561bf6e924b932ebcbb1f296cc7afc0c2057c21b7cb4574c0c39a55f3dff0757667c10fc9b5fa75854a805b44efe9599c6372c125fd11d8c00b4c940504b8f4ad5cc16a8c84225a7d644c6657b8a11271e4f78d6fb0e2440f2f2596320d64ddb968a9e070203010001",
+      "digital_signature": true,
+      "openssl_purpose": {
+        "sslserver": {
+          "accepted": true,
+          "returncode": 0,
+          "stdout": "<fixture.pem>: OK\n",
+          "stderr": "",
+          "command": [
+            "openssl",
+            "verify",
+            "-no_check_time",
+            "-check_ss_sig",
+            "-trusted",
+            "<fixture.pem>",
+            "-purpose",
+            "sslserver",
+            "<fixture.pem>"
+          ]
+        },
+        "sslclient": {
+          "accepted": false,
+          "returncode": 2,
+          "stdout": "",
+          "stderr": "CN=grounds-eku.invalid\nerror 26 at 0 depth lookup: unsuitable certificate purpose\nerror <fixture.pem>: verification failed\n",
+          "command": [
+            "openssl",
+            "verify",
+            "-no_check_time",
+            "-check_ss_sig",
+            "-trusted",
+            "<fixture.pem>",
+            "-purpose",
+            "sslclient",
+            "<fixture.pem>"
+          ]
+        }
+      },
+      "tls13_strict_server": true,
+      "tls13_strict_client": false
+    },
+    {
+      "name": "client-critical",
+      "certificate_der": "3082030e308201f6a003020102020102300d06092a864886f70d01010b0500301e311c301a06035504030c1367726f756e64732d656b752e696e76616c6964301e170d3236313030333032323130365a170d3236313030353032323130365a301e311c301a06035504030c1367726f756e64732d656b752e696e76616c696430820122300d06092a864886f70d01010105000382010f003082010a0282010100dfe30e19904ca6459b1f4fb31e843e88cb7de5c3bf1b245c83cf91fb5352f58245ffaa01643e7bca641f11b013518158db836a55910dc26c4c31349ad762d0e3397f2d2c72ad2b1fc1e619b8fa3e55547e8570ded8a89cf27946d9db78348765ebb126616d3a29527886b8a23e72a0f17bd3359e9cd05275d87fabf8987d3df7bae733f198dcfbf01c9415f529651d9342f299b25df263a78c44bf3f561bf6e924b932ebcbb1f296cc7afc0c2057c21b7cb4574c0c39a55f3dff0757667c10fc9b5fa75854a805b44efe9599c6372c125fd11d8c00b4c940504b8f4ad5cc16a8c84225a7d644c6657b8a11271e4f78d6fb0e2440f2f2596320d64ddb968a9e070203010001a3573055300c0603551d130101ff04023000300e0603551d0f0101ff04040302078030160603551d250101ff040c300a06082b06010505070302301d0603551d0e0416041436b2e0602abda9c2dd7abc64d59314c7e17b2796300d06092a864886f70d01010b05000382010100613ae2d5389f0c1d7e40df12f6d3dba8ae3d452d4ba03fe626bcf51921a0c12f9cddbd8fe6add3d45f3976fd4b89425fb3de1c6a5cb2da42d75863a213ccff098d4462dda91397c11025b2d33cca2a916ad31b6914bed097950005a0c3d8e899413cf9ab2540901f0641206c0a8c076172bf807fa852c6856091345302ccf5657ed10bceb53d83a55ff51975a4c89d4605b13bacafdcef8c9ad111e92c61cc5323e57a56cc5a9752d866edb9ce23520cd6041aed62c5b133a1a7498817b1750292885edf5791c97760ebbbdf8cf5eebf153e2aabc400a17ff9007ddae4d6d9d20d40cc30105f97488ade924f95749eb7e9d62b6125713719e53cff4f697f7750",
+      "issuer_spki": "30820122300d06092a864886f70d01010105000382010f003082010a0282010100dfe30e19904ca6459b1f4fb31e843e88cb7de5c3bf1b245c83cf91fb5352f58245ffaa01643e7bca641f11b013518158db836a55910dc26c4c31349ad762d0e3397f2d2c72ad2b1fc1e619b8fa3e55547e8570ded8a89cf27946d9db78348765ebb126616d3a29527886b8a23e72a0f17bd3359e9cd05275d87fabf8987d3df7bae733f198dcfbf01c9415f529651d9342f299b25df263a78c44bf3f561bf6e924b932ebcbb1f296cc7afc0c2057c21b7cb4574c0c39a55f3dff0757667c10fc9b5fa75854a805b44efe9599c6372c125fd11d8c00b4c940504b8f4ad5cc16a8c84225a7d644c6657b8a11271e4f78d6fb0e2440f2f2596320d64ddb968a9e070203010001",
+      "digital_signature": true,
+      "openssl_purpose": {
+        "sslserver": {
+          "accepted": false,
+          "returncode": 2,
+          "stdout": "",
+          "stderr": "CN=grounds-eku.invalid\nerror 26 at 0 depth lookup: unsuitable certificate purpose\nerror <fixture.pem>: verification failed\n",
+          "command": [
+            "openssl",
+            "verify",
+            "-no_check_time",
+            "-check_ss_sig",
+            "-trusted",
+            "<fixture.pem>",
+            "-purpose",
+            "sslserver",
+            "<fixture.pem>"
+          ]
+        },
+        "sslclient": {
+          "accepted": true,
+          "returncode": 0,
+          "stdout": "<fixture.pem>: OK\n",
+          "stderr": "",
+          "command": [
+            "openssl",
+            "verify",
+            "-no_check_time",
+            "-check_ss_sig",
+            "-trusted",
+            "<fixture.pem>",
+            "-purpose",
+            "sslclient",
+            "<fixture.pem>"
+          ]
+        }
+      },
+      "tls13_strict_server": false,
+      "tls13_strict_client": true
+    },
+    {
+      "name": "both-noncritical",
+      "certificate_der": "30820315308201fda003020102020103300d06092a864886f70d01010b0500301e311c301a06035504030c1367726f756e64732d656b752e696e76616c6964301e170d3236313030333032323130365a170d3236313030353032323130365a301e311c301a06035504030c1367726f756e64732d656b752e696e76616c696430820122300d06092a864886f70d01010105000382010f003082010a0282010100dfe30e19904ca6459b1f4fb31e843e88cb7de5c3bf1b245c83cf91fb5352f58245ffaa01643e7bca641f11b013518158db836a55910dc26c4c31349ad762d0e3397f2d2c72ad2b1fc1e619b8fa3e55547e8570ded8a89cf27946d9db78348765ebb126616d3a29527886b8a23e72a0f17bd3359e9cd05275d87fabf8987d3df7bae733f198dcfbf01c9415f529651d9342f299b25df263a78c44bf3f561bf6e924b932ebcbb1f296cc7afc0c2057c21b7cb4574c0c39a55f3dff0757667c10fc9b5fa75854a805b44efe9599c6372c125fd11d8c00b4c940504b8f4ad5cc16a8c84225a7d644c6657b8a11271e4f78d6fb0e2440f2f2596320d64ddb968a9e070203010001a35e305c300c0603551d130101ff04023000300e0603551d0f0101ff040403020780301d0603551d250416301406082b0601050507030106082b06010505070302301d0603551d0e0416041436b2e0602abda9c2dd7abc64d59314c7e17b2796300d06092a864886f70d01010b05000382010100bf4cef922cf86950be3e266df674e4469d5f3e34a3a6217d456ac47d5bd69facf6b2a6479066a60e5fb0fc6974ae45aaa91adfa03c20a0ce7c42fd5a25fafe0c70c0d8a058eceed40ac16549bb09c23d05a96694d86afb4278bf41f0c93bd2060165fc74eaa6dd65c62186a792643181f80c05132e64f10e70df9ef8a12932ba81a698364c8fd2be945c0983ca467b6c1d740bb0190c022aef7efffda94222bd27bcdf00295d46507709125c862b60c0c0364eb4547c9a5e737213d29e018b819c568d662daabc5d2496d5b93c98b4853dbf921bda7e8a1275a437ec2a68aef210256bd53e090ef1d8d63194628ee9e58dd894dd9982d469f887d73ad17e3290",
+      "issuer_spki": "30820122300d06092a864886f70d01010105000382010f003082010a0282010100dfe30e19904ca6459b1f4fb31e843e88cb7de5c3bf1b245c83cf91fb5352f58245ffaa01643e7bca641f11b013518158db836a55910dc26c4c31349ad762d0e3397f2d2c72ad2b1fc1e619b8fa3e55547e8570ded8a89cf27946d9db78348765ebb126616d3a29527886b8a23e72a0f17bd3359e9cd05275d87fabf8987d3df7bae733f198dcfbf01c9415f529651d9342f299b25df263a78c44bf3f561bf6e924b932ebcbb1f296cc7afc0c2057c21b7cb4574c0c39a55f3dff0757667c10fc9b5fa75854a805b44efe9599c6372c125fd11d8c00b4c940504b8f4ad5cc16a8c84225a7d644c6657b8a11271e4f78d6fb0e2440f2f2596320d64ddb968a9e070203010001",
+      "digital_signature": true,
+      "openssl_purpose": {
+        "sslserver": {
+          "accepted": true,
+          "returncode": 0,
+          "stdout": "<fixture.pem>: OK\n",
+          "stderr": "",
+          "command": [
+            "openssl",
+            "verify",
+            "-no_check_time",
+            "-check_ss_sig",
+            "-trusted",
+            "<fixture.pem>",
+            "-purpose",
+            "sslserver",
+            "<fixture.pem>"
+          ]
+        },
+        "sslclient": {
+          "accepted": true,
+          "returncode": 0,
+          "stdout": "<fixture.pem>: OK\n",
+          "stderr": "",
+          "command": [
+            "openssl",
+            "verify",
+            "-no_check_time",
+            "-check_ss_sig",
+            "-trusted",
+            "<fixture.pem>",
+            "-purpose",
+            "sslclient",
+            "<fixture.pem>"
+          ]
+        }
+      },
+      "tls13_strict_server": true,
+      "tls13_strict_client": true
+    },
+    {
+      "name": "any-only",
+      "certificate_der": "3082030a308201f2a003020102020104300d06092a864886f70d01010b0500301e311c301a06035504030c1367726f756e64732d656b752e696e76616c6964301e170d3236313030333032323130375a170d3236313030353032323130375a301e311c301a06035504030c1367726f756e64732d656b752e696e76616c696430820122300d06092a864886f70d01010105000382010f003082010a0282010100dfe30e19904ca6459b1f4fb31e843e88cb7de5c3bf1b245c83cf91fb5352f58245ffaa01643e7bca641f11b013518158db836a55910dc26c4c31349ad762d0e3397f2d2c72ad2b1fc1e619b8fa3e55547e8570ded8a89cf27946d9db78348765ebb126616d3a29527886b8a23e72a0f17bd3359e9cd05275d87fabf8987d3df7bae733f198dcfbf01c9415f529651d9342f299b25df263a78c44bf3f561bf6e924b932ebcbb1f296cc7afc0c2057c21b7cb4574c0c39a55f3dff0757667c10fc9b5fa75854a805b44efe9599c6372c125fd11d8c00b4c940504b8f4ad5cc16a8c84225a7d644c6657b8a11271e4f78d6fb0e2440f2f2596320d64ddb968a9e070203010001a3533051300c0603551d130101ff04023000300e0603551d0f0101ff04040302078030120603551d250101ff040830060604551d2500301d0603551d0e0416041436b2e0602abda9c2dd7abc64d59314c7e17b2796300d06092a864886f70d01010b05000382010100176a1e74a08b649e9b3794356691430bce79b61d146bc723a6d274ce005e4c3b3e5a95b483cf7fe3bab8b1b02cfb6246bb977fd2246d87fcdb44de8eb48d3f6e80f6e8186cc4153f03abce92bf74184e90b105dd2d9622f47c5245d6e734ee7baaf007124a36ef9f0c238e1b2fdae0993272bdc1cbddba12bb931f6899272495e90e34bcfb5680f6ad05eff757ef07f8fe7c9b1b4bf66ab318c130d9361b8f947d2284b72250e02f2ab4d000f9db4d1e687defe01bf254354efd63cdf5ae6d11b32e1d2d6ac84c393680bcfc7936ebc13b895ca1fd31d7261e3bcbe8f6a191e68b3834f18e3de04d13211cad1f2e983d48d7d10be778628aed390d728fa00f95",
+      "issuer_spki": "30820122300d06092a864886f70d01010105000382010f003082010a0282010100dfe30e19904ca6459b1f4fb31e843e88cb7de5c3bf1b245c83cf91fb5352f58245ffaa01643e7bca641f11b013518158db836a55910dc26c4c31349ad762d0e3397f2d2c72ad2b1fc1e619b8fa3e55547e8570ded8a89cf27946d9db78348765ebb126616d3a29527886b8a23e72a0f17bd3359e9cd05275d87fabf8987d3df7bae733f198dcfbf01c9415f529651d9342f299b25df263a78c44bf3f561bf6e924b932ebcbb1f296cc7afc0c2057c21b7cb4574c0c39a55f3dff0757667c10fc9b5fa75854a805b44efe9599c6372c125fd11d8c00b4c940504b8f4ad5cc16a8c84225a7d644c6657b8a11271e4f78d6fb0e2440f2f2596320d64ddb968a9e070203010001",
+      "digital_signature": true,
+      "openssl_purpose": {
+        "sslserver": {
+          "accepted": false,
+          "returncode": 2,
+          "stdout": "",
+          "stderr": "CN=grounds-eku.invalid\nerror 26 at 0 depth lookup: unsuitable certificate purpose\nerror <fixture.pem>: verification failed\n",
+          "command": [
+            "openssl",
+            "verify",
+            "-no_check_time",
+            "-check_ss_sig",
+            "-trusted",
+            "<fixture.pem>",
+            "-purpose",
+            "sslserver",
+            "<fixture.pem>"
+          ]
+        },
+        "sslclient": {
+          "accepted": false,
+          "returncode": 2,
+          "stdout": "",
+          "stderr": "CN=grounds-eku.invalid\nerror 26 at 0 depth lookup: unsuitable certificate purpose\nerror <fixture.pem>: verification failed\n",
+          "command": [
+            "openssl",
+            "verify",
+            "-no_check_time",
+            "-check_ss_sig",
+            "-trusted",
+            "<fixture.pem>",
+            "-purpose",
+            "sslclient",
+            "<fixture.pem>"
+          ]
+        }
+      },
+      "tls13_strict_server": false,
+      "tls13_strict_client": false
+    },
+    {
+      "name": "unknown-only",
+      "certificate_der": "30820309308201f1a003020102020105300d06092a864886f70d01010b0500301e311c301a06035504030c1367726f756e64732d656b752e696e76616c6964301e170d3236313030333032323130375a170d3236313030353032323130375a301e311c301a06035504030c1367726f756e64732d656b752e696e76616c696430820122300d06092a864886f70d01010105000382010f003082010a0282010100dfe30e19904ca6459b1f4fb31e843e88cb7de5c3bf1b245c83cf91fb5352f58245ffaa01643e7bca641f11b013518158db836a55910dc26c4c31349ad762d0e3397f2d2c72ad2b1fc1e619b8fa3e55547e8570ded8a89cf27946d9db78348765ebb126616d3a29527886b8a23e72a0f17bd3359e9cd05275d87fabf8987d3df7bae733f198dcfbf01c9415f529651d9342f299b25df263a78c44bf3f561bf6e924b932ebcbb1f296cc7afc0c2057c21b7cb4574c0c39a55f3dff0757667c10fc9b5fa75854a805b44efe9599c6372c125fd11d8c00b4c940504b8f4ad5cc16a8c84225a7d644c6657b8a11271e4f78d6fb0e2440f2f2596320d64ddb968a9e070203010001a3523050300c0603551d130101ff04023000300e0603551d0f0101ff04040302078030110603551d250101ff0407300506032a0304301d0603551d0e0416041436b2e0602abda9c2dd7abc64d59314c7e17b2796300d06092a864886f70d01010b050003820101000581aa902ec4c7efee2d1e3ee92484979e7b23490441c798e1ac155f871c51b60acbf1d986699c348649b1a44a243dddde4b8bac122e321e40ab8510c8406d4e2054c8422cf3885a7091cb2d30da6aa0ca83421e4b822898a38b6d29bca5dcea90cfb5309602cf20cc3b3fa2418f147b2a3001a7850013856e0278b1b5729fabdab17bfeef015066264191c47384798fcd70f4311942a2e96bc87694f9151be8bdf1a036af0e79de37b570bee4f283c198afb8b091ebad0de6fabdb38cb7de3b3b92bce9d1b2188c9d4c8cb9a70f739eb80ed062365e931e14def292e66d71ceadd3839cff6b3e76949f2027842160d2c47c8fbec69b2fc6a4394d7c3f597d0c",
+      "issuer_spki": "30820122300d06092a864886f70d01010105000382010f003082010a0282010100dfe30e19904ca6459b1f4fb31e843e88cb7de5c3bf1b245c83cf91fb5352f58245ffaa01643e7bca641f11b013518158db836a55910dc26c4c31349ad762d0e3397f2d2c72ad2b1fc1e619b8fa3e55547e8570ded8a89cf27946d9db78348765ebb126616d3a29527886b8a23e72a0f17bd3359e9cd05275d87fabf8987d3df7bae733f198dcfbf01c9415f529651d9342f299b25df263a78c44bf3f561bf6e924b932ebcbb1f296cc7afc0c2057c21b7cb4574c0c39a55f3dff0757667c10fc9b5fa75854a805b44efe9599c6372c125fd11d8c00b4c940504b8f4ad5cc16a8c84225a7d644c6657b8a11271e4f78d6fb0e2440f2f2596320d64ddb968a9e070203010001",
+      "digital_signature": true,
+      "openssl_purpose": {
+        "sslserver": {
+          "accepted": false,
+          "returncode": 2,
+          "stdout": "",
+          "stderr": "CN=grounds-eku.invalid\nerror 26 at 0 depth lookup: unsuitable certificate purpose\nerror <fixture.pem>: verification failed\n",
+          "command": [
+            "openssl",
+            "verify",
+            "-no_check_time",
+            "-check_ss_sig",
+            "-trusted",
+            "<fixture.pem>",
+            "-purpose",
+            "sslserver",
+            "<fixture.pem>"
+          ]
+        },
+        "sslclient": {
+          "accepted": false,
+          "returncode": 2,
+          "stdout": "",
+          "stderr": "CN=grounds-eku.invalid\nerror 26 at 0 depth lookup: unsuitable certificate purpose\nerror <fixture.pem>: verification failed\n",
+          "command": [
+            "openssl",
+            "verify",
+            "-no_check_time",
+            "-check_ss_sig",
+            "-trusted",
+            "<fixture.pem>",
+            "-purpose",
+            "sslclient",
+            "<fixture.pem>"
+          ]
+        }
+      },
+      "tls13_strict_server": false,
+      "tls13_strict_client": false
+    },
+    {
+      "name": "server-and-unknown",
+      "certificate_der": "30820313308201fba003020102020106300d06092a864886f70d01010b0500301e311c301a06035504030c1367726f756e64732d656b752e696e76616c6964301e170d3236313030333032323130375a170d3236313030353032323130375a301e311c301a06035504030c1367726f756e64732d656b752e696e76616c696430820122300d06092a864886f70d01010105000382010f003082010a0282010100dfe30e19904ca6459b1f4fb31e843e88cb7de5c3bf1b245c83cf91fb5352f58245ffaa01643e7bca641f11b013518158db836a55910dc26c4c31349ad762d0e3397f2d2c72ad2b1fc1e619b8fa3e55547e8570ded8a89cf27946d9db78348765ebb126616d3a29527886b8a23e72a0f17bd3359e9cd05275d87fabf8987d3df7bae733f198dcfbf01c9415f529651d9342f299b25df263a78c44bf3f561bf6e924b932ebcbb1f296cc7afc0c2057c21b7cb4574c0c39a55f3dff0757667c10fc9b5fa75854a805b44efe9599c6372c125fd11d8c00b4c940504b8f4ad5cc16a8c84225a7d644c6657b8a11271e4f78d6fb0e2440f2f2596320d64ddb968a9e070203010001a35c305a300c0603551d130101ff04023000300e0603551d0f0101ff040403020780301b0603551d250101ff0411300f06082b0601050507030106032a0304301d0603551d0e0416041436b2e0602abda9c2dd7abc64d59314c7e17b2796300d06092a864886f70d01010b0500038201010058c8520ee6f646de33ff086f144ecc4e12173d326afe00c319b9e455cee7d3c167032b2effdb58ed719203617195db71ed3fca48d199a5c39d18f8d90169628874718a1d3a44a6fbca9c13dd3a2d245fa170e75baaa075668c37b7ad0aa49f275815dcf9a0c7bb159e57c64a0911244a198a2e7ca24413331023a2e9cbdac9f9b7b950bf0c52080c9c94cfdba88dc232d80d71245d9a76ba1eb9644dc86ce45cebc677aa83d95eb624ce71c0a571ee20d6e03684a5d2adcff22f7258acf58ab8d412a9e60cca07ac92642868de856983b3fc0329b74b60b495ee40672bd42e9b19b8f0b8e59426e1b88927e66670bde5b9497e6d25345f4638b7271eb74df4b4",
+      "issuer_spki": "30820122300d06092a864886f70d01010105000382010f003082010a0282010100dfe30e19904ca6459b1f4fb31e843e88cb7de5c3bf1b245c83cf91fb5352f58245ffaa01643e7bca641f11b013518158db836a55910dc26c4c31349ad762d0e3397f2d2c72ad2b1fc1e619b8fa3e55547e8570ded8a89cf27946d9db78348765ebb126616d3a29527886b8a23e72a0f17bd3359e9cd05275d87fabf8987d3df7bae733f198dcfbf01c9415f529651d9342f299b25df263a78c44bf3f561bf6e924b932ebcbb1f296cc7afc0c2057c21b7cb4574c0c39a55f3dff0757667c10fc9b5fa75854a805b44efe9599c6372c125fd11d8c00b4c940504b8f4ad5cc16a8c84225a7d644c6657b8a11271e4f78d6fb0e2440f2f2596320d64ddb968a9e070203010001",
+      "digital_signature": true,
+      "openssl_purpose": {
+        "sslserver": {
+          "accepted": true,
+          "returncode": 0,
+          "stdout": "<fixture.pem>: OK\n",
+          "stderr": "",
+          "command": [
+            "openssl",
+            "verify",
+            "-no_check_time",
+            "-check_ss_sig",
+            "-trusted",
+            "<fixture.pem>",
+            "-purpose",
+            "sslserver",
+            "<fixture.pem>"
+          ]
+        },
+        "sslclient": {
+          "accepted": false,
+          "returncode": 2,
+          "stdout": "",
+          "stderr": "CN=grounds-eku.invalid\nerror 26 at 0 depth lookup: unsuitable certificate purpose\nerror <fixture.pem>: verification failed\n",
+          "command": [
+            "openssl",
+            "verify",
+            "-no_check_time",
+            "-check_ss_sig",
+            "-trusted",
+            "<fixture.pem>",
+            "-purpose",
+            "sslclient",
+            "<fixture.pem>"
+          ]
+        }
+      },
+      "tls13_strict_server": true,
+      "tls13_strict_client": false
+    },
+    {
+      "name": "duplicate-server-purpose",
+      "certificate_der": "3082031830820200a003020102020107300d06092a864886f70d01010b0500301e311c301a06035504030c1367726f756e64732d656b752e696e76616c6964301e170d3236313030333032323130375a170d3236313030353032323130375a301e311c301a06035504030c1367726f756e64732d656b752e696e76616c696430820122300d06092a864886f70d01010105000382010f003082010a0282010100dfe30e19904ca6459b1f4fb31e843e88cb7de5c3bf1b245c83cf91fb5352f58245ffaa01643e7bca641f11b013518158db836a55910dc26c4c31349ad762d0e3397f2d2c72ad2b1fc1e619b8fa3e55547e8570ded8a89cf27946d9db78348765ebb126616d3a29527886b8a23e72a0f17bd3359e9cd05275d87fabf8987d3df7bae733f198dcfbf01c9415f529651d9342f299b25df263a78c44bf3f561bf6e924b932ebcbb1f296cc7afc0c2057c21b7cb4574c0c39a55f3dff0757667c10fc9b5fa75854a805b44efe9599c6372c125fd11d8c00b4c940504b8f4ad5cc16a8c84225a7d644c6657b8a11271e4f78d6fb0e2440f2f2596320d64ddb968a9e070203010001a361305f300c0603551d130101ff04023000300e0603551d0f0101ff04040302078030200603551d250101ff0416301406082b0601050507030106082b06010505070301301d0603551d0e0416041436b2e0602abda9c2dd7abc64d59314c7e17b2796300d06092a864886f70d01010b0500038201010097eafea1123c0a93a471f4a01826d23693dfe86b0fa6a289e0e9e6940205024f91ade11f0d1d5eb76ae966d812e8a3093a461a95faf6f147e1d19f7005bb52bfd7557882c1aa14219e55e8eb572f5e1fc0ada8d98f10137d4274c544046aa06ca4db86bb1b42788521e41592b53feec265cd3f986fdc9a915880701627c6c18d4361fc8e2cb5a357252884c39be05be1ec2edcd2cda89ab9b90385bb85222924c0d4e2472bcdab6d7cdc2b4b56860b71c95747893977cce7f226c5a3556164f60e6869a6e32fd30301520ba67b4825bb193ad5a5a0d9703fe62d7bee7c738844b8b64145bafebd7381a31d4d1a8061148bce72265bcb61d0f7515c22e0328ca2",
+      "issuer_spki": "30820122300d06092a864886f70d01010105000382010f003082010a0282010100dfe30e19904ca6459b1f4fb31e843e88cb7de5c3bf1b245c83cf91fb5352f58245ffaa01643e7bca641f11b013518158db836a55910dc26c4c31349ad762d0e3397f2d2c72ad2b1fc1e619b8fa3e55547e8570ded8a89cf27946d9db78348765ebb126616d3a29527886b8a23e72a0f17bd3359e9cd05275d87fabf8987d3df7bae733f198dcfbf01c9415f529651d9342f299b25df263a78c44bf3f561bf6e924b932ebcbb1f296cc7afc0c2057c21b7cb4574c0c39a55f3dff0757667c10fc9b5fa75854a805b44efe9599c6372c125fd11d8c00b4c940504b8f4ad5cc16a8c84225a7d644c6657b8a11271e4f78d6fb0e2440f2f2596320d64ddb968a9e070203010001",
+      "digital_signature": true,
+      "openssl_purpose": {
+        "sslserver": {
+          "accepted": true,
+          "returncode": 0,
+          "stdout": "<fixture.pem>: OK\n",
+          "stderr": "",
+          "command": [
+            "openssl",
+            "verify",
+            "-no_check_time",
+            "-check_ss_sig",
+            "-trusted",
+            "<fixture.pem>",
+            "-purpose",
+            "sslserver",
+            "<fixture.pem>"
+          ]
+        },
+        "sslclient": {
+          "accepted": false,
+          "returncode": 2,
+          "stdout": "",
+          "stderr": "CN=grounds-eku.invalid\nerror 26 at 0 depth lookup: unsuitable certificate purpose\nerror <fixture.pem>: verification failed\n",
+          "command": [
+            "openssl",
+            "verify",
+            "-no_check_time",
+            "-check_ss_sig",
+            "-trusted",
+            "<fixture.pem>",
+            "-purpose",
+            "sslclient",
+            "<fixture.pem>"
+          ]
+        }
+      },
+      "tls13_strict_server": true,
+      "tls13_strict_client": false
+    },
+    {
+      "name": "absent-EKU",
+      "certificate_der": "308202f6308201dea003020102020108300d06092a864886f70d01010b0500301e311c301a06035504030c1367726f756e64732d656b752e696e76616c6964301e170d3236313030333032323130375a170d3236313030353032323130375a301e311c301a06035504030c1367726f756e64732d656b752e696e76616c696430820122300d06092a864886f70d01010105000382010f003082010a0282010100dfe30e19904ca6459b1f4fb31e843e88cb7de5c3bf1b245c83cf91fb5352f58245ffaa01643e7bca641f11b013518158db836a55910dc26c4c31349ad762d0e3397f2d2c72ad2b1fc1e619b8fa3e55547e8570ded8a89cf27946d9db78348765ebb126616d3a29527886b8a23e72a0f17bd3359e9cd05275d87fabf8987d3df7bae733f198dcfbf01c9415f529651d9342f299b25df263a78c44bf3f561bf6e924b932ebcbb1f296cc7afc0c2057c21b7cb4574c0c39a55f3dff0757667c10fc9b5fa75854a805b44efe9599c6372c125fd11d8c00b4c940504b8f4ad5cc16a8c84225a7d644c6657b8a11271e4f78d6fb0e2440f2f2596320d64ddb968a9e070203010001a33f303d300c0603551d130101ff04023000300e0603551d0f0101ff040403020780301d0603551d0e0416041436b2e0602abda9c2dd7abc64d59314c7e17b2796300d06092a864886f70d01010b050003820101004e80719fd19f49e4ad160164b6fecaaf765ef1d4af7ed01271e5961e701746ad332e708d7737e8ef5639bcdb01b15c4e8e0d588e8730937eb0671536acf830d4436fc06e0da76de70bc35b030d284143f4038754ec3b2eedd919760ad8215386674bc3cc6db8fe88251b739766d90632210e921941f7162b762f32348b6b590f08ca5eb87e4cc9abbbaf3d895177d98a79b5d68a4de0d68ccb49de4618e8a4418bd380b9353b3270b67da8b19eaa8afcda06ad7b8de88e89d55b8331f053cc7241ae53f97b58e56d64cfc423a06d9855e0fbc8bc316ce177d416860de45800188ce7e7b72fa1ed3b05ed7a41b7225a652497841280660eba1b547463a75a0cfa",
+      "issuer_spki": "30820122300d06092a864886f70d01010105000382010f003082010a0282010100dfe30e19904ca6459b1f4fb31e843e88cb7de5c3bf1b245c83cf91fb5352f58245ffaa01643e7bca641f11b013518158db836a55910dc26c4c31349ad762d0e3397f2d2c72ad2b1fc1e619b8fa3e55547e8570ded8a89cf27946d9db78348765ebb126616d3a29527886b8a23e72a0f17bd3359e9cd05275d87fabf8987d3df7bae733f198dcfbf01c9415f529651d9342f299b25df263a78c44bf3f561bf6e924b932ebcbb1f296cc7afc0c2057c21b7cb4574c0c39a55f3dff0757667c10fc9b5fa75854a805b44efe9599c6372c125fd11d8c00b4c940504b8f4ad5cc16a8c84225a7d644c6657b8a11271e4f78d6fb0e2440f2f2596320d64ddb968a9e070203010001",
+      "digital_signature": true,
+      "openssl_purpose": {
+        "sslserver": {
+          "accepted": true,
+          "returncode": 0,
+          "stdout": "<fixture.pem>: OK\n",
+          "stderr": "",
+          "command": [
+            "openssl",
+            "verify",
+            "-no_check_time",
+            "-check_ss_sig",
+            "-trusted",
+            "<fixture.pem>",
+            "-purpose",
+            "sslserver",
+            "<fixture.pem>"
+          ]
+        },
+        "sslclient": {
+          "accepted": true,
+          "returncode": 0,
+          "stdout": "<fixture.pem>: OK\n",
+          "stderr": "",
+          "command": [
+            "openssl",
+            "verify",
+            "-no_check_time",
+            "-check_ss_sig",
+            "-trusted",
+            "<fixture.pem>",
+            "-purpose",
+            "sslclient",
+            "<fixture.pem>"
+          ]
+        }
+      },
+      "tls13_strict_server": true,
+      "tls13_strict_client": true
+    },
+    {
+      "name": "server-keyEncipherment-only",
+      "certificate_der": "3082030e308201f6a003020102020109300d06092a864886f70d01010b0500301e311c301a06035504030c1367726f756e64732d656b752e696e76616c6964301e170d3236313030333032323130375a170d3236313030353032323130375a301e311c301a06035504030c1367726f756e64732d656b752e696e76616c696430820122300d06092a864886f70d01010105000382010f003082010a0282010100dfe30e19904ca6459b1f4fb31e843e88cb7de5c3bf1b245c83cf91fb5352f58245ffaa01643e7bca641f11b013518158db836a55910dc26c4c31349ad762d0e3397f2d2c72ad2b1fc1e619b8fa3e55547e8570ded8a89cf27946d9db78348765ebb126616d3a29527886b8a23e72a0f17bd3359e9cd05275d87fabf8987d3df7bae733f198dcfbf01c9415f529651d9342f299b25df263a78c44bf3f561bf6e924b932ebcbb1f296cc7afc0c2057c21b7cb4574c0c39a55f3dff0757667c10fc9b5fa75854a805b44efe9599c6372c125fd11d8c00b4c940504b8f4ad5cc16a8c84225a7d644c6657b8a11271e4f78d6fb0e2440f2f2596320d64ddb968a9e070203010001a3573055300c0603551d130101ff04023000300e0603551d0f0101ff04040302052030160603551d250101ff040c300a06082b06010505070301301d0603551d0e0416041436b2e0602abda9c2dd7abc64d59314c7e17b2796300d06092a864886f70d01010b050003820101005bc37e628bde3e939ad14baf31fd7e8c38a2f3c511e26d40bfc6ef150776f4244832291c3a3e50234fb35c348cc6506c1e834f33a99a8785ede599959c3a49286654ac2f1818f1b52a5e6283673a5daf2a937c40680154393674d93777de0f3322d8ad591365be7dac29e3c61259521f194c5db093854a44af9ea23b613848dd9ae2421b4003a5cbffedf111433165ed180be47ec0fc651698ce8b45f2b81ee2a4678378f9b7ba51a78d4bc5ef2eeecba068bd501d8ab6606b36b1212410235ffee174fbce69df726e7eb4bffaeb094340c9ebf6c3adfdf036ff8bb2a86528af384572b9331f5e7dd2f7b2d93894feda0bcc19cc61abe9fd77ea2cb68b92c07a",
+      "issuer_spki": "30820122300d06092a864886f70d01010105000382010f003082010a0282010100dfe30e19904ca6459b1f4fb31e843e88cb7de5c3bf1b245c83cf91fb5352f58245ffaa01643e7bca641f11b013518158db836a55910dc26c4c31349ad762d0e3397f2d2c72ad2b1fc1e619b8fa3e55547e8570ded8a89cf27946d9db78348765ebb126616d3a29527886b8a23e72a0f17bd3359e9cd05275d87fabf8987d3df7bae733f198dcfbf01c9415f529651d9342f299b25df263a78c44bf3f561bf6e924b932ebcbb1f296cc7afc0c2057c21b7cb4574c0c39a55f3dff0757667c10fc9b5fa75854a805b44efe9599c6372c125fd11d8c00b4c940504b8f4ad5cc16a8c84225a7d644c6657b8a11271e4f78d6fb0e2440f2f2596320d64ddb968a9e070203010001",
+      "digital_signature": false,
+      "openssl_purpose": {
+        "sslserver": {
+          "accepted": true,
+          "returncode": 0,
+          "stdout": "<fixture.pem>: OK\n",
+          "stderr": "",
+          "command": [
+            "openssl",
+            "verify",
+            "-no_check_time",
+            "-check_ss_sig",
+            "-trusted",
+            "<fixture.pem>",
+            "-purpose",
+            "sslserver",
+            "<fixture.pem>"
+          ]
+        },
+        "sslclient": {
+          "accepted": false,
+          "returncode": 2,
+          "stdout": "",
+          "stderr": "CN=grounds-eku.invalid\nerror 26 at 0 depth lookup: unsuitable certificate purpose\nerror <fixture.pem>: verification failed\n",
+          "command": [
+            "openssl",
+            "verify",
+            "-no_check_time",
+            "-check_ss_sig",
+            "-trusted",
+            "<fixture.pem>",
+            "-purpose",
+            "sslclient",
+            "<fixture.pem>"
+          ]
+        }
+      },
+      "tls13_strict_server": false,
+      "tls13_strict_client": false
+    }
+  ]
+}
