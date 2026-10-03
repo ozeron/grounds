@@ -45,12 +45,14 @@ through [BUN_OPTIONS](https://bun.com/docs/bundler/executables#runtime-arguments
 `BUN_JSC_forceRAMSize` supplies a smaller reported RAM size to the GC's
 [scheduling heuristic](https://github.com/oven-sh/bun/issues/3628#issuecomment-1633847478).
 Neither setting is a memory quota; the separate guard measures the owned
-process group and stops it at the sampled cutoff. These settings are local to
+process tree and stops it at the sampled cutoff. These settings are local to
 the invocation and do not alter the installed compiler or user configuration.
 
 This is a sampled cutoff, not a kernel-enforced allocation quota: a fast
-allocation can overshoot between samples. Commands must keep children in their
-inherited process group; detached/daemonized jobs are unsupported. It does not
+allocation can overshoot between samples. The guard includes descendants in
+separate process groups and retains observed ownership after reparenting, using
+process birth identities to exclude reused PIDs. A daemon that detaches and loses
+its parent before any sample is unsupported. It does not
 limit other applications or unguarded commands. The macOS pressure check can
 stop work because of pressure caused by another application; it does not
 identify the source of pressure or reset accumulated swap. Keep build and test jobs
@@ -63,14 +65,42 @@ Verify guard behavior without compiling Bend:
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 python3 tools/build_guard_test.py
+PYTHONDONTWRITEBYTECODE=1 python3 tools/check_phase_test.py
 ```
 
-Run this small test driver directly as shown: it guards each test workload.
-Wrapping the driver in another guard also monitors its `ps` inspection helpers.
-On this macOS host `/bin/ps` is setuid root, so that outer monitor can fail
-closed with `EPERM` when reading its memory. This does not justify ignoring
-memory-read errors for live processes. The 13 self-tests passed on 2026-10-02;
-the failed nested attempts are retained in the extension resource investigation.
+Each small test workload has its own guard and private test lock. An outer guard
+can now also monitor the whole test tree, including detached test children.
+Darwin enumeration and exit/identity checks use in-process `libproc` metadata
+instead of launching the setuid-root `/bin/ps`. Public short BSD metadata
+discovers ancestry across UIDs; full identity and memory reads apply only to
+owned candidates. Only absent or zombie observations permit zero live memory;
+unreadable live processes still fail closed and record identity diagnostics.
+Cleanup attempts every independently verified owner even after another read
+fails. The ABI follows the installed macOS SDK and
+[Apple's proc_info implementation](https://github.com/apple-oss-distributions/xnu/blob/main/bsd/kern/proc_info.c).
+
+For an enumerated package check, `--phases` retains one lock, aggregate memory
+monitor and pressure check for the entire Moon process tree. Each ordered phase
+has the existing 120-second deadline. Startup, transitions and final cleanup
+have a ten-second idle bound. Missing, repeated, overlapping, out-of-order or
+failed phases fail the run; only explicitly optional phases permit a recorded
+skip. A zero child exit cannot hide incomplete phases. Announcements are
+acknowledged over a private local socket and use the guard's clock; no heartbeat
+or client timestamp extends a deadline. Ordinary jobs still have one total
+120-second timeout.
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 python3 tools/build_guard.py \
+  --phases http/server/check_phases.json --report /tmp/http-server-phases.json \
+  -- nice -n 10 moon --concurrency 1 run http_server:check --force
+```
+
+The HTTP script preserves all check bodies and arguments, shares its temporary
+outputs and stops/waits for each fixture before ending that phase. Its manifest
+and announcement helper are Moon cache inputs. A full fresh run must finish the
+entire declared sequence; passing a subset does not satisfy the package gate.
+Crypto/RTC and a combined root manifest are not yet migrated. Historical failed
+nested runs and the latest actual check results are in `STACK_PROGRESS.md`.
 
 Evaluators use the current 1 GiB aggregate/process cap, a 120-second deadline
 and nice 10. Historical reports retain their older explicit budgets. Keep the

@@ -5,13 +5,45 @@ set -eu
 cd "$(dirname "$0")"
 tmp=$(mktemp -d)
 pid=
-trap '[ -n "$pid" ] && kill "$pid" 2>/dev/null; rm -rf "$tmp"' EXIT
+spid=
+tpid=
+wspid=
+phase=
+announce() { python3 ../../tools/check_phase.py "$@"; }
+begin() { phase="http_server/$1"; announce start "$phase"; }
+end() { announce end "$phase" 0; phase=; }
+stop() {
+  [ -n "$1" ] || return 0
+  kill "$1" 2>/dev/null || true
+  wait "$1"
+}
+cleanup() {
+  result=$?
+  trap - EXIT
+  set +e
+  for owned in "$pid" "$spid" "$tpid" "$wspid"; do
+    stop "$owned" || { [ "$result" -ne 0 ] || result=1; }
+  done
+  if [ -n "$phase" ]; then
+    announce end "$phase" "$result" || result=125
+  fi
+  rm -rf "$tmp"
+  exit "$result"
+}
+trap cleanup EXIT
+begin context_native
 sh ../../tools/bend_native.sh examples/context.bend "$tmp/context" > /dev/null
 python3 examples/context_check.py "$tmp/context"
+end
 if command -v bun > /dev/null 2>&1; then
+  begin context_bun
   bend examples/context.bend -o "$tmp/context.js" > /dev/null
   python3 examples/context_check.py bun "$tmp/context.js"
+  end
+else
+  announce skip http_server/context_bun 'Bun unavailable'
 fi
+begin hello
 bend examples/hello.bend -o "$tmp/hello" > /dev/null
 "$tmp/hello" &
 pid=$!
@@ -43,11 +75,15 @@ for k in "" -k; do
   echo "ab $k -c 100 -n 2000: $(grep "^Requests per second" "$tmp/ab" | awk '{print $4}') requests/s, none failed"
 done
 
+stop "$pid"
+pid=
+end
+
 # the middleware stack: request id, recover's 500, body_limit's 413, logs
+begin middleware
 bend examples/stack.bend -o "$tmp/stack" > /dev/null
 "$tmp/stack" > "$tmp/log" 2> "$tmp/errlog" &
 spid=$!
-trap '[ -n "$pid" ] && kill "$pid" 2>/dev/null; kill "$spid" 2>/dev/null; rm -rf "$tmp"' EXIT
 tries=0
 until curl -s -o /dev/null "localhost:8082/"; do
   tries=$((tries + 1))
@@ -60,12 +96,15 @@ curl -s -D - -o /dev/null "localhost:8082/" | grep -qiE '^x-request-id: [0-9a-f]
 grep -q "the handler failed on purpose" "$tmp/errlog" || { echo "stack: recover did not log"; exit 1; }
 grep -q "^GET /fail 500 " "$tmp/log" || { echo "stack: logger did not log"; exit 1; }
 echo "stack: request id, 500 from recover, 413 from body_limit, logged"
+stop "$spid"
+spid=
+end
 
 # streamed bodies, health, env config and a graceful stop (examples/stream)
+begin stream
 bend examples/stream.bend -o "$tmp/stream" > /dev/null
 PORT=8083 "$tmp/stream" > /dev/null 2>&1 &
 tpid=$!
-trap '[ -n "$pid" ] && kill "$pid" 2>/dev/null; kill "$spid" "$tpid" 2>/dev/null; rm -rf "$tmp"' EXIT
 tries=0
 until curl -s -o /dev/null "localhost:8083/healthz"; do
   tries=$((tries + 1))
@@ -76,7 +115,8 @@ done
 [ "$(curl -s 'localhost:8083/big?n=160' | wc -c | tr -d ' ')" = 10485760 ] || { echo "stream: want 10 MiB"; exit 1; }
 [ "$(curl -s localhost:8083/healthz)" = ok ] || { echo "stream: /healthz"; exit 1; }
 [ "$(curl -s localhost:8083/readyz)" = ready ] || { echo "stream: /readyz"; exit 1; }
-kill "$tpid"
+stop "$tpid"
+tpid=
 echo "stream: 3 server-sent events, 10 MiB in chunks, /healthz, /readyz"
 out=$(HTTP_MAX_BODY_BYTES=x "$tmp/stream" 2>&1) && { echo "env: a bad number must stop the server"; exit 1; }
 echo "env: $out"
@@ -88,24 +128,35 @@ python3 examples/hb.py "$tmp/stream" 8087 || { echo "hb: heartbeats must flow an
 out=$(python3 examples/stop.py "$tmp/stream" 8085 500)
 echo "$out" | grep -q "connections cut" || { echo "$out"; echo "stop: must cut at the drain deadline"; exit 1; }
 echo "stop: cut at a 500 ms drain deadline"
+end
 
+begin tls_proxy
 bend examples/tls.bend -o "$tmp/tls" > /dev/null
 bend examples/redirect.bend -o "$tmp/redirect" > /dev/null
 bend examples/trusted_proxy.bend -o "$tmp/trusted_proxy" > /dev/null
 python3 examples/tls_check.py "$tmp/tls" "$tmp/redirect" "$tmp/trusted_proxy"
+end
 
+begin auth
 bend examples/auth.bend -o "$tmp/auth" > /dev/null
 python3 examples/auth_check.py "$tmp/auth"
+end
 
+begin cors
 bend examples/cors.bend -o "$tmp/cors" > /dev/null
 python3 examples/cors_check.py "$tmp/cors"
+end
 
+begin websocket_units
 bend websocket_test.bend
+end
+begin websocket_frame_units
 bend websocket_frame_test.bend
+end
+begin websocket_live
 bend examples/websocket.bend -o "$tmp/websocket" > /dev/null
 "$tmp/websocket" > "$tmp/websocket.log" 2>&1 &
 wspid=$!
-trap '[ -n "$pid" ] && kill "$pid" 2>/dev/null; kill "$spid" "$tpid" "$wspid" 2>/dev/null; rm -rf "$tmp"' EXIT
 tries=0
 until curl -s -o /dev/null "localhost:8088/"; do
   tries=$((tries + 1))
@@ -113,10 +164,16 @@ until curl -s -o /dev/null "localhost:8088/"; do
   python3 -c 'import time; time.sleep(0.05)'
 done
 python3 examples/websocket_check.py 8088
-kill "$wspid"
+stop "$wspid"
+wspid=
+end
 
+begin multipart
 bend examples/multipart.bend -o "$tmp/multipart" > /dev/null
 bend ../client/examples/multipart.bend -o "$tmp/multipart_client" > /dev/null
 python3 examples/multipart_fuzz.py "$tmp/multipart" --count 200 --seed "${SEED:-1}" --client "$tmp/multipart_client"
+end
 
+begin cold
 python3 ../../json/scripts/cold.py "$PWD/examples/hello.bend" "$PWD/examples/stack.bend" "$PWD/examples/stream.bend" "$PWD/examples/tls.bend" "$PWD/examples/redirect.bend" "$PWD/examples/trusted_proxy.bend" "$PWD/examples/auth.bend"
+end

@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "phases": [
+    {"name": "http_server/context_native", "optional": false},
+    {"name": "http_server/context_bun", "optional": true},
+    {"name": "http_server/hello", "optional": false},
+    {"name": "http_server/middleware", "optional": false},
+    {"name": "http_server/stream", "optional": false},
+    {"name": "http_server/tls_proxy", "optional": false},
+    {"name": "http_server/auth", "optional": false},
+    {"name": "http_server/cors", "optional": false},
+    {"name": "http_server/websocket_units", "optional": false},
+    {"name": "http_server/websocket_frame_units", "optional": false},
+    {"name": "http_server/websocket_live", "optional": false},
+    {"name": "http_server/multipart", "optional": false},
+    {"name": "http_server/cold", "optional": false}
+  ]
+}

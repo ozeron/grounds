@@ -128,3 +128,13 @@ keep-alive reuse, 32 concurrent requests and graceful shutdown. Existing checks:
 12. Proves the WebSocket handshake and frame examples, then serves `examples/websocket.bend` to check upgrade, frame echo, fragmentation, ping/pong, close, and protocol refusals with raw sockets.
 13. Serves `examples/multipart.bend`, compares 200 generated requests with Python's email parser, checks part and header limits, and sends a binary part from the client builder.
 14. Runs the cold check on the existing examples and auth. CORS policy lookups and multipart parsing currently make some String and List constructors reference counted.
+
+`check_phases.json` declares thirteen ordered resource phases covering these
+checks. Each fixture is stopped and waited for before its phase ends. The
+shared temporary directory retains generated outputs for later checks. Use
+`tools/build_guard.py --phases http/server/check_phases.json` around the Moon
+command to apply the same 1 GiB process-tree cap and a 120-second deadline to
+each declared phase; startup, transitions and final cleanup are bounded to ten
+seconds. Every mandatory phase must finish successfully. The optional Bun
+context phase records an explicit skip when Bun is absent. The manifest and
+announcement helper participate in Moon cache inputs.

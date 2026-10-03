@@ -2,6 +2,7 @@
 """Exercise resource isolation with small real subprocesses, never Bend builds."""
 
 import ctypes
+import errno
 import json
 import os
 from pathlib import Path
@@ -17,6 +18,8 @@ from unittest import mock
 
 GUARD = Path(__file__).with_name("build_guard.py")
 SystemPressure = runpy.run_path(str(GUARD))["SystemPressure"]
+Memory = runpy.run_path(str(GUARD))["Memory"]
+NativeProcesses = runpy.run_path(str(GUARD))["NativeProcesses"]
 
 
 class GuardTests(unittest.TestCase):
@@ -59,10 +62,15 @@ class GuardTests(unittest.TestCase):
     def assert_stopped(self, pids):
         deadline = time.monotonic() + 3
         while True:
-            result = subprocess.run(["ps", "-o", "pid=,stat=", "-p",
-                                     ",".join(map(str, pids))], capture_output=True, text=True)
-            live = [line for line in result.stdout.splitlines()
-                    if "Z" not in line.split()[1]]
+            if sys.platform == 'darwin':
+                native = NativeProcesses()
+                rows = [native.info(pid, full=False) for pid in pids]
+                live = [row for row in rows if row is not None and row['status'] != 5]
+            else:
+                result = subprocess.run(["ps", "-o", "pid=,stat=", "-p",
+                                         ",".join(map(str, pids))], capture_output=True, text=True)
+                live = [line for line in result.stdout.splitlines()
+                        if "Z" not in line.split()[1]]
             if not live:
                 return
             if time.monotonic() > deadline:
@@ -237,6 +245,61 @@ class GuardTests(unittest.TestCase):
         self.assertEqual(report["reason"], "guard-error")
         self.assertIn("pressure unavailable", report["error"])
         self.assert_stopped(json.loads(marker.read_text()))
+
+    @unittest.skipUnless(sys.platform == "darwin", "macOS sysctl only")
+    def test_native_identity_abi_and_pid_reuse_rejection(self):
+        memory = Memory()
+        row = memory.native.info(os.getpid())
+        self.assertEqual((row['pid'], row['parent'], row['group'], row['uid']),
+                         (os.getpid(), os.getppid(), os.getpgrp(), os.getuid()))
+        current = dict(row)
+        replaced = dict(row, birth=(row['birth'][0] + 1, 0))
+        with mock.patch.object(memory.native, 'info', side_effect=[current, replaced]):
+            with self.assertRaisesRegex(RuntimeError, 'identity changed'):
+                memory.read(os.getpid(), 100)
+
+    @unittest.skipUnless(sys.platform == "darwin", "macOS native ownership only")
+    def test_partial_sample_retains_verified_descendants_for_cleanup(self):
+        memory = Memory()
+        rows = [{'pid': pid, 'parent': parent, 'group': group, 'status': 2}
+                for pid, parent, group in [(100, 1, 100), (200, 100, 200), (300, 200, 300)]]
+        def measurement(pid, _rss):
+            if pid == 300:
+                raise OSError('owned process unreadable')
+            memory.starts[pid] = (pid, 0)
+            return 10
+        with mock.patch.object(memory.native, 'snapshot', return_value=rows):
+            with mock.patch.object(memory, 'read', side_effect=measurement):
+                with self.assertRaises(OSError):
+                    memory.tree(100)
+        self.assertEqual(memory.owned, {100: (100, 0), 200: (200, 0)})
+        def identity(pid):
+            if pid == 100:
+                raise OSError('cleanup identity unavailable')
+            return {'status': 2, 'birth': (pid, 0)}
+        with mock.patch.object(memory.native, 'info', side_effect=identity):
+            with mock.patch('os.killpg'), mock.patch('os.kill') as kill:
+                with self.assertRaisesRegex(RuntimeError, 'cleanup identity unavailable'):
+                    memory.stop_tree(100)
+                kill.assert_called_once_with(200, signal.SIGKILL)
+
+    @unittest.skipUnless(sys.platform == "darwin", "macOS sysctl only")
+    def test_memory_eperm_requires_exited_or_zombie_evidence(self):
+        memory = Memory()
+        def denied(*_arguments):
+            ctypes.set_errno(errno.EPERM)
+            return -1
+        with mock.patch.object(memory.lib, 'proc_pid_rusage', side_effect=denied):
+            for state in [None, {'status': 5}]:
+                with mock.patch.object(memory.native, 'info', return_value=state):
+                    self.assertEqual(memory.read(123, 100), 0)
+            live = {'status': 2, 'birth': (1, 1)}
+            with mock.patch.object(memory.native, 'info', return_value=live):
+                with self.assertRaises(OSError):
+                    memory.read(123, 100)
+            with mock.patch.object(memory.native, 'info', side_effect=OSError('identity unavailable')):
+                with self.assertRaises(OSError):
+                    memory.read(123, 100)
 
     @unittest.skipUnless(sys.platform == "darwin", "macOS sysctl only")
     def test_native_pressure_decoding_and_invalid_observations(self):
