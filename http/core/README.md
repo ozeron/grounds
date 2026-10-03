@@ -48,6 +48,37 @@ names. A separate runtime-argument example extends the cold-type gate to parsing
 
 `Ck.sign(key, value)` returns `IO(Result)` with `value.<64 lowercase hex digits>`; `Ck.verify(key, signed)` returns `IO(Result)` containing `Some{value}` only for a valid HMAC-SHA256 signature. A malformed or incorrect signature gives `Done{None{}}`; an unavailable crypto library gives `Fail`. The native target loads OpenSSL 3 `libcrypto` at run time (`BEND_LIBCRYPTO` overrides its path); the JS target returns ENOSYS. Use a random secret key of at least 32 bytes and separate keys or signed purpose tags when several cookie types share an application.
 
+`BendCookie.sign(key,value)` and `BendCookie.verify(key,signed)` expose an explicit
+Bend implementation in the separate `cookie_bend.bend` module, with the same IO result shapes and UTF-8/full-hex wire
+format. The pure owner is `cookie_crypto.bend`; neither function invokes the
+legacy native/JS cookie effects or delegates HMAC to a host library. Both
+backends support embedded dots, empty values, embedded NUL, Unicode keys and
+values, and upper/lowercase signature hex. Sign rejects invalid Unicode scalars;
+verification returns `None` for invalid text, framing, hex, keys or tags.
+Callers must enforce their header/value length limits before expensive work.
+The existing OpenSSL-backed `sign`/`verify` remain compatible.
+
+The Bend path currently uses synthetic keys only: generated-code timing,
+String/List allocation and lifetime and secret erasure remain unresolved.
+Its source compares all 32 MAC bytes using XOR/OR accumulation without an
+early mismatch return. That source property does not establish optimized
+native or Bun timing safety. Cookie scope/expiration/session lifecycle remain
+application policy; signatures alone do not provide those checks.
+
+`examples/cookie_bend_check.py` independently computes Python HMAC over UTF-8
+and pins two full [RFC 4231](https://www.rfc-editor.org/rfc/rfc4231) vectors.
+Its 2,675 cases cover empty/Unicode/NUL/dotted values, key/block boundaries,
+deterministic random inputs, 4,096-byte values, changed values/keys, all 960
+alternative lowercase hex mutations at every tag position, 512 non-hex
+mutations and malformed envelopes. The test-only binary reader supplies
+UTF-8 strings to the actual public cookie wrappers; all HMAC/format/parsing
+and MAC comparison logic stays in Bend. Both backends are mandatory when
+Bun is installed. Focused commands and resource reports are recorded under
+`/Users/ozeron/.codex/artifacts/grounds/2026-10-03/http-bend-cookies/`.
+RFC 2104/4231 and their errata were refreshed: verified RFC 2104 erratum 501
+adds a semicolon to its MD5 example; RFC 4231 editorial erratum 3853 is held
+for document update and does not alter the tested SHA-256 vectors.
+
 ## Authentication credentials
 
 The Base64 decoder has a native/Bun differential check covering RFC 4648 vectors,

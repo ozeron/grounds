@@ -38,5 +38,15 @@ step "cookie signing (examples/cookie_sign.bend)"
 bend examples/cookie_sign.bend -o "$tmp/cookie_sign" > /dev/null
 python3 examples/cookie_sign_check.py "$tmp/cookie_sign"
 
+step "Bend cookie HMAC (native and Bun; synthetic keys)"
+sh ../../tools/bend_native.sh examples/cookie_bend.bend "$tmp/cookie_bend" > /dev/null
+python3 examples/cookie_bend_check.py -- "$tmp/cookie_bend"
+if command -v bun > /dev/null 2>&1; then
+  bend examples/cookie_bend.bend -o "$tmp/cookie_bend.js" > /dev/null
+  python3 examples/cookie_bend_check.py -- bun "$tmp/cookie_bend.js"
+else
+  echo "SKIP Bun cookie HMAC: bun not installed"
+fi
+
 step "no reference-counted types (../../json/scripts/cold.py)"
 python3 ../../json/scripts/cold.py "$PWD/examples/hello.bend" "$PWD/examples/cookie_sign.bend" "$PWD/examples/method_cold.bend"

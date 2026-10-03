@@ -26,13 +26,17 @@ def main():
         cases.append("".join(rng.choices(alphabet, k=rng.randrange(65))))
     with tempfile.TemporaryDirectory() as directory:
         path = Path(directory) / "method.json"
-        path.write_text(json.dumps(cases))
-        result = subprocess.run([*sys.argv[1:], str(path)], capture_output=True, text=True, timeout=60, check=True)
-    rows = result.stdout.splitlines()
-    assert len(rows) == len(cases), (len(rows), len(cases), result.stderr)
-    for text, row in zip(cases, rows):
-        expected = text if text in known else "other:" + text.encode("utf-8").hex()
-        assert row == expected, (repr(text), row, expected)
+        # Keep the complete corpus, but release evaluator fixture allocations
+        # between batches. One giant JSON array exceeds the guarded Bun budget.
+        for start in range(0, len(cases), 256):
+            batch = cases[start:start + 256]
+            path.write_text(json.dumps(batch))
+            result = subprocess.run([*sys.argv[1:], str(path)], capture_output=True, text=True, timeout=60, check=True)
+            rows = result.stdout.splitlines()
+            assert len(rows) == len(batch), (start, len(rows), len(batch), result.stderr)
+            for text, row in zip(batch, rows):
+                expected = text if text in known else "other:" + text.encode("utf-8").hex()
+                assert row == expected, (repr(text), row, expected)
     print(f"Methods: {len(cases)} known, case, prefix, suffix, byte/Unicode and unknown-preservation cases passed")
 
 

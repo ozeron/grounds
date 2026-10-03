@@ -1,6 +1,6 @@
 # grounds-crypto
 
-Pure Bend cryptographic primitives. This package implements SHA-1, SHA-256, HMAC-SHA1, HMAC-SHA256, HKDF-SHA-256, ChaCha20, Poly1305, ChaCha20-Poly1305 AEAD, AES-128 encryption, AES-128-GCM, X25519, P-256 ECDH, P-256/SHA-256 ECDSA and RSA-PSS/v1.5 SHA-256 digest verification. They are **experimental**: cookie signing and TLS still use OpenSSL while the Bend implementation is verified and its generated code is reviewed for timing behavior. Plain SHA-1 is used only for the WebSocket handshake challenge; HMAC-SHA1 is for the legacy STUN MESSAGE-INTEGRITY attribute.
+Pure Bend cryptographic primitives. This package implements SHA-1, SHA-256, HMAC-SHA1, HMAC-SHA256, HKDF-SHA-256, ChaCha20, Poly1305, ChaCha20-Poly1305 AEAD, AES-128 encryption, AES-128-GCM, X25519, P-256 ECDH, P-256/SHA-256 ECDSA and RSA-PSS/v1.5 SHA-256 digest verification. They are **experimental**: legacy cookie signing and live TLS still use OpenSSL while the Bend implementation is verified and its generated code is reviewed for timing behavior. The HTTP core now exposes explicit Bend cookie HMAC wrappers for synthetic-key verification on native and Bun. Plain SHA-1 is used only for the WebSocket handshake challenge; HMAC-SHA1 is for the legacy STUN MESSAGE-INTEGRITY attribute.
 
 | Module | Public calls | Source |
 |---|---|---|

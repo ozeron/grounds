@@ -4,6 +4,7 @@
 language: "bend"
 dependsOn:
   - "utf8"
+  - "crypto"
 
 tasks:
   check:
@@ -17,6 +18,8 @@ tasks:
       - "effs/*"
       - "/tools/bend_native.sh"
       - "/crypto/bytes.bend"
+      - "/crypto/hmac.bend"
+      - "/crypto/sha256.bend"
       - "/json/json.bend"
       - "/json/scripts/cold.py"
       - "/io/*.bend"
