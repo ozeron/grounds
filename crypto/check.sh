@@ -52,6 +52,7 @@ check frontend/unicode32_fold_test bend unicode32_fold_test.bend --check-only
 check frontend/unicode32_nfkc_test bend unicode32_nfkc_test.bend --check-only
 check frontend/unicode32_prepare_test bend unicode32_prepare_test.bend --check-only
 check frontend/x509_name_test bend x509_name_test.bend --check-only
+check frontend/x509_name_text_test bend x509_name_text_test.bend
 check frontend/x509_extension_policy_test bend x509_extension_policy_test.bend
 check frontend/x509_verify_cli env BUN_JSC_useJIT=false bend x509_verify_cli.bend --check-only
 check frontend/traffic_test bend traffic_test.bend
@@ -101,6 +102,7 @@ check native/build/unicode32_nfkc_cli ../tools/bend_native.sh unicode32_nfkc_cli
 check native/build/unicode32_prepare_cli ../tools/bend_native.sh unicode32_prepare_cli.bend "$tmp/unicode32_prepare" > /dev/null
 check native/build/unicode32_prepare_stress_cli ../tools/bend_native.sh unicode32_prepare_stress_cli.bend "$tmp/unicode32_prepare_stress" > /dev/null
 check native/build/x509_name_cli ../tools/bend_native.sh x509_name_cli.bend "$tmp/x509_name" > /dev/null
+check native/build/x509_name_text_cli ../tools/bend_native.sh x509_name_text_cli.bend "$tmp/x509_name_text" > /dev/null
 check native/build/x509_extension_policy_cli ../tools/bend_native.sh x509_extension_policy_cli.bend "$tmp/x509_extension_policy" > /dev/null
 check native/build/x509_verify_cli env BUN_JSC_useJIT=false ../tools/bend_native.sh x509_verify_cli.bend "$tmp/x509_verify" > /dev/null
 check native/build/x25519_cli ../tools/bend_native.sh x25519_cli.bend "$tmp/x25519" > /dev/null
@@ -144,6 +146,7 @@ check native/check/unicode32_prepare_check_fold python3 unicode32_prepare_check.
 check native/check/unicode32_prepare_check_exact python3 unicode32_prepare_check.py --mode exact --asset-controls -- "$tmp/unicode32_prepare"
 check native/check/unicode32_prepare_stress_check python3 unicode32_prepare_stress_check.py -- "$tmp/unicode32_prepare_stress"
 check native/check/x509_name_check python3 x509_name_check.py -- "$tmp/x509_name"
+check native/check/x509_name_text_check python3 x509_name_text_check.py -- "$tmp/x509_name_text"
 check native/check/x509_extension_policy_check python3 x509_extension_policy_check.py --signature-binary "$tmp/x509_verify" -- "$tmp/x509_extension_policy"
 check native/check/x509_signature_check python3 x509_signature_check.py -- "$tmp/x509_verify"
 check native/check/x25519_check python3 x25519_check.py --iterated "$tmp/x25519"
@@ -193,6 +196,7 @@ if command -v bun > /dev/null 2>&1; then
   check bun/build/unicode32_prepare_cli bend unicode32_prepare_cli.bend -o "$tmp/unicode32_prepare.js" > /dev/null
   check bun/build/unicode32_prepare_stress_cli bend unicode32_prepare_stress_cli.bend -o "$tmp/unicode32_prepare_stress.js" > /dev/null
   check bun/build/x509_name_cli bend x509_name_cli.bend -o "$tmp/x509_name.js" > /dev/null
+  check bun/build/x509_name_text_cli bend x509_name_text_cli.bend -o "$tmp/x509_name_text.js" > /dev/null
   check bun/build/x509_extension_policy_cli bend x509_extension_policy_cli.bend -o "$tmp/x509_extension_policy.js" > /dev/null
   check bun/build/x509_verify_cli env BUN_JSC_useJIT=false bend x509_verify_cli.bend -o "$tmp/x509_verify.js" > /dev/null
   check bun/build/x25519_cli bend x25519_cli.bend -o "$tmp/x25519.js" > /dev/null
@@ -236,6 +240,7 @@ if command -v bun > /dev/null 2>&1; then
   check bun/check/unicode32_prepare_check_exact env BUN_JSC_forceRAMSize=8388608 python3 unicode32_prepare_check.py --mode exact --asset-controls -- bun "$tmp/unicode32_prepare.js"
   check bun/check/unicode32_prepare_stress_check env BUN_JSC_forceRAMSize=4194304 python3 unicode32_prepare_stress_check.py -- bun "$tmp/unicode32_prepare_stress.js"
   check bun/check/x509_name_check python3 x509_name_check.py -- bun "$tmp/x509_name.js"
+  check bun/check/x509_name_text_check python3 x509_name_text_check.py -- bun "$tmp/x509_name_text.js"
   check bun/check/x509_extension_policy_check python3 x509_extension_policy_check.py --bun --signature-binary "$tmp/x509_verify.js" -- bun "$tmp/x509_extension_policy.js"
   check bun/check/x509_signature_check python3 x509_signature_check.py -- bun "$tmp/x509_verify.js"
   check bun/check/x25519_check python3 x25519_check.py bun "$tmp/x25519.js"

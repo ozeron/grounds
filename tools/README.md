@@ -15,6 +15,11 @@ deadline. The aggregate cutoff caps the complete owned process tree, rather
 than granting a separate 1 GiB allowance to each child. The aggregate
 budget includes compiler, test and runner processes; it is not added per child.
 The reports retain both the combined peak and the largest individual process.
+At the combined peak they also retain each owned process's short OS name beside
+its measured memory, so browser renderer/helper costs can be distinguished from
+compiler or server costs. Process-name collection does not alter the ownership,
+memory metric, pressure refusal or cutoff rules and does not read arguments or
+environment variables.
 
 On macOS the guard also reads `kern.memorystatus_vm_pressure_level` before
 launch and once per second during the job. Warning or critical pressure refuses

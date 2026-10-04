@@ -725,6 +725,31 @@ preparation, RFC 9549 IDNA2008/domain constraints, GeneralName directoryName
 integration, issuer/subject binding across a chain, trust, revocation and
 trusted-time composition remain required.
 
+`x509_name_text.decode(tag,bytes)` supplies the scalar transcoding step for
+[RFC 4518 section 2.1](https://www.rfc-editor.org/rfc/rfc4518.html#section-2.1).
+It accepts primitive UTF8String (12), PrintableString (19), IA5String (22),
+UniversalString (28) and BMPString (30) values, returning `Some{codes}` in
+original scalar order. It applies the shared Name schema's strict syntax,
+rejects non-octet inputs and values exceeding 65,535 bytes, and treats BMPString
+as UCS-2: paired UTF-16 surrogates are invalid too. BOMs, controls, case, spaces,
+noncharacters and unassigned scalars are preserved here; the Unicode 3.2
+preparation owner performs its separate mapping and prohibition steps.
+
+Malformed values, Teletex and other tags return `None`. The decoder supplies
+no implicit Latin-1 mapping for Teletex. Attribute SIZE/type validation still
+belongs to the surrounding Name schema; scalar decoding does not authorize an
+attribute or certificate. Connecting it to `unicode32_prepare`, choosing the
+Teletex comparison policy, and comparing RDN multisets in Name sequence order
+remain required work.
+
+Pinned Bend 2.0.27 passes twelve checked constructor examples, including a
+direct out-of-octet input. Native and optimizing-JIT Bun each pass the same
+9,321 independent Python codec/UCS-2 checks: every single octet, every BMP and
+UniversalString surrogate, malformed UTF-8, truncation/bit changes, scalar
+boundaries, seeded cross-encoding order and exact octet-bound tail walks.
+Native checks peak at 35.5 MiB in 2.116s; Bun at 112.7 MiB in 5.891s.
+These new five check phases supplement every existing package case.
+
 Official Bend 2.0.34 native and optimizing-JIT Bun each pass 11,195 independent
 Name checks, preserving the original 8,507 cases and adding all 128 canonical
 single-octet standard attribute arcs across seven value tags and three lengths.

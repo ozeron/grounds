@@ -118,6 +118,10 @@
       "optional": false
     },
     {
+      "name": "crypto/frontend/x509_name_text_test",
+      "optional": false
+    },
+    {
       "name": "crypto/frontend/x509_extension_policy_test",
       "optional": false
     },
@@ -314,6 +318,10 @@
       "optional": false
     },
     {
+      "name": "crypto/native/build/x509_name_text_cli",
+      "optional": false
+    },
+    {
       "name": "crypto/native/build/x509_extension_policy_cli",
       "optional": false
     },
@@ -483,6 +491,10 @@
     },
     {
       "name": "crypto/native/check/x509_name_check",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_name_text_check",
       "optional": false
     },
     {
@@ -675,6 +687,10 @@
     },
     {
       "name": "crypto/bun/build/x509_name_cli",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/build/x509_name_text_cli",
       "optional": true
     },
     {
@@ -1395,6 +1411,10 @@
     },
     {
       "name": "crypto/bun/check/x509_name_check",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_text_check",
       "optional": true
     },
     {

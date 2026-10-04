@@ -110,6 +110,8 @@ class GuardTests(unittest.TestCase):
         self.assertEqual(report["process_memory_limit_bytes"], 1024 * 1024 * 1024)
         self.assertEqual(report["timeout_seconds"], 120)
         self.assertGreater(report["peak_bytes"], 0)
+        self.assertEqual(set(report["peak_process_names"]), set(report["peak_process_memory_bytes"]))
+        self.assertTrue(all(report["peak_process_names"].values()))
         if sys.platform == "darwin":
             self.assertIn("physical-footprint", report["metric"])
 

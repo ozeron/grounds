@@ -112,6 +112,7 @@ class NativeProcesses:
                 'comm': value.comm.decode(errors='replace')}
         if full:
             result['birth'] = (value.start_sec, value.start_usec)
+            result['name'] = value.name.decode(errors='replace') or result['comm']
         return result
 
     def snapshot(self):
@@ -139,6 +140,7 @@ class Memory:
         self.metric = "aggregate-rss"
         self.lib = None
         self.sizes = {}
+        self.names = {}
         self.starts = {}
         self.owned = {}
         self.native = None
@@ -159,8 +161,10 @@ class Memory:
         if self.lib is None:
             try:
                 # Field 22 is the process birth tick; parentheses may contain spaces.
-                fields = Path(f'/proc/{pid}/stat').read_text().rsplit(')', 1)[1].split()
+                stat = Path(f'/proc/{pid}/stat').read_text()
+                fields = stat.rsplit(')', 1)[1].split()
                 self.starts[pid] = int(fields[19])
+                self.names[pid] = stat.split('(', 1)[1].rsplit(')', 1)[0]
             except FileNotFoundError:
                 return 0
             return max(rss, int(fields[21]) * os.sysconf('SC_PAGE_SIZE'))
@@ -189,6 +193,7 @@ class Memory:
         if after['birth'] != identity['birth']:
             raise RuntimeError('Process identity changed during memory measurement')
         self.starts[pid] = identity['birth']
+        self.names[pid] = identity.get('name', identity.get('comm', ''))
         return max(rss, usage.resident_size, usage.phys_footprint)
 
     def tree(self, root):
@@ -365,7 +370,8 @@ def main():
                               max_process_pid=largest_pid)
             if size > report["peak_bytes"]:
                 report.update(peak_bytes=size, peak_processes=members,
-                              peak_process_memory_bytes=dict(memory.sizes))
+                              peak_process_memory_bytes=dict(memory.sizes),
+                              peak_process_names={pid: memory.names.get(pid, '') for pid in members})
             if (report["process_memory_limit_bytes"] is not None
                     and any(value > report["process_memory_limit_bytes"]
                             for value in memory.sizes.values())):

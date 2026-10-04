@@ -138,6 +138,28 @@ then `python3 examples/signaling_browser_packets.py <evidence-dir>`. Set
 `GROUNDS_CHROME_FLAGS` optionally supplies a JSON array of diagnostic Chrome
 arguments; the artifact records the complete launch arguments. Default launch,
 reduced-process diagnostics and a completed protocol run are distinct evidence.
+Polling deadlines use `performance.now()` with their original time bounds.
+`launch.json` preserves the fresh profile and exact executable/arguments before
+Chrome starts; `startup.json` preserves its version and CDP targets immediately
+after connection. These survive a later guard cutoff even when the peer's
+ordinary final report cannot be written.
+
+On 2026-10-04, the unchanged complete evaluator passes against the installed
+Chromium 153.0.8010.12 headless shell and the retained Bend-native signed-cookie
+server in 8.980s at 321.1 MiB aggregate. Both generations have actual selected
+pairs and authenticated fresh consent; authentication/Origin denials,
+credential restart, reconnect, malformed-message rejection and clean server
+shutdown pass. The independent packet checker verifies both generations'
+HMAC-SHA1, FINGERPRINT, exact USERNAME/transactions, nomination and consent.
+This is specifically headless-shell plaintext signaling/ICE interoperability.
+No accumulated Chrome UI diagnostic flags, sandbox exceptions or reduced
+protocol cases are used in that passing run. Full Chrome 154.0.8037.93 and
+Chrome for Testing 153.0.8010.12 still exceed the 1 GiB startup cutoff.
+Their failed profiles remain separate evidence; headless-shell success does not
+establish their acceptance, cookie runtime safety, HTTPS/WSS, DTLS or media.
+The artifacts and retained source are under
+`/Users/ozeron/.codex/artifacts/grounds/2026-10-04/compiler-package-acceptance/`.
+
 `check.sh` runs native/Bun admission and socket tests and this browser evaluator
 when Chrome and Bun are available; an unavailable browser is explicitly skipped
 and cannot satisfy the full stack contract.

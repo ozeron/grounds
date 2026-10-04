@@ -12,9 +12,9 @@ await mkdir(evidence, {recursive: true});
 const profile = await mkdtemp(join(tmpdir(), "grounds-ice-chrome-"));
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const until = async (run, ms = 10000) => {
-  const end = Date.now() + ms;
+  const end = performance.now() + ms;
   let error;
-  while (Date.now() < end) {
+  while (performance.now() < end) {
     try { const value = await run(); if (value) return value; } catch (e) { error = e; }
     await delay(50);
   }
@@ -83,6 +83,9 @@ try {
   const chromeArguments = ["--headless=new", "--no-first-run", "--no-default-browser-check", "--remote-debugging-port=0",
     `--user-data-dir=${profile}`, `--disable-features=${[...disabledFeatures].join(",")}`, ...otherFlags, "about:blank"];
   results.chromeArguments = chromeArguments;
+  // Preserve launch attribution even when the resource guard stops the tree
+  // before this process's finally block can run.
+  await writeFile(join(evidence, "launch.json"), JSON.stringify({command, chromePath, chromeArguments, profile}, null, 2));
   chrome = spawn(chromePath, chromeArguments, {stdio: ["ignore", "ignore", "pipe"]});
   chrome.stderr.on("data", data => { chromeError += data; });
   const port = await until(async () => (await readFile(join(profile, "DevToolsActivePort"), "utf8")).split("\n")[0]);
@@ -93,6 +96,8 @@ try {
   await new Promise((resolve, reject) => { cdpSocket.addEventListener("open", resolve, {once: true}); cdpSocket.addEventListener("error", reject, {once: true}); });
   const cdp = new CDP(cdpSocket);
   results.browser = await cdp.send("Browser.getVersion");
+  results.initialTargets = (await cdp.send("Target.getTargets")).targetInfos;
+  await writeFile(join(evidence, "startup.json"), JSON.stringify({browser: results.browser, targets: results.initialTargets}, null, 2));
   await cdp.send("Page.enable");
   await cdp.send("Page.navigate", {url: "http://127.0.0.1:8089/"});
   await until(async () => (await cdp.evaluate("location.origin")) === "http://127.0.0.1:8089");
