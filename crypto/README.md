@@ -738,9 +738,9 @@ preparation owner performs its separate mapping and prohibition steps.
 Malformed values, Teletex and other tags return `None`. The decoder supplies
 no implicit Latin-1 mapping for Teletex. Attribute SIZE/type validation still
 belongs to the surrounding Name schema; scalar decoding does not authorize an
-attribute or certificate. Connecting it to `unicode32_prepare`, choosing the
-Teletex comparison policy, and comparing RDN multisets in Name sequence order
-remain required work.
+attribute or certificate. The `x509_name_prepare` owner connects supported
+attributes to Unicode preparation; comparing RDN multisets in Name sequence
+order remains required work.
 
 Pinned Bend 2.0.27 passes twelve checked constructor examples, including a
 direct out-of-octet input. Native and optimizing-JIT Bun each pass the same
@@ -749,6 +749,39 @@ UniversalString surrogate, malformed UTF-8, truncation/bit changes, scalar
 boundaries, seeded cross-encoding order and exact octet-bound tail walks.
 Native checks peak at 35.5 MiB in 2.116s; Bun at 112.7 MiB in 5.891s.
 These new five check phases supplement every existing package case.
+
+`x509_name_prepare.prepare(tables,oid,tag,bytes)` composes canonical OID/octets,
+the shared Name attribute's original tag/alphabet/scalar SIZE check, strict
+transcoding and Unicode 3.2 stored caseIgnoreMatch preparation. Mapping,
+B.2 folding, NFKC, prohibition and insignificant-space handling use the existing
+authenticated affine tables. Invalid inputs and prohibited prepared values
+return `None`; the table owner returns on both success and failure for the next
+attribute. SIZE admission precedes deletion/expansion, so mapping cannot rescue
+an empty or oversized original value. This applies
+[RFC 5280 section 7.1](https://www.rfc-editor.org/rfc/rfc5280.html#section-7.1)
+and [RFC 4518](https://www.rfc-editor.org/rfc/rfc4518.html), retaining the existing
+verified space/mapping corrections. The official errata search and inline
+renderings were checked on 2026-10-04; direct erratum links still failed to fetch.
+RFC 5280 erratum 7658 corrects its insignificant-space hyperlink, and RFC 4518
+erratum 9048 is editorial; neither changes this composition.
+
+DirectoryString and selected PrintableString attributes are supported. Teletex
+has no configured transcoding policy; IA5 domain/mailbox matching and unknown
+equality rules remain separate. `admission` reports `Some{False}` for those
+unsupported profiles, `None` for malformed selected inputs, and `Some{True}`
+for admitted selected syntax. Successful preparation supplies packed scalars,
+not Name equality, issuer binding or certificate authorization.
+
+Pinned Bend 2.0.27 passes twelve checked admission examples, including direct
+non-octet OID/value inputs. Native and optimizing-JIT Bun each pass the complete
+same 18,996 independent composed cases and fourteen corrupt-table rejections:
+3.570s/125.6 MiB and 42.647s/188.8 MiB aggregate. The corpus preserves every
+transcoder case and adds published B.2 cross-encoding inputs, original
+OID/type/SIZE limits, unassigned/prohibited scalars, space/mark/order sequences
+and full-byte-bound deletion/expansion. Mixed accepted/rejected records reuse
+one table owner across two fixture files. Five additional mandatory native/
+frontend or Bun-available phases retain every original check; full package
+and repository acceptance remain distinct gates.
 
 Official Bend 2.0.34 native and optimizing-JIT Bun each pass 11,195 independent
 Name checks, preserving the original 8,507 cases and adding all 128 canonical
