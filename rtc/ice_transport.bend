@@ -982,12 +982,17 @@ def reply_slot(found: Maybe<&2, Slot>, now: Nat) -> Bool:
 
 # Replies are not paced requests. Recheck immediately before IO so queued old
 # replies cannot keep a retired credential namespace alive after replacement.
-def current_reply(state: State, notice: Notice, +now: Nat) -> Bool:
-  match state notice:
-    case State{+agent, +slots, previous, _, _, _, _, _, False{}} Reply{+ref, +gen, _, _}:
+def current_reply_route(state: State, +ref: Pairs.Ref, +gen: U32, +now: Nat) -> Bool:
+  match state:
+    case State{+agent, +slots, previous, _, _, _, _, _, False{}}:
       Bool.pick(Bool, U32.is_eq(gen, Agent.generation(agent)),
         Bool.and(registered(Agent.session(agent), ref), Bool.not(tuple_lost(lookup(slots, ref, gen), now))), reply_slot(lookup(previous, ref, gen), now))
-    case _ _: False{}
+    case _: False{}
+
+def current_reply(state: State, notice: Notice, +now: Nat) -> Bool:
+  match notice:
+    case Reply{ref, gen, _, _}: current_reply_route(state, ref, gen, now)
+    case _: False{}
 
 def due_slot(slots: List<&2, Slot>, +now: Nat) -> Maybe<&2, Route>:
   match slots:

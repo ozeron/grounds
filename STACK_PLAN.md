@@ -116,6 +116,13 @@ failures, correct the cause and update the progress ledger. Record the exact nex
 action, commands, target/version, fresh versus cached results, artifacts and open
 limitations so another turn can continue without reconstructing the work.
 
+After two failed attempts on the same bug, consult an Astra subagent at low
+reasoning before another attempt. Preserve both failures and give the reviewer
+the exact source, resource reports and current hypothesis. Keep heavy jobs
+sequential under the existing 1 GiB aggregate/individual sampled cutoffs,
+system-pressure checks and 120-second phase deadlines; never raise them to
+force a passing result.
+
 Use `PYTHONDONTWRITEBYTECODE=1 moon run <package>:check --force` for changed
 packages and `PYTHONDONTWRITEBYTECODE=1 moon run :check` at milestones. The final
 gate is `PYTHONDONTWRITEBYTECODE=1 moon run :check --force` plus fresh real-browser

@@ -74,8 +74,14 @@ try {
   const chromePath = process.env.GROUNDS_CHROME || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
   const extraFlags = JSON.parse(process.env.GROUNDS_CHROME_FLAGS || "[]");
   if (!Array.isArray(extraFlags) || extraFlags.some(value => typeof value !== "string")) throw new Error("GROUNDS_CHROME_FLAGS must be a JSON string array");
+  const disabledFeatures = new Set(["WebRtcHideLocalIpsWithMdns"]);
+  const otherFlags = extraFlags.filter(flag => {
+    if (!flag.startsWith("--disable-features=")) return true;
+    for (const feature of flag.slice("--disable-features=".length).split(",")) if (feature) disabledFeatures.add(feature);
+    return false;
+  });
   const chromeArguments = ["--headless=new", "--no-first-run", "--no-default-browser-check", "--remote-debugging-port=0",
-    `--user-data-dir=${profile}`, "--disable-features=WebRtcHideLocalIpsWithMdns", ...extraFlags, "about:blank"];
+    `--user-data-dir=${profile}`, `--disable-features=${[...disabledFeatures].join(",")}`, ...otherFlags, "about:blank"];
   results.chromeArguments = chromeArguments;
   chrome = spawn(chromePath, chromeArguments, {stdio: ["ignore", "ignore", "pipe"]});
   chrome.stderr.on("data", data => { chromeError += data; });

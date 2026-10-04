@@ -15,10 +15,11 @@ import ./ice_entropy.bend as Entropy
 import ../../wire/wire.bend as W
 
 # Retained-socket adapter shared by signaling. State decisions remain in T.
-# These operations retain the synthetic fixture driver layout and exact send gates.
+# The complete transport owner is a recursive singleton across IO continuations.
+# Unpack only for pure state decisions; retain every exact send gate.
 
 type Driver is Data:
-  Driver{state: T.State, base: Stun.IPv4, streams: List<&2, Check.Stream>, end: Nat,
+  Driver{state: List<&2, T.State>, base: Stun.IPv4, streams: List<&2, Check.Stream>, end: Nat,
          renewals: U32, scenario: String, restarted: Bool}
 
 def Reply() -> Type:
@@ -29,20 +30,30 @@ def fatal(socket: Socket, text: String) -> IO(Reply()):
     x : Unit <- Socket.close(socket)
     IO.die(Reply(), 3, text)
 
+def printed(events: List<&2, T.Notice>, driver: Driver) -> IO(Driver):
+  do IO<Driver>:
+    x : Unit <- Output.events(events)
+    IO.pure(Driver, driver)
+
 def updated(step: T.Step, driver: Driver) -> IO(Driver):
   match step driver:
     case T.Step{state, events} Driver{_, base, streams, end, renewals, scenario, restarted}:
-      do IO<Driver>:
-        x : Unit <- Output.events(events)
-        IO.pure(Driver, Driver{state, base, streams, end, renewals, scenario, restarted})
+      printed(events, Driver{[state], base, streams, end, renewals, scenario, restarted})
+
+def acknowledge_at(now: Nat, socket: Socket, driver: Driver, packet: T.Packet) -> IO(Reply()):
+  match driver:
+    case Driver{[+state], +base, +streams, +end, +renewals, +scenario, +restarted}:
+      IO.bind(Driver, Reply(), updated(T.acknowledge(state, packet, now),
+        Driver{[state], base, streams, end, renewals, scenario, restarted}),
+        d => IO.pure(Reply(), (socket, d)))
+    case _: fatal(socket, "invalid stored transport owner")
 
 def sent_result(result: Result<&1, &1, U32 & String, Unit>, socket: Socket, driver: Driver, packet: Maybe<&2, T.Packet>) -> IO(Reply()):
   match result driver packet:
-    case Done{_} Driver{+state, +base, +streams, +end, +renewals, +scenario, +restarted} Some{p}:
+    case Done{_} d Some{p}:
       do IO<Reply()>:
         now : Nat <- IO.now()
-        d : Driver <- updated(T.acknowledge(state, p, now), Driver{state, base, streams, end, renewals, scenario, restarted})
-        IO.pure(Reply(), (socket, d))
+        acknowledge_at(now, socket, d, p)
     case Done{_} d None{}: IO.pure(Reply(), (socket, d))
     case Fail{_} _ _: fatal(socket, "fixture UDP send failed")
 
@@ -58,16 +69,17 @@ def send(current: Bool, socket: Socket, driver: Driver, reference: Pairs.Ref, by
 
 def request_now(+now: Nat, socket: Socket, +driver: Driver, +packet: T.Packet) -> IO(Reply()):
   match driver packet:
-    case Driver{state, base, _, _, _, _, _} T.Packet{_, _, +ref, bytes, _}:
+    case Driver{[state], base, _, _, _, _, _} T.Packet{_, _, +ref, bytes, _}:
       match ref:
         case Pairs.Ref{_, _, local, _}:
           send(Bool.and(C.address_same(base, local), T.current_send(state, packet, now)), socket, driver, ref, bytes, Some{packet})
+    case _ _: fatal(socket, "invalid stored transport owner")
 
 def reply_now(+now: Nat, socket: Socket, +driver: Driver, +notice: T.Notice) -> IO(Reply()):
   match driver notice:
-    case Driver{state, base, _, _, _, _, _} T.Reply{+ref, _, bytes, _}:
+    case Driver{[state], base, _, _, _, _, _} T.Reply{+ref, gen, bytes, _}:
       match ref:
-        case Pairs.Ref{_, _, local, _}: send(Bool.and(C.address_same(base, local), T.current_reply(state, notice, now)), socket, driver, ref, bytes, None{})
+        case Pairs.Ref{_, _, local, _}: send(Bool.and(C.address_same(base, local), T.current_reply_route(state, ref, gen, now)), socket, driver, ref, bytes, None{})
     case _ _: IO.pure(Reply(), (socket, driver))
 
 def application_sent(reply: Discovery.RU(), driver: Driver, gen: U32) -> IO(Reply()):
@@ -93,19 +105,19 @@ def application_route(value: Maybe<&2, T.Route>, +now: Nat, socket: Socket, +dri
       do IO<Reply()>:
         x : Unit <- IO.print("application-blocked")
         IO.pure(Reply(), (socket, driver))
-    case Some{T.Route{Pairs.Ref{+sid, +comp, +local, +peer}, +gen}} Driver{+state, base, _, _, _, _, _}:
+    case Some{T.Route{Pairs.Ref{+sid, +comp, +local, +peer}, +gen}} Driver{[+state], base, _, _, _, _, _}:
       send_application(Bool.and(C.address_same(base, local), T.allowed(state, Pairs.Ref{sid, comp, local, peer}, gen, now)), socket, driver, peer, gen)
+    case _ _: fatal(socket, "invalid stored transport owner")
 
 def application_now(+now: Nat, socket: Socket, +driver: Driver) -> IO(Reply()):
   match driver:
-    case Driver{state, _, _, _, _, _, _}: application_route(T.route(state, 1, 1, now), now, socket, driver)
+    case Driver{[state], _, _, _, _, _, _}: application_route(T.route(state, 1, 1, now), now, socket, driver)
+    case _: fatal(socket, "invalid stored transport owner")
 
 def application(socket: Socket, +driver: Driver) -> IO(Reply()):
-  match driver:
-    case Driver{+state, _, _, _, _, _, _}:
-      do IO<Reply()>:
-        now : Nat <- IO.now()
-        application_now(now, socket, driver)
+  do IO<Reply()>:
+    now : Nat <- IO.now()
+    application_now(now, socket, driver)
 
 def restart_bound(step: T.Step, +now: Nat) -> T.Step:
   match step:
@@ -117,11 +129,10 @@ def restart_signaled(step: T.Step, now: Nat) -> T.Step:
 
 def restart_at(+now: Nat, socket: Socket, driver: Driver) -> IO(Reply()):
   match driver:
-    case Driver{+state, +base, +streams, +end, +renewals, scenario, _}:
-      do IO<Reply()>:
-        d : Driver <- updated(restart_signaled(restart_bound(T.restart(state, streams, Incoming.Secret{"nextLocal", "NewLocalFixturePassword1234"}, now), now), now),
-          Driver{state, base, streams, end, renewals, scenario, True{}})
-        application(socket, d)
+    case Driver{[+state], +base, +streams, +end, +renewals, scenario, _}:
+      IO.bind(Driver, Reply(), updated(restart_signaled(restart_bound(T.restart(state, streams, Incoming.Secret{"nextLocal", "NewLocalFixturePassword1234"}, now), now), now),
+        Driver{[state], base, streams, end, renewals, scenario, True{}}), d => application(socket, d))
+    case _: fatal(socket, "invalid stored transport owner")
 
 def restart_after(reply: Reply()) -> IO(Reply()):
   (socket, driver) = reply
@@ -164,30 +175,33 @@ def execute(fuel: Nat, values: List<&2, T.Notice>, socket: Socket, driver: Drive
 def execute_step(step: T.Step, socket: Socket, driver: Driver) -> IO(Reply()):
   match step driver:
     case T.Step{state, +events} Driver{_, base, streams, end, renewals, scenario, restarted}:
-      execute(Nat.add(List.length(&2, T.Notice, events), 1n), events, socket, Driver{state, base, streams, end, renewals, scenario, restarted})
+      execute(Nat.add(List.length(&2, T.Notice, events), 1n), events, socket, Driver{[state], base, streams, end, renewals, scenario, restarted})
 
 def jitter_random(word: Result<&1, &1, U32 & String, U32>, route: T.Route, tx: List<&2, U32>, socket: Socket, driver: Driver, +now: Nat) -> IO(Reply()):
   match word route driver:
-    case Done{n} T.Route{ref, gen} Driver{+state, +base, +streams, +end, +renewals, +scenario, +restarted}:
-      execute_step(T.probe(state, ref, gen, tx, U32.from_nat(Nat.mod(U32.to_nat(n), 2001n)), now), socket, Driver{state, base, streams, end, renewals, scenario, restarted})
+    case Done{n} T.Route{ref, gen} Driver{[+state], +base, +streams, +end, +renewals, +scenario, +restarted}:
+      execute_step(T.probe(state, ref, gen, tx, U32.from_nat(Nat.mod(U32.to_nat(n), 2001n)), now), socket, Driver{[state], base, streams, end, renewals, scenario, restarted})
     case _ _ _: fatal(socket, "fixture host RNG failed")
 
 def random_route(route: Maybe<&2, T.Route>, +tx: List<&2, U32>, socket: Socket, +driver: Driver, +now: Nat) -> IO(Reply()):
   match route driver:
     case Some{r} _:
       IO.bind(Result<&1, &1, U32 & String, U32>, Reply(), IO.random_u32(), word => jitter_random(word, r, tx, socket, driver, now))
-    case None{} Driver{+state, +base, +streams, +end, +renewals, +scenario, +restarted}:
-      execute_step(T.start(state, tx, Retry.default(), now), socket, Driver{state, base, streams, end, renewals, scenario, restarted})
+    case None{} Driver{[+state], +base, +streams, +end, +renewals, +scenario, +restarted}:
+      execute_step(T.start(state, tx, Retry.default(), now), socket, Driver{[state], base, streams, end, renewals, scenario, restarted})
+    case _ _: fatal(socket, "invalid stored transport owner")
 
 def start_random(entropy: Entropy.Entropy(), socket: Socket, +driver: Driver, +now: Nat) -> IO(Reply()):
   match entropy driver:
-    case Done{(a, (b, c))} Driver{+state, base, streams, end, renewals, scenario, restarted}:
-      random_route(T.probe_due(state, now), Discovery.transaction(a, b, c), socket, Driver{state, base, streams, end, renewals, scenario, restarted}, now)
+    case Done{(a, (b, c))} Driver{[+state], base, streams, end, renewals, scenario, restarted}:
+      random_route(T.probe_due(state, now), Discovery.transaction(a, b, c), socket, Driver{[state], base, streams, end, renewals, scenario, restarted}, now)
+    case Done{_} _: fatal(socket, "invalid stored transport owner")
     case Fail{_} _: fatal(socket, "fixture host RNG failed")
 
-def driver_state(driver: Driver) -> T.State:
-  match driver:
-    case Driver{state, _, _, _, _, _, _}: state
+def admission(+state: T.State, +now: Nat) -> Bool:
+  match state:
+    case T.State{+agent, _, _, _, _, _, _, _, closed}:
+      Bool.and(Bool.not(closed), Bool.or(Agent.same_status(Agent.status(agent), Agent.Running{}), Maybe.is_some(&2, T.Route, T.probe_due(state, now))))
 
 def begin_allowed(ok: Bool, socket: Socket, driver: Driver, now: Nat) -> IO(Reply()):
   match ok:
@@ -196,5 +210,6 @@ def begin_allowed(ok: Bool, socket: Socket, driver: Driver, now: Nat) -> IO(Repl
 
 def begin_due(+now: Nat, socket: Socket, +driver: Driver) -> IO(Reply()):
   match driver:
-    case Driver{T.State{+agent, _, _, _, _, _, _, _, closed}, _, _, _, _, _, _}:
-      begin_allowed(Bool.and(Bool.not(closed), Bool.or(Agent.same_status(Agent.status(agent), Agent.Running{}), Maybe.is_some(&2, T.Route, T.probe_due(driver_state(driver), now)))), socket, driver, now)
+    case Driver{[state], _, _, _, _, _, _}:
+      begin_allowed(admission(state, now), socket, driver, now)
+    case _: fatal(socket, "invalid stored transport owner")

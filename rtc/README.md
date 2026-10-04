@@ -61,6 +61,19 @@ importing that fixture's entire CLI. The protocol owners and their send/reply,
 consent and restart decisions remain in the same Bend modules. Package checks
 still include every existing CLI and browser scenario.
 
+The shared signaling UDP adapter now retains its complete `T.State` in a
+recursive singleton across IO continuations, matching the signaling owner's
+storage approach. Pure admission and send/reply/application decisions unpack
+that singleton; state updates pack the replacement before output IO. The reply
+gate also accepts the already separated route/generation through
+`current_reply_route`; the existing notice-based API delegates to the same checks.
+Pinned type checking and fresh Bun signaling/expiry checks pass. An isolated
+Bend 2.0.34 diagnostic compiles all generated C segments sequentially with one
+shared runtime owner and passes the native signaling/expiry scenarios. The
+pinned native build, complete package gates and fresh browser verification
+remain open. Existing protocol and wire APIs are preserved; exact compiler,
+resource and validation scope remain in the ledger.
+
 Focused runtime checks and full package acceptance have separate evidence;
 [STACK_PROGRESS.md](../STACK_PROGRESS.md) records exact commands, compiler
 versions, guarded cutoffs and remaining verification work.

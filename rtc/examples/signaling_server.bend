@@ -78,13 +78,14 @@ def send_text(text: String, ws: Socket, udp: Socket, driver: Driver) -> IO(Reply
   send_ws(1, Bytes.of_list(U.encode(text)), ws, udp, driver)
 
 def udp_driver(state: T.State, +base: Stun.IPv4) -> Udp.Driver:
-  Udp.Driver{state, base, [], 0n, 0, "browser", False{}}
+  Udp.Driver{[state], base, [], 0n, 0, "browser", False{}}
 
 def udp_done(value: Udp.Reply(), ws: Socket, driver: Driver) -> IO(Reply()):
   (udp, d) = value
   match d driver:
-    case Udp.Driver{transport, _, _, _, _, _, _} Driver{state, base, buffer, end, frames, closed}:
+    case Udp.Driver{[transport], _, _, _, _, _, _} Driver{state, base, buffer, end, frames, closed}:
       IO.pure(Reply(), (ws, (udp, Driver{stored.replace(state, transport), base, buffer, end, frames, closed})))
+    case _ d: IO.pure(Reply(), (ws, (udp, stop(d))))
 
 def udp_event(notice: T.Notice, owner: Maybe<&2, T.State>, +now: Nat,
               ws: Socket, udp: Socket, +driver: Driver) -> IO(Reply()):
