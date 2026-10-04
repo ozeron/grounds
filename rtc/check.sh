@@ -66,7 +66,7 @@ check native/build/signaling_cookie sh ../tools/bend_native.sh examples/signalin
 check native/check/signaling_cookie_check python3 examples/signaling_cookie_check.py "$tmp/signaling_cookie"
 check native/build/sdp sh ../tools/bend_native.sh examples/sdp.bend "$tmp/sdp" > /dev/null
 check native/check/sdp_check python3 examples/sdp_check.py "$tmp/sdp"
-check native/build/signaling_server sh examples/build_signaling.sh "$tmp/signaling_server" > /dev/null
+sh examples/build_signaling.sh "$tmp/signaling_server" > /dev/null
 check native/check/signaling_server_check python3 examples/signaling_server_check.py "$tmp/signaling_server"
 check native/check/signaling_cookie_expiry_check python3 examples/signaling_cookie_expiry_check.py "$tmp/signaling_server"
 check native/build/auth bend examples/auth.bend -o "$tmp/auth" > /dev/null

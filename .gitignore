@@ -1,4 +1,5 @@
 *.c
+!/tools/testdata/native_parts.c
 *.js
 !/json/bench/rt.js
 *.gpu

@@ -117,7 +117,7 @@ keep-alive reuse, 32 concurrent requests and graceful shutdown. Existing checks:
 1. Builds `examples/hello` and serves it on 8080.
 2. Asserts the curl answer, and keep-alive: curl reports "Re-using existing connection" for two URLs.
 3. Runs `examples/probe.py`: refusals, pipelining, chunked bodies, TE with CL, and a request served while another client waits half-sent.
-4. Runs `examples/timeouts.py`: an idle, a half-sent and a trickling connection each close in time (about 11 s).
+4. Runs `examples/timeouts.py`: an idle, a half-sent and a trickling connection each close in time (about 11 s), measured with a monotonic clock.
 5. Runs `ab -c 100 -n 2000`, with and without keep-alive; no request may fail.
 6. Serves `examples/stack.bend` on 8082 and checks each wrapper.
 7. Serves `examples/stream.bend`: 3 server-sent events, heartbeats until the client goes (`examples/hb.py`), a 10 MiB streamed body, `/healthz`, `/readyz`, and a bad `HTTP_*` value.
@@ -126,7 +126,7 @@ keep-alive reuse, 32 concurrent requests and graceful shutdown. Existing checks:
 10. Serves `examples/auth.bend` and checks Bearer and Basic success, challenges, malformed credentials, duplicate fields and removal of Authorization before the handler.
 11. Serves `examples/cors.bend` and checks exact and denied origins, credentials, 204 preflight, `Vary`, method and header allowlists.
 12. Proves the WebSocket handshake and frame examples, then serves `examples/websocket.bend` to check upgrade, frame echo, fragmentation, ping/pong, close, and protocol refusals with raw sockets.
-13. Serves `examples/multipart.bend`, compares 200 generated requests with Python's email parser, checks part and header limits, and sends a binary part from the client builder.
+13. Builds both multipart fixtures through `tools/bend_native.sh` to release the frontend before C compilation, serves `examples/multipart.bend`, compares 200 generated requests with Python's email parser, checks part and header limits, and sends a binary part from the client builder.
 14. Runs the cold check on the existing examples and auth. CORS policy lookups and multipart parsing currently make some String and List constructors reference counted.
 
 `check_phases.json` declares thirteen ordered resource phases covering these

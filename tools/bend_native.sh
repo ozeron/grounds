@@ -28,6 +28,23 @@ if ! rg -q '^#define BANGS[[:space:]]+0$' "$generated_c"; then
 fi
 
 compiler=${CC:-clang}
+# Large CPU programs overwhelm a single Clang translation unit. Keep emitted
+# bodies intact and compile bounded units after the frontend has exited.
+if [ "$(wc -c < "$generated_c")" -ge 4194304 ] && ! rg -q '^#import ' "$generated_c"; then
+  helper_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+  set -- --compiler "$compiler" --cflag=-std=c11 --cflag=-O3 \
+    --link-flag=-lpthread --link-flag=-lm --output "$native_output"
+  case "$(uname -s)" in
+    Darwin) ;;
+    Linux)
+      if rg -q '#include <X11/' "$generated_c"; then set -- "$@" --link-flag=-lX11; fi
+      if rg -q '#include <alsa/' "$generated_c"; then set -- "$@" --link-flag=-lasound; fi
+      ;;
+    *) echo "bend_native.sh supports macOS and Linux CPU fixtures" >&2; exit 2 ;;
+  esac
+  python3 "$helper_dir/bend_native_parts.py" "$generated_c" "$native_tmp/parts" "$@"
+  exit
+fi
 # Match Bend 2.0.27's CPU compile flags and platform libraries.
 set -- -std=c11 -O3 "$generated_c" -lpthread -lm
 case "$(uname -s)" in

@@ -122,6 +122,10 @@
       "optional": false
     },
     {
+      "name": "rtc/native/emit/signaling_server",
+      "optional": false
+    },
+    {
       "name": "rtc/native/build/signaling_server",
       "optional": false
     },

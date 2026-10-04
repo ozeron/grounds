@@ -12,18 +12,18 @@ results = {}
 def until_closed(s, limit):
     s.settimeout(limit)
     out = b""
-    t = time.time()
+    t = time.monotonic()
     try:
         while True:
             c = s.recv(4096)
             if not c:
-                return out, time.time() - t
+                return out, time.monotonic() - t
             out += c
     except socket.timeout:
-        return None, time.time() - t
+        return None, time.monotonic() - t
     except ConnectionResetError:
         # closed with bytes unread: the kernel resets, and may drop the 408
-        return out + b"reset", time.time() - t
+        return out + b"reset", time.monotonic() - t
 
 
 def idle():
@@ -39,19 +39,19 @@ def half_head():
 
 def trickle():
     s = socket.create_connection(("127.0.0.1", PORT))
-    t = time.time()
+    t = time.monotonic()
     results["trickle"] = None
     try:
         for b in b"POST / HTTP/1.1\r\nHost: x\r\nContent-Length: 100\r\n\r\n" + b"x" * 100:
             s.sendall(bytes([b]))
             time.sleep(0.5)
-            if time.time() - t > 20:
+            if time.monotonic() - t > 20:
                 break
     except OSError:
-        results["trickle"] = (b"reset", time.time() - t)
+        results["trickle"] = (b"reset", time.monotonic() - t)
     if results["trickle"] is None:
         out, _ = until_closed(s, 5)
-        results["trickle"] = (out, time.time() - t)
+        results["trickle"] = (out, time.monotonic() - t)
 
 
 ts = [threading.Thread(target=f) for f in (idle, half_head, trickle)]

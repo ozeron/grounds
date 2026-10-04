@@ -87,14 +87,22 @@ WebSocket framing/session APIs retain their behavior. Close, stop and deadline
 discard the transport and close both sockets; tests rebind the actual UDP port.
 
 Run `sh examples/build_signaling.sh /tmp/grounds-signaling` and start that
-binary. On Apple Clang 21 arm64 the fixture build emits Bend C and uses
+binary. The builder refuses existing output, C and `.parts` paths, emits Bend
+C, and compiles its segments in sequential translation units with one runtime
+owner. It retains generated C, exact body hashes and compiler commands beside
+the output. For standalone guarded builds, use
+`tools/build_guard.py --phases rtc/signaling_build_phases.json` around this
+command from the repository root. Emission and compilation/linking are two
+ordered mandatory phases with the same 120-second deadlines and continuously
+monitored memory/pressure limits. The RTC package uses those same phase names.
+On Apple Clang 21 arm64 the fixture uses
 `-O3 -fno-stack-check`: the compiler's Darwin stack probe conflicts with live
 registers in the generated `preserve_none` runtime function `WL_FID_ENTER`.
 Default `-O3`, `-O1`, `-O0` and disabled shrink wrapping all reproduced the
 backend failure; the explicit stack-probe workaround compiled the same C.
 This disables compiler-inserted stack probes for this evaluator only. It is a
 build limitation, not a memory/timing safety finding resolved for the full stack.
-Other checks retain Bend's normal native build. The generated-runtime ABI and
+Other checks retain their existing compiler flags. The generated-runtime ABI and
 stack behavior remain part of the required review before production acceptance.
 The fixture uses port 8089, accepts Origin `http://127.0.0.1:8089` and binds its
 UDP base to 127.0.0.1. Startup prints `signaling-cookie:grounds-fixture=...`;

@@ -137,3 +137,20 @@ GPU programs and publishes a completed executable atomically. Run it under
 the resource guard, like other build commands. The crypto check uses this
 helper for its native adapters; JS generation and the arithmetic checks remain
 unchanged.
+
+For CPU C files of at least 4 MiB, the helper uses `bend_native_parts.py`
+to compile separate translation units sequentially without LTO. It preserves
+each generated segment body, signature and calling-convention attribute.
+The allocator, other mutable runtime globals and dispatch table have one
+definition. Unknown layouts, unexpected code between segments, local static
+storage in the shared prefix and device backends fail explicitly. Function-local
+storage in the runtime suffix stays in its single owner. Objective-C builds retain the
+original monolithic compiler path. The splitter records source/body hashes
+and compiler commands in its build directory; `bend_native.sh` removes that
+temporary directory after publication. The signaling builder retains its C
+and `.parts` directory beside the new output for inspection.
+
+Run the splitter's storage, cross-unit direct/dynamic calls and atomic output
+publication regressions with `python3 tools/bend_native_parts_test.py` under
+the guard. Splitting addresses Clang's memory footprint; it does not resolve
+Bend frontend resource failures or certify generated-code timing safety.

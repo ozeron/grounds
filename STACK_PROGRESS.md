@@ -14,6 +14,79 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 
 ## Evidence ledger
 
+- 2026-10-04 (Lisbon; reusable sequential native compilation):
+  The full goal remains active and all nineteen acceptance gates stay open.
+  `tools/bend_native_parts.py` now partitions recognized Bend CPU C into
+  sequential translation units without LTO, preserving every segment body,
+  signature and calling-convention attribute. Runtime globals and dispatch
+  have one owner. Unsupported layouts/devices, unknown shared globals, shared
+  local storage and unexpected code between segments fail explicitly. Balanced
+  generated CPU guards are retained; runtime-only local storage stays in the
+  owner. Publication is atomic and refuses an existing or concurrently created
+  output. Eleven guarded regressions pass in 4.642s/84.0 MiB, including actual
+  direct/dynamic cross-unit calls, shared mutations and persistent runtime
+  local storage. Both modern and pinned CPU layouts are exercised: the pinned
+  frozen cookie C compiles in two units at 123.2 MiB and passes 2,675 independent
+  cookie cases at 26.1 MiB.
+
+  `bend_native.sh` selects this compiler for CPU C at least 4 MiB; small and
+  Objective-C programs retain their existing path and all flags/libraries.
+  Signaling always uses sequential units and preserves the fixture-local
+  Apple Clang 21 arm64 stack-probe workaround. Its build owns two fixed,
+  ordered phases, emission then compilation/linking, in the complete RTC
+  manifest and a dedicated standalone manifest. All memory/pressure cutoffs
+  remain unchanged; each phase retains its 120-second deadline. All five
+  consuming packages include the new tool in Moon cache inputs.
+
+  Isolated official Bend 2.0.34 compatibility is rebuilt from current e4acfd6
+  with the full prior compatibility patch, preserved current crypto cache
+  inputs and fifteen further argv adapters. The primary 2.0.27 pin is unchanged.
+  Fresh isolated JSON package acceptance passes in 34.006s/407.5 MiB, including
+  the complete native 318-case suite and 706 independent Python-json cases.
+  The separate complete Bun 318-case suite passes in 92.690s/326.6 MiB.
+  Isolated io/utf8 checks pass forced in 2.211s/205.5 MiB. These results do not
+  establish complete compiler compatibility or repository acceptance.
+
+  Two conservative source-build validation failures reveal legitimate generated
+  CPU wrappers and runtime-only local statics. Astra low reviews both before
+  another attempt; the corrected parser retains the wrappers and suffix.
+  A combined non-JIT build then times out at 120.040s/887.2 MiB; optimizing
+  frontend JIT reaches 1026.0 MiB and is stopped. Astra low reviews those two
+  failures before the fixed two-phase integration. The final whole isolated
+  source build passes in 145.342s: emission 94.324s/905.2 MiB, then all 24 units
+  and linking 50.824s/485.4 MiB. An audit verifies all 2,188 body hashes/order,
+  one definition per segment, and sixteen host globals plus dispatch in one
+  runtime owner; device globals are absent. The final executable passes all
+  48 real signaling scenarios in 2.233s/33.3 MiB and actual cookie expiry,
+  socket/UDP cleanup, expired/stale denial and fresh reconnect in 3.350s/31.0 MiB.
+  Earlier successful standalone compilation and native runs are retained too.
+
+  Fresh primary http_server acceptance initially fails because a wall-clock
+  duration reads about 930 seconds while the guard's monotonic phase lasts
+  12.170s. The elapsed-time fixture now uses a monotonic clock with identical
+  thresholds. Its rerun passes eleven phases then hits 1028.9 MiB during
+  multipart compilation. Both multipart fixtures now release Bend before C
+  compilation, preserving all fuzz/client scenarios. Final primary
+  `moon --concurrency 1 run http_server:check --force` passes all thirteen phases
+  without skips in 100.723s/913.9 MiB; http_core passes forced in
+  33.994s/546.1 MiB and wire in 74.841s/603.4 MiB. Crypto passes 48 of 354 phases
+  before macOS warning pressure stops it at 52.824s/531.4 MiB. RTC passes
+  thirty phases before pinned signaling C emission hits 1025.4 MiB at
+  232.607s overall. These incomplete crypto/RTC gates are not acceptance.
+  The required ordinary `moon --concurrency 1 run :check` reaches its unchanged
+  whole-job deadline at 120.007s/513.8 MiB during crypto native validity builds.
+  Repository and final forced repository acceptance remain incomplete.
+
+  Exact commands/environments, all failed attempts, complete compatibility
+  preparation, frozen candidate inputs, generated C/parts/objects, body/symbol
+  audits and native/Bun/package reports are under
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-04/compiler-acceptance/`.
+  Next: complete all affected isolated compiler/ABI package checks before
+  promotion, resolve Chrome startup with process-role evidence, and finish
+  trust/Name/key/timing review before Bend TLS/DTLS and secure signaling.
+  IPv6/TURN, SCTP/data, encrypted audio/video and complete fresh direct/relay
+  browser/repository gates remain required. No scope or check is removed.
+
 - 2026-10-04 (Lisbon; retained transport packing and bounded native diagnostic):
   The full goal remains active with all nineteen acceptance boxes open. The
   user's rule is now explicit in STACK_PLAN: after two failed attempts on the

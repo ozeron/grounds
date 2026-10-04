@@ -169,8 +169,8 @@ wspid=
 end
 
 begin multipart
-bend examples/multipart.bend -o "$tmp/multipart" > /dev/null
-bend ../client/examples/multipart.bend -o "$tmp/multipart_client" > /dev/null
+sh ../../tools/bend_native.sh examples/multipart.bend "$tmp/multipart" > /dev/null
+sh ../../tools/bend_native.sh ../client/examples/multipart.bend "$tmp/multipart_client" > /dev/null
 python3 examples/multipart_fuzz.py "$tmp/multipart" --count 200 --seed "${SEED:-1}" --client "$tmp/multipart_client"
 end
 

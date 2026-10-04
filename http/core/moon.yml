@@ -17,6 +17,7 @@ tasks:
       - "examples/*"
       - "effs/*"
       - "/tools/bend_native.sh"
+      - "/tools/bend_native_parts.py"
       - "/crypto/bytes.bend"
       - "/crypto/hmac.bend"
       - "/crypto/sha256.bend"
