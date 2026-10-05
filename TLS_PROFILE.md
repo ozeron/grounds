@@ -42,7 +42,7 @@ retrieval succeeded. No generated summary substitutes for that retained text.
 | Key agreement | P-256 and X25519, with fresh per-connection private material | `crypto/p256.bend`, `x25519.bend`; connect host RNG and private-key ownership |
 | Handshake signatures | P-256 ECDSA/SHA-256 and RSA-PSS-RSAE/SHA-256 | `ecdsa_scheme256.bend`, `rsa_signature256.bend`; RSA private signing and full ownership are unfinished |
 | Certificate signatures | P-256 ECDSA/SHA-256, RSA PKCS#1 v1.5/SHA-256 and admitted RSA-PSS/SHA-256 | `x509_algorithm.bend`, `x509_public_key.bend`, `x509_signature.bend`; preserve key/parameter restrictions |
-| Transcript/KDF | SHA-256 incremental transcript and TLS HKDF labels | `sha256_stream.bend`, `hkdf.bend`, `traffic.expand_label`; handshake schedule/Finished composition missing |
+| Transcript/KDF | SHA-256 incremental transcript and TLS HKDF labels | `wire/tls_transcript.bend`, `wire/tls_schedule.bend`, `sha256_stream.bend`, `hkdf.bend`, `traffic.expand_label`; component checks pass, live handshake composition remains |
 | Application | HTTP/1.1; WebSocket over that connection; ALPN `http/1.1` only | HTTP client/server plus new TLS transport adapter; never advertise h2/h3 |
 | Trust | Caller-supplied explicit anchors and expected DNS/IP identity | M1 composed validation, not a signature-only result or automatic trust of supplied peer roots |
 | Server credentials | Synthetic P-256 certificate first; RSA signing remains part of profile acceptance | Fixture import plus explicit key ownership; no host signing delegation |
@@ -108,3 +108,30 @@ The final no-delegation test must make legacy TLS/crypto effects fail if the new
 path invokes them, alongside an import/effect audit. Retain compatibility-path
 regressions separately. A passing browser ICE test or encrypted-record fixture
 cannot stand in for any live TLS/HTTPS cell above.
+
+
+## Current component and runtime review checkpoint (2026-10-05)
+
+Transcripts, no-PSK SHA-256 schedule/Finished and handshake-record reassembly now
+have independent native/Bun component evidence and a fresh eleven-phase wire
+pass (commit 44249af; details in STACK_PROGRESS.md). These components still need
+negotiation, body codecs, role/order enforcement, certificate authentication and
+record-epoch integration before any live TLS claim.
+
+A static inspection of the current pinned P-256 diagnostic JavaScript preserves
+five exact generated functions and input hashes in
+`/Users/ozeron/.codex/artifacts/grounds/2026-10-05/p256-phases/generated-runtime-review.json`.
+Its scalar loop follows public counters and its inspected selector uses bitwise
+masks. This is narrow positive source evidence; it does not cover all arithmetic,
+optimized machine code, Bun JIT behavior or timing distributions. The generated
+path retains tagged heap records, trampoline state and array-to-list slice
+copies. Physical lifetime/erasure remains unverified.
+
+The new schedule's affine wrappers contain ordinary duplicable byte lists.
+Consuming a Finished key or a stage owner prevents the tested logical reuse; it
+does not erase every underlying heap/runtime copy. Existing ECDSA retry findings
+and native/runtime review remain open. Before M2 closes, bind the full signing,
+key-agreement, KDF and AEAD generated paths to reviewed compiler/runtime versions,
+resolve secret-dependent timing findings, and implement/test an explicit secret
+storage and retirement contract. No timing or erasure approval follows from this
+checkpoint; synthetic fixture keys remain the only authorized test material.

@@ -14,6 +14,65 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 
 ## Evidence ledger
 
+- 2026-10-05 (verified wait plus current generated-code review):
+  Re-polled focused exec session 86377 and queued session 32428; PIDs 2043,
+  2587 and 5752 are live and retain the expected commands. Focused Bun P-256
+  advances to 64/609 cases with batch-016 active at this checkpoint. No job was
+  restarted and no competing heavy job launched. The complete crypto gate is
+  still queued, not passed; preserve the original report/log paths below.
+
+  Inspected five exact functions in the newly emitted pinned P-256 JavaScript:
+  multiply.go, multiply.selected, select_bytes, select_step.candidate and
+  Array.to_list.go. `generated-runtime-review.json` in `2026-10-05/p256-phases/`
+  binds their bodies/line positions to the generated file and current P-256,
+  field and TLS schedule source hashes. The inspected scalar selector is bitwise
+  and the loop counter public; this does not review every arithmetic operation
+  or generated native/JIT instruction. Tagged heap/trampoline state and slice
+  copies remain visible. The schedule's affine owners wrap ordinary duplicable
+  byte lists; logical one-use checks do not establish physical erasure. Existing
+  ECDSA retry/runtime findings remain open. TLS_PROFILE.md now reflects completed
+  transcript/schedule components and this precise unresolved M2 scope.
+
+  This documentation checkpoint makes no new protocol/runtime acceptance claim.
+  Next: consume the same focused run and dependent full-package outcome, resolve
+  any concrete failure, then commit the pending crypto partition only after its
+  required checks pass. M0-M4 remain active; RTC expansion stays deferred.
+
+- 2026-10-05 (P-256 phase partition prepared; focused Bun verification live):
+  The prior turn made verified progress in commit 44249af. This continuation
+  addresses M0's first failing current crypto phase: sixteen Bun P-256 cases
+  exceeded a 120-second deadline. No primitive or expected result is changed.
+  `p256_check.py` now accepts a bounded 1..16 batch size (default 16) and an
+  optional complete-success JSON report. The package Bun invocation selects four
+  cases per process/phase. Its 39 phases become 153; all other 808 phase entries
+  remain identical and ordered, for 961 total. All assertions and the original
+  180-second subprocess ceiling remain; the outer phase deadline stays 120s.
+
+  Guarded partition verification captures the original and candidate ordered
+  609-case corpus, confirms exact input/expectation equality and unchanged oracle
+  and generation bodies. Corpus SHA-256 is
+  `976b6ed2e68bfa8d98d361037f80345d9961ff9d33a09b86b69d0f81fc18a44d`.
+  Pinned Bend 2.0.27 native/Bun evaluator builds pass, and native passes all 609
+  cases in 6.390s evaluator time (27.6 MiB aggregate guarded peak). The focused
+  Bun run is still live: 24/609 cases completed at this observation, batch-006
+  running. This is partial evidence, not Bun or complete-package acceptance.
+
+  Artifacts: `/Users/ozeron/.codex/artifacts/grounds/2026-10-05/p256-phases/`.
+  Focused runner PID 2043, guard PID 2587, exec session 86377 were confirmed
+  live. Queued gate PID 5752, exec session 32428 waits for that exact runner;
+  it requires successful focused reports, identical native/Bun corpus hashes,
+  final focused input binding and unchanged package sources before starting
+  `moon --concurrency 1 run crypto:check --force` under the 961-phase guard.
+  It writes `primary-crypto-force.log` and `primary-crypto-force-resource.json`.
+  The queue does not bypass or overlap a failed focused test. All jobs retain
+  1024 MiB aggregate/process cutoffs and 120-second phase/job limits.
+
+  Next: re-poll those exact live handles/processes and consume their terminal
+  evidence; do not restart solely because a report is not yet present. Inspect
+  any specific failure, finish required checks before committing these pending
+  five-file changes, then establish root/consumer acceptance. RTC remains
+  deferred, M0-M4 open, and bounty remains untouched.
+
 - 2026-10-05 (verified bounded Bend handshake record reassembly):
   `wire/tls_handshake_stream.bend` consumes one plaintext/authenticated decrypted
   handshake-record payload at a time, preserving complete encoded messages and
