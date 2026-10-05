@@ -5,6 +5,12 @@ cd "$(dirname "$0")"
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 announce() { python3 ../tools/check_phase.py "$@" >&2; }
+announce start wire/native-schedule
+bend tls_schedule_test.bend
+python3 tls_schedule_type_check.py
+../tools/bend_native.sh tls_schedule_cli.bend "$tmp/tls_schedule" > /dev/null
+python3 tls_schedule_check.py -- "$tmp/tls_schedule"
+announce end wire/native-schedule 0
 announce start wire/native-foundations
 python3 tls_handshake_vectors.py --check tls_handshake_vectors.json
 bend tls_transcript_test.bend
@@ -39,8 +45,13 @@ if command -v bun > /dev/null 2>&1; then
   bend bench.bend -o "$tmp/bench.js" > /dev/null
   python3 bench_check.py bun "$tmp/bench.js"
   announce end wire/bun-foundations 0
+  announce start wire/bun-schedule
+  bend tls_schedule_cli.bend -o "$tmp/tls_schedule.js" > /dev/null
+  python3 tls_schedule_check.py -- bun "$tmp/tls_schedule.js"
+  announce end wire/bun-schedule 0
 else
   announce skip wire/bun-foundations "Bun unavailable"
+  announce skip wire/bun-schedule "Bun unavailable"
   echo "bulk RNG JS target: Bun unavailable; skipped"
 fi
 announce start wire/native-transport

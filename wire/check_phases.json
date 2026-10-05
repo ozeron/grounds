@@ -2,11 +2,19 @@
   "version": 1,
   "phases": [
     {
+      "name": "wire/native-schedule",
+      "optional": false
+    },
+    {
       "name": "wire/native-foundations",
       "optional": false
     },
     {
       "name": "wire/bun-foundations",
+      "optional": true
+    },
+    {
+      "name": "wire/bun-schedule",
       "optional": true
     },
     {

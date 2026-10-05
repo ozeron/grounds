@@ -251,11 +251,41 @@ the ownership checker accepts append/snapshot while rejecting copying and
 repeated finalization. These checks are included in `check.sh`; package and
 full-stack acceptance status remain in `STACK_PROGRESS.md`.
 
-The wire gate declares seven ordered resource phases in `check_phases.json`:
-native/Bun foundations, native transport, Bun UDP, native/Bun stop handling,
-and legacy native TLS. Run the full fresh package through
+The wire gate declares nine ordered resource phases in `check_phases.json`:
+native/Bun schedules and foundations, native transport, Bun UDP, native/Bun
+stop handling, and legacy native TLS. Run the full fresh package through
 `tools/build_guard.py --phases wire/check_phases.json` around
 `moon --concurrency 1 run wire:check --force`, with the plan's 1 GiB memory and
 120-second per-phase limits. Missing Bun produces explicit optional-phase skips;
 such a run cannot establish Bun acceptance. Phase declarations preserve all
 pre-existing commands and do not remove coverage or extend a phase deadline.
+
+### Bend handshake schedule and Finished
+
+`tls_schedule.bend` composes the existing Bend HKDF/HMAC/TLS-label primitives for
+the selected SHA-256 certificate/ECDHE profile with no PSK. `start(shared,
+hello_hash)` accepts exactly 32 valid bytes for each input and returns an affine
+`Handshake`: directional handshake traffic secrets, a `ToApplication` owner
+and one `FinishedKey` for each peer. `application(next, server_finished_hash)`
+consumes the next-stage owner and derives the two application traffic secrets.
+`finished(key, transcript_hash)` or `verify_finished(key, transcript_hash, tag)`
+consumes that peer's Finished key. The verifier accumulates every admitted tag
+byte before its equality decision; generated-code timing remains unreviewed.
+
+The key-agreement owner must validate the peer point/shared result. The handshake
+owner must supply the correct transcript snapshots, validate certificates and
+message order, map client/server directions into record owners, and gate
+application data on authentication. This schedule alone does none of those.
+Its all-zero component-input oracle case verifies KDF mathematics, not admission
+of an invalid peer key. Synthetic diagnostics expose intermediate secrets only
+for tests; they are not a connection interface. Logical owner consumption is not
+physical erasure, and the runtime/key-lifecycle review remains open.
+
+The independent checker compares 798 outputs from 182 commands on each target:
+published 1-RTT/retry traces, 64 seeded random schedules, invalid widths/non-octets,
+every tag/transcript-byte mutation, and wrong-key rejection. Six admission/tag
+checks pass the frontend. Ownership tests accept the two supported consuming
+operations and reject copying, repeated use and cross-stage misuse. The package
+adds separate native/Bun schedule phases, bringing the manifest to nine without
+changing any existing command or phase. Current complete-package acceptance is
+recorded in `STACK_PROGRESS.md`.
