@@ -8,11 +8,139 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 |---|---|---|
 | `wire` | Byte TCP and IPv4 UDP effects, explicit local-IP binding and OS bound-address/ephemeral-port discovery; OpenSSL TLS effects. UDP handles all octets, zero datagrams, timeout and oversize errors, with same-port/two-IP isolation and failed-bind descriptor checks. Actual SIGTERM/SIGINT stop parked native/Bun loops and release the listener; Bun uses an OS-only C11 atomic signal bridge because its synchronous runtime cannot dispatch JS signal callbacks. Bounded bulk host RNG bytes now pass native/Bun guard/error tests and supply signaling credentials. Public-pattern byte/RNG and retained UDP measurements are recorded; Bend Base supplies monotonic `IO.now`. | Verify IPv6/cancellation and packed storage/long-session allocation, retaining measured baselines; complete crypto/runtime review before secure transport. |
 | `crypto` | Bend SHA-1 for WebSocket challenge, HMAC-SHA1 for legacy STUN integrity, SHA-256, HMAC-SHA256, HKDF-SHA-256, ChaCha20, Poly1305, ChaCha20-Poly1305 AEAD, AES-128 encryption, AES-128-GCM and X25519; P-256 prime/order arithmetic, uncompressed-point ECDH, experimental P-256/SHA-256 raw/DER ECDSA, SHA-256 RSA PSS/v1.5 encoding, variable-size public modular exponentiation/RSAVP1 and full digest-signature verification (725 arithmetic and 774 signature cases pass on native and Bun; in-place limb shift reduces array creation), bounded DER, SHA-256 certificate AlgorithmIdentifier admission, RSA/P-256 SPKI public-key decoding, certificate field framing preserving exact signed bytes, mathematical issuer-signature verification (4,825 native/Bun cases) and strict civil-time/validity checks (31,545 cases per target using scoped official Bend 2.0.34), canonical OID/extension envelope admission (67,731 native/baseline-JIT Bun cases), BC/KU payload consistency and EKU/TLS-purpose permission (14,565 independent EKU cases on pinned/modern native/Bun; 28,044 whole-policy cases per modern target; selected DNS/IP SAN and empty-subject critical-SAN binding add 1,841 standalone cases per modern target), plus DNS/IP identity matching and actual SAN-field queries (5,900 core cases per pinned/modern native/Bun target; 2,447 further framing/certificate cases per modern target), plus typed Name/RDN/attribute schema and actual issuer/subject queries (11,195 independent cases per modern native/Bun target), now composed into extension/TLS-purpose admission with nonempty issuer and CA/CRL-subject requirements (28,319 whole-policy cases per modern target), plus composed Unicode 3.2 stored-value preparation (97,731 exact and folded cases per pinned/modern native/Bun target, with folded full-input stress), and exact Unicode 3.2 NFKC with authenticated packed tables (84,960 official sequence checks, 1,050 differential cases and 1,122,304 scalar checks per pinned/modern native/Bun target, with full-byte-bound expansion/ordering stress), plus TLS HKDF labels and distinct affine ChaCha/AES-GCM traffic owners with 64-bit nonces/key updates and AES sending usage limits. Poly1305 products now stay below 2^26; Legacy cookie signing and live TLS retain OpenSSL; explicit Bend HTTP cookie signing/verification passes synthetic-key native/Bun checks. | Strict UTF8/Printable/IA5/Universal/BMP transcoding passes 9,321 cases per pinned native/Bun target; composed supported-attribute stored preparation passes 18,996 per target. Implement OID-bound Name/RDN comparison; resolve the standalone folding module's pinned Bun large-list limit and Teletex interpretation and known extension/critical policies, constraints/trust/hostname, trusted-clock composition and TLS schemes; finish current ECDSA/package/compiler compatibility verification and runtime/erasure review, implement private RSA owners, then cookie and full handshake integration. |
-| `tls` | Bend protected TLS 1.3 ChaCha20-Poly1305 and AES-128-GCM records and traffic/key lifecycle pass synthetic native/Bun differential tests; AES also reproduces RFC 8448 encrypted records. Live TLS client/server still use OpenSSL C effects; JS TLS effects return `ENOSYS`. | Complete mandatory TLS algorithms, handshake/transcripts, certificates/signatures/trust/hostname checks and real client/server interop; DTLS 1.2 for RTC. |
+| `tls` | Bend protected TLS 1.3 ChaCha20-Poly1305 and AES-128-GCM records and traffic/key lifecycle pass synthetic native/Bun differential tests; AES also reproduces RFC 8448 encrypted records. Bend streaming transcript ownership, retry rewriting and snapshot/size/invalid-input checks now pass native/Bun and complete wire package acceptance. Live TLS client/server still use OpenSSL C effects; JS TLS effects return `ENOSYS`. | Complete mandatory TLS algorithms, handshake/transcripts, certificates/signatures/trust/hostname checks and real client/server interop; DTLS 1.2 for RTC. |
 | `http` | Bend HTTP/1.1 client/server, routing, JSON, cookies, auth, CORS, multipart, SSE, and server WebSocket handshake/framing/session. Native echo interops with a third-party Python client and Bun's WebSocket API. The HTTP server accepts immutable runtime handler context. The bounded signaling fixture now binds a Bend HMAC-SHA256 cookie to an exact purpose/session/issuing deadline before upgrade/UDP allocation. Its pure admission policy passes native/Bun tests; Bun live signing, denials, restart/reconnect and actual expiry/UDP cleanup pass. Fresh HTTP server package acceptance passes all thirteen resource phases under 1 GiB with no skips. Earlier unsigned-cookie native/Chrome interop remains historical evidence. | Native signed-cookie signaling/ICE now passes the full headless-shell browser scenario and independent packet checks. Complete RTC/root gates and full Chrome startup acceptance; resolve key lifecycle/runtime review and integrate Bend TLS for browser HTTPS/WSS. |
 | `rtc` | Bend STUN parsing, IPv4 XOR-MAPPED-ADDRESS, SHA-1/SHA-256/dual integrity, FINGERPRINT, authenticated incoming/outgoing ICE Binding exchanges, retained-socket retransmissions and explicit error/integrity outcomes. IPv4 candidate/pair priorities, bounded checklist formation, stable transport references and guarded state transitions, role-driven priority reordering, a paced shared-socket transaction engine with response-only interruption, protected incoming replies and server-side role decisions, FIFO triggered queues, ordinary round-robin/foundation scheduling and generation/sent-role attempt ownership. A bounded session now binds signaled credentials, registered receiving/sending bases, observed peer-reflexive candidates, deferred incoming work, retained attempts and endpoint integrity policies. Authenticated non-symmetric responses fail only their original current pair; interrupted old listeners retire independently. The live owner fixture explicitly binds unicast IPv4 bases and queries actual local ports before candidate formation. An additive valid-list owner resolves authenticated mappings, learns locally peer-reflexive candidates from retained signed-request priority, allocates IP-keyed foundations, reranks by role and keeps late paths separate from replacement flights. A nomination-evidence owner associates current successful checks with their valid paths and retains qualified incoming intent through materialization, exact triggered flights and response-only listeners; already-Succeeded counterparts resolve their actual generating record. A generation lifecycle owner now applies regular controlling/controlled nomination, selects completed stream paths, removes nominated component checks while retaining response listeners, continues authenticated Binding service, and defers failure through PAC. An outer transport owner derives selected physical consent routes, serves authenticated consent-only Binding requests, shares actual-send pacing and recent transaction identity admission, gates logical application routes, and preserves sealed consent loss. Full/full credential restart rebuilds ICE state while retaining only selected old consent/server contexts until replacement selection. Bounded SDP/signaling now binds connection-owned credentials and the actual retained UDP base; real Chrome verifies direct selected pairs, fresh consent, restart and cleanup on native and Bun. Separate unauthenticated discovery remains available. | Complete crypto/runtime foundations and secure signaling, then gathering, IPv6/TURN, DTLS/SCTP and SRTP/media. |
 
 ## Evidence ledger
+
+- 2026-10-05 (verified Bend transcript and complete fresh wire package):
+  tls_transcript now composes the existing affine streaming SHA-256 owner with
+  exact handshake framing, continuing snapshots, first-ClientHello/retry prefix
+  tracking and the RFC 9846 synthetic message_hash rewrite. All invalid
+  admission consumes the owner. The total admitted-input bound is 1 MiB;
+  message-body validation, complete role/order state, reassembly, key schedule,
+  certificate authentication and live TLS remain separate unfinished work.
+
+  The first queued frontend run fails on a local binding before matching its
+  owner in pinned Bend 2.0.27. Moving the match before the binding corrects it
+  once; the original failure is retained. Final frontend/CLI checks pass, as
+  do two valid ownership examples and two rejected copying/finalization cases.
+  Native and optimized-JIT Bun each pass 84 independent ordinary outputs and
+  six exact/cumulative-bound outputs; the long native/Bun checks take
+  0.165s/5.095s, with 55.9/225.4 MiB guarded aggregate peaks. Published
+  sections 3/5 exercise the retry rewrite and continuing snapshots. Exact
+  source hashes are unchanged through all focused and package runs.
+
+  The integrated wire gate first encounters a transient guard lock refusal;
+  the next run reaches its whole-job 120-second cutoff after transcript and
+  record checks, before completing existing transport tests. Seven ordered
+  native/Bun foundation/transport/stop/TLS phases now retain the existing
+  per-phase 120-second limit and 1 GiB aggregate/process cutoffs. A retained
+  command-preservation audit proves every pre-existing shell command remains
+  byte-identical and ordered; only transcript checks/phase declarations were
+  added. Moon includes the phase manifest/helper in cache inputs.
+
+  Final forced `moon --concurrency 1 run wire:check --force` under the phase
+  guard passes all seven phases with zero skips in 182.248s / 620.6 MiB.
+  The longest phase, Bun foundations, takes 114.468s. Existing TCP/UDP,
+  RNG/byte benchmarks, OS signal cleanup and legacy TLS regressions all run.
+  This is complete wire-package acceptance, not Bend handshake or HTTPS
+  acceptance. Reports, exact launch environments, failed attempts, compiled
+  artifacts, command-preservation proof and accepted-input hashes are under
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-05/transcript-validation-v2/`;
+  the initial frontend failure is under `transcript-validation-v1/`.
+
+  The independent shared crypto baseline terminates at 977.491s / 798.8 MiB
+  on the first Bun P-256 batch's 120-second deadline after 193 prior phases
+  pass. Its 559-phase acceptance remains incomplete. Do not rerun the known
+  cold root gate until required package caches/current baseline are resolved.
+  Next: compose typed handshake key-schedule/Finished operations against the
+  published expectations, continue M1 certificate authentication, and resolve
+  the separate crypto P-256 timeout before full repository acceptance. All
+  M0-M4 completion gates remain open; RTC expansion stays deferred.
+
+
+- 2026-10-05 (transcript validation queued behind live baseline):
+  Static review corrected explicit duplicability on the framing header fields
+  before compilation. No compiler failure or passing Bend result is claimed.
+  A source-hash-bound sequential validation driver is running at
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-05/transcript-validation-v1/run.py`.
+  Its PID 32834 / exec session 68597 is verified live and waiting for the
+  specifically attributed baseline guard PID 98355, also verified live at
+  15 minutes elapsed. The baseline log still advances through Bun checks.
+  The waiting process holds no guard lock and launches no compiler while
+  the predecessor is live.
+
+  Once that exact predecessor exits, the driver checks unchanged source hashes
+  and runs frontend declarations, CLI frontend, ownership, native build, Bun
+  emission, ordinary native/Bun corpora, and separate native/Bun stress corpora.
+  Each step uses the existing 1 GiB/120-second guard; any failure, lock refusal
+  or source change stops the sequence. Exact commands/environments and reports
+  are retained per step. The driver does not alter or restart the predecessor.
+  Next: poll session 68597 or inspect both live PIDs and the named report/log
+  directory; do not launch a duplicate validation job. On terminal failure,
+  inspect its first failed step and correct the cause, preserving reports and
+  consulting Astra after two failures on the same bug. Transcript source remains
+  uncommitted until validation and package integration are accepted.
+
+
+- 2026-10-05 (continuation; isolated Name recursion correction):
+  The original full-stack goal remains active; HTTPS is the next dependency
+  milestone and none of the nineteen original gates is closed by this work.
+  The same complete 559-phase crypto job is confirmed live through exec session
+  11261 and guard/Moon PIDs 98355/98360. It completed the native portion,
+  including all 774 RSA signature cases, and reached Bun field checks after
+  Bun AES/GCM checks. Its final resource report does not yet exist; this is
+  partial running evidence, not complete package acceptance. No second heavy
+  job was started or cutoff raised.
+
+  The isolated Name candidate now uses structurally decreasing Nat merge/sort
+  budgets. Merge is bounded by the counted attributes; sixteen balanced sort
+  levels suffice for a decoded 65535-octet Name. Unfinished budget exhaustion
+  returns None, propagated through preparation, instead of returning partial
+  keys. Shrinking attribute/RDN inputs precede the changing affine tables in
+  self-call arguments. Fourteen closed assertions include exhaustion rejection.
+  Static inspection also fixes the unrun duplicate-corpus generator: boundary
+  loops had rebound attribute variables to complete DER Names, so its pool now
+  constructs attribute triples explicitly. No accepted corpus was changed.
+
+  Seven pre-edit files, exact candidate hashes and prior failed attempts remain
+  under `/Users/ozeron/.codex/artifacts/grounds/2026-10-04/name-comparison/`;
+  `prototype-inputs-v7.json` binds the current isolated candidate. Both Python
+  checker ASTs parse. No v7 Bend frontend, constructor, native/Bun or issuer-link
+  acceptance is claimed, and no prototype source is promoted to this repository.
+  Existing untracked TLS work and unrelated bounty files remain untouched.
+  Next: consume the live crypto job's terminal result, then guard v7 frontend
+  verification and complete comparator/link coverage in the shared build slot.
+
+- 2026-10-05 (unverified Bend transcript candidate; validation queued):
+  Added uncommitted wire/tls_transcript.bend with an affine streaming SHA-256
+  transcript, exact complete-message framing checks, first-ClientHello/retry
+  prefix tracking, synthetic message_hash insertion, continuing snapshots and
+  a 1 MiB total input admission bound. Record reassembly, message-body parsing
+  and complete handshake role/order validation are explicitly outside this
+  component. Repeated/out-of-place retry and peer-supplied message_hash reject;
+  failed admission consumes the owner. This source has NOT been compiled.
+
+  The uncommitted CLI, six closed framing checks, ownership checker and
+  independent Python checker are prepared. Python parsing and corpus preparation
+  pass: 41 sequences/81 expected outputs, plus three direct owner/invalid-octet
+  outputs and six separately invoked exact/cumulative-bound outputs. No Bend
+  result is claimed. Candidate hashes and scope are recorded in
+  `2026-10-05/https-baseline/transcript-candidate.json`.
+
+  Existing full crypto guard PID 98355 is still verified live; its log reached
+  Bun primitive checks. No concurrent compiler/evaluator was launched and no
+  crypto task input was edited. The five transcript candidate files remain
+  untracked/uncommitted until focused native/Bun and ownership validation passes.
+  Next: recheck that same live gate/report; when the shared guard is available,
+  compile tls_transcript_test/CLI and run tls_transcript_type_check.py, then
+  tls_transcript_check.py on native/Bun (ordinary and --stress separately),
+  each under the existing resource/deadline guard. Fix findings before check.sh
+  integration or a milestone commit; retain every failed attempt. Then compose
+  the handshake key schedule and complete M1 certificate authentication.
+
 
 - 2026-10-05 (HTTPS handshake fixture preparation while crypto gate runs):
   The same guard PID 98355 was confirmed live at start and after preparation;

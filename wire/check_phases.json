@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "phases": [
+    {
+      "name": "wire/native-foundations",
+      "optional": false
+    },
+    {
+      "name": "wire/bun-foundations",
+      "optional": true
+    },
+    {
+      "name": "wire/native-transport",
+      "optional": false
+    },
+    {
+      "name": "wire/bun-udp",
+      "optional": true
+    },
+    {
+      "name": "wire/native-stop",
+      "optional": false
+    },
+    {
+      "name": "wire/bun-stop",
+      "optional": true
+    },
+    {
+      "name": "wire/native-tls",
+      "optional": false
+    }
+  ]
+}

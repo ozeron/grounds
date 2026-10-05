@@ -223,3 +223,39 @@ line numbers permit comparison with the original publication. The historical
 RSA certificate in this trace is not an accepted modern trust/key-size fixture.
 Resumption/exporter fields retained from the trace do not add those features to
 the selected HTTPS profile. Existing protected-record fixtures remain unchanged.
+
+### Bend handshake transcript
+
+`tls_transcript.bend` owns a streaming SHA-256 transcript. `start` creates an
+empty owner; `append` consumes it and admits one complete encoded handshake
+message; `snapshot` returns the continuing owner and its current hash; `finish`
+consumes the owner. The transcript excludes record headers. The first message
+must be ClientHello. A recognized HelloRetryRequest immediately after that
+ClientHello replaces it with the synthetic message_hash encoding. Later or
+repeated retries and a peer-supplied message_hash reject. All invalid admission
+consumes the owner, so callers cannot continue a failed transcript.
+
+This layer checks byte validity, exact uint24 framing and a cumulative 1 MiB
+admitted-input limit. It does not parse message bodies, reassemble records,
+validate complete handshake ordering/roles, authenticate a peer or decide which
+post-handshake messages belong in a transcript. Those decisions belong to the
+handshake owner. The count retains original admitted bytes across retry; the
+synthetic replacement is a fixed-size internal hash input. Snapshots duplicate
+public hash state, not traffic/private keys, and retain no whole-transcript list.
+
+Focused pinned native/Bun checks cover published 1-RTT/retry traces, continuing
+snapshots, byte/hash-block boundaries, invalid framing, retry misuse, failed-owner
+reuse and exact/cumulative size bounds: 84 ordinary outputs plus six stress
+outputs per target. Six framing declarations check through the frontend, and
+the ownership checker accepts append/snapshot while rejecting copying and
+repeated finalization. These checks are included in `check.sh`; package and
+full-stack acceptance status remain in `STACK_PROGRESS.md`.
+
+The wire gate declares seven ordered resource phases in `check_phases.json`:
+native/Bun foundations, native transport, Bun UDP, native/Bun stop handling,
+and legacy native TLS. Run the full fresh package through
+`tools/build_guard.py --phases wire/check_phases.json` around
+`moon --concurrency 1 run wire:check --force`, with the plan's 1 GiB memory and
+120-second per-phase limits. Missing Bun produces explicit optional-phase skips;
+such a run cannot establish Bun acceptance. Phase declarations preserve all
+pre-existing commands and do not remove coverage or extend a phase deadline.

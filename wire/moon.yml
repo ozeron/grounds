@@ -8,6 +8,8 @@ tasks:
     command: "./check.sh"
     inputs:
       - "check.sh"
+      - "check_phases.json"
+      - "/tools/check_phase.py"
       - "/tools/bend_native.sh"
       - "/tools/bend_native_parts.py"
       - "/json/scripts/cold.py"
