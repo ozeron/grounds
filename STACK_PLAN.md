@@ -21,8 +21,8 @@ execution order and final acceptance gates.
   ledger updates. No push, deploy, publish or external messages without a new
   explicit user request. Use local synthetic credentials and media fixtures.
 - Run heavy work sequentially under the memory/pressure guard. The user's
-  2026-10-03 RAM instruction sets the current aggregate/process limit to
-  1 GiB (1024 MiB), replacing the previous 128/384 MiB limits. Retain the
+  2026-10-05 RAM instruction sets the current aggregate/process limit to
+  4 GiB (4096 MiB), replacing the previous 1 GiB limit. Retain the
   pressure check and current 120-second per-job timeout.
 - After two failed attempts on the same bug, consult an Astra subagent at low
   reasoning effort before another attempt, as requested on 2026-10-03.
@@ -234,7 +234,7 @@ limitations so another turn can continue without reconstructing the work.
 After two failed attempts on the same bug, consult an Astra subagent at low
 reasoning before another attempt. Preserve both failures and give the reviewer
 the exact source, resource reports and current hypothesis. Keep heavy jobs
-sequential under the existing 1 GiB aggregate/individual sampled cutoffs,
+sequential under the current 4 GiB aggregate/individual sampled cutoffs,
 system-pressure checks and 120-second phase deadlines; never raise them to
 force a passing result.
 

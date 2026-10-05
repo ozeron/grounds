@@ -9,10 +9,10 @@ and takes the greater of RSS and `proc_pid_rusage` physical
 footprint per process, including compressed memory. Linux measures RSS.
 Measurement errors fail closed. A memory cutoff, timeout, interruption or
 leftover child kills the owned process group; unrelated processes are untouched.
-On 2026-10-03 the user requested a 1 GiB RAM limit. Defaults are now
-1024 MiB aggregate and 1024 MiB per process, with the existing 120-second
+On 2026-10-05 the user requested a 4 GiB RAM limit. Defaults are now
+4096 MiB aggregate and 4096 MiB per process, with the existing 120-second
 deadline. The aggregate cutoff caps the complete owned process tree, rather
-than granting a separate 1 GiB allowance to each child. The aggregate
+than granting a separate 4 GiB allowance to each child. The aggregate
 budget includes compiler, test and runner processes; it is not added per child.
 The reports retain both the combined peak and the largest individual process.
 At the combined peak they also retain each owned process's short OS name beside
@@ -33,7 +33,7 @@ marks that metric unsupported while retaining process-group RSS monitoring.
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 nice -n 10 python3 tools/build_guard.py \
-  --memory-mib 1024 --process-memory-mib 1024 --timeout 120 \
+  --memory-mib 4096 --process-memory-mib 4096 --timeout 120 \
   --report /tmp/grounds-check-resource.json \
   -- moon --concurrency 1 run :check
 ```
@@ -110,7 +110,7 @@ reducing their corpora. A combined root manifest is not yet implemented.
 Migration alone does not complete a package gate: historical failed runs and
 the latest actual check results are in `STACK_PROGRESS.md`.
 
-Evaluators use the current 1 GiB aggregate/process cap, a 120-second deadline
+Evaluators use the current 4 GiB aggregate/process cap, a 120-second deadline
 and nice 10. Historical reports retain their older explicit budgets. Keep the
 full package/repository gates pending when these budgets or system pressure
 prevent verification. Do not present a different Bun JIT configuration as

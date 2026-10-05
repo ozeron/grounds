@@ -14,7 +14,149 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 
 ## Evidence ledger
 
-- 2026-10-05 (extension framing accepted; complete crypto gate live):
+- 2026-10-05 (user-authorized 4 GiB limit; verification retry):
+  User explicitly requests "let's go please set 4gb limit", superseding the
+  preceding 1 GiB restriction. `tools/build_guard.py` defaults now enforce
+  4096 MiB aggregate and per process. STACK_PLAN.md and current command guidance
+  reflect 4 GiB; historical report limits remain intact. The 120-second job/phase
+  deadlines, sequential lock, pressure refusal and all required cases remain.
+  The older goal objective text's 1 GiB clause is superseded by this direct user
+  instruction; the exposed goal-status API cannot edit its objective or resume
+  its blocked status, so the authoritative current bound is this user decision
+  and STACK_PLAN.md. Authorized work resumes without changing completion scope.
+
+  A controlled small-process configuration check verifies both actual default
+  limits are 4,294,967,296 bytes and timeout 120 seconds. Only that unit check
+  substitutes a normal pressure observation; all real build commands use the
+  unmodified OS observer. Three existing pressure-regression tests pass in
+  3.501s, covering pre-launch refusal, owned-child cleanup during warning/critical
+  pressure and pressure-read failure. Evidence is under
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-05/guard-4g/`.
+
+  The preserved Hello verification is retried with explicit 4096 MiB limits in
+  `2026-10-05/hello-4g-v1/`. Its first frontend attempt is refused before launch
+  (exit 125, zero owned peak) because macOS remains at warning pressure. That
+  actual report confirms the new limit is used; it does not claim a frontend
+  pass. No background wait or compiler job remains running. Increasing the job
+  budget does not override the separate system-pressure safeguard. Next: when
+  pressure is normal, use a fresh report directory to run Hello focused tests,
+  integrate its package phases after they pass, and finish current crypto/root
+  acceptance under the authorized 4 GiB guards. All M0-M4 requirements remain;
+  RTC is deferred and bounty untouched.
+
+- 2026-10-05 (issuer verification pressure wait ended; CA path draft prepared):
+  This full-stack continuation revalidated issuer attempts v10/v11 as terminal
+  exit 125, system-memory-pressure-before-launch, zero owned memory. The older
+  issuer runtime handle 48487 and P-256 guard PID 2587 are terminal; their earlier
+  live observations below are historical. No complete issuer Bun acceptance is
+  claimed. The original full-stack goal remains active and retains all 19 gates.
+
+  A single lightweight pressure queue, PID 32696/session 86637, sampled pressure
+  every five seconds for up to 600 seconds, requiring sixty seconds of normal
+  samples before entering the unchanged shared build queue/guard. It expires
+  exit 125 with every recorded sample warning; no compiler/evaluator is launched.
+  A final process inspection confirms no build_guard or stable_queue remains.
+  Its sample history is `2026-10-04/name-comparison/issuer-bun-all-v12-phased-pressure-wait.json`.
+  The 1024 MiB aggregate/individual caps and 120-second phase limits are unchanged.
+
+  Independent light work prepares isolated `x509_ca_path.bend`, its CLI, fourteen
+  closed frontend declarations and checker. The draft implements RFC 5280
+  6.1.4(k)-(n) CA/keyCertSign admission and decreasing path limits, using prepared
+  issuer/subject Name equality for self-issued status. Every intermediate spends
+  a bounded slot; only non-self-issued intermediates decrement pathLen before
+  applying their own limit. Arbitrary-size admitted INTEGERs clamp without
+  truncation; extension admission remains in the result for later policies.
+  It selects v3 intermediates and rejects v1/v2 without out-of-band CA authority.
+
+  The independent Python fixture/oracle preparation completes 3,660 cases in
+  0.307s, with all key-usage bit combinations, state/limit bounds, rollover,
+  large integers, prepared Names, malformed/absent payloads, retained opaque
+  noncritical extensions and every certificate truncation. Encoded corpus SHA
+  is `479bdd5ff4f9843e7d21529f3ab9e988368978c9a906b5a19509e935b7f7b54e`.
+  Astra LOW reviews the source read-only; two repeated affine U32/Bool uses are
+  corrected. This is oracle/source-review evidence only: no CA Bend frontend,
+  native/Bun runtime or full-path acceptance is claimed, and no draft is promoted.
+
+  Exact sources, hashes and review scope are retained under
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-04/name-comparison/`, including
+  `ca-path-draft-v1-binding.json` and `ca-path-oracle-v1.json`. Static AST equality
+  confirms issuer expected/cases/encoding functions are unchanged by final phase
+  reporting (`issuer-final-oracle-binding-v12.json`). Next on genuine normal
+  pressure: a new complete 33-phase issuer Bun attempt and final native checker;
+  then guarded CA frontend/build/native/Bun checks before integration. Signature,
+  anchor trust, time, revocation, name/policy constraints, TLS purpose and identity
+  still require full composition. Crypto/root gates and HTTPS/RTC remain open.
+
+- 2026-10-05 (blocked audit: persistent external memory pressure):
+  The previous turn made draft/oracle progress. This turn re-polled session 2842
+  and PID 33122, confirming the exact Hello queue was still waiting and macOS
+  pressure still warning (flag 2). This is the third consecutive goal turn with
+  the same external pressure condition: the complete crypto gate stopped, Hello
+  draft verification remained prohibited, and the current guard prerequisites
+  remain unsatisfied. Required compiled/full-package evidence cannot advance
+  without an external return to stable normal pressure. More unverified code
+  would not resolve the current acceptance dependency.
+
+  Before stopping the queue, verified its exact command, absence of children,
+  absence of any frontend resource report, and current warning pressure. Sent
+  SIGTERM only to that idle owned Python queue; session 2842 is terminal exit
+  143. No compiler/evaluator or unrelated process was stopped. The reason and
+  observed state are saved in `2026-10-05/hello-v1/queue-stop.json`. No automatic
+  verification job remains queued by this thread. All four Hello drafts, the
+  oracle preparation evidence and pending crypto partition are preserved;
+  no unverified implementation is staged or committed.
+
+  Goal status is to be set blocked, not complete or paused. Unlock: stable
+  normal macOS memory pressure with capacity for the existing 1 GiB guarded
+  jobs. On explicit resume, revalidate current pressure/processes/source hashes,
+  restart the preserved Hello focused runner only if its artifact report paths
+  are still unused, then address actual failures and complete the full wire
+  gate. Restore complete crypto/root acceptance without raising cutoffs, dropping
+  cases, or treating old partial runs as passes. M0-M4 retain all requirements;
+  HTTPS remains incomplete and RTC deferred. The latest verified implementation
+  commit is 3267307 with its thirteen-phase wire pass.
+
+- 2026-10-05 (Hello parser draft and independent oracle prepared):
+  The previous turn made verified progress in 3267307. Live inspection confirms
+  no prior guard/queue remains; macOS pressure is still warning. No compiler or
+  evaluator was launched under that condition. Current crypto baseline and its
+  pending partition remain unresolved; limits and all failed reports are intact.
+
+  Prepared `wire/tls_hello.bend`, a strict ClientHello/ServerHello header+body
+  parser composed with extension framing. It preserves offered uint16 suites,
+  random/session bytes and parsed extensions, with separate Decode/Version/
+  Compression/Overflow results. It enforces the selected TLS 1.3 legacy version,
+  null compression, session length, even nonempty cipher list, required vector
+  framing minima and full structural maximum sizes. The maximum encoded client
+  message is 131,146 bytes; server is 65,611. It classifies the exact RFC retry
+  random only for ServerHello. Negotiation, extension body/context/response
+  rules, session echo, key shares, serialization and transcript/state integration
+  remain work for subsequent composition. These are source intentions, not yet
+  verified behavior; all four new Hello files are uncommitted and not integrated
+  into check.sh until focused execution passes.
+
+  Independent cursor-based Python oracle preparation completes 2,986 regular
+  cases and seven stress cases, including actual published traces, raw and
+  re-framed truncations, legacy versions, compression/session/suite boundaries,
+  retry-marker mutations, unknown offers and full message/suite ranges.
+  Preparation hashes are
+  `387113e175c5b0891a9eb43af840663a1e9bbf2e8edd0cbbe4497e7ec135a68c`
+  (regular) and `afd1ffb4d4bf904daeccd67b050780634636940f9faef90b2be5862fcbfd472f`
+  (stress). `2026-10-05/hello-v1/oracle-preparation.json` binds draft sources and
+  explicitly says no Bend execution. Eight closed frontend declarations and a
+  field-printing diagnostic are prepared but also unexecuted.
+
+  Queue PID 33122, exec session 2842, is confirmed live and waiting for sixty
+  continuous seconds of normal pressure. It will check unchanged inputs and run
+  frontend, native/Bun builds and complete regular/stress checks sequentially
+  under the same 1 GiB and 120-second guards. Artifact folder:
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-05/hello-v1/`.
+  Next: inspect that exact handle/process, correct concrete frontend/runtime
+  failures when execution is possible, then integrate and run the complete wire
+  gate before committing. Do not claim the prepared corpus as a pass or rerun
+  terminated earlier jobs. All M0-M4 acceptance remains open; RTC is deferred.
+
+- 2026-10-05 (extension framing accepted; crypto gate pressure-terminated):
   The prior turn made implementation progress and this continuation revalidated
   the same live queue, without restarting it. After sustained normal pressure,
   `moon --concurrency 1 run wire:check --force` passes all thirteen declared
@@ -33,17 +175,24 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
   are now eligible for a bounded verified commit. The unaccepted crypto phase
   partition remains separate and uncommitted.
 
-  Queue PID 16665/session 9934 then starts the complete current 961-phase crypto
-  gate. Its guard PID 23132 is confirmed live with the expected command;
-  output is `2026-10-05/crypto-baseline-retry/crypto-fresh.log`, with final resource
-  report and accepted-input binding written on termination/success. No success
-  is inferred from a live process. Do not launch a second heavy job or alter the
-  frozen sources while it runs. Next: inspect this exact handle/report, resolve
-  any concrete failure, then complete baseline/root/consumer acceptance. The
-  next TLS implementation unit is Hello body codecs and context-bound extension
-  admission; the retained RFC 9846 sections 4.2.2/4.2.3 were read for its strict
-  length/version/compression fields and unknown-offer handling. M0-M4 stay open;
-  RTC remains deferred and bounty untouched.
+  The verified extension milestone is committed as 3267307. Queue PID
+  16665/session 9934 subsequently starts the current 961-phase crypto gate;
+  that run is now terminal, exit 137 after 29.424s. Seventeen frontend phases
+  pass; x509_validity_test is incomplete when macOS pressure becomes warning.
+  Aggregate peak is 294.7 MiB. This is a system-pressure stop, not an assertion,
+  owned-process memory or deadline failure. Guard PID 23132 and the queue are
+  gone; do not repoll them as live or infer complete crypto acceptance. Reports
+  are `2026-10-05/crypto-baseline-retry/crypto-fresh-resource.json` and the adjacent
+  log/launch file. No accepted-input success report was written for crypto.
+
+  Current pressure remains warning, so no further heavy retry was launched.
+  The complete root/crypto baseline is still open; the crypto partition changes
+  remain uncommitted. Next: recheck actual system pressure before another guarded
+  complete crypto run, preserving all failures and existing cutoffs. Meanwhile
+  the next independent TLS unit is Hello body codecs and context-bound extension
+  admission. Retained RFC 9846 sections 4.2.2/4.2.3 were read for strict length,
+  version/compression fields and unknown-offer handling. M0-M4 stay open; RTC
+  remains deferred and bounty untouched.
 
 - 2026-10-05 (P-256 pressure termination; extension framing focused pass):
   Focused session 86377 is terminal, exit 137. Guard PID 2587 stopped at

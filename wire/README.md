@@ -255,7 +255,7 @@ The wire gate declares thirteen ordered resource phases in `check_phases.json`:
 native/Bun extensions, handshake streams, schedules and foundations, native transport, Bun UDP, native/Bun
 stop handling, and legacy native TLS. Run the full fresh package through
 `tools/build_guard.py --phases wire/check_phases.json` around
-`moon --concurrency 1 run wire:check --force`, with the plan's 1 GiB memory and
+`moon --concurrency 1 run wire:check --force`, with the plan's 4 GiB memory and
 120-second per-phase limits. Missing Bun produces explicit optional-phase skips;
 such a run cannot establish Bun acceptance. Phase declarations preserve all
 pre-existing commands and do not remove coverage or extend a phase deadline.
