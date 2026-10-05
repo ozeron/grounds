@@ -14,17 +14,50 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 
 ## Evidence ledger
 
+- 2026-10-05 (HTTPS goal continuation; selected TLS profile and baseline ownership):
+  The prior planning turn made authoritative progress by decomposing M0-M4 and
+  recording the user's RTC deferral. TLS_PROFILE.md now selects the protocol,
+  algorithms, owners, exclusions and positive/negative evidence matrix for M2/M3.
+  The refreshed official RFC 9846 text supersedes RFC 8446; its current official
+  errata listing has five Reported entries and no Verified entries. Exact
+  snapshots and hashes are under `2026-10-05/https-baseline/sources/`.
+  The profile retains mandatory P-256/RSA dependencies; ECDSA-first is build
+  order only. Runtime timing/key-erasure findings remain open. This is a source-
+  grounded build decision, not new protocol implementation or acceptance.
+
+  Primary HEAD is 475babf, which commits the independently verified RSA phase
+  partition. No heavy job was visible at initial inspection. A second session
+  launched the full crypto gate before this session's launch; the existing
+  guard refused this duplicate with exit 125 and reason
+  `another-guarded-job-is-running`, without starting a compiler. The refusal,
+  exact launch and tracked-input hashes are retained under
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-05/https-baseline/`.
+  The actual running guard PID 98355 and child Moon PID 98360 were verified
+  live, using `crypto/check_phases.json` and the report/log paths under
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-04/rsa-signature-phases/primary-crypto-force*`.
+  At the latest observation it had reached native certificate compilation;
+  no complete package result exists yet. No second heavy job was started.
+  All edits in this continuation are documentation, outside crypto task inputs.
+
+  Next: inspect that same process/report before launching any further heavy
+  work; consume its complete 559-phase outcome or specific failure. Then
+  establish root acceptance with the required package caches. M1 certificate
+  composition and all live TLS/HTTPS gates remain unproved.
+
+
 - 2026-10-05 (planning only; HTTP migration decomposition):
   STACK_PLAN.md now sequences M0 current-toolchain/package acceptance, M1 composed
   certificate authentication, M2 TLS profile/private-key/runtime readiness,
   M3 independent live Bend TLS client/server interoperability, and M4 HTTPS/WSS
   integration. Each milestone has concrete build units and an evidence exit.
   No implementation or test pass is claimed by this update. All nineteen
-  original full-stack gates remain open. RTC simplification/removal is awaiting
-  clarification; existing code and requirements are preserved. The three dirty
+  original full-stack gates remain open as follow-on roadmap requirements. The
+  user chose to defer RTC until HTTPS works; the active goal is M0-M4 HTTPS/WSS,
+  preserving existing RTC code/checks without expanding DTLS/data/media scope. The three dirty
   RSA check-reporting files are pre-existing work and remain untouched.
-  Next: resolve RTC scope, then establish the current crypto/root baseline
-  before claiming acceptance for further certificate/handshake integration.
+  Next: finish complete current crypto acceptance (now 559 declared phases;
+  see the continuation entry below), then root acceptance before claiming
+  acceptance for further certificate/handshake integration.
 
 
 - 2026-10-05 (continuation; bounded Bun RSA signature phases):
