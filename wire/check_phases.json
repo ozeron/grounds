@@ -2,6 +2,10 @@
   "version": 1,
   "phases": [
     {
+      "name": "wire/native-extensions",
+      "optional": false
+    },
+    {
       "name": "wire/native-handshake-stream",
       "optional": false
     },
@@ -23,6 +27,10 @@
     },
     {
       "name": "wire/bun-handshake-stream",
+      "optional": true
+    },
+    {
+      "name": "wire/bun-extensions",
       "optional": true
     },
     {

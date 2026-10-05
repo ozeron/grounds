@@ -14,6 +14,112 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 
 ## Evidence ledger
 
+- 2026-10-05 (extension framing accepted; complete crypto gate live):
+  The prior turn made implementation progress and this continuation revalidated
+  the same live queue, without restarting it. After sustained normal pressure,
+  `moon --concurrency 1 run wire:check --force` passes all thirteen declared
+  phases, no skips, under unchanged 1024 MiB aggregate/process and 120s per-phase
+  limits. Guard wall time is 170.209s, aggregate peak 1011.9 MiB, individual peak
+  744.1 MiB, system pressure normal. Longest phase is Bun foundations at 65.890s;
+  native/Bun extensions are 5.692s/5.291s. Moon hash is `829ee913`.
+
+  All 293 frozen source/configuration digests remain unchanged and are recorded
+  in `2026-10-05/extensions-v2/wire-fresh-accepted-inputs.json`. The full log,
+  command/environment and phase report share the `wire-fresh` prefix. This adds
+  complete changed-wire-package acceptance to the earlier 1,766 independent
+  extension cases per target; it does not prove extension body semantics,
+  negotiation, live TLS/HTTPS, current crypto/root acceptance or timing/erasure.
+  The extension parser, frontend/CLI/oracle, wire phase integration and README
+  are now eligible for a bounded verified commit. The unaccepted crypto phase
+  partition remains separate and uncommitted.
+
+  Queue PID 16665/session 9934 then starts the complete current 961-phase crypto
+  gate. Its guard PID 23132 is confirmed live with the expected command;
+  output is `2026-10-05/crypto-baseline-retry/crypto-fresh.log`, with final resource
+  report and accepted-input binding written on termination/success. No success
+  is inferred from a live process. Do not launch a second heavy job or alter the
+  frozen sources while it runs. Next: inspect this exact handle/report, resolve
+  any concrete failure, then complete baseline/root/consumer acceptance. The
+  next TLS implementation unit is Hello body codecs and context-bound extension
+  admission; the retained RFC 9846 sections 4.2.2/4.2.3 were read for its strict
+  length/version/compression fields and unknown-offer handling. M0-M4 stay open;
+  RTC remains deferred and bounty untouched.
+
+- 2026-10-05 (P-256 pressure termination; extension framing focused pass):
+  Focused session 86377 is terminal, exit 137. Guard PID 2587 stopped at
+  400.146s because macOS pressure changed to warning, not a P-256 assertion,
+  deadline or owned-process memory failure. Aggregate peak is 85.5 MiB;
+  batches 000..015 pass (64/609 cases), batch-016 is incomplete. The longest
+  completed batch is 30.877s. Queued session 32428 exits 1 after verifying that
+  failed report; it never launched crypto. Original PIDs 2043/2587/5752 are gone.
+  Do not poll or restart those terminal handles. Their evidence is preserved in
+  `2026-10-05/p256-phases/`; complete Bun P-256/package acceptance remains open.
+
+  During independent work, read the retained current RFC 9846 section 4.3:
+  uint16 extension framing, uniqueness and the separate message-context/body
+  rules. New `wire/tls_extensions.bend` parses exact length-prefixed vectors,
+  preserving unknown types/opaque bytes and rejecting malformed lengths,
+  non-octets, duplicates and trailing input. A consuming fixed 65,536-bit type
+  map avoids quadratic scans; the complete 65,535-byte payload range is admitted.
+  Context, offered-extension binding, required-extension rules, PSK placement
+  and body semantics remain caller-owned. This is not a Hello/negotiation owner.
+
+  After pressure briefly returned to normal, pinned Bend 2.0.27 frontend and
+  native/Bun builds pass. Seven closed checks and 1,756 ordinary plus ten stress
+  cases per target pass: published vectors and all their truncations, random
+  cases, all uint16 types, maximum body/vector sizes and distant duplicates.
+  Regular corpus SHA is
+  `302b97e4841f12c0b6b2250e5794cdc9ab05d1de2b19b889b2f37873e371dd5c`;
+  stress is `11e583e5065ca00a82cbd1eec08bd12171ae2c6c6281cc87f3765cb2608212e9`.
+  Diagnostic output is reconstructed from parsed records. Native/Bun ordinary
+  times are 1.268s/4.504s; stress 0.250s/1.836s. Two separate frontend draft
+  issues (computed-match scrutinee and missing list annotation) are corrected;
+  their failures are retained. No runtime case failed. Artifact paths are
+  `2026-10-05/extensions/` and `2026-10-05/extensions-v2/`, with original/final
+  guarded commands, environments, source hashes and reports.
+
+  Two new wire resource phases preserve all eleven prior phases/commands,
+  yielding thirteen. The fresh package attempt was refused before launch as
+  system pressure returned to warning (exit 125, zero owned memory); there is
+  no complete-package pass for this change. Current lightweight queue PID 16665,
+  exec session 9934, is confirmed live. It waits for sixty continuous seconds of
+  normal pressure, checks frozen inputs, then runs fresh wire followed only on
+  success by fresh crypto. Every compiler/evaluator remains inside the unchanged
+  1024 MiB aggregate/process and 120-second phase guards. Wire reports will be
+  `extensions-v2/wire-fresh-*`; crypto reports will be
+  `2026-10-05/crypto-baseline-retry/crypto-fresh-*`. This fresh complete crypto
+  run includes the full P-256 corpus; no partial earlier result substitutes for
+  it. No unrelated machine processes were stopped or altered.
+
+  Next: inspect session 9934 and its actual current process/report, consume the
+  sequential gate results, and commit only the changes covered by completed
+  acceptance. If pressure stays elevated, preserve the queue and continue
+  independent work without launching competing heavy jobs. All draft crypto
+  partition/extension files remain uncommitted. HTTPS and M0-M4 remain incomplete;
+  RTC stays deferred and bounty untouched.
+
+- 2026-10-05 (isolated issuer-link continuation after Name commit cc1a41c):
+  The unpromoted issuer-link CLI now passes pinned typechecking in
+  2.400s/546.1 MiB and native build in 15.417s/852.8 MiB. Its complete native
+  corpus passes all 132 cases in 1.602s/34.1 MiB, including exact signed-byte
+  retention, parent Name cross-encoding/case equivalence, altered child Names,
+  duplicate counts, wrong names/keys, truncation and signature tampering.
+  The intentionally invalid-time/untrusted field-holder controls still link
+  mathematically: this does not validate the parent's signature or grant trust,
+  CA/path constraints, validity, revocation, purpose or hostname authorization.
+
+  Bun emission passes in 4.764s/655.7 MiB. Runtime handle 48487 is confirmed
+  live queued for all 33 four-case phases; no Bun runtime acceptance is claimed
+  yet. Actual shared guard PID 2587 is observed running a separate complete
+  four-case P-256 candidate under `2026-10-05/p256-phases/`. No second heavy
+  job is launched. Revalidate these handles before trusting this observation;
+  consume their results instead of duplicating the work. Current package
+  scheduling work leaves 961 declared phases, while full package/root acceptance
+  remains pending. All candidate inputs/reports and `continuation-v10.json`
+  are retained under `2026-10-04/name-comparison/`. Issuer source remains
+  isolated; after complete Bun and final checker validation, integrate its
+  exact-DER link and then compose actual chain/trust policy.
+
 - 2026-10-05 (verified wait plus current generated-code review):
   Re-polled focused exec session 86377 and queued session 32428; PIDs 2043,
   2587 and 5752 are live and retain the expected commands. Focused Bun P-256

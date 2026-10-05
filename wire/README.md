@@ -251,8 +251,8 @@ the ownership checker accepts append/snapshot while rejecting copying and
 repeated finalization. These checks are included in `check.sh`; package and
 full-stack acceptance status remain in `STACK_PROGRESS.md`.
 
-The wire gate declares eleven ordered resource phases in `check_phases.json`:
-native/Bun handshake streams, schedules and foundations, native transport, Bun UDP, native/Bun
+The wire gate declares thirteen ordered resource phases in `check_phases.json`:
+native/Bun extensions, handshake streams, schedules and foundations, native transport, Bun UDP, native/Bun
 stop handling, and legacy native TLS. Run the full fresh package through
 `tools/build_guard.py --phases wire/check_phases.json` around
 `moon --concurrency 1 run wire:check --force`, with the plan's 1 GiB memory and
@@ -316,3 +316,26 @@ record alignment and terminal-state behavior. Three further scenarios verify
 exact/cumulative 1 MiB admission and overflow on native and Bun. Six closed
 frontend checks and affine ownership rejection accompany these tests. Dedicated
 native/Bun package phases retain every pre-existing check and deadline.
+
+
+### TLS extension-vector framing
+
+`tls_extensions.bend` parses an exact uint16-length-prefixed extension vector.
+It returns ordered `{kind, data}` records, preserving unknown types and opaque
+bodies. Non-octets, length mismatches, truncated headers/bodies, trailing bytes
+and duplicate types reject the entire vector. The parser admits the full 65,535
+byte payload range and uses a consuming fixed type bitset to avoid quadratic
+duplicate scans. The body-consuming loop has an explicit extension-count budget.
+
+This is a shared framing boundary for Hello and other handshake-message codecs.
+It does not decide permitted message locations, request/response binding,
+required extensions, PSK ordering or extension-specific grammars. Callers must
+apply those rules before negotiation/authentication; unknown ClientHello offers
+must not be rejected just because their type is unimplemented.
+
+Independent checks cover 1,756 ordinary and ten stress cases per native/Bun
+target, including published RFC 8448 vectors and their truncations, every uint16
+type, maximum body/vector sizes, duplicates across bitset boundaries and distant
+duplicates. Diagnostic output is reconstructed from parsed fields. Seven closed
+frontend checks also pass. Complete package acceptance is tracked separately in
+STACK_PROGRESS.md; focused passes do not establish a live TLS handshake.
