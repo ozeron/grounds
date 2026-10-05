@@ -5,6 +5,13 @@ cd "$(dirname "$0")"
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 announce() { python3 ../tools/check_phase.py "$@" >&2; }
+announce start wire/native-handshake-stream
+bend tls_handshake_stream_test.bend
+python3 tls_handshake_stream_type_check.py
+../tools/bend_native.sh tls_handshake_stream_cli.bend "$tmp/tls_handshake_stream" > /dev/null
+python3 tls_handshake_stream_check.py -- "$tmp/tls_handshake_stream"
+python3 tls_handshake_stream_check.py --stress -- "$tmp/tls_handshake_stream"
+announce end wire/native-handshake-stream 0
 announce start wire/native-schedule
 bend tls_schedule_test.bend
 python3 tls_schedule_type_check.py
@@ -49,9 +56,15 @@ if command -v bun > /dev/null 2>&1; then
   bend tls_schedule_cli.bend -o "$tmp/tls_schedule.js" > /dev/null
   python3 tls_schedule_check.py -- bun "$tmp/tls_schedule.js"
   announce end wire/bun-schedule 0
+  announce start wire/bun-handshake-stream
+  bend tls_handshake_stream_cli.bend -o "$tmp/tls_handshake_stream.js" > /dev/null
+  python3 tls_handshake_stream_check.py -- bun "$tmp/tls_handshake_stream.js"
+  python3 tls_handshake_stream_check.py --stress -- bun "$tmp/tls_handshake_stream.js"
+  announce end wire/bun-handshake-stream 0
 else
   announce skip wire/bun-foundations "Bun unavailable"
   announce skip wire/bun-schedule "Bun unavailable"
+  announce skip wire/bun-handshake-stream "Bun unavailable"
   echo "bulk RNG JS target: Bun unavailable; skipped"
 fi
 announce start wire/native-transport

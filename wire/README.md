@@ -251,8 +251,8 @@ the ownership checker accepts append/snapshot while rejecting copying and
 repeated finalization. These checks are included in `check.sh`; package and
 full-stack acceptance status remain in `STACK_PROGRESS.md`.
 
-The wire gate declares nine ordered resource phases in `check_phases.json`:
-native/Bun schedules and foundations, native transport, Bun UDP, native/Bun
+The wire gate declares eleven ordered resource phases in `check_phases.json`:
+native/Bun handshake streams, schedules and foundations, native transport, Bun UDP, native/Bun
 stop handling, and legacy native TLS. Run the full fresh package through
 `tools/build_guard.py --phases wire/check_phases.json` around
 `moon --concurrency 1 run wire:check --force`, with the plan's 1 GiB memory and
@@ -289,3 +289,30 @@ operations and reject copying, repeated use and cross-stage misuse. The package
 adds separate native/Bun schedule phases, bringing the manifest to nine without
 changing any existing command or phase. Current complete-package acceptance is
 recorded in `STACK_PROGRESS.md`.
+
+
+### Bend handshake record reassembly
+
+`tls_handshake_stream.bend` accepts one plaintext or authenticated, decrypted
+handshake-record payload per `feed` call. A TCP read must first pass through the
+record layer. Its affine decoder returns complete header-plus-body encodings in
+wire order, retaining a partial header/body across records. Input must contain
+valid octets, be nonempty and at most 16 KiB per record; cumulative admission is
+bounded at 1 MiB. Oversized uint24 declarations reject before body accumulation.
+The decoder consumes input linearly without rescanning the accumulated prefix.
+
+ClientHello, ServerHello, EndOfEarlyData, Finished and KeyUpdate must end at a
+record boundary. `boundary` requires a complete-message boundary before a
+record-type or key transition; `finish` rejects truncated input. Any error
+consumes the owner and returns no messages from the failing record. The caller
+still owns message-body parsing, role/order, record authentication and epoch
+selection. Unknown message kinds pass framing only; this is not admission of
+unsupported TLS messages or features.
+
+An independent buffered Python reference checks 936 regular scenarios per target,
+including published RFC 8448 messages split byte-by-byte, every split of its
+ClientHello and server flight, coalescing, random fragments, malformed lengths,
+record alignment and terminal-state behavior. Three further scenarios verify
+exact/cumulative 1 MiB admission and overflow on native and Bun. Six closed
+frontend checks and affine ownership rejection accompany these tests. Dedicated
+native/Bun package phases retain every pre-existing check and deadline.

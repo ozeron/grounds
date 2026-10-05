@@ -2,6 +2,10 @@
   "version": 1,
   "phases": [
     {
+      "name": "wire/native-handshake-stream",
+      "optional": false
+    },
+    {
       "name": "wire/native-schedule",
       "optional": false
     },
@@ -15,6 +19,10 @@
     },
     {
       "name": "wire/bun-schedule",
+      "optional": true
+    },
+    {
+      "name": "wire/bun-handshake-stream",
       "optional": true
     },
     {
