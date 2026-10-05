@@ -203,3 +203,23 @@ speed threshold. Evidence is in
 - `resolve.bend`: resolves localhost, an address, and a name that does not exist.
 - `tls.bend`: a client GET, wrong host and untrusted certificate against the Python TLS server.
 - `tls_server.bend`: two verified Python clients use the Bend TLS server; its plain send and receive effects carry the encrypted traffic.
+
+### Published handshake oracle fixtures
+
+`tls_handshake_vectors.json` contains exact RFC 8448 section 3 (1-RTT) and
+section 5 (HelloRetryRequest) handshake messages and KDF/Finished fields.
+`tls_handshake_vectors.py` reproduces them offline from the SHA-pinned RFC text:
+
+```sh
+python3 tls_handshake_vectors.py --source /path/to/rfc8448.txt --output tls_handshake_vectors.json
+python3 tls_handshake_vectors.py --check tls_handshake_vectors.json
+```
+
+The independent Python oracle checks 17 message lengths, six HKDF extracts,
+22 expansions, 18 transcript-hash contexts, four Finished authenticators and
+one retry transcript rewrite. These are fixture checks, not Bend handshake
+execution; no handshake implementation is accepted by their success. Source
+line numbers permit comparison with the original publication. The historical
+RSA certificate in this trace is not an accepted modern trust/key-size fixture.
+Resumption/exporter fields retained from the trace do not add those features to
+the selected HTTPS profile. Existing protected-record fixtures remain unchanged.

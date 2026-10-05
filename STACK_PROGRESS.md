@@ -14,6 +14,35 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 
 ## Evidence ledger
 
+- 2026-10-05 (HTTPS handshake fixture preparation while crypto gate runs):
+  The same guard PID 98355 was confirmed live at start and after preparation;
+  the package log advanced from native certificate compilation to independent
+  native signature/DER/algorithm checks. No restart or second heavy job was
+  attempted. The crypto gate remains incomplete at this observation.
+
+  New wire/tls_handshake_vectors.py extracts pinned RFC 8448 sections 3 and 5
+  into tls_handshake_vectors.json and independently validates published HKDF,
+  transcript and Finished bytes with Python hashlib/hmac. Generation and the
+  offline check both pass: 17 message-length checks, six extracts, 22 expands,
+  18 transcript hashes, four Finished authenticators and one HelloRetryRequest
+  transcript rewrite. A light mutation audit rejects 146 altered expected
+  fields/transcripts. This prepares the independent evaluator for M3; it is
+  not Bend handshake execution, certificate acceptance or live TLS evidence.
+  The original published RSA certificate remains unsuitable for current
+  key-size/trust acceptance; no such acceptance is claimed. Existing AES
+  record vectors and crypto source/task inputs are untouched.
+
+  Exact source is SHA-pinned at
+  `6564d1376d1ec744fc7a9993da15ebc1b9be361908b166091f47ef605c537fba`.
+  Reproduce with `python3 wire/tls_handshake_vectors.py --source <rfc8448.txt>
+  --output <vectors.json>` and `--check wire/tls_handshake_vectors.json`.
+  Source and validation report are under `2026-10-05/https-baseline/`.
+  Next: consume the still-running package gate before any heavy work. Implement
+  Bend transcript/key-schedule composition against these published expectations,
+  including retry rewriting and invalid-input/role/order cases; M1 certificate
+  composition and all native/Bun live TLS/HTTPS evidence remain required.
+
+
 - 2026-10-05 (HTTPS goal continuation; selected TLS profile and baseline ownership):
   The prior planning turn made authoritative progress by decomposing M0-M4 and
   recording the user's RTC deferral. TLS_PROFILE.md now selects the protocol,
