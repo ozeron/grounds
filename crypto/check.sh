@@ -222,7 +222,7 @@ if command -v bun > /dev/null 2>&1; then
   check bun/check/ecdsa_der_check python3 ecdsa_der_check.py bun "$tmp/ecdsa_der.js"
   check bun/check/rsa_encoding_check python3 rsa_encoding_check.py -- bun "$tmp/rsa_encoding.js"
   check bun/check/rsa_integer_check python3 rsa_integer_check.py -- bun "$tmp/rsa_integer.js"
-  check bun/check/rsa_signature256_check python3 rsa_signature256_check.py -- bun "$tmp/rsa_signature.js"
+  python3 rsa_signature256_check.py --phase-prefix crypto/bun/check/rsa_signature256_check --batch-size 4 -- bun "$tmp/rsa_signature.js"
   check bun/check/der_check python3 der_check.py -- bun "$tmp/der.js"
   check bun/check/x509_algorithm_check python3 x509_algorithm_check.py -- python3 x509_algorithm_fixture.py --bun --key "$tmp/x509_key.js" --signature "$tmp/x509_signature.js" --binding "$tmp/x509_binding.js" --der "$tmp/der.js" --
   check bun/check/x509_public_key_check python3 x509_public_key_check.py -- bun "$tmp/x509_public_key.js"

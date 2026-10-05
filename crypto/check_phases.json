@@ -1342,7 +1342,787 @@
       "optional": true
     },
     {
-      "name": "crypto/bun/check/rsa_signature256_check",
+      "name": "crypto/bun/check/rsa_signature256_check/published/batch-000",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/published/batch-001",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/published/batch-002",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/published/batch-003",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/published/batch-004",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/published/batch-005",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/published/batch-006",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/published/batch-007",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/published/batch-008",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/published/batch-009",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/published/batch-010",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/published/batch-011",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/published/batch-012",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/published/batch-013",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/published/batch-014",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/published/batch-015",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/published/batch-016",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/published/batch-017",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/published/batch-018",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/published/batch-019",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/published/batch-020",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/published/batch-021",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/published/batch-022",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/published/batch-023",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/published/batch-024",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/published/batch-025",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/published/batch-026",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/published/batch-027",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/peers/batch-000",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/peers/batch-001",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/peers/batch-002",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/peers/batch-003",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/peers/batch-004",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/peers/batch-005",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/peers/batch-006",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/peers/batch-007",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/peers/batch-008",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/admission/batch-000",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/admission/batch-001",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/admission/batch-002",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/admission/batch-003",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/admission/batch-004",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/admission/batch-005",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/admission/batch-006",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/admission/batch-007",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/admission/batch-008",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/admission/batch-009",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/admission/batch-010",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/admission/batch-011",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/admission/batch-012",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-000",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-001",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-002",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-003",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-004",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-005",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-006",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-007",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-008",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-009",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-010",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-011",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-012",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-013",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-014",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-015",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-016",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-017",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-018",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-019",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-020",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-021",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-022",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-023",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-024",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-025",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-026",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-027",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-028",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-029",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-030",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-031",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-032",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-033",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-034",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-035",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-036",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-037",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-038",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-039",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-040",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-041",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-042",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-043",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-044",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-045",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-046",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-047",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-048",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-049",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-050",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-051",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-052",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-053",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-054",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-055",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-056",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-057",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-058",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-059",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-060",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-061",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-062",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-063",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-064",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-065",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-066",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-067",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-068",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-069",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-070",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-071",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_pss/batch-072",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-000",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-001",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-002",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-003",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-004",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-005",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-006",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-007",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-008",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-009",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-010",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-011",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-012",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-013",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-014",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-015",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-016",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-017",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-018",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-019",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-020",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-021",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-022",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-023",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-024",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-025",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-026",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-027",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-028",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-029",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-030",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-031",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-032",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-033",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-034",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-035",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-036",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-037",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-038",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-039",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-040",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-041",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-042",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-043",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-044",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-045",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-046",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-047",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-048",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-049",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-050",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-051",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-052",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-053",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-054",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-055",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-056",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-057",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-058",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-059",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-060",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-061",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-062",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-063",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-064",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-065",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-066",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-067",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-068",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-069",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-070",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-071",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_signature256_check/tamper_v15/batch-072",
       "optional": true
     },
     {

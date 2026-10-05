@@ -14,6 +14,73 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 
 ## Evidence ledger
 
+- 2026-10-05 (planning only; HTTP migration decomposition):
+  STACK_PLAN.md now sequences M0 current-toolchain/package acceptance, M1 composed
+  certificate authentication, M2 TLS profile/private-key/runtime readiness,
+  M3 independent live Bend TLS client/server interoperability, and M4 HTTPS/WSS
+  integration. Each milestone has concrete build units and an evidence exit.
+  No implementation or test pass is claimed by this update. All nineteen
+  original full-stack gates remain open. RTC simplification/removal is awaiting
+  clarification; existing code and requirements are preserved. The three dirty
+  RSA check-reporting files are pre-existing work and remain untouched.
+  Next: resolve RTC scope, then establish the current crypto/root baseline
+  before claiming acceptance for further certificate/handshake integration.
+
+
+- 2026-10-05 (continuation; bounded Bun RSA signature phases):
+  The original full-stack goal remains active and all nineteen gates remain
+  open. On primary commit 228154d the fresh 364-phase crypto gate terminates
+  at 3370.663 seconds with phase-timeout in Bun RSA signature checking:
+  335 preceding phases pass; the active RSA phase reports 196 of 774 cases
+  before its 120-second cutoff, and the remaining 28 phases are unexecuted.
+  Peak aggregate memory is 823.0 MiB, maximum individual 732.4 MiB; this is
+  a deadline failure, not memory exhaustion. Native and Bun P-256/ECDSA
+  finish their complete existing corpora; Bun ECDSA passes 384 cases across
+  all 100 predefined phases in 1768.632 seconds. All reports/failed logs are
+  retained under `2026-10-04/name-string-preparation/`.
+
+  The subsequent unchanged ordinary root command also terminates at its
+  whole-job 120.028-second deadline while rebuilding crypto native fixtures,
+  peak 526.6 MiB. This repeats the earlier cold-root condition. Astra low
+  diagnoses distinct package phase-granularity and root cache-readiness
+  problems before any third ordinary root retry. Complete guarded package
+  caches must exist on final task inputs; do not rerun the ordinary root
+  command cold or raise either deadline. No complete package/root pass is
+  claimed from these partial results or the isolated modern compiler.
+
+  `rsa_signature256_check.py` now optionally announces each unchanged
+  four-case subprocess batch. A guarded independent partition check proves
+  all case-generation/oracle bodies and all 774 rows identical to the
+  original: published 110, peers 34, admission 52, PSS tampering 289 and
+  v1.5 tampering 289. Ordered corpus digest is
+  `93d55de60b6a6f1edb4a76198b30d9c0e6105e33bd71998d242bfe85e9175d35`.
+  `check.sh` explicitly fixes batch size four and replaces the enclosing
+  Bun RSA phase with all 196 batches, including final partial batches.
+  `check_phases.json` now has 559 phases; every other original 363 entry
+  remains identical and ordered. No case, algorithm, expectation or cutoff
+  is removed or weakened.
+
+  Fresh pinned Bun emission passes in 0.637 seconds/126.7 MiB. The complete
+  focused optimized-JIT Bun RSA run passes all 774 cases and all 196 declared
+  phases, zero skips, in 527.811 seconds/82.5 MiB aggregate (56.2 MiB maximum
+  individual). Longest phase is 8.325 seconds. Partition/build/runtime logs,
+  retained pre-change checker/script/manifest and hash bindings are under
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-04/rsa-signature-phases/`.
+  These are focused acceptance only. Next: finish the fresh complete
+  559-phase crypto package gate on final inputs, inspect all later phases,
+  then the unchanged ordinary root gate with validated package caches.
+
+  In parallel light source work, isolated Name/RDN and exact-DER issuer-link
+  candidates are preserved under `2026-10-04/name-comparison/`; none is
+  promoted. Frontend failures reveal an elaboration boundary, numeric
+  multiplicity, helper cycles and structural recursion requirements.
+  Astra low reviews the repeated boundary failure before another attempt.
+  Corpus/runtime/package acceptance remains pending; do not infer Name/path
+  trust from candidate source or existing mathematical signature vectors.
+  TLS/DTLS, secure signaling, TURN/data/media and complete trust/timing/
+  erasure requirements remain unchanged.
+
+
 - 2026-10-04 (Lisbon; composed certificate attribute string preparation):
   The full goal remains active; all nineteen gates remain open. The previous
   verified crypto/transcoder/browser milestone is committed as 050668e, with

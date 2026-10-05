@@ -10,6 +10,7 @@ import hashlib
 import json
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import time
 
@@ -131,8 +132,14 @@ def tamper_cases(kind):
     return cases
 
 
-def run(binary, cases, directory, counts, batch_size):
+def run(binary, cases, directory, counts, batch_size, phase_prefix=None, section=None):
+    if phase_prefix:
+        sys.path.insert(0, str(ROOT.parent/"tools"))
+        from check_phase import announce
     for offset in range(0, len(cases), batch_size):
+        phase = f"{phase_prefix}/{section}/batch-{offset//batch_size:03d}"
+        if phase_prefix:
+            announce(["start", phase])
         batch = cases[offset:offset+batch_size]
         arguments = []
         for index, (_, mode, values, _) in enumerate(batch):
@@ -146,6 +153,8 @@ def run(binary, cases, directory, counts, batch_size):
         actual, expected = result.stdout.splitlines(), [c[3] for c in batch]
         assert actual == expected, (offset, [c[0] for c in batch], actual, expected)
         counts.update(c[0] for c in batch)
+        if phase_prefix:
+            announce(["end", phase, "0"])
 
 
 def main():
@@ -153,6 +162,7 @@ def main():
     parser.add_argument("--section", choices=("all",)+SECTIONS, default="all")
     parser.add_argument("--batch-size", type=int, default=4)
     parser.add_argument("--report", type=Path)
+    parser.add_argument("--phase-prefix", help="Declare every unchanged CLI batch as a guarded resource phase")
     parser.add_argument("binary", nargs=argparse.REMAINDER)
     args = parser.parse_args()
     binary = args.binary[1:] if args.binary[:1] == ["--"] else args.binary
@@ -164,7 +174,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix="grounds-rsa-signature-check-") as folder:
         for section, factory in zip(SECTIONS, factories):
             if args.section in ("all", section):
-                run(binary, factory(), Path(folder), counts, args.batch_size)
+                run(binary, factory(), Path(folder), counts, args.batch_size, args.phase_prefix, section)
                 print(f"RSA signatures {section}: {sum(counts.values())} cases passed so far", flush=True)
     report = {"binary": binary, "section": args.section, "cases": dict(counts),
               "total": sum(counts.values()), "elapsed_seconds": round(time.monotonic()-start, 3),

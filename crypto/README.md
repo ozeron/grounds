@@ -103,6 +103,17 @@ Certificate key/algorithm binding and signature math are now connected by
 required.
 See [RSA_REVIEW.md](RSA_REVIEW.md) for evidence and limits.
 
+The Bun RSA signature checker announces each existing four-case subprocess
+batch as a separate resource phase. All 774 published, peer, admission and
+per-byte tampering cases remain in order, with identical inputs/oracles;
+196 declared phases include the final partial batches. The complete focused
+pinned run passes with a longest phase of 8.325 seconds, 82.5 MiB aggregate
+peak and 527.811 seconds overall. Every phase retains the 120-second deadline,
+1 GiB limits and pressure refusal. This fixes package phase granularity, not
+cryptographic behavior or timing safety; full changed-package/root acceptance
+must still run on the final source.
+
+
 `x509_certificate.decode` preserves original TBSCertificate bytes and all
 mandatory/optional field encodings while binding the inner/outer supported
 SHA-256 signature profiles. Six closed checks and 31,428 independent cases per
