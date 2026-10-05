@@ -39,12 +39,13 @@ Pure Bend cryptographic primitives. This package implements SHA-1, SHA-256, HMAC
 | `x509_hostname.bend` | `frame(bytes)`, `san(bytes,kind,reference)`, `extensions(bytes,kind,reference)`, `certificate(bytes,kind,reference)` | Actual SAN-field DNS/IP identity matching without CN fallback; framing preserves other forms for pending schema/profile processing |
 | `x509_san.bend` | `inspect(bytes)`, `permits(result,critical)`, `subject(subject,extensions)`, `certificate(bytes)` | Selected DNS/IP SAN admission and empty-subject critical-SAN binding; other name forms remain deferred |
 | `unicode32_profile.bend` | `tables()`, `flags(state,code)`, `map_code(code)` | Full Unicode 3.2 RFC 4518 literal mapping/prohibition/combining-mark properties; preserves table ownership; case folding/NFKC are separate modules; complete preparation remains pending |
-| `unicode32_prepare.bend` | `tables(normalization_bytes,profile_bytes)`, `prepare(state,codes,casefold)` | Complete RFC 4518 stored/non-substring scalar preparation after caller transcoding; packed output, optional B.2 case folding; not yet integrated into Name comparison |
-| `unicode32_nfkc.bend` | `normalize(state,codes)` | Exact Unicode 3.2 NFKC with authenticated asset tables, packed scalar output and stable canonical ordering; full preparation/Name comparison remain pending |
+| `unicode32_prepare.bend` | `tables(normalization_bytes,profile_bytes)`, `prepare(state,codes,casefold)` | Complete RFC 4518 stored/non-substring scalar preparation after caller transcoding; packed output and optional B.2 case folding; composed by `x509_name_match` |
+| `unicode32_nfkc.bend` | `normalize(state,codes)` | Exact Unicode 3.2 NFKC with authenticated asset tables, packed scalar output and stable canonical ordering; used by preparation and Name comparison |
 | `unicode32_fold.bend` | `tables()`, `code(state,code)`, `map_code(state,code)`, `string(state,codes,mapping)` | Exact Unicode 3.2 RFC 3454 B.2 case folding and RFC 4518 literal mapping before folding; NFKC is separate; full preparation remains pending |
 | `x509_name_schema.bend` | `inspect(bytes,allow_empty)`, `pair(issuer,subject)` | Shared RDN/attribute/string syntax checks without retaining a Name collection |
 | `x509_name.bend` | `decode(bytes)`, `inspect(bytes,allow_empty)`, `pair(issuer,subject)` | RDN/attribute framing, DER SET ordering and selected typed attribute syntax; preserve original attributes and defer unknown types/Teletex |
 | `x509_name_certificate.bend` | `certificate(bytes)` | Inspect actual issuer/subject fields; an issuer must be nonempty |
+| `x509_name_match.bend` | `compare(tables,left,right)` | Supported OID-bound prepared attribute equality, multiplicity-preserving RDN multisets and ordered Names; returns the affine tables and `Maybe<Bool>` |
 | `x509_extension_policy.bend` | `decode(bytes)`, `optional(bytes)`, `certificate(bytes)`, `tls13_extensions(bytes,server,allow_any)`, `tls13_certificate(bytes,server,allow_any)` | Process basic constraints/KU/EKU and selected DNS/IP SAN, enforce empty-subject SAN binding, reject unsupported critical extensions, retain pending purpose/identity entries; TLS helpers check purpose permission only |
 | `x509_signature.bend` | `verify_signature(issuer_spki, certificate)` | Mathematical issuer-signature verification using admitted key restrictions and original signed bytes; no trust decision |
 
@@ -731,8 +732,8 @@ a valid critical SAN is present. Its five-field `Admission` remains partial
 policy processing. Structurally valid unknown attributes and Teletex remain
 deferred and require their owners before complete authorization.
 
-This is not normalized Name equality or chain authorization. RFC 4518 string
-preparation, RFC 9549 IDNA2008/domain constraints, GeneralName directoryName
+The framing/admission owner composes with `x509_name_match` for supported
+normalized Name equality. RFC 9549 IDNA2008/domain constraints, GeneralName directoryName
 integration, issuer/subject binding across a chain, trust, revocation and
 trusted-time composition remain required.
 
@@ -750,8 +751,8 @@ Malformed values, Teletex and other tags return `None`. The decoder supplies
 no implicit Latin-1 mapping for Teletex. Attribute SIZE/type validation still
 belongs to the surrounding Name schema; scalar decoding does not authorize an
 attribute or certificate. The `x509_name_prepare` owner connects supported
-attributes to Unicode preparation; comparing RDN multisets in Name sequence
-order remains required work.
+attributes to Unicode preparation; `x509_name_match` compares its packed keys
+as RDN multisets in Name sequence order.
 
 Pinned Bend 2.0.27 passes twelve checked constructor examples, including a
 direct out-of-octet input. Native and optimizing-JIT Bun each pass the same
@@ -793,6 +794,35 @@ and full-byte-bound deletion/expansion. Mixed accepted/rejected records reuse
 one table owner across two fixture files. Five additional mandatory native/
 frontend or Bun-available phases retain every original check; full package
 and repository acceptance remain distinct gates.
+
+`x509_name_match.compare(tables,left,right)` admits each complete DER Name
+before preparation. Equality keys bind the canonical attribute OID to packed
+prepared scalars; each RDN is sorted while retaining duplicate multiplicity,
+and RDN sequence/partition remains significant. DirectoryString and supported
+PrintableString use the stored Unicode 3.2 owner. DomainComponent IA5 octets
+compare exactly apart from ASCII case; whitespace and controls are retained.
+DNS/IDNA label validation has a separate owner. Unknown matching rules, legacy
+mailbox profiles and unconfigured Teletex return `None`, as do malformed or
+failed preparations. Fully supported Names return `Some{True}` or `Some{False}`
+and the affine table owner. Empty structural Names are comparable; callers must
+separately require a nonempty issuer. Original signed DER is retained intact.
+
+The affine mergesort has a decreasing comparison budget and sixteen balanced
+split levels, sufficient for the enclosing 65535-octet Name bound. Unfinished
+budget exhaustion rejects explicitly rather than returning partial keys.
+Pinned Bend 2.0.27 checks fourteen closed assertions. Native and optimizing-JIT
+Bun pass the same complete 33,037 independent cases: 33,011 regular and 26
+large-input stress cases. Native completes the final checker in 9.300s/81.2 MiB;
+Bun regular and stress pass all 258/26 declared existing batches in
+119.329s/150.4 MiB and 53.921s/197.5 MiB. Both modes preserve their corpus hashes,
+including all ASCII-pair domainComponent comparisons, exhaustive duplicate
+distributions, cross-encoding/case/space checks, actual certificate fields,
+4096-member RDN sorting, complete Name limits and large preparation expansion.
+All original 559 package phases remain identical and ordered; 288 additions
+cover the checked owner and complete native/Bun corpus. This establishes Name
+comparison, while issuer/signature binding, constraints, trusted-clock/path/
+trust/identity composition and complete package/repository acceptance remain
+required. The current package baseline fails a separate Bun P-256 deadline.
 
 Official Bend 2.0.34 native and optimizing-JIT Bun each pass 11,195 independent
 Name checks, preserving the original 8,507 cases and adding all 128 canonical

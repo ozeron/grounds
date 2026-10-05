@@ -126,6 +126,10 @@
       "optional": false
     },
     {
+      "name": "crypto/frontend/x509_name_match_test",
+      "optional": false
+    },
+    {
       "name": "crypto/frontend/x509_extension_policy_test",
       "optional": false
     },
@@ -330,6 +334,10 @@
       "optional": false
     },
     {
+      "name": "crypto/native/build/x509_name_match_cli",
+      "optional": false
+    },
+    {
       "name": "crypto/native/build/x509_extension_policy_cli",
       "optional": false
     },
@@ -507,6 +515,10 @@
     },
     {
       "name": "crypto/native/check/x509_name_prepare_check",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_name_match_check",
       "optional": false
     },
     {
@@ -707,6 +719,10 @@
     },
     {
       "name": "crypto/bun/build/x509_name_prepare_cli",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/build/x509_name_match_cli",
       "optional": true
     },
     {
@@ -2215,6 +2231,1142 @@
     },
     {
       "name": "crypto/bun/check/x509_name_prepare_check",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-000",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-001",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-002",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-003",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-004",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-005",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-006",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-007",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-008",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-009",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-010",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-011",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-012",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-013",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-014",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-015",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-016",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-017",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-018",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-019",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-020",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-021",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-022",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-023",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-024",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-025",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-026",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-027",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-028",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-029",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-030",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-031",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-032",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-033",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-034",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-035",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-036",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-037",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-038",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-039",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-040",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-041",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-042",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-043",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-044",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-045",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-046",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-047",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-048",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-049",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-050",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-051",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-052",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-053",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-054",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-055",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-056",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-057",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-058",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-059",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-060",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-061",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-062",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-063",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-064",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-065",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-066",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-067",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-068",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-069",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-070",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-071",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-072",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-073",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-074",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-075",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-076",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-077",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-078",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-079",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-080",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-081",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-082",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-083",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-084",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-085",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-086",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-087",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-088",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-089",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-090",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-091",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-092",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-093",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-094",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-095",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-096",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-097",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-098",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-099",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-100",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-101",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-102",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-103",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-104",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-105",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-106",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-107",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-108",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-109",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-110",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-111",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-112",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-113",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-114",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-115",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-116",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-117",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-118",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-119",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-120",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-121",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-122",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-123",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-124",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-125",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-126",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-127",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-128",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-129",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-130",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-131",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-132",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-133",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-134",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-135",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-136",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-137",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-138",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-139",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-140",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-141",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-142",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-143",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-144",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-145",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-146",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-147",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-148",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-149",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-150",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-151",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-152",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-153",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-154",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-155",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-156",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-157",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-158",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-159",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-160",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-161",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-162",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-163",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-164",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-165",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-166",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-167",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-168",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-169",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-170",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-171",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-172",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-173",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-174",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-175",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-176",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-177",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-178",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-179",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-180",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-181",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-182",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-183",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-184",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-185",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-186",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-187",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-188",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-189",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-190",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-191",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-192",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-193",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-194",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-195",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-196",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-197",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-198",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-199",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-200",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-201",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-202",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-203",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-204",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-205",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-206",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-207",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-208",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-209",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-210",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-211",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-212",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-213",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-214",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-215",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-216",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-217",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-218",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-219",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-220",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-221",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-222",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-223",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-224",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-225",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-226",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-227",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-228",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-229",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-230",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-231",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-232",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-233",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-234",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-235",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-236",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-237",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-238",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-239",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-240",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-241",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-242",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-243",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-244",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-245",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-246",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-247",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-248",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-249",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-250",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-251",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-252",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-253",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-254",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-255",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-256",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/regular/batch-257",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/stress/batch-000",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/stress/batch-001",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/stress/batch-002",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/stress/batch-003",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/stress/batch-004",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/stress/batch-005",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/stress/batch-006",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/stress/batch-007",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/stress/batch-008",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/stress/batch-009",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/stress/batch-010",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/stress/batch-011",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/stress/batch-012",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/stress/batch-013",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/stress/batch-014",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/stress/batch-015",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/stress/batch-016",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/stress/batch-017",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/stress/batch-018",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/stress/batch-019",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/stress/batch-020",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/stress/batch-021",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/stress/batch-022",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/stress/batch-023",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/stress/batch-024",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_name_match/stress/batch-025",
       "optional": true
     },
     {
