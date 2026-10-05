@@ -58,6 +58,10 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
   A final process inspection confirms no build_guard or stable_queue remains.
   Its sample history is `2026-10-04/name-comparison/issuer-bun-all-v12-phased-pressure-wait.json`.
   The 1024 MiB aggregate/individual caps and 120-second phase limits are unchanged.
+  These are explicit limits in this full-stack thread's isolated runner, not
+  the shared repository defaults: another session's c6c3820 changes those defaults
+  to 4096 MiB. This thread's retained commands continue to pass explicit 1024 MiB
+  caps; its observed pressure stop and pending verification are unchanged.
 
   Independent light work prepares isolated `x509_ca_path.bend`, its CLI, fourteen
   closed frontend declarations and checker. The draft implements RFC 5280
