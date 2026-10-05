@@ -14,6 +14,31 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 
 ## Evidence ledger
 
+- 2026-10-05 (full-stack thread blocked audit after preserved CA preparation):
+  The preceding goal turn makes concrete draft/oracle/source-review progress;
+  this continuation revalidates the same external blocker. macOS pressure is
+  still warning (level 2), and no build_guard or this thread's stable_queue is
+  live. The isolated CA/queue source hashes still match their preserved binding.
+  All 120 samples in the prior ten-minute issuer queue are warning; that queue
+  is terminal and launched no compiler/evaluator. Issuer v10/v11 refusals, the
+  CA-preparation continuation's expired wait, and this current audit establish
+  the same pressure condition across at least three consecutive continuations.
+
+  Independent CA preparation/review is now preserved and compiled issuer/CA
+  verification is the next required dependency. Additional unverified code or
+  immediate heavy retries cannot establish acceptance while the existing guard
+  refuses warning pressure. This full-stack thread is to be marked blocked,
+  not complete or paused; all original 19 gates remain. The other session's
+  Hello queue and dirty files are preserved without stopping or modifying them.
+
+  Exact current observations and source digests are retained in
+  `2026-10-04/name-comparison/full-stack-blocked-audit-v13.json`. On explicit
+  resume, revalidate genuine normal host pressure and shared capacity, then run
+  complete issuer Bun/final native verification and the preserved CA frontend,
+  native/Bun builds and complete corpus under this thread's explicit 1024 MiB
+  aggregate/individual and 120-second phase bounds. Continue chain/trust/time/
+  identity composition and all remaining HTTPS/RTC/root acceptance afterward.
+
 - 2026-10-05 (user-authorized 4 GiB limit; verification retry):
   User explicitly requests "let's go please set 4gb limit", superseding the
   preceding 1 GiB restriction. `tools/build_guard.py` defaults now enforce
