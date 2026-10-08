@@ -221,7 +221,7 @@ if command -v bun > /dev/null 2>&1; then
   check bun/check/gcm_check python3 gcm_check.py bun "$tmp/gcm.js"
   check bun/check/field_check python3 field_check.py bun "$tmp/field25519.js"
   check bun/check/field256_check python3 field256_check.py bun "$tmp/field256.js"
-  python3 p256_check.py --phase-prefix crypto/bun/check/p256_check -- bun "$tmp/p256.js"
+  python3 p256_check.py --phase-prefix crypto/bun/check/p256_check --batch-size 4 -- bun "$tmp/p256.js"
   python3 ecdsa_check.py --phase-prefix crypto/bun/check/ecdsa_check -- python3 ecdsa_fixture.py --bun --scheme "$tmp/ecdsa_scheme.js" --verify "$tmp/ecdsa_verify.js" --sign "$tmp/ecdsa_sign.js" --reject "$tmp/ecdsa_reject.js" --der "$tmp/ecdsa_der.js" --
   check bun/check/ecdsa_der_check python3 ecdsa_der_check.py bun "$tmp/ecdsa_der.js"
   check bun/check/rsa_encoding_check python3 rsa_encoding_check.py -- bun "$tmp/rsa_encoding.js"

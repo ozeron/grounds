@@ -210,7 +210,7 @@ bound; it remains reported, so this limit is grounded in the NIST specification.
 
 Run `moon run crypto:check --force` through the sequential
 [build guard](../tools/README.md), using its documented local recovery settings.
-The current user-authorized limits are 1024 MiB per process and aggregate,
+The current user-authorized limits are 4096 MiB per process and aggregate,
 with a 120-second deadline per job or declared phase and macOS pressure refusal.
 Compiler and evaluator jobs share these limits. These are sampled
 cutoffs, not hard OS memory quotas; full gates remain pending under these limits.
@@ -1100,7 +1100,7 @@ The composed Bun corpus checks use an explicit 8 MiB GC hint
 (`BUN_JSC_forceRAMSize=8388608`); the maximum-input stress checks use a
 4 MiB hint (`4194304`). JIT and DFG remain enabled. Guards remain
 384/320 MiB for compilers and 128/96 MiB for evaluators in those historical
-runs. The current user-authorized aggregate/process limit is 1 GiB; the latest
+runs. The current user-authorized aggregate/process limit is 4 GiB; the latest
 package results are recorded in `STACK_PROGRESS.md`. Earlier growing-buffer,
 separate-output and fold-only cache attempts still crossed the process guard.
 The pinned phase probe localizes its failure to mapping; counted allocation
@@ -1122,18 +1122,19 @@ the fresh root check stops in crypto at 386.4 MiB (26.907 s). Neither of those
 preparation-era gates completes. The accepted report manifest distinguishes the final sealed
 programs and 4 MiB Bun stress runs from earlier failed attempts.
 
-`check_phases.json` enumerates 354 phases for all 217 existing frontend,
-native build/oracle and Bun emission/oracle commands in their original order.
-The Bun P-256 and ECDSA oracles announce their existing 39 sixteen-case and
-100 four-case batches individually; all 609 and 384 cases remain required.
-Their optional `--phase-prefix` argument changes resource reporting only.
-`check.sh` retains
-the same arguments, environment overrides, complete corpora, long/iterated
-native checks and shared temporary outputs. Use `tools/build_guard.py --phases
-crypto/check_phases.json` around the Moon command for one aggregate 1 GiB
-process-tree guard, a 120-second deadline per declared phase and ten-second
-startup/transition/cleanup bounds. Missing or failed phases reject the run.
-The 228 Bun phases record individual explicit skips only when Bun is absent;
-a skip cannot prove Bun acceptance. The manifest and announcement helper are
-Moon cache inputs. Current commands, limits, failures and passing scope remain
+`check_phases.json` now enumerates 961 required/optional resource phases,
+including the Name-comparison additions. The Bun P-256 checker runs all 609
+cases in 153 batches of at most four using `--batch-size 4`; its default remains
+16 for the native invocation. This partition replaces the earlier 39 sixteen-case
+Bun batches after a batch exceeded the 120-second deadline. Ordered inputs,
+expected results and oracle/corpus generation are unchanged. `--report` writes
+complete-corpus counts, hash and source digests only after all cases pass.
+The ECDSA corpus still requires all 384 cases across its existing 100 phases.
+
+Use `tools/build_guard.py --phases crypto/check_phases.json` around the Moon
+command for one aggregate 4 GiB process-tree guard, a 120-second deadline per
+declared phase and ten-second startup/transition/cleanup bounds. Missing or
+failed phases reject the run. Optional Bun phases record individual explicit
+skips only when Bun is absent; a skip cannot prove Bun acceptance. The manifest
+and announcement helper are Moon cache inputs. Current commands, limits, failures and passing scope remain
 in the evidence ledger.

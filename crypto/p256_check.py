@@ -1,6 +1,7 @@
 """P-256 SEC1/ECDH vectors, independent affine arithmetic and OpenSSL peers."""
 from pathlib import Path
 import argparse
+import hashlib
 import json
 import random
 import subprocess
@@ -76,9 +77,13 @@ def openssl_shared(private, peer, private_path, peer_path):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--phase-prefix', help='Declare each existing 16-case batch as a guarded resource phase')
+    parser.add_argument('--phase-prefix', help='Declare each evaluator batch as a guarded resource phase')
+    parser.add_argument('--batch-size', type=int, default=16, help='Cases per evaluator process (default: 16)')
+    parser.add_argument('--report', type=Path, help='Write source-bound complete-corpus evidence after success')
     parser.add_argument('binary', nargs=argparse.REMAINDER)
     arguments = parser.parse_args()
+    if not 1 <= arguments.batch_size <= 16:
+        parser.error('--batch-size must be between 1 and 16')
     binary = arguments.binary
     if binary[:1] == ['--']:
         binary = binary[1:]
@@ -178,11 +183,14 @@ def main():
             case('OpenSSL', 'shared', [private_b, public_a], secret.hex())
 
         # Small batches bound CLI arguments and report the exact failing case.
-        for start_index in range(0, len(cases), 16):
-            phase = f'{arguments.phase_prefix}/batch-{start_index // 16:02d}'
+        corpus = hashlib.sha256()
+        for group, op, inputs, output in cases:
+            corpus.update(json.dumps([group, op, [v.hex() for v in inputs], output], separators=(',', ':')).encode() + b'\n')
+        for start_index in range(0, len(cases), arguments.batch_size):
+            phase = f'{arguments.phase_prefix}/batch-{start_index // arguments.batch_size:03d}'
             if arguments.phase_prefix:
                 announce(['start', phase])
-            batch = cases[start_index:start_index+16]
+            batch = cases[start_index:start_index+arguments.batch_size]
             args = []
             for index, (_, op, inputs, _) in enumerate(batch):
                 args.append(op)
@@ -199,6 +207,16 @@ def main():
             print(f'P-256: {start_index+len(batch)}/{len(cases)} cases passed', flush=True)
             if arguments.phase_prefix:
                 announce(['end', phase, '0'])
+    if arguments.report:
+        arguments.report.write_text(json.dumps({
+            'binary': binary, 'cases': len(cases), 'groups': counts,
+            'batch_size': arguments.batch_size,
+            'batches': (len(cases) + arguments.batch_size - 1) // arguments.batch_size,
+            'corpus_sha256': corpus.hexdigest(),
+            'elapsed_seconds': round(time.monotonic() - start, 3),
+            'source_sha256': {name: hashlib.sha256(Path(__file__).with_name(name).read_bytes()).hexdigest()
+                              for name in ('p256_check.py', 'p256_vectors.json', 'p256.bend', 'p256_cli.bend', 'field256.bend')},
+        }, indent=2) + '\n')
     print(f'P-256: {len(cases)} NIST/affine/scaled/infinity/order/canonical/malformed/OpenSSL cases passed in {time.monotonic()-start:.3f}s; {counts}')
 
 

@@ -4,6 +4,18 @@ Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and 
 
 The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
 
+- 2026-10-08 (Hello framing and P-256 batch changes prepared for commit):
+  The focused `2026-10-05/hello-4g-v2/` queue completed frontend, native/Bun
+  builds, ordinary checks and stress checks with exit 0 under the 4 GiB guards.
+  Each target passed 2,986 ordinary and seven stress cases. Current Hello and
+  oracle source hashes match those reports. This proves framing only; Hello
+  package-phase integration, negotiation and live TLS remain open.
+  Bun P-256 checks now partition the same 609 cases into 153 batches of at most
+  four; native defaults to sixteen. The manifest contains 961 phases, preserving
+  every other phase in order. Syntax, manifest consistency and unchanged oracle/
+  corpus-generation checks pass. Full crypto/root acceptance remains incomplete;
+  these commits do not claim a complete package or HTTPS pass.
+
 | Layer | Current state | Next proof of progress |
 |---|---|---|
 | `wire` | Byte TCP and IPv4 UDP effects, explicit local-IP binding and OS bound-address/ephemeral-port discovery; OpenSSL TLS effects. UDP handles all octets, zero datagrams, timeout and oversize errors, with same-port/two-IP isolation and failed-bind descriptor checks. Actual SIGTERM/SIGINT stop parked native/Bun loops and release the listener; Bun uses an OS-only C11 atomic signal bridge because its synchronous runtime cannot dispatch JS signal callbacks. Bounded bulk host RNG bytes now pass native/Bun guard/error tests and supply signaling credentials. Public-pattern byte/RNG and retained UDP measurements are recorded; Bend Base supplies monotonic `IO.now`. | Verify IPv6/cancellation and packed storage/long-session allocation, retaining measured baselines; complete crypto/runtime review before secure transport. |
@@ -62,7 +74,10 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
   `2026-10-05/hello-4g-v1/`. Its first frontend attempt is refused before launch
   (exit 125, zero owned peak) because macOS remains at warning pressure. That
   actual report confirms the new limit is used; it does not claim a frontend
-  pass. No background wait or compiler job remains running. Increasing the job
+  pass. Following the user resume request, exec session 15274 runs the fresh
+  `2026-10-05/hello-4g-v2/run.py` queue, waiting for sixty continuous seconds
+  of normal pressure before focused verification with the new 4096 MiB limits.
+  No compiler/evaluator is launched while pressure is elevated. Increasing the job
   budget does not override the separate system-pressure safeguard. Next: when
   pressure is normal, use a fresh report directory to run Hello focused tests,
   integrate its package phases after they pass, and finish current crypto/root
