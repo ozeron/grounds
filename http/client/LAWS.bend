@@ -1,5 +1,5 @@
 import Base
-import ./client.bend as C
+import ./url.bend as C
 import ../wire/http1.bend as H1
 import ../wire/LAWS.bend as WL
 import ../core/headers.bend as H

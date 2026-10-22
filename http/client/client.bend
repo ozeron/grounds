@@ -11,6 +11,7 @@ import ../../utf8/utf8.bend as U
 import ../../json/json.bend as J
 import ../core/event.bend as Ev
 import ../core/multipart.bend as Mp
+import ./url.bend as Ur
 
 # grounds-http-client: HTTP/1.1 requests to other services, over TCP or
 # TLS.
@@ -64,9 +65,6 @@ def with_idle(c: Config, ms: U32) -> Config:
 # Requests and replies
 # --------------------
 
-# names and values: headers, query pairs and form fields
-def Kv() -> Type:
-  List<&1, String & String>
 
 # a request's body; each sets its own Content-Type
 type Body is Type:
@@ -74,7 +72,7 @@ type Body is Type:
   Bytes{kind: String, bytes: List<&2, U32>}
   Plain{text: String}
   Json{value: J.Json}
-  Form{fields: Kv()}
+  Form{fields: Ur.Kv()}
 
 def bytes(kind: String, bs: List<&2, U32>) -> Body:
   Bytes{kind, bs}
@@ -101,14 +99,14 @@ type Out is Type:
 # a request, as a value: send runs it. key marks it safe to retry, and is
 # sent as idempotency-key
 type Req is Type:
-  Req{method: M.Method, url: String, headers: Kv(), body: Body, key: Maybe<&2, String>}
+  Req{method: M.Method, url: String, headers: Ur.Kv(), body: Body, key: Maybe<&2, String>}
 
 def head(u: String) -> Req:
   Req{M.MHead{}, u, [], Empty{}, None{}}
 
 # a streamed reply's start
 type Head is Type:
-  Head{status: U32, headers: Kv()}
+  Head{status: U32, headers: Ur.Kv()}
 
 # why a request got no response
 type Err is Data:
@@ -137,253 +135,23 @@ def R(-A: Type) -> Type:
 # the whole program. A retry or a redirect sends a request again, so the
 # request is copied instead: each dup reads a value once and builds two
 
-# a method's name, whether it is HEAD, whether it expects a body, and
-# whether it is safe to repeat (RFC 9110 §9.2.2)
-type Verb is Data:
-  Verb{name: String, head: Bool, sized: Bool, again: Bool}
-
-def verb(m: M.Method) -> Verb:
-  match m:
-    case M.MGet{}:
-      Verb{"GET", False{}, False{}, True{}}
-    case M.MHead{}:
-      Verb{"HEAD", True{}, False{}, True{}}
-    case M.MPost{}:
-      Verb{"POST", False{}, True{}, False{}}
-    case M.MPut{}:
-      Verb{"PUT", False{}, True{}, True{}}
-    case M.MPatch{}:
-      Verb{"PATCH", False{}, True{}, False{}}
-    case M.MDelete{}:
-      Verb{"DELETE", False{}, False{}, True{}}
-    case M.MOptions{}:
-      Verb{"OPTIONS", False{}, False{}, True{}}
-    case M.MTrace{}:
-      Verb{"TRACE", False{}, False{}, True{}}
-    case other:
-      Verb{M.show(other), False{}, False{}, False{}}
-
-def verb.final(ok: Bool, n: String, +h: Bool, +z: Bool, +g: Bool) -> Maybe<&2, Verb>:
-  match ok:
-    case True{}:
-      Some{Verb{n, h, z, g}}
-    case False{}:
-      None{}
-
-# a method's name must be a token (RFC 9110 §9.1), which has no CR, LF,
-# NUL or space: a name of the caller's own is checked here
-def verb.check(v: Verb) -> Maybe<&2, Verb>:
-  match v:
-    case Verb{+n, +h, +z, +g}:
-      verb.final(Bool.and(Bool.not(H1.unsafe(n, False{})), H1.is_token.s(n)), n, h, z, g)
-
-# whether to use TLS, the host, port, the target to send (origin-form:
-# /path?query), and the Host header's value
-type Url is Data:
-  Url{tls: Bool, host: String, port: U32, target: String, authority: String}
-  UBad{err: Err}
-
-def host.char(+x: U32) -> Bool:
-  Bool.or(Bool.or(Bool.and(U32.is_ge(x, 97), U32.is_le(x, 122)), Bool.and(U32.is_ge(x, 65), U32.is_le(x, 90))),
-    Bool.or(Bool.and(U32.is_ge(x, 48), U32.is_le(x, 57)), Bool.or(U32.is_eq(x, 45), U32.is_eq(x, 46))))
-
-# a target, copied, and whether its chars are all visible ASCII with no
-# space; a byte past 127 is kept for the server to refuse or take
-type Tgt is Data:
-  Tgt{t: String, ok: Bool}
-
-def target.go(s: String, acc: String, ok: Bool) -> Tgt:
-  match s:
-    case SNil{}:
-      Tgt{String.reverse(acc), ok}
-    case SCon{Chr{+x}, t}:
-      target.go(t, SCon{Chr{x}, acc}, Bool.and(ok, Bool.and(U32.is_gt(x, 32), Bool.not(U32.is_eq(x, 127)))))
-
-def s.copy(s: String, acc: String) -> String:
-  match s:
-    case SNil{}:
-      String.reverse(acc)
-    case SCon{Chr{x}, t}:
-      s.copy(t, SCon{Chr{(x + 0 : U32)}, acc})
-
-def url.auth(given: Bool, port: U32, h: String) -> String:
-  match given:
-    case True{}:
-      h ++ ":" ++ U32.show(port)
-    case False{}:
-      h
-
-def url.make(tls: Bool, auth: String, host: String, port: U32, target: String) -> Url:
-  Url{tls, host, port, target, auth}
-
-def url.done(ok: Bool, tls: Bool, +host: String, +port: U32, given: Bool, target: String) -> Url:
-  match ok:
-    case True{}:
-      url.make(tls, url.auth(given, port, s.copy(host, "")), host, port, target)
-    case False{}:
-      UBad{BadUrl{}}
-
-def url.tgt(g: Tgt, tls: Bool, host: String, port: U32, given: Bool) -> Url:
-  match g:
-    case Tgt{t, ok}:
-      url.done(ok, tls, host, port, given, t)
-
-def url.target(+tls: Bool, host: String, +port: U32, +given: Bool, t: String) -> Url:
-  match t:
-    case SNil{}:
-      url.done(True{}, tls, host, port, given, "/")
-    case SCon{Chr{63}, r}:
-      url.tgt(target.go(r, "?/", True{}), tls, host, port, given)
-    case SCon{Chr{47}, r}:
-      url.tgt(target.go(r, "/", True{}), tls, host, port, given)
-    case _:
-      UBad{BadUrl{}}
-
-def port.num(s: String, +n: Nat, ok: Bool, any: Bool) -> Maybe<&2, U32>:
-  match s:
-    case SNil{}:
-      Bool.pick(Maybe<&2, U32>, Bool.and(Bool.and(ok, any), Bool.and(Nat.is_le(n, 65535n), Nat.is_le(1n, n))), Some{U32.from_nat(n)}, None{})
-    case SCon{Chr{+x}, t}:
-      port.num(t, Nat.add(Nat.mul(10n, n), Nat.sub(U32.to_nat(x), 48n)), Bool.and(ok, Bool.and(U32.is_ge(x, 48), Bool.and(U32.is_le(x, 57), Nat.is_le(n, 65535n)))), True{})
-
-def url.port.end(m: Maybe<&2, U32>, tls: Bool, host: String, t: String) -> Url:
-  match m:
-    case Some{p}:
-      url.target(tls, host, p, True{}, t)
-    case None{}:
-      UBad{BadUrl{}}
-
-# the port's digits, up to / or ? or the end: 1 to 65535
-def url.port(s: String, +tls: Bool, host: String, acc: String) -> Url:
-  match s:
-    case SNil{}:
-      url.port.end(port.num(String.reverse(acc), 0n, True{}, False{}), tls, host, "")
-    case SCon{Chr{47}, t}:
-      url.port.end(port.num(String.reverse(acc), 0n, True{}, False{}), tls, host, SCon{Chr{47}, t})
-    case SCon{Chr{63}, t}:
-      url.port.end(port.num(String.reverse(acc), 0n, True{}, False{}), tls, host, SCon{Chr{63}, t})
-    case SCon{c, t}:
-      url.port(t, tls, host, SCon{c, acc})
-
-def url.host.end(ok: Bool, +tls: Bool, host: String, s: String) -> Url:
-  match ok s:
-    case False{} _:
-      UBad{BadUrl{}}
-    case True{} SCon{Chr{58}, t}:
-      url.port(t, tls, host, "")
-    case True{} rest:
-      url.target(tls, host, Bool.pick(U32, tls, 443, 80), False{}, rest)
-
-# the host, reversed in acc, up to : or / or ? or the end
-def url.host(s: String, +tls: Bool, acc: String, ok: Bool, any: Bool) -> Url:
-  match s:
-    case SNil{}:
-      url.host.end(Bool.and(ok, any), tls, String.reverse(acc), "")
-    case SCon{Chr{58}, t}:
-      url.host.end(Bool.and(ok, any), tls, String.reverse(acc), SCon{Chr{58}, t})
-    case SCon{Chr{47}, t}:
-      url.host.end(Bool.and(ok, any), tls, String.reverse(acc), SCon{Chr{47}, t})
-    case SCon{Chr{63}, t}:
-      url.host.end(Bool.and(ok, any), tls, String.reverse(acc), SCon{Chr{63}, t})
-    case SCon{Chr{+x}, t}:
-      url.host(t, tls, SCon{Chr{x}, acc}, Bool.and(ok, host.char(x)), True{})
-
-def url.raw(s: String) -> Url:
-  match s:
-    case SCon{'h', SCon{'t', SCon{'t', SCon{'p', SCon{':', SCon{'/', SCon{'/', rest}}}}}}}:
-      url.host(rest, False{}, "", True{}, False{})
-    case SCon{'h', SCon{'t', SCon{'t', SCon{'p', SCon{'s', SCon{':', SCon{'/', SCon{'/', rest}}}}}}}}:
-      url.host(rest, True{}, "", True{}, False{})
-    case _:
-      UBad{BadUrl{}}
-
-def url.final(bad: Bool, +tls: Bool, h: String, +port: U32, t: String, au: String) -> Url:
-  match bad:
-    case True{}:
-      UBad{BadUrl{}}
-    case False{}:
-      Url{tls, h, port, t, au}
-
-# a url is used only when its target and authority have no CR, LF or NUL:
-# the parser already refuses them, and this check is what the laws read
-def url.check(u: Url) -> Url:
-  match u:
-    case Url{+tls, h, +port, +t, +au}:
-      url.final(Bool.or(H1.unsafe(t, False{}), H1.unsafe(au, False{})), tls, h, port, t, au)
-    case UBad{e}:
-      UBad{e}
-
-# http[s]://host[:port][/path][?query], the scheme in lowercase. No user
-# info, no IPv6 literal, no fragment
-def url(s: String) -> Url:
-  url.check(url.raw(s))
 
 # a request as the client holds it between attempts; pool: its url is the
 # pool's origin, so a Pool may carry it
 type Spec is Data:
-  Spec{verb: Verb, url: Url, hs: List<&2, H.Header>, body: B.Bytes, pool: Bool}
+  Spec{verb: Ur.Verb, url: Ur.Url, hs: List<&2, H.Header>, body: B.Bytes, pool: Bool}
 
 # the caller's headers, and whether they have a Content-Type and an Accept
 type Mk is Data:
   Mk{hs: List<&2, H.Header>, ct: Bool, ac: Bool}
 
-def kv.hs(kv: Kv(), ct: Bool, ac: Bool, acc: List<&2, H.Header>) -> Mk:
+def kv.hs(kv: Ur.Kv(), ct: Bool, ac: Bool, acc: List<&2, H.Header>) -> Mk:
   match kv:
     case Nil{}:
       Mk{List.reverse(&2, H.Header, acc), ct, ac}
     case Con{(+n, v), t}:
       kv.hs(t, Bool.or(ct, T.same_ci(n, "content-type", True{})), Bool.or(ac, T.same_ci(n, "accept", True{})), Con{H.Header{n, v}, acc})
 
-# a char a form writes as it is (RFC 3986 §2.3)
-def unreserved(+x: U32) -> Bool:
-  Bool.or(Bool.or(Bool.and(U32.is_ge(x, 97), U32.is_le(x, 122)), Bool.and(U32.is_ge(x, 65), U32.is_le(x, 90))),
-    Bool.or(Bool.and(U32.is_ge(x, 48), U32.is_le(x, 57)), Bool.or(Bool.or(U32.is_eq(x, 45), U32.is_eq(x, 46)), Bool.or(U32.is_eq(x, 95), U32.is_eq(x, 126)))))
-
-def nib(+d: U32) -> Char:
-  Chr{Bool.pick(U32, U32.is_lt(d, 10), (d + 48 : U32), (d + 55 : U32))}
-
-def pct.go(bs: List<&2, U32>, out: String) -> String:
-  match bs:
-    case Nil{}:
-      out
-    case Con{+b, t}:
-      pct.go(t, SCon{nib((b .&. 15 : U32)), SCon{nib((b >> 4n : U32)), SCon{'%', out}}})
-
-def enc.char(plain: Bool, space: Bool, +x: U32, out: String) -> String:
-  match plain space:
-    case True{} _:
-      SCon{Chr{x}, out}
-    case False{} True{}:
-      SCon{'+', out}
-    case False{} False{}:
-      pct.go(U.encode(SCon{Chr{x}, SNil{}}), out)
-
-# a component, reversed onto out
-def enc.go(s: String, out: String) -> String:
-  match s:
-    case SNil{}:
-      out
-    case SCon{Chr{+x}, t}:
-      enc.go(t, enc.char(unreserved(x), U32.is_eq(x, 32), x, out))
-
-def form.sep(first: Bool, out: String) -> String:
-  match first:
-    case True{}:
-      out
-    case False{}:
-      SCon{'&', out}
-
-def form.go(kv: Kv(), first: Bool, out: String) -> String:
-  match kv:
-    case Nil{}:
-      String.reverse(out)
-    case Con{(k, v), t}:
-      form.go(t, False{}, enc.go(v, SCon{'=', enc.go(k, form.sep(first, out))}))
-
-# k=v&k=v: each byte outside the unreserved set as %XX of its UTF-8, a
-# space as +, as application/x-www-form-urlencoded
-def form.enc(kv: Kv()) -> String:
-  form.go(kv, True{}, "")
 
 # j encoded, as application/json
 def json(j: J.Json) -> Body:
@@ -404,7 +172,7 @@ def body.of(b: Body) -> Bd:
     case Json{j}:
       Bd{Some{"application/json"}, True{}, B.of_list(U.encode(J.encode(j)))}
     case Form{kv}:
-      Bd{Some{"application/x-www-form-urlencoded"}, False{}, B.of_list(U.encode(form.enc(kv)))}
+      Bd{Some{"application/x-www-form-urlencoded"}, False{}, B.of_list(U.encode(Ur.form.enc(kv)))}
 
 def keyed(k: Maybe<&2, String>) -> Bool:
   match k:
@@ -444,10 +212,10 @@ def hs.key(k: Maybe<&2, String>) -> List<&2, H.Header>:
     case None{}:
       []
 
-def spec.make(v: Maybe<&2, Verb>, u: Url, mk: Mk, bd: Bd, k: Key2) -> Result<&2, &2, Err, Spec>:
+def spec.make(v: Maybe<&2, Ur.Verb>, u: Ur.Url, mk: Mk, bd: Bd, k: Key2) -> Result<&2, &2, Err, Spec>:
   match v mk bd k:
-    case Some{Verb{n, h, z, g}} Mk{hs, ct, ac} Bd{kind, js, bs} Key2{kd, key}:
-      Done{Spec{Verb{n, h, z, Bool.or(g, kd)}, u, List.append(&2, H.Header, hs, List.append(&2, H.Header, hs.ct(ct, kind), List.append(&2, H.Header, hs.ac(ac, js), hs.key(key)))), bs, False{}}}
+    case Some{Ur.Verb{n, h, z, g}} Mk{hs, ct, ac} Bd{kind, js, bs} Key2{kd, key}:
+      Done{Spec{Ur.Verb{n, h, z, Bool.or(g, kd)}, u, List.append(&2, H.Header, hs, List.append(&2, H.Header, hs.ct(ct, kind), List.append(&2, H.Header, hs.ac(ac, js), hs.key(key)))), bs, False{}}}
     case None{} _ _ _:
       Fail{BadMethod{}}
 
@@ -455,7 +223,7 @@ def spec.make(v: Maybe<&2, Verb>, u: Url, mk: Mk, bd: Bd, k: Key2) -> Result<&2,
 def spec.of(r: Req) -> Result<&2, &2, Err, Spec>:
   match r:
     case Req{m, u, kv, b, k}:
-      spec.make(verb.check(verb(m)), url(u), kv.hs(kv, False{}, False{}, []), body.of(b), key.of(k))
+      spec.make(Ur.verb.check(Ur.verb(m)), Ur.url(u), kv.hs(kv, False{}, False{}, []), body.of(b), key.of(k))
 
 # a connection, or why there is none
 type Opened is Type:
@@ -634,7 +402,7 @@ def each(~f: List<&2, U32> -> IO(Bool), o: Out, bs: B.Bytes) -> IO(Out):
     case B.BCon{b, t}:
       each.go(~f, o, B.BCon{b, t})
 
-def hs.kv(hs: List<&2, H.Header>, acc: Kv()) -> Kv():
+def hs.kv(hs: List<&2, H.Header>, acc: Ur.Kv()) -> Ur.Kv():
   match hs:
     case Nil{}:
       List.reverse(&1, String & String, acc)
@@ -642,7 +410,7 @@ def hs.kv(hs: List<&2, H.Header>, acc: Kv()) -> Kv():
       hs.kv(t, Con{(n, v), acc})
 
 type Reply is Type:
-  Reply{status: U32, headers: Kv(), body: List<&2, U32>}
+  Reply{status: U32, headers: Ur.Kv(), body: List<&2, U32>}
 
 # the bytes, oldest first, from pieces newest first
 def flat(cs: List<&2, B.Bytes>, acc: B.Bytes) -> B.Bytes:
@@ -669,7 +437,7 @@ def text.of(t: U.Text) -> Maybe<&2, String>:
     case _:
       None{}
 
-def ok.check(ok: Bool, c: U32, hs: Kv(), b: List<&2, U32>) -> RR():
+def ok.check(ok: Bool, c: U32, hs: Ur.Kv(), b: List<&2, U32>) -> RR():
   match ok:
     case True{}:
       Done{Reply{c, hs, b}}
@@ -1020,7 +788,7 @@ def patch(u: String, b: Body) -> Req:
   Req{M.MPatch{}, u, [], b, None{}}
 
 # the headers added, in order
-def with(r: Req, kv: Kv()) -> Req:
+def with(r: Req, kv: Ur.Kv()) -> Req:
   match r:
     case Req{m, u, hs, b, k}:
       Req{m, u, List.append(&1, String & String, hs, kv), b, k}
@@ -1050,20 +818,20 @@ def url.query(u: Str2, q: String) -> String:
       b ++ Bool.pick(String, has_q(a, False{}), "&", "?") ++ rest
 
 # the pairs added to the url's query, percent-encoded
-def query(r: Req, kv: Kv()) -> Req:
+def query(r: Req, kv: Ur.Kv()) -> Req:
   match r:
     case Req{m, u, hs, b, k}:
-      Req{m, url.query(s.dup(u), form.enc(kv)), hs, b, k}
+      Req{m, url.query(s.dup(u), Ur.form.enc(kv)), hs, b, k}
 
 def empty() -> Body:
   Empty{}
 
 # the pairs percent-encoded, as application/x-www-form-urlencoded
-def form(kv: Kv()) -> Body:
+def form(kv: Ur.Kv()) -> Body:
   Form{kv}
 
 def multipart.valid(+boundary: String, parts: List<&2, Mp.Part>) -> Body:
-  Bytes{"multipart/form-data; boundary=\"" ++ s.copy(boundary, "") ++ "\"", Mp.write(boundary, parts)}
+  Bytes{"multipart/form-data; boundary=\"" ++ Ur.s.copy(boundary, "") ++ "\"", Mp.write(boundary, parts)}
 
 # Obtain a validated boundary with Mp.make_boundary. Choose a fresh random
 # value absent from part bodies; the explicit boundary keeps this builder pure.
@@ -1161,19 +929,19 @@ def port.num.of(s: String) -> U32:
   num.of(num.go(s, 0n, True{}))
 
 type Url2 is Data:
-  Url2{a: Url, b: Url}
+  Url2{a: Ur.Url, b: Ur.Url}
 
 def url.dup.go(+tls: Bool, h: Str2, +port: U32, t: Str2, au: Str2) -> Url2:
   match h t au:
     case Str2{ha, hb} Str2{ta, tb} Str2{aa, ab}:
-      Url2{Url{tls, ha, port, ta, aa}, Url{tls, hb, port, tb, ab}}
+      Url2{Ur.Url{tls, ha, port, ta, aa}, Ur.Url{tls, hb, port, tb, ab}}
 
-def url.dup(u: Url) -> Url2:
+def url.dup(u: Ur.Url) -> Url2:
   match u:
-    case Url{tls, h, port, t, au}:
+    case Ur.Url{tls, h, port, t, au}:
       url.dup.go(tls, s.dup(h), port, s.dup(t), s.dup(au))
-    case UBad{e}:
-      Url2{UBad{e}, UBad{BadUrl{}}}
+    case Ur.UBad{}:
+      Url2{Ur.UBad{}, Ur.UBad{}}
 
 # Connections
 # -----------
@@ -1226,16 +994,16 @@ def exchange(s: Socket, +tls: Bool, req: B.Bytes, +lim: Lim, o: Out) -> IO(Ex):
 # --------
 
 type Verb2 is Data:
-  Verb2{a: Verb, b: Verb}
+  Verb2{a: Ur.Verb, b: Ur.Verb}
 
 def verb.dup.go(n: Str2, +h: Bool, +z: Bool, +g: Bool) -> Verb2:
   match n:
     case Str2{a, b}:
-      Verb2{Verb{a, h, z, g}, Verb{b, h, z, g}}
+      Verb2{Ur.Verb{a, h, z, g}, Ur.Verb{b, h, z, g}}
 
-def verb.dup(v: Verb) -> Verb2:
+def verb.dup(v: Ur.Verb) -> Verb2:
   match v:
-    case Verb{n, h, z, g}:
+    case Ur.Verb{n, h, z, g}:
       verb.dup.go(s.dup(n), h, z, g)
 
 type Spec2 is Data:
@@ -1276,24 +1044,24 @@ def once.go(req: B.Bytes, tls: Bool, host: String, port: U32, +lim: Lim) -> IO(H
 # a request on a connection of its own, closed after
 def once(sp: Spec, +lim: Lim) -> IO(Hop):
   match sp:
-    case Spec{Verb{name, head, sized, _}, Url{tls, host, port, target, auth}, hs, b, _}:
+    case Spec{Ur.Verb{name, head, sized, _}, Ur.Url{tls, host, port, target, auth}, hs, b, _}:
       once.go(H1.write_request(name, target, auth, hs.clean(hs, []), b, sized, True{}), tls, host, port, lim.with_head(lim, head))
-    case Spec{_, UBad{e}, _, _, _}:
-      IO.pure(Hop, HopLost{e})
+    case Spec{_, Ur.UBad{}, _, _, _}:
+      IO.pure(Hop, HopLost{BadUrl{}})
 
 # Pools
 # -----
 
 def req.of(sp: Spec, keep: Bool) -> B.Bytes:
   match sp:
-    case Spec{Verb{name, _, sized, _}, Url{_, _, _, target, auth}, hs, b, _}:
+    case Spec{Ur.Verb{name, _, sized, _}, Ur.Url{_, _, _, target, auth}, hs, b, _}:
       H1.write_request(name, target, auth, hs.clean(hs, []), b, sized, Bool.not(keep))
     case _:
       B.BNil{}
 
 def head.of(sp: Spec) -> Bool:
   match sp:
-    case Spec{Verb{_, h, _, _}, _, _, _, _}:
+    case Spec{Ur.Verb{_, h, _, _}, _, _, _, _}:
       h
 
 type HSpec is Data:
@@ -1301,13 +1069,13 @@ type HSpec is Data:
 
 def head.of.keep(sp: Spec) -> HSpec:
   match sp:
-    case Spec{Verb{n, +h, z, g}, u, hs, b, pl}:
-      HSpec{h, Spec{Verb{n, h, z, g}, u, hs, b, pl}}
+    case Spec{Ur.Verb{n, +h, z, g}, u, hs, b, pl}:
+      HSpec{h, Spec{Ur.Verb{n, h, z, g}, u, hs, b, pl}}
 
 def verb.again(sp: Spec) -> HSpec:
   match sp:
-    case Spec{Verb{n, h, z, +g}, u, hs, b, pl}:
-      HSpec{g, Spec{Verb{n, h, z, g}, u, hs, b, pl}}
+    case Spec{Ur.Verb{n, h, z, +g}, u, hs, b, pl}:
+      HSpec{g, Spec{Ur.Verb{n, h, z, g}, u, hs, b, pl}}
 
 # Redirects and retries
 # ---------------------
@@ -1374,8 +1142,8 @@ type TSpec is Data:
 
 def spec.tls(sp: Spec) -> TSpec:
   match sp:
-    case Spec{v, Url{+t, h, p, tg, au}, hs, b, pl}:
-      TSpec{t, Spec{v, Url{t, h, p, tg, au}, hs, b, pl}}
+    case Spec{v, Ur.Url{+t, h, p, tg, au}, hs, b, pl}:
+      TSpec{t, Spec{v, Ur.Url{t, h, p, tg, au}, hs, b, pl}}
     case other:
       TSpec{False{}, other}
 
@@ -1384,21 +1152,21 @@ def spec.tls(sp: Spec) -> TSpec:
 # next request in clear text, or not a url
 type Next is Data:
   Same{target: String}
-  Away{url: Url}
+  Away{url: Ur.Url}
   Stay{}
 
-def next.away(u: Url, +tls: Bool) -> Next:
+def next.away(u: Ur.Url, +tls: Bool) -> Next:
   match u:
-    case Url{+t, h, p, tg, au}:
-      Bool.pick(Next, Bool.and(tls, Bool.not(t)), Stay{}, Away{Url{t, h, p, tg, au}})
-    case UBad{_}:
+    case Ur.Url{+t, h, p, tg, au}:
+      Bool.pick(Next, Bool.and(tls, Bool.not(t)), Stay{}, Away{Ur.Url{t, h, p, tg, au}})
+    case Ur.UBad{}:
       Stay{}
 
-def next.same(g: Tgt) -> Next:
+def next.same(g: Ur.Tgt) -> Next:
   match g:
-    case Tgt{t, True{}}:
+    case Ur.Tgt{t, True{}}:
       Same{t}
-    case Tgt{_, False{}}:
+    case Ur.Tgt{_, False{}}:
       Stay{}
 
 def next.of(loc: String, tls: Bool) -> Next:
@@ -1406,9 +1174,9 @@ def next.of(loc: String, tls: Bool) -> Next:
     case SCon{Chr{47}, SCon{Chr{47}, _}}:
       Stay{}
     case SCon{Chr{47}, r}:
-      next.same(target.go(r, "/", True{}))
+      next.same(Ur.target.go(r, "/", True{}))
     case other:
-      next.away(url(other), tls)
+      next.away(Ur.url(other), tls)
 
 def body.after(sized: Bool, b: B.Bytes) -> B.Bytes:
   match sized:
@@ -1417,10 +1185,10 @@ def body.after(sized: Bool, b: B.Bytes) -> B.Bytes:
     case False{}:
       B.BNil{}
 
-def spec.shaped(v: Verb, u: Url, hs: List<&2, H.Header>, b: B.Bytes, pl: Bool) -> Spec:
+def spec.shaped(v: Ur.Verb, u: Ur.Url, hs: List<&2, H.Header>, b: B.Bytes, pl: Bool) -> Spec:
   match v:
-    case Verb{n, h, +z, g}:
-      Spec{Verb{n, h, z, g}, u, hs, body.after(z, b), pl}
+    case Ur.Verb{n, h, +z, g}:
+      Spec{Ur.Verb{n, h, z, g}, u, hs, body.after(z, b), pl}
 
 # Authorization and Cookie are for the host they were sent to; a redirect
 # to a url of its own drops them
@@ -1446,28 +1214,28 @@ def redirs.dec(l: Left) -> Left:
     case Left{t, r, w, f}:
       Left{t, (r - 1 : U32), w, f}
 
-def verb.after.go(to_get: Bool, n: String, h: Bool, z: Bool, g: Bool) -> Verb:
+def verb.after.go(to_get: Bool, n: String, h: Bool, z: Bool, g: Bool) -> Ur.Verb:
   match to_get:
     case True{}:
-      Verb{"GET", False{}, False{}, True{}}
+      Ur.Verb{"GET", False{}, False{}, True{}}
     case False{}:
-      Verb{n, h, z, g}
+      Ur.Verb{n, h, z, g}
 
 # the method after a redirect: a 303 turns any method but HEAD into GET, as
 # does a 301 or 302 a POST, dropping the body; 307 and 308 keep both
-def verb.after(+c: U32, v: Verb) -> Verb:
+def verb.after(+c: U32, v: Ur.Verb) -> Ur.Verb:
   match v:
-    case Verb{+n, +h, z, g}:
+    case Ur.Verb{+n, +h, z, g}:
       verb.after.go(Bool.and(Bool.not(h), Bool.or(U32.is_eq(c, 303), Bool.and(Bool.or(U32.is_eq(c, 301), U32.is_eq(c, 302)), T.same(n, "POST", True{})))), n, h, z, g)
 
 def spec.same(sp: Spec, t: String, c: U32) -> Spec:
   match sp:
-    case Spec{v, Url{tls, h, p, _, au}, hs, b, pl}:
-      spec.shaped(verb.after(c, v), url.check(Url{tls, h, p, t, au}), hs, b, pl)
+    case Spec{v, Ur.Url{tls, h, p, _, au}, hs, b, pl}:
+      spec.shaped(verb.after(c, v), Ur.url.check(Ur.Url{tls, h, p, t, au}), hs, b, pl)
     case other:
       other
 
-def spec.away(sp: Spec, u: Url, c: U32) -> Spec:
+def spec.away(sp: Spec, u: Ur.Url, c: U32) -> Spec:
   match sp:
     case Spec{v, _, hs, b, _}:
       spec.shaped(verb.after(c, v), u, hs.public(hs, []), b, False{})
@@ -1567,11 +1335,11 @@ def start(cfg: Config, sp: Spec) -> IO(RR()):
         +now : Nat <- IO.now()
         drive(fuel.of(rt, rd), sp, left.of(rt, rd, bo), lim.of(now, ms, mh, mb))
 
-def url.tls(u: Url) -> Bool:
+def url.tls(u: Ur.Url) -> Bool:
   match u:
-    case Url{t, _, _, _, _}:
+    case Ur.Url{t, _, _, _, _}:
       t
-    case UBad{_}:
+    case Ur.UBad{}:
       False{}
 
 def tries.dec(l: Left) -> Left:
@@ -1652,7 +1420,7 @@ def header.hit(hit: Bool, v: String, found: Maybe<&2, String>) -> Maybe<&2, Stri
     case _ other:
       other
 
-def header.go(kv: Kv(), +name: String, found: Maybe<&2, String>) -> Maybe<&2, String>:
+def header.go(kv: Ur.Kv(), +name: String, found: Maybe<&2, String>) -> Maybe<&2, String>:
   match kv:
     case Nil{}:
       found
@@ -1660,7 +1428,7 @@ def header.go(kv: Kv(), +name: String, found: Maybe<&2, String>) -> Maybe<&2, St
       header.go(t, name, header.hit(T.same_ci(n, name, True{}), v, found))
 
 # the first value of a header, its name compared ignoring case
-def header(kv: Kv(), +name: String) -> Maybe<&2, String>:
+def header(kv: Ur.Kv(), +name: String) -> Maybe<&2, String>:
   header.go(kv, name, None{})
 
 # Streaming
@@ -1747,10 +1515,10 @@ def lim.stream(+dl: Nat, +ms: U32, mh: U32, +head: Bool) -> Lim:
 
 def stream.spec(~f: List<&2, U32> -> IO(Bool), s: Result<&2, &2, Err, Spec>, +ms: U32, mh: U32, +dl: Nat) -> IO(R(Head)):
   match s:
-    case Done{Spec{Verb{name, +head, sized, _}, Url{+tls, host, +port, target, auth}, hs, b, _}}:
+    case Done{Spec{Ur.Verb{name, +head, sized, _}, Ur.Url{+tls, host, +port, target, auth}, hs, b, _}}:
       IO.bind(Opened, R(Head), open(tls, host, port, dl), o => stream.opened(~f, o, H1.write_request(name, target, auth, hs.clean(hs, []), b, sized, True{}), lim.stream(dl, ms, mh, head)))
-    case Done{Spec{_, UBad{e}, _, _, _}}:
-      IO.pure(R(Head), Fail{e})
+    case Done{Spec{_, Ur.UBad{}, _, _, _}}:
+      IO.pure(R(Head), Fail{BadUrl{}})
     case Fail{e}:
       IO.pure(R(Head), Fail{e})
 
@@ -1772,17 +1540,17 @@ type Orig is Data:
 def origin.key(+tls: Bool, h: String, +port: U32) -> String:
   Bool.pick(String, tls, "https://", "http://") ++ h ++ ":" ++ U32.show(port)
 
-def origin.of(k: Str2, v: Verb, +tls: Bool, +port: U32, t: String, au: String, hs: List<&2, H.Header>, b: B.Bytes, +pl: Bool) -> Orig:
+def origin.of(k: Str2, v: Ur.Verb, +tls: Bool, +port: U32, t: String, au: String, hs: List<&2, H.Header>, b: B.Bytes, +pl: Bool) -> Orig:
   match k:
     case Str2{a, h}:
-      Orig{origin.key(tls, a, port), Spec{v, Url{tls, h, port, t, au}, hs, b, pl}}
+      Orig{origin.key(tls, a, port), Spec{v, Ur.Url{tls, h, port, t, au}, hs, b, pl}}
 
 def spec.origin(sp: Spec) -> Orig:
   match sp:
-    case Spec{v, Url{+tls, h, +port, t, au}, hs, b, +pl}:
+    case Spec{v, Ur.Url{+tls, h, +port, t, au}, hs, b, +pl}:
       origin.of(s.dup(h), v, tls, port, t, au, hs, b, pl)
-    case Spec{v, UBad{e}, hs, b, pl}:
-      Orig{"", Spec{v, UBad{e}, hs, b, pl}}
+    case Spec{v, Ur.UBad{}, hs, b, pl}:
+      Orig{"", Spec{v, Ur.UBad{}, hs, b, pl}}
 
 # Server-sent events
 # ------------------
@@ -1990,10 +1758,10 @@ def ev.hs(last: Maybe<&2, String>) -> List<&2, H.Header>:
 
 def ev.spec(~on: Ev.Message -> IO(Bool), sp: Spec, last: Maybe<&2, String>, +ms: U32, mh: U32, +dl: Nat) -> IO(Try):
   match sp:
-    case Spec{Verb{name, +head, sized, _}, Url{+tls, host, +port, target, auth}, hs, b, _}:
+    case Spec{Ur.Verb{name, +head, sized, _}, Ur.Url{+tls, host, +port, target, auth}, hs, b, _}:
       IO.bind(Opened, Try, open(tls, host, port, dl), o => ev.opened(~on, o, H1.write_request(name, target, auth, List.append(&2, H.Header, hs.clean(hs, []), ev.hs(last)), b, sized, True{}), lim.stream(dl, ms, mh, head)))
-    case Spec{_, UBad{e}, _, _, _}:
-      IO.pure(Try, Try{Some{e}, None{}, None{}, False{}})
+    case Spec{_, Ur.UBad{}, _, _, _}:
+      IO.pure(Try, Try{Some{BadUrl{}}, None{}, None{}, False{}})
 
 def ev.end(t: Try, +n: U32) -> R(Ended):
   match t:

@@ -1,6 +1,6 @@
 import Base
 import ./LAWS.bend as Laws
-import ./client.bend as C
+import ./url.bend as C
 import ../wire/http1.bend as H1
 import ../wire/LAWS.bend as WL
 import ../wire/PROOF.bend as WP
@@ -13,21 +13,21 @@ def is_url(u: C.Url) -> Bool:
   match u:
     case C.Url{_, _, _, _, _}:
       True{}
-    case C.UBad{_}:
+    case C.UBad{}:
       False{}
 
 def target_of(u: C.Url) -> String:
   match u:
     case C.Url{_, _, _, t, _}:
       t
-    case C.UBad{_}:
+    case C.UBad{}:
       ""
 
 def authority_of(u: C.Url) -> String:
   match u:
     case C.Url{_, _, _, _, a}:
       a
-    case C.UBad{_}:
+    case C.UBad{}:
       ""
 
 law final_target:
@@ -49,7 +49,7 @@ law final_target:
 def final_target(bad, tls, h, p, t, a, tls2, h2, p2, t2, a2, eb, e):
   match bad:
     case True{}:
-      P.absurd({H1.unsafe(t2, False{}) == False{} : Bool}, Equal.cong(C.Url, Bool, is_url, C.UBad{C.BadUrl{}}, C.Url{tls2, h2, p2, t2, a2}, e))
+      P.absurd({H1.unsafe(t2, False{}) == False{} : Bool}, Equal.cong(C.Url, Bool, is_url, C.UBad{}, C.Url{tls2, h2, p2, t2, a2}, e))
     case False{}:
       %Equal.cong(C.Url, String, target_of, C.Url{tls, h, p, t, a}, C.Url{tls2, h2, p2, t2, a2}, e) : {H1.unsafe(_, False{}) == False{} : Bool}
       P.or_false_l(H1.unsafe(t, False{}), H1.unsafe(a, False{}), eb)
@@ -73,7 +73,7 @@ law final_authority:
 def final_authority(bad, tls, h, p, t, a, tls2, h2, p2, t2, a2, eb, e):
   match bad:
     case True{}:
-      P.absurd({H1.unsafe(a2, False{}) == False{} : Bool}, Equal.cong(C.Url, Bool, is_url, C.UBad{C.BadUrl{}}, C.Url{tls2, h2, p2, t2, a2}, e))
+      P.absurd({H1.unsafe(a2, False{}) == False{} : Bool}, Equal.cong(C.Url, Bool, is_url, C.UBad{}, C.Url{tls2, h2, p2, t2, a2}, e))
     case False{}:
       %Equal.cong(C.Url, String, authority_of, C.Url{tls, h, p, t, a}, C.Url{tls2, h2, p2, t2, a2}, e) : {H1.unsafe(_, False{}) == False{} : Bool}
       P.or_false_r(H1.unsafe(t, False{}), H1.unsafe(a, False{}), eb)
@@ -82,15 +82,15 @@ def Laws.check_target(u, tls2, h2, p2, t2, a2, e):
   match u:
     case C.Url{+tls, h, +p, +t, +a}:
       final_target(Bool.or(H1.unsafe(t, False{}), H1.unsafe(a, False{})), tls, h, p, t, a, tls2, h2, p2, t2, a2, {==}, e)
-    case C.UBad{x}:
-      P.absurd({H1.unsafe(t2, False{}) == False{} : Bool}, Equal.cong(C.Url, Bool, is_url, C.UBad{x}, C.Url{tls2, h2, p2, t2, a2}, e))
+    case C.UBad{}:
+      P.absurd({H1.unsafe(t2, False{}) == False{} : Bool}, Equal.cong(C.Url, Bool, is_url, C.UBad{}, C.Url{tls2, h2, p2, t2, a2}, e))
 
 def Laws.check_authority(u, tls2, h2, p2, t2, a2, e):
   match u:
     case C.Url{+tls, h, +p, +t, +a}:
       final_authority(Bool.or(H1.unsafe(t, False{}), H1.unsafe(a, False{})), tls, h, p, t, a, tls2, h2, p2, t2, a2, {==}, e)
-    case C.UBad{x}:
-      P.absurd({H1.unsafe(a2, False{}) == False{} : Bool}, Equal.cong(C.Url, Bool, is_url, C.UBad{x}, C.Url{tls2, h2, p2, t2, a2}, e))
+    case C.UBad{}:
+      P.absurd({H1.unsafe(a2, False{}) == False{} : Bool}, Equal.cong(C.Url, Bool, is_url, C.UBad{}, C.Url{tls2, h2, p2, t2, a2}, e))
 
 def Laws.url_target(s, tls, h, p, t, a, e):
   Laws.check_target(C.url.raw(s), tls, h, p, t, a, e)

@@ -22,6 +22,7 @@ def main() -> IO(Unit):
 | Module | Has |
 |---|---|
 | `client.bend` (`C`) | one-shot requests, and the types every call shares |
+| `url.bend` | verbs, `url(s)` (`Url{..}`, or `UBad{}`, which a request reports as `BadUrl`) and `form.enc`: plain values, apart so their laws need no sockets |
 | `pool.bend` (`Pool`) | the same verbs through a pool of kept connections |
 | `../core/event.bend` (`Ev`) | `Ev.Message{name, data, id}`, the event type the server writes too |
 
