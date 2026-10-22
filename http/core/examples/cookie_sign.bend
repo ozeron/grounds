@@ -1,5 +1,5 @@
 import Base
-import ../cookie.bend as Ck
+import ../cookie_sign.bend as Ck
 
 def report(good: Maybe<&2, String>, tampered: Maybe<&2, String>, wrong_key: Maybe<&2, String>, malformed: Maybe<&2, String>, unicode: Maybe<&2, String>) -> String:
   match good tampered wrong_key malformed unicode:

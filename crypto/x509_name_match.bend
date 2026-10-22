@@ -11,7 +11,7 @@ import ./x509_identity.bend as I
 # equality profile or failed preparation is None, never an equal empty value.
 # Arrays remain affine through sorting/comparison; no full scalar list is made.
 type Key is Type:
-  Key{oid: List<&2, U32>, values: Array<U32>, length: U32}
+  NameKey{oid: List<&2, U32>, values: Array<U32>, length: U32}
 
 def Keys() -> Type:
   List<&1, Key>
@@ -55,13 +55,13 @@ def words(left: Nat, at: U32, state: Words) -> Words:
 
 def key.finished(oa: List<&2, U32>, ob: List<&2, U32>, na: U32, nb: U32, state: Words) -> Key & Key & U32:
   match state:
-    case Words{a, b, relation}: (Key{oa, a, na}, Key{ob, b, nb}, relation)
+    case Words{a, b, relation}: (NameKey{oa, a, na}, NameKey{ob, b, nb}, relation)
 
 # OID, scalar count, then scalar content form a total order for equality keys.
 # Only equality uses this order; original signed DER and RDN order are intact.
 def key.compare(a: Key, b: Key) -> Key & Key & U32:
   match a b:
-    case Key{+oa, a, +na} Key{+ob, b, +nb}:
+    case NameKey{+oa, a, +na} NameKey{+ob, b, +nb}:
       +relation = oid.order(oa, ob, 0)
       key.finished(oa, ob, na, nb, words(U32.to_nat(na), 0,
         Words{a, b, Bool.pick(U32, U32.is_eq(relation, 0), order(na, nb), relation)}))
@@ -155,7 +155,7 @@ def attributes.prepared(oid: List<&2, U32>, result: U.Tables & Maybe<&1, C.Norma
   match value:
     case None{}: (tables, None{})
     case Some{C.Normalized{values, length}}:
-      next(tables, Key{oid, values, length})
+      next(tables, NameKey{oid, values, length})
 
 def attributes(attrs: List<&2, N.Attribute>, tables: U.Tables, reversed: Keys(), count: Nat) -> U.Tables & Maybe<&1, Keys()>:
   match attrs:

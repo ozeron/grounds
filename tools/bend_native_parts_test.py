@@ -39,6 +39,16 @@ class NativePartsTest(unittest.TestCase):
         self.rejected(self.original.replace('  }}\nstatic Term f32_show',
                       '  }\nstatic Term f32_show'), 'Incomplete segment extraction')
 
+    def test_brace_inside_case_macro(self):
+        source = self.original.replace('#define WL_CASE(F) WL_FN WL_##F(WL_SIG)',
+                                       '#define WL_CASE(F) WL_FN WL_##F(WL_SIG) {')
+        source = source.replace(')\n  {\n    WL_OPEN', ')\n    WL_OPEN')
+        self.assertEqual(len(Parts.extract(source)), 3)
+        self.rejected(source.replace('WL_CASE(FID_EXIT)\n', 'WL_CASE(FID_EXIT)\n  {\n'),
+                      'Unbalanced segment: FID_EXIT')
+        self.rejected(source.replace('WL_FN WL_##F(WL_SIG) {', 'WL_FN WL_##F(WL_SIG)', 1)
+                      + '#define WL_CASE(F) case F: {\n', 'Inconsistent segment macros')
+
     def test_braces_in_literal_do_not_end_body(self):
         source = self.original.replace('    ALC[0] = 10;',
                                        '    const char* ignored = "}};";\n    ALC[0] = 10;')

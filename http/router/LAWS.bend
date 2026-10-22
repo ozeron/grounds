@@ -55,27 +55,27 @@ law bind_false:
   {Router.bind(pat, ps, acc, False{}) == None{} : Maybe<&2, List<&2, Router.Param>>}
 
 # a pattern segment and the path segment it meets
-type Pair is Data:
-  Pair{seg: Router.Seg, part: String}
+type SegPair is Data:
+  SegPair{seg: Router.Seg, part: String}
 
-def segs(xs: List<&2, Pair>, tl: List<&2, Router.Seg>) -> List<&2, Router.Seg>:
+def segs(xs: List<&2, SegPair>, tl: List<&2, Router.Seg>) -> List<&2, Router.Seg>:
   match xs:
     case Nil{}:
       tl
-    case Con{Pair{s, _}, t}:
+    case Con{SegPair{s, _}, t}:
       Con{s, segs(t, tl)}
 
-def parts(xs: List<&2, Pair>, tl: Router.Parts) -> Router.Parts:
+def parts(xs: List<&2, SegPair>, tl: Router.Parts) -> Router.Parts:
   match xs:
     case Nil{}:
       tl
-    case Con{Pair{_, x}, t}:
+    case Con{SegPair{_, x}, t}:
       Router.PCon{x, parts(t, tl)}
 
 # a capture never binds an empty segment, wherever it is in the pattern:
 # /todos/ is not /todos/:id
 law capture_anywhere:
-  for +pre: List<&2, Pair>
+  for +pre: List<&2, SegPair>
   for +n: String
   for +pt: List<&2, Router.Seg>
   for +t: Router.Parts

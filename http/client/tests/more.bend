@@ -1,5 +1,6 @@
 import Base
 import ../client.bend as C
+import ../url.bend as Ur
 import ../pool.bend as Pool
 import ../../../wire/wire.bend as W
 import ../../../json/json.bend as J
@@ -31,7 +32,7 @@ def cfg() -> C.Config:
 def retrying() -> C.Config:
   C.with_retries(cfg(), 3, 50)
 
-def secret() -> C.Kv():
+def secret() -> Ur.Kv():
   [("Authorization", "secret")]
 
 def x() -> C.Body:

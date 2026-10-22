@@ -1,5 +1,6 @@
 import Base
 import ./wire.bend as W
+import ../io/io.bend as Io
 
 # Local synthetic RNG evaluator. Printing sampled bytes proves the adapter's
 # shape/range and lets an independent peer inspect them, not entropy quality.
@@ -29,5 +30,5 @@ def dispatch(args: List<String>) -> IO(Unit):
 
 def main() -> IO(Unit):
   do IO<Unit>:
-    args : List<String> <- IO.args()
+    args : List<String> <- Io.args()
     dispatch(args)

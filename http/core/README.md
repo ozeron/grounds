@@ -26,7 +26,8 @@ def handle(r: Req.Request) -> Res.Response:
 | `response.bend` | `Response{status, headers, body}`; `new`, `empty`, `ok`, `bytes`, `text`, `html`, `redirect`, `not_found`, `bad_request`, `header` |
 | `text.bend` | compares and cuts Strings by reading only; `or(maybe, default)`, `u32(digits)` |
 | `event.bend` | server-sent events: `Message{name, data, id}`, which the server writes and the client reads; `write`, `retry`, `ping`, and the WHATWG parser `feed` |
-| `cookie.bend` | `get(req, name)`, `set(res, name, value)`, `clear(res, name)`, and HMAC-SHA256 `sign(key, value)` / `verify(key, signed)` |
+| `cookie.bend` | `get(req, name)`, `set(res, name, value)`, `clear(res, name)` |
+| `cookie_sign.bend` | HMAC-SHA256 `sign(key, value)` / `verify(key, signed)` through the host; its own file so `cookie.bend`'s laws stay free of foreign code |
 | `auth.bend` | strict Bearer and UTF-8 Basic credentials, duplicate detection, `Principal{subject, claims}` |
 | `base64.bend` | strict canonical decoder shared by Basic credentials and WebSocket keys; the existing `Auth.b64_*` interfaces forward to it |
 | `cors.bend` | CORS allowlist policy, origin decisions, request field inspection and preflight header validation |
@@ -46,7 +47,7 @@ names. A separate runtime-argument example extends the cold-type gate to parsing
 
 `Ck.set(res, name, value)` adds a separate `Set-Cookie` header with `Path=/; HttpOnly; Secure; SameSite=Lax`. `Ck.clear(res, name)` uses the same scope and `Max-Age=0`. An empty name leaves the response alone. Names and values are percent-encoded from UTF-8 where needed to fit the cookie grammar; `Ck.get(req, name)` reads the first matching pair across `Cookie` headers, decodes that format and returns `None{}` for malformed encoding. The name match is case-sensitive. [RFC 6265](docs/rfc6265.txt) defines the original cookie grammar; [6265bis](https://datatracker.ietf.org/doc/html/draft-ietf-httpbis-rfc6265bis) defines `SameSite`.
 
-`Ck.sign(key, value)` returns `IO(Result)` with `value.<64 lowercase hex digits>`; `Ck.verify(key, signed)` returns `IO(Result)` containing `Some{value}` only for a valid HMAC-SHA256 signature. A malformed or incorrect signature gives `Done{None{}}`; an unavailable crypto library gives `Fail`. The native target loads OpenSSL 3 `libcrypto` at run time (`BEND_LIBCRYPTO` overrides its path); the JS target returns ENOSYS. Use a random secret key of at least 32 bytes and separate keys or signed purpose tags when several cookie types share an application.
+With `import ./cookie_sign.bend as Ck`, `Ck.sign(key, value)` returns `IO(Result)` with `value.<64 lowercase hex digits>`; `Ck.verify(key, signed)` returns `IO(Result)` containing `Some{value}` only for a valid HMAC-SHA256 signature. A malformed or incorrect signature gives `Done{None{}}`; an unavailable crypto library gives `Fail`. The native target loads OpenSSL 3 `libcrypto` at run time (`BEND_LIBCRYPTO` overrides its path); the JS target returns ENOSYS. Use a random secret key of at least 32 bytes and separate keys or signed purpose tags when several cookie types share an application.
 
 `BendCookie.sign(key,value)` and `BendCookie.verify(key,signed)` expose an explicit
 Bend implementation in the separate `cookie_bend.bend` module, with the same IO result shapes and UTF-8/full-hex wire

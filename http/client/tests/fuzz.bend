@@ -1,5 +1,6 @@
 import Base
 import ../client.bend as C
+import ../../../io/io.bend as Io
 
 # tests/fuzz.py's client: N GETs to 127.0.0.1:7400, one line each, "ok
 # CODE LEN SUM" or "err KIND", for the reference to compare
@@ -52,4 +53,4 @@ def count(a: List<String>) -> Nat:
       100n
 
 def main() -> IO(Unit):
-  IO.bind(List<String>, Unit, IO.args(), a => run(count(a)))
+  IO.bind(List<String>, Unit, Io.args(), a => run(count(a)))

@@ -36,12 +36,21 @@ if ! rg -q '^#define BANGS[[:space:]]+0$' "$generated_c"; then
 fi
 
 compiler=${CC:-clang}
+# Apple Clang 21's Darwin stack probe clobbers live preserve_none registers
+# in Bend 2.0.38's segments, and can crash the backend outright.
+stack_check=
+if [ "$(uname -s)" = Darwin ] && [ "$(uname -m)" = arm64 ]; then
+  case "$("$compiler" --version | head -1)" in
+    *"Apple clang version 21."*) stack_check=-fno-stack-check ;;
+  esac
+fi
 # Large CPU programs overwhelm a single Clang translation unit. Keep emitted
 # bodies intact and compile bounded units after the frontend has exited.
 if [ "$(wc -c < "$generated_c")" -ge 4194304 ] && ! rg -q '^#import ' "$generated_c"; then
   helper_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
   set -- --compiler "$compiler" --cflag=-std=c11 --cflag=-O3 \
     --link-flag=-lpthread --link-flag=-lm --output "$native_output"
+  if [ -n "$stack_check" ]; then set -- "$@" --cflag=$stack_check; fi
   case "$(uname -s)" in
     Darwin) ;;
     Linux)
@@ -54,7 +63,7 @@ if [ "$(wc -c < "$generated_c")" -ge 4194304 ] && ! rg -q '^#import ' "$generate
   exit
 fi
 # Match Bend 2.0.27's CPU compile flags and platform libraries.
-set -- -std=c11 -O3 "$generated_c" -lpthread -lm
+set -- -std=c11 -O3 $stack_check "$generated_c" -lpthread -lm
 case "$(uname -s)" in
   Darwin)
     if rg -q '^#import ' "$generated_c"; then

@@ -2,13 +2,14 @@ import Base
 import ../ice_binding.bend as Ice
 import ../ice_transactions.bend as Tx
 import ../ice_socket.bend as SocketIO
-import ../ice_reliable.bend as Reliable
+import ../ice_outcome.bend as Reliable
 import ../ice_response.bend as Response
 import ../stun_auth.bend as Auth
 import ../stun_retry.bend as Retry
 import ../stun_client.bend as Discovery
 import ../../wire/wire.bend as W
 import ./ice_clock.bend as Clock
+import ../../io/io.bend as Io
 
 # This is a retained-transaction wire fixture, not a nominating ICE agent.
 def finish(socket: Socket, state: Tx.State, text: String) -> IO(Unit):
@@ -76,7 +77,7 @@ def loop(fuel: Nat, socket: Socket, state: Tx.State, stopped: Bool, +stop_at: Na
 
 def begun(result: Tx.Start, socket: Socket, +now: Nat, stop: Bool) -> IO(Unit):
   match result:
-    case Tx.Ready{step}:
+    case Tx.Now{step}:
       IO.bind(SocketIO.Reply(), Unit, SocketIO.execute(socket, step), r =>
         handled(r, False{}, s => tx => done => loop(8192n, s, tx, done,
           Nat.add(now, Bool.pick(Nat, stop, 150n, 10000n)), Nat.add(now, 3000n))))
@@ -136,5 +137,5 @@ def dispatch(args: List<String>) -> IO(Unit):
 
 def main() -> IO(Unit):
   do IO<Unit>:
-    args : List<String> <- IO.args()
+    args : List<String> <- Io.args()
     dispatch(args)

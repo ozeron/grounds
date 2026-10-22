@@ -101,8 +101,8 @@ def check_got_packet(m: Socket & Maybe<&1, String & U32 & List<&2, U32>>, port: 
 
 def main() -> IO(Unit):
   do IO<Unit>:
-    a : Socket <- IO.try(Socket, UDP.bind(47833))
-    b : Socket <- IO.try(Socket, UDP.bind(47834))
+    a : Socket <- IO.try(Socket, UDP.bind("0.0.0.0", 47833))
+    b : Socket <- IO.try(Socket, UDP.bind("0.0.0.0", 47834))
     empty_poll : RD() <- W.wire_udp_recv_from_timeout(b, 256, 20)
     empty_result : Socket & Maybe<&1, String & U32 & List<&2, U32>> <- got(empty_poll)
     b1 : Socket <- check_got_none(empty_result)

@@ -14,13 +14,22 @@ LEGACY = NAMES + "const u8 CID_HOT_T[] = {0, 0, 0};\n" + \
     "#define cid_hot(x) ((bool)CID_HOT_T[x])\n"
 COMBINED = NAMES + "CONSTV u8 CID_T[][2] = { {0, 0}, {2, 0}, {0, 0} };\n" + \
     "#define cid_hot(x)   ((bool)CID_T[x][1])\n"
+ROWS = NAMES + "typedef struct { u8 ar, hot; u16 spine; } Cid;\n" + \
+    "CONSTV Cid CID_T[] = { { 0, 0, 0 }, { 2, 0, 1 }, { 0, 0, 0 } };\n" + \
+    "#define cid_hot(x)   CID_T[x].hot\n"
 
 
 class ColdTests(unittest.TestCase):
     def test_cold_in_both_layouts(self):
-        for text in (LEGACY, COMBINED):
+        for text in (LEGACY, COMBINED, ROWS):
             with self.subTest(text=text):
                 self.assertEqual(hot_constructors(text), [])
+
+    def test_cid_rows_read_the_hot_field(self):
+        self.assertEqual(hot_constructors(ROWS.replace("{ 2, 0, 1 }", "{ 2, 1, 1 }")), ["CON"])
+        self.assertEqual(hot_constructors(ROWS.replace("#define CID_CON", "#define CID_Con")), [])
+        with self.assertRaises(ValueError):
+            hot_constructors(ROWS.replace("u16 spine", "u16 width"))
 
     def test_hot_flags_are_independent_of_arity(self):
         self.assertEqual(hot_constructors(LEGACY.replace("{0, 0, 0}", "{1, 0, 1}")),

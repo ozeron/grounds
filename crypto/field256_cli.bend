@@ -136,5 +136,5 @@ def dispatch(left: Nat, args: List<String>) -> IO(Unit):
 # the loop checked when an IO helper returns the remaining arguments.
 def main() -> IO(Unit):
   do IO<Unit>:
-    args : List<String> <- IO.args()
+    args : List<String> <- Io.args()
     dispatch(1048576n, args)

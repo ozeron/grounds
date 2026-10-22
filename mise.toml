@@ -1,5 +1,5 @@
 [tools]
-"github:bendlang/bend" = "2.0.27"
+"github:bendlang/bend" = "2.0.38"
 "aqua:moonrepo/moon" = "2.5.5"
 
 [env]

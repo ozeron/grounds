@@ -83,7 +83,7 @@ def Laws.capture_anywhere(pre, n, pt, t, acc, ok):
   match pre:
     case Nil{}:
       capture_filled(n, pt, t, acc, ok)
-    case Con{Laws.Pair{Router.Lit{l}, x}, u}:
+    case Con{Laws.SegPair{Router.Lit{l}, x}, u}:
       Laws.capture_anywhere(u, n, pt, t, acc, Bool.and(ok, Router.same(l, x, True{})))
-    case Con{Laws.Pair{Router.Cap{c}, +x}, u}:
+    case Con{Laws.SegPair{Router.Cap{c}, +x}, u}:
       Laws.capture_anywhere(u, n, pt, t, Con{Router.Param{c, Router.copy(x, "")}, acc}, Bool.and(ok, Router.filled(x)))

@@ -203,14 +203,14 @@ AF = ["+h: J.Json", "+t: List<&2, J.Json>", "+stk: List<&2, J.Frame>", "+r: Stri
       "+slack: Nat", "+m: J.Mode", "vm: PA.ValMode(m)"] + LAYP
 AFA = ["h", "t", "stk", "r", "pre", "wp", "slack", "m", "vm", "p", "cs", "d"]
 G_AF = goal("pre", "J.JArr{Con{h, t}}", "False{}", "d", "m", "stk", "r", "slack")
-law("arr_f.3", AF + ["+w1: Nat", p1(bw("1n+d"), "Con{J.FArr{[]}, stk}", "J.MValueOrClose{}", SW), "+w2: Nat",
+law("arr_f.k3", AF + ["+w1: Nat", p1(bw("1n+d"), "Con{J.FArr{[]}, stk}", "J.MValueOrClose{}", SW), "+w2: Nat",
                      p2("Con{J.FArr{[h]}, stk}", None)], G_AF, AFA + ["w1", "p1", "w2", "p2"], by_mode(arr_f))
-law("arr_f.2", AF + ["+w1: Nat", p1(bw("1n+d"), "Con{J.FArr{[]}, stk}", "J.MValueOrClose{}", SW),
+law("arr_f.k2", AF + ["+w1: Nat", p1(bw("1n+d"), "Con{J.FArr{[]}, stk}", "J.MValueOrClose{}", SW),
                      f"g2: {goal(chr(34) * 2, 'J.JArr{t}', 'True{}', 'd', 'J.MCommaOrClose{}', 'Con{J.FArr{[h]}, stk}', 'r', 'w1')}"],
-    G_AF, AFA + ["w1", "p1", "g2"], "  (+w2, p2) = g2\n  arr_f.3(" + ", ".join(AFA) + ", w1, p1, w2, p2)")
-law("arr_f.1", AF + [f"g1: {goal(bw('1n+d'), 'h', 'False{}', '1n+d', 'J.MValueOrClose{}', 'Con{J.FArr{[]}, stk}', K, SW)}",
+    G_AF, AFA + ["w1", "p1", "g2"], "  (+w2, p2) = g2\n  arr_f.k3(" + ", ".join(AFA) + ", w1, p1, w2, p2)")
+law("arr_f.k1", AF + [f"g1: {goal(bw('1n+d'), 'h', 'False{}', '1n+d', 'J.MValueOrClose{}', 'Con{J.FArr{[]}, stk}', K, SW)}",
                      f"ih2: @w: Nat -> {goal(chr(34) * 2, 'J.JArr{t}', 'True{}', 'd', 'J.MCommaOrClose{}', 'Con{J.FArr{[h]}, stk}', 'r', 'w')}"],
-    G_AF, AFA + ["g1", "ih2"], "  (+w1, p1) = g1\n  arr_f.2(" + ", ".join(AFA) + ", w1, p1, ih2(w1))")
+    G_AF, AFA + ["g1", "ih2"], "  (+w1, p1) = g1\n  arr_f.k2(" + ", ".join(AFA) + ", w1, p1, ih2(w1))")
 
 AT = ["+h: J.Json", "+t: List<&2, J.Json>", "+acc: List<&2, J.Json>", "+up: List<&2, J.Frame>", "+r: String",
       "+slack: Nat"] + LAYP
@@ -220,15 +220,15 @@ G_AT = goal('""', "J.JArr{Con{h, t}}", "True{}", "d", "J.MCommaOrClose{}", STK_T
 ts, ps = arr_chain(f"SCon{{',', {BH}}}", STK_T, "J.MCommaOrClose{}", STK_T, "Con{J.FArr{Con{h, acc}}, up}", "J.MValue{}",
                    "J.emit(J.JArr{PA.rlj(acc, Con{h, t})}, r, up)", "slack",
                    f"PA.step(slack, SCon{{',', {BH}}}, {ln(BH)}, {STK_T}, J.MCommaOrClose{{}}, {{==}})")
-law("arr_t.3", AT + ["+w1: Nat", p1(bw("1n+d"), STK_T, "J.MValue{}", "slack"), "+w2: Nat",
+law("arr_t.k3", AT + ["+w1: Nat", p1(bw("1n+d"), STK_T, "J.MValue{}", "slack"), "+w2: Nat",
                      p2("Con{J.FArr{Con{h, acc}}, up}", None)], G_AT, ATA + ["w1", "p1", "w2", "p2"],
     "  (w2, " + tr(ts, ps, 2) + ")")
-law("arr_t.2", AT + ["+w1: Nat", p1(bw("1n+d"), STK_T, "J.MValue{}", "slack"),
+law("arr_t.k2", AT + ["+w1: Nat", p1(bw("1n+d"), STK_T, "J.MValue{}", "slack"),
                      f"g2: {goal(chr(34) * 2, 'J.JArr{t}', 'True{}', 'd', 'J.MCommaOrClose{}', 'Con{J.FArr{Con{h, acc}}, up}', 'r', 'w1')}"],
-    G_AT, ATA + ["w1", "p1", "g2"], "  (+w2, p2) = g2\n  arr_t.3(" + ", ".join(ATA) + ", w1, p1, w2, p2)")
-law("arr_t.1", AT + [f"g1: {goal(bw('1n+d'), 'h', 'False{}', '1n+d', 'J.MValue{}', STK_T, K, 'slack')}",
+    G_AT, ATA + ["w1", "p1", "g2"], "  (+w2, p2) = g2\n  arr_t.k3(" + ", ".join(ATA) + ", w1, p1, w2, p2)")
+law("arr_t.k1", AT + [f"g1: {goal(bw('1n+d'), 'h', 'False{}', '1n+d', 'J.MValue{}', STK_T, K, 'slack')}",
                      f"ih2: @w: Nat -> {goal(chr(34) * 2, 'J.JArr{t}', 'True{}', 'd', 'J.MCommaOrClose{}', 'Con{J.FArr{Con{h, acc}}, up}', 'r', 'w')}"],
-    G_AT, ATA + ["g1", "ih2"], "  (+w1, p1) = g1\n  arr_t.2(" + ", ".join(ATA) + ", w1, p1, ih2(w1))")
+    G_AT, ATA + ["g1", "ih2"], "  (+w1, p1) = g1\n  arr_t.k2(" + ", ".join(ATA) + ", w1, p1, ih2(w1))")
 
 # objects: '{' or ',', a line break, the key, ':', a space, the value, the rest
 KO = lay("J.JObj{t}", "True{}", "d", "r")
@@ -302,18 +302,18 @@ def obj_f(m):
 
 
 STK_KF = "Con{J.FObj{[], k}, stk}"
-law("obj_f.4", OF + ["+x: Nat", EX, "+w1: Nat", op1(STK_KF, S3_F), "+w2: Nat", op2(STK1_F)], G_OF,
+law("obj_f.k4", OF + ["+x: Nat", EX, "+w1: Nat", op1(STK_KF, S3_F), "+w2: Nat", op2(STK1_F)], G_OF,
     OFA + ["x", "ex", "w1", "p1", "w2", "p2"], by_mode(obj_f))
-law("obj_f.3", OF + ["+x: Nat", EX, "+w1: Nat", op1(STK_KF, S3_F),
+law("obj_f.k3", OF + ["+x: Nat", EX, "+w1: Nat", op1(STK_KF, S3_F),
                      f"g2: {goal(chr(34) * 2, 'J.JObj{t}', 'True{}', 'd', 'J.MCommaOrClose{}', STK1_F, 'r', 'w1')}"],
-    G_OF, OFA + ["x", "ex", "w1", "p1", "g2"], "  (+w2, p2) = g2\n  obj_f.4(" + ", ".join(OFA) + ", x, ex, w1, p1, w2, p2)")
-law("obj_f.2", OF + ["+x: Nat", EX, f"g1: {goal('S.sp(p)', 'v', 'False{}', '1n+d', 'J.MValue{}', STK_KF, KO, S3_F)}",
+    G_OF, OFA + ["x", "ex", "w1", "p1", "g2"], "  (+w2, p2) = g2\n  obj_f.k4(" + ", ".join(OFA) + ", x, ex, w1, p1, w2, p2)")
+law("obj_f.k2", OF + ["+x: Nat", EX, f"g1: {goal('S.sp(p)', 'v', 'False{}', '1n+d', 'J.MValue{}', STK_KF, KO, S3_F)}",
                      f"ih2: @w: Nat -> {goal(chr(34) * 2, 'J.JObj{t}', 'True{}', 'd', 'J.MCommaOrClose{}', STK1_F, 'r', 'w')}"],
-    G_OF, OFA + ["x", "ex", "g1", "ih2"], "  (+w1, p1) = g1\n  obj_f.3(" + ", ".join(OFA) + ", x, ex, w1, p1, ih2(w1))")
-law("obj_f.1", OF + [PK, f"ih1: @s: Nat -> {goal('S.sp(p)', 'v', 'False{}', '1n+d', 'J.MValue{}', STK_KF, KO, 's')}",
+    G_OF, OFA + ["x", "ex", "g1", "ih2"], "  (+w1, p1) = g1\n  obj_f.k3(" + ", ".join(OFA) + ", x, ex, w1, p1, ih2(w1))")
+law("obj_f.k1", OF + [PK, f"ih1: @s: Nat -> {goal('S.sp(p)', 'v', 'False{}', '1n+d', 'J.MValue{}', STK_KF, KO, 's')}",
                      f"ih2: @w: Nat -> {goal(chr(34) * 2, 'J.JObj{t}', 'True{}', 'd', 'J.MCommaOrClose{}', STK1_F, 'r', 'w')}"],
     G_OF, OFA + ["pk", "ih1", "ih2"],
-    "  (+x, ex) = pk\n  obj_f.2(" + ", ".join(OFA) + f", x, ex, ih1({S3_F.replace('x', 'x')}), ih2)")
+    "  (+x, ex) = pk\n  obj_f.k2(" + ", ".join(OFA) + f", x, ex, ih1({S3_F.replace('x', 'x')}), ih2)")
 
 OT = ["+k: String", "+v: J.Json", "+t: List<&2, J.Field>", "+acc: List<&2, J.Field>", "+k0: String",
       "+up: List<&2, J.Frame>", "+r: String", "+slack: Nat"] + LAYP
@@ -328,17 +328,17 @@ ts, ps, _ = obj_chain(f"SCon{{',', {BK}}}", STK_T0, "J.MCommaOrClose{}", "J.MKey
                       f"PA.step(slack, SCon{{',', {BK}}}, {ln(BK)}, {STK_T0}, J.MCommaOrClose{{}}, {{==}})")
 ts = [objsub(x, "acc", "k0", "up", STK1_T) for x in ts]
 ps = [objsub(x, "acc", "k0", "up", STK1_T) for x in ps]
-law("obj_t.4", OT + ["+x: Nat", EX, "+w1: Nat", op1(STK_KT, S3_T), "+w2: Nat", op2(STK1_T)], G_OT,
+law("obj_t.k4", OT + ["+x: Nat", EX, "+w1: Nat", op1(STK_KT, S3_T), "+w2: Nat", op2(STK1_T)], G_OT,
     OTA + ["x", "ex", "w1", "p1", "w2", "p2"], "  (w2, " + tr(ts, ps, 2) + ")")
-law("obj_t.3", OT + ["+x: Nat", EX, "+w1: Nat", op1(STK_KT, S3_T),
+law("obj_t.k3", OT + ["+x: Nat", EX, "+w1: Nat", op1(STK_KT, S3_T),
                      f"g2: {goal(chr(34) * 2, 'J.JObj{t}', 'True{}', 'd', 'J.MCommaOrClose{}', STK1_T, 'r', 'w1')}"],
-    G_OT, OTA + ["x", "ex", "w1", "p1", "g2"], "  (+w2, p2) = g2\n  obj_t.4(" + ", ".join(OTA) + ", x, ex, w1, p1, w2, p2)")
-law("obj_t.2", OT + ["+x: Nat", EX, f"g1: {goal('S.sp(p)', 'v', 'False{}', '1n+d', 'J.MValue{}', STK_KT, KO, S3_T)}",
+    G_OT, OTA + ["x", "ex", "w1", "p1", "g2"], "  (+w2, p2) = g2\n  obj_t.k4(" + ", ".join(OTA) + ", x, ex, w1, p1, w2, p2)")
+law("obj_t.k2", OT + ["+x: Nat", EX, f"g1: {goal('S.sp(p)', 'v', 'False{}', '1n+d', 'J.MValue{}', STK_KT, KO, S3_T)}",
                      f"ih2: @w: Nat -> {goal(chr(34) * 2, 'J.JObj{t}', 'True{}', 'd', 'J.MCommaOrClose{}', STK1_T, 'r', 'w')}"],
-    G_OT, OTA + ["x", "ex", "g1", "ih2"], "  (+w1, p1) = g1\n  obj_t.3(" + ", ".join(OTA) + ", x, ex, w1, p1, ih2(w1))")
-law("obj_t.1", OT + [PK, f"ih1: @s: Nat -> {goal('S.sp(p)', 'v', 'False{}', '1n+d', 'J.MValue{}', STK_KT, KO, 's')}",
+    G_OT, OTA + ["x", "ex", "g1", "ih2"], "  (+w1, p1) = g1\n  obj_t.k3(" + ", ".join(OTA) + ", x, ex, w1, p1, ih2(w1))")
+law("obj_t.k1", OT + [PK, f"ih1: @s: Nat -> {goal('S.sp(p)', 'v', 'False{}', '1n+d', 'J.MValue{}', STK_KT, KO, 's')}",
                      f"ih2: @w: Nat -> {goal(chr(34) * 2, 'J.JObj{t}', 'True{}', 'd', 'J.MCommaOrClose{}', STK1_T, 'r', 'w')}"],
-    G_OT, OTA + ["pk", "ih1", "ih2"], f"  (+x, ex) = pk\n  obj_t.2(" + ", ".join(OTA) + f", x, ex, ih1({S3_T}), ih2)")
+    G_OT, OTA + ["pk", "ih1", "ih2"], f"  (+x, ex) = pk\n  obj_t.k2(" + ", ".join(OTA) + f", x, ex, ih1({S3_T}), ih2)")
 
 HEAD = '''import Base
 import ../json.bend as J
@@ -535,21 +535,21 @@ def run_body():
     a(closing("", "Con{J.FArr{acc}, up}", "Con{J.FObj{_, _}, _}", "g_arr_nil_t(acc, up, r, slack, p, cs, d)", "", "J.JArr{[]}"))
     KT = "S.lay(J.JArr{t}, True{}, p, S.wstr(cs), d, r)"
     a("    case J.JArr{Con{h, t}}:\n      match more:\n        case False{}:\n"
-      f"          arr_f.1(h, t, stk, r, pre, wp, slack, m, ctx, p, cs, d,\n"
+      f"          arr_f.k1(h, t, stk, r, pre, wp, slack, m, ctx, p, cs, d,\n"
       f"            run(h, False{{}}, S.bw(p, S.wstr(cs), 1n+d), w => bw_ws(p, cs, 1n+d, w), Unit{{}}, p, cs, 1n+d, J.MValueOrClose{{}}, Con{{J.FArr{{[]}}, stk}}, {KT}, A.add(slack, A.len(pre)), Unit{{}}, delim_arr(t, r, p, cs, d)),\n"
       f"            w => run(J.JArr{{t}}, True{{}}, \"\", s => {{==}}, {{==}}, p, cs, d, J.MCommaOrClose{{}}, Con{{J.FArr{{[h]}}, stk}}, r, w, Unit{{}}, dl))")
     a(closing("", "Con{J.FArr{acc}, up}", "Con{J.FObj{_, _}, _}",
-              f"arr_t.1(h, t, acc, up, r, slack, p, cs, d, run(h, False{{}}, S.bw(p, S.wstr(cs), 1n+d), w => bw_ws(p, cs, 1n+d, w), Unit{{}}, p, cs, 1n+d, J.MValue{{}}, Con{{J.FArr{{acc}}, up}}, {KT}, slack, Unit{{}}, delim_arr(t, r, p, cs, d)), w => run(J.JArr{{t}}, True{{}}, \"\", s => {{==}}, {{==}}, p, cs, d, J.MCommaOrClose{{}}, Con{{J.FArr{{Con{{h, acc}}}}, up}}, r, w, Unit{{}}, dl))",
+              f"arr_t.k1(h, t, acc, up, r, slack, p, cs, d, run(h, False{{}}, S.bw(p, S.wstr(cs), 1n+d), w => bw_ws(p, cs, 1n+d, w), Unit{{}}, p, cs, 1n+d, J.MValue{{}}, Con{{J.FArr{{acc}}, up}}, {KT}, slack, Unit{{}}, delim_arr(t, r, p, cs, d)), w => run(J.JArr{{t}}, True{{}}, \"\", s => {{==}}, {{==}}, p, cs, d, J.MCommaOrClose{{}}, Con{{J.FArr{{Con{{h, acc}}}}, up}}, r, w, Unit{{}}, dl))",
               "", "J.JArr{Con{h, t}}"))
     a("    case J.JObj{Nil{}}:\n      match more:\n        case False{}:\n          g_obj_nil(pre, wp, slack, p, cs, d, m, ctx, stk, r)")
     a(closing("", "Con{J.FObj{acc, k0}, up}", "Con{J.FArr{_}, _}", "g_obj_nil_t(acc, k0, up, r, slack, p, cs, d)", "", "J.JObj{[]}"))
     KO_ = "S.lay(J.JObj{t}, True{}, p, S.wstr(cs), d, r)"
     a("    case J.JObj{Con{J.Field{k, v}, t}}:\n      match more:\n        case False{}:\n"
-      f"          obj_f.1(k, v, t, stk, r, pre, wp, slack, m, ctx, p, cs, d, A.pre_esc(k, SCon{{'\"', {C}}}),\n"
+      f"          obj_f.k1(k, v, t, stk, r, pre, wp, slack, m, ctx, p, cs, d, A.pre_esc(k, SCon{{'\"', {C}}}),\n"
       f"            s => run(v, False{{}}, S.sp(p), w => sp_ws(p, w), Unit{{}}, p, cs, 1n+d, J.MValue{{}}, Con{{J.FObj{{[], k}}, stk}}, {KO_}, s, Unit{{}}, delim_obj(t, r, p, cs, d)),\n"
       f"            w => run(J.JObj{{t}}, True{{}}, \"\", s => {{==}}, {{==}}, p, cs, d, J.MCommaOrClose{{}}, Con{{J.FObj{{[J.Field{{k, v}}], \"\"}}, stk}}, r, w, Unit{{}}, dl))")
     a(closing("", "Con{J.FObj{acc, k0}, up}", "Con{J.FArr{_}, _}",
-              f"obj_t.1(k, v, t, acc, k0, up, r, slack, p, cs, d, A.pre_esc(k, SCon{{'\"', {C}}}), s => run(v, False{{}}, S.sp(p), w => sp_ws(p, w), Unit{{}}, p, cs, 1n+d, J.MValue{{}}, Con{{J.FObj{{acc, k}}, up}}, {KO_}, s, Unit{{}}, delim_obj(t, r, p, cs, d)), w => run(J.JObj{{t}}, True{{}}, \"\", s => {{==}}, {{==}}, p, cs, d, J.MCommaOrClose{{}}, Con{{J.FObj{{Con{{J.Field{{k, v}}, acc}}, \"\"}}, up}}, r, w, Unit{{}}, dl))",
+              f"obj_t.k1(k, v, t, acc, k0, up, r, slack, p, cs, d, A.pre_esc(k, SCon{{'\"', {C}}}), s => run(v, False{{}}, S.sp(p), w => sp_ws(p, w), Unit{{}}, p, cs, 1n+d, J.MValue{{}}, Con{{J.FObj{{acc, k}}, up}}, {KO_}, s, Unit{{}}, delim_obj(t, r, p, cs, d)), w => run(J.JObj{{t}}, True{{}}, \"\", s => {{==}}, {{==}}, p, cs, d, J.MCommaOrClose{{}}, Con{{J.FObj{{Con{{J.Field{{k, v}}, acc}}, \"\"}}, up}}, r, w, Unit{{}}, dl))",
               "", "J.JObj{Con{J.Field{k, v}, t}}"))
     return "\n".join(L)
 

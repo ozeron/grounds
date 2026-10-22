@@ -279,7 +279,7 @@ def sb.out(c, t, out):
     Equal.cong(String, String, z => push(z, out), y ++ S.esc(t, "\""), S.esc_char(k, c, S.esc(t, "\"")),
       Equal.sym(String, S.esc_char(k, c, S.esc(t, "\"")), y ++ S.esc(t, "\""), T.esc_char(k, c, "", S.esc(t, "\"")))))
 
-law sb.2:
+law sb.k2:
   for +c: Char
   for +t: String
   for +r: String
@@ -293,7 +293,7 @@ law sb.2:
   for g2: SB(t, r, stk, push(S.esc_char(J.class(c), c, ""), out), key, p_at(p1), p_ea(p1))
   SB(SCon{c, t}, r, stk, out, key, at, ea)
 
-def sb.2(c, t, r, stk, out, key, at, ea, p1, e1, g2):
+def sb.k2(c, t, r, stk, out, key, at, ea, p1, e1, g2):
   (+p2, e2) = g2
   +o1 : String = push(S.esc_char(J.class(c), c, ""), out)
   (p2, Equal.trans(F.Out,
@@ -309,7 +309,7 @@ def sb.2(c, t, r, stk, out, key, at, ea, p1, e1, g2):
       Equal.cong(String, F.Out, z => F.gc(r, F.close_mode(key), r, stk, z, 0, 0, key, p_at(p2), p_ea(p2)),
         push(S.esc(t, "\""), o1), push(S.esc(SCon{c, t}, "\""), out), sb.out(c, t, out)))))
 
-law sb.1:
+law sb.k1:
   for +c: Char
   for +t: String
   for +r: String
@@ -322,9 +322,9 @@ law sb.1:
   for ih: @p: P2 -> SB(t, r, stk, push(S.esc_char(J.class(c), c, ""), out), key, p_at(p), p_ea(p))
   SB(SCon{c, t}, r, stk, out, key, at, ea)
 
-def sb.1(c, t, r, stk, out, key, at, ea, g1, ih):
+def sb.k1(c, t, r, stk, out, key, at, ea, g1, ih):
   (+p1, e1) = g1
-  sb.2(c, t, r, stk, out, key, at, ea, p1, e1, ih(p1))
+  sb.k2(c, t, r, stk, out, key, at, ea, p1, e1, ih(p1))
 
 law sb:
   for +s: String
@@ -341,5 +341,5 @@ def sb(s, r, stk, out, key, at, ea):
     case SNil{}:
       (P2{(at + 1 : U32), ea}, {==})
     case SCon{c, t}:
-      sb.1(c, t, r, stk, out, key, at, ea, cs(c, S.esc(t, SCon{'"', r}), stk, out, key, at, ea),
+      sb.k1(c, t, r, stk, out, key, at, ea, cs(c, S.esc(t, SCon{'"', r}), stk, out, key, at, ea),
         +p => sb(t, r, stk, push(S.esc_char(J.class(c), c, ""), out), key, p_at(p), p_ea(p)))

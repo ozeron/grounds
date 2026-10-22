@@ -9,6 +9,7 @@ import ../stun_client.bend as Discovery
 import ./ice_consent.bend as Format
 import ./ice_session_udp.bend as Entropy
 import ../../wire/wire.bend as W
+import ../../io/io.bend as Io
 
 # Local synthetic selected-route fixture. Effects perform RNG, timestamps and
 # UDP only; consent construction, authentication and the data gate are Bend.
@@ -121,7 +122,7 @@ def execute_step(step: Consent.Step, socket: Socket, driver: Driver) -> IO(Reply
 
 def started(start: Consent.Start, socket: Socket, driver: Driver) -> IO(Reply()):
   match start:
-    case Consent.Ready{step}: execute_step(step, socket, driver)
+    case Consent.Now{step}: execute_step(step, socket, driver)
     case Consent.Later{step, _}: execute_step(step, socket, driver)
     case Consent.Rejected{step}: execute_step(step, socket, driver)
 
@@ -273,5 +274,5 @@ def dispatch(args: List<String>) -> IO(Unit):
 
 def main() -> IO(Unit):
   do IO<Unit>:
-    args : List<String> <- IO.args()
+    args : List<String> <- Io.args()
     dispatch(args)

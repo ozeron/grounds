@@ -2,6 +2,7 @@ import Base
 # fastc.bend: fast.bend with the end-of-input row returning
 #   More{m, stk, out, hi, code, key, at, ea} instead of finish(...)
 import ./fastc.bend as F
+import ../../../io/io.bend as Io
 
 # compact-reformat a file read in chunks: the loop pauses at each chunk's
 # end (More), its output so far is written, and it resumes on the next
@@ -69,5 +70,5 @@ def start(args: List<String>) -> IO(Unit):
 
 def main() -> IO(Unit):
   do IO<Unit>:
-    args : List<String> <- IO.args()
+    args : List<String> <- Io.args()
     start(args)

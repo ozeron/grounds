@@ -1,7 +1,7 @@
 // Native cookie signatures: HMAC-SHA256 through OpenSSL 3, loaded at run
 // time, and constant-time comparison of well-formed 32-byte MACs.
 
-#if defined(CID_SIGN) || defined(CID_VERIFY)
+#if defined(CID(sign)) || defined(CID(verify))
 #ifndef GROUNDS_COOKIE_CRYPTO
 #define GROUNDS_COOKIE_CRYPTO
 
@@ -71,7 +71,7 @@ static int ck_unhex(char c) {
 #endif
 #endif
 
-#ifdef CID_SIGN
+#ifdef CID(sign)
 
 Term ck_sign_run(Env e, Term* f, IoWork* w) {
   u64 kn = 0;
@@ -110,12 +110,12 @@ Term ck_sign_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) ck_sign_use(void) {
-  io_eff(CID_SIGN, ck_sign_run, 0);
+  io_eff(CID(sign), ck_sign_run);
 }
 
 #endif
 
-#ifdef CID_VERIFY
+#ifdef CID(verify)
 
 Term ck_verify_run(Env e, Term* f, IoWork* w) {
   u64 kn = 0;
@@ -130,7 +130,7 @@ Term ck_verify_run(Env e, Term* f, IoWork* w) {
   if (sn < 65 || signed_value[sn - 65] != '.') {
     free(key);
     free(signed_value);
-    return io_done(e, term_pak(CID_NONE, 0));
+    return io_done(e, term_pak(CID(None), 0));
   }
   unsigned char supplied[32];
   for (u64 i = 0; i < 32; i += 1) {
@@ -139,7 +139,7 @@ Term ck_verify_run(Env e, Term* f, IoWork* w) {
     if (hi < 0 || lo < 0) {
       free(key);
       free(signed_value);
-      return io_done(e, term_pak(CID_NONE, 0));
+      return io_done(e, term_pak(CID(None), 0));
     }
     supplied[i] = (unsigned char)((hi << 4) | lo);
   }
@@ -151,14 +151,14 @@ Term ck_verify_run(Env e, Term* f, IoWork* w) {
     return io_fail(e, EINVAL, "HMAC-SHA256 failed");
   }
   Term result = ck_crypto.memcmp(actual, supplied, 32) == 0
-    ? io_done(e, io_box(e, CID_SOME, io_str(e, signed_value, sn - 65)))
-    : io_done(e, term_pak(CID_NONE, 0));
+    ? io_done(e, io_box(e, CID(Some), io_str(e, signed_value, sn - 65)))
+    : io_done(e, term_pak(CID(None), 0));
   free(signed_value);
   return result;
 }
 
 static void __attribute__((constructor)) ck_verify_use(void) {
-  io_eff(CID_VERIFY, ck_verify_run, 0);
+  io_eff(CID(verify), ck_verify_run);
 }
 
 #endif

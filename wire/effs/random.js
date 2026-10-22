@@ -1,7 +1,7 @@
 function wire_random_bytes(count) {
   const n = Number(count);
   if (!Number.isInteger(n) || n < 0 || n > 1048576) return io_fail(22);
-  if (n === 0) return io_done({ $: "Nil" });
+  if (n === 0) return io_done({ $: CID(Nil) });
   let bytes;
   try {
     bytes = new Uint8Array(n);
@@ -16,10 +16,12 @@ function wire_random_bytes(count) {
     bytes.fill(0);
     return io_fail(5);
   }
-  let result = { $: "Nil" };
+  let result = { $: CID(Nil) };
   for (let i = n; i > 0; --i) {
-    result = { $: "Con", head: bytes[i - 1], tail: result };
+    result = { $: CID(Con), head: bytes[i - 1], tail: result };
   }
   bytes.fill(0);
   return io_done(result);
 }
+
+io_eff(CID(wire_random_bytes), wire_random_bytes);

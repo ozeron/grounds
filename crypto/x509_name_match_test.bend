@@ -4,7 +4,7 @@ import ./unicode32_nfkc_compose.bend as C
 import ./unicode32_nfkc_buffer.bend as B
 
 def key(oid: List<&2, U32>, scalar: U32) -> N.Key:
-  N.Key{oid, Array.new(U32, 1n, U32.shln(scalar, 8n)), 1}
+  N.NameKey{oid, Array.new(U32, 1n, U32.shln(scalar, 8n)), 1}
 
 def relation(result: N.Key & N.Key & U32) -> U32:
   (_, _, answer) = result
@@ -68,7 +68,7 @@ def Name_RDN_partition() -> {partitioned_names() == False{} : Bool}:
 
 def domain_key.normalized(result: C.Normalized) -> N.Key:
   match result:
-    case C.Normalized{values, length}: N.Key{[9,146,38,137,147,242,44,100,1,25], values, length}
+    case C.Normalized{values, length}: N.NameKey{[9,146,38,137,147,242,44,100,1,25], values, length}
 
 def domain_key(bytes: List<&2, U32>) -> N.Key:
   domain_key.normalized(N.domain.words(bytes, B.new()))

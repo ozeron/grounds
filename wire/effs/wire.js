@@ -3,9 +3,9 @@
 // TCP on bytes: a List<U32> of octets in and out. After bend-kit-wire (MIT-0).
 
 function gw_list(b, n) {
-  let xs = { $: "Nil" };
+  let xs = { $: CID(Nil) };
   for (let i = n; i > 0; i -= 1) {
-    xs = { $: "Con", head: b[i - 1], tail: xs };
+    xs = { $: CID(Con), head: b[i - 1], tail: xs };
   }
   return xs;
 }
@@ -30,9 +30,6 @@ function wire_recv(socket, max, k) {
   return go();
 }
 
-function wire_recv_need() {
-  return { read: true };
-}
 
 // wire_recv with a deadline, as Base's TCP.poll: None past it
 function wire_recv_timeout(socket, max, ms, k) {
@@ -44,14 +41,14 @@ function wire_recv_timeout(socket, max, ms, k) {
   const go = () => {
     const n = Number(sys.recv(fd, sys.ptr(b), Number(max), 0));
     if (n >= 0) {
-      return io_tup(socket, io_done({ $: "Some", value: gw_list(b, n) }));
+      return io_tup(socket, io_done({ $: CID(Some), value: gw_list(b, n) }));
     }
     const code = sys.errno();
     if (code !== again) {
       return io_tup(socket, io_fail(code));
     }
     if (performance.now() >= at) {
-      return io_tup(socket, io_done({ $: "None" }));
+      return io_tup(socket, io_done({ $: CID(None) }));
     }
     io_park_on(fd, false, k, go, at);
     return undefined;
@@ -85,7 +82,7 @@ function wire_send(socket, data, k) {
       }
       at += n;
     }
-    return io_tup(socket, io_done({ $: "Unit" }));
+    return io_tup(socket, io_done({ $: CID(Unit) }));
   };
   return go(0);
 }
@@ -122,7 +119,7 @@ function wire_send_timeout(socket, data, ms, k) {
       }
       at += n;
     }
-    return io_tup(socket, io_done({ $: "Unit" }));
+    return io_tup(socket, io_done({ $: CID(Unit) }));
   };
   return go(0);
 }
@@ -212,7 +209,7 @@ function wire_udp_send_to(socket, host, port, data, ms, k) {
       }
       return io_tup(socket, io_fail(code));
     }
-    return io_tup(socket, n === b.length ? io_done({ $: "Unit" }) : io_fail(5));
+    return io_tup(socket, n === b.length ? io_done({ $: CID(Unit) }) : io_fail(5));
   };
   return go();
 }
@@ -235,7 +232,7 @@ function wire_udp_recv_from_timeout(socket, max, ms, k) {
         return io_tup(socket, io_fail(code));
       }
       if (performance.now() >= deadline) {
-        return io_tup(socket, io_done({ $: "None" }));
+        return io_tup(socket, io_done({ $: CID(None) }));
       }
       io_park_on(socket, false, k, go, deadline);
       return undefined;
@@ -246,7 +243,7 @@ function wire_udp_recv_from_timeout(socket, max, ms, k) {
     const host = peer[4] + "." + peer[5] + "." + peer[6] + "." + peer[7];
     const port = (peer[2] << 8) | peer[3];
     const value = io_tup(host, port, gw_list(b, n));
-    return io_tup(socket, io_done({ $: "Some", value }));
+    return io_tup(socket, io_done({ $: CID(Some), value }));
   };
   return go();
 }
@@ -301,7 +298,7 @@ function wire_accept_timeout(listener, ms, k) {
         return io_tup(listener, io_fail(code));
       }
       if (performance.now() >= at) {
-        return io_tup(listener, io_done({ $: "None" }));
+        return io_tup(listener, io_done({ $: CID(None) }));
       }
       io_park_on(lfd, false, k, go, at);
       return undefined;
@@ -311,7 +308,7 @@ function wire_accept_timeout(listener, ms, k) {
       sys.close(fd);
       return io_tup(listener, io_fail(code));
     }
-    return io_tup(listener, io_done({ $: "Some", value: fd }));
+    return io_tup(listener, io_done({ $: CID(Some), value: fd }));
   };
   return go();
 }
@@ -382,7 +379,7 @@ unsigned grounds_wire_stopping(void) {
 
 function wire_on_stop() {
   gw_signals();
-  return { $: "Unit" };
+  return { $: CID(Unit) };
 }
 
 function wire_stopping() {
@@ -438,10 +435,32 @@ function wire_tls_accept(socket, ms) {
 
 function wire_close(socket) {
   io_sys().close(socket);
-  return { $: "Unit" };
+  return { $: CID(Unit) };
 }
 
 function wire_tls_close(socket) {
   io_sys().close(socket);
-  return { $: "Unit" };
+  return { $: CID(Unit) };
 }
+
+io_eff(CID(wire_recv), wire_recv);
+io_eff(CID(wire_recv_timeout), wire_recv_timeout);
+io_eff(CID(wire_send), wire_send);
+io_eff(CID(wire_send_timeout), wire_send_timeout);
+io_eff(CID(wire_connect_timeout), wire_connect_timeout);
+io_eff(CID(wire_accept_timeout), wire_accept_timeout);
+io_eff(CID(wire_on_stop), wire_on_stop);
+io_eff(CID(wire_stopping), wire_stopping);
+io_eff(CID(wire_live), wire_live);
+io_eff(CID(wire_resolve), wire_resolve);
+io_eff(CID(wire_tls_connect), wire_tls_connect);
+io_eff(CID(wire_tls_send_timeout), wire_tls_send_timeout);
+io_eff(CID(wire_tls_recv_timeout), wire_tls_recv_timeout);
+io_eff(CID(wire_tls_close), wire_tls_close);
+io_eff(CID(wire_tls_listen_ctx), wire_tls_listen_ctx);
+io_eff(CID(wire_tls_accept), wire_tls_accept);
+io_eff(CID(wire_close), wire_close);
+io_eff(CID(wire_udp_bind), wire_udp_bind);
+io_eff(CID(wire_udp_local_address), wire_udp_local_address);
+io_eff(CID(wire_udp_send_to), wire_udp_send_to);
+io_eff(CID(wire_udp_recv_from_timeout), wire_udp_recv_from_timeout);

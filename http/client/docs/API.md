@@ -35,7 +35,7 @@ def Kv() -> Type:
 type Body is Type:
   Empty{}
   Bytes{kind: String, bytes: List<&2, U32>}   # kind is the Content-Type
-  Text{text: String}                          # text/plain; charset=utf-8
+  Plain{text: String}                         # text/plain; charset=utf-8
   Json{value: J.Json}                         # application/json
   Form{fields: Kv()}                          # application/x-www-form-urlencoded
 

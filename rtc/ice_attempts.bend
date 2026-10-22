@@ -4,7 +4,7 @@ import ./ice_pairs.bend as Pairs
 import ./ice_binding.bend as Ice
 import ./ice_candidates.bend as C
 import ./ice_transactions.bend as Tx
-import ./ice_reliable.bend as Reliable
+import ./ice_outcome.bend as Reliable
 import ./ice_response.bend as Response
 import ./stun_auth.bend as Auth
 import ./stun_retry.bend as Retry
@@ -161,7 +161,7 @@ def at_capacity(engine: Tx.State) -> Bool:
 def started(result: Tx.Start, old: State, +selected: S.State, reference: Pairs.Ref, token: U32, role: Ice.Role,
             transaction: List<&2, U32>) -> Step:
   match result old:
-    case Tx.Ready{step} State{_, _, records, +policies}:
+    case Tx.Now{step} State{_, _, records, +policies}:
       engine_step(step, selected, Con{Record{S.Flight{token, reference, role}, generation(selected), transaction, False{}}, records}, policies)
     case Tx.Later{at} s: Step{s, [Waiting{at}]}
     case Tx.Rejected{} State{+schedule, +engine, +records, +policies}:

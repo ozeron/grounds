@@ -25,8 +25,8 @@ def epoch_state(epoch: T.Epoch) -> T.Epoch & String:
   match epoch:
     case T.Gone{}:
       (T.Gone{}, "closed")
-    case T.Ready{secret, key, iv, +counter}:
-      (T.Ready{secret, key, iv, counter}, sequence(counter))
+    case T.ChachaReady{secret, key, iv, +counter}:
+      (T.ChachaReady{secret, key, iv, counter}, sequence(counter))
     case T.AesReady{secret, key, iv, +counter}:
       (T.AesReady{secret, key, iv, counter}, sequence(counter))
 
@@ -57,8 +57,8 @@ def seed_epoch(epoch: T.Epoch, high: U32, low: U32) -> T.Epoch:
   match epoch:
     case T.Gone{}:
       T.Gone{}
-    case T.Ready{secret, key, iv, _}:
-      T.Ready{secret, key, iv, T.Counter{high, low}}
+    case T.ChachaReady{secret, key, iv, _}:
+      T.ChachaReady{secret, key, iv, T.Counter{high, low}}
     case T.AesReady{secret, key, iv, _}:
       T.AesReady{secret, key, iv, T.Counter{high, low}}
 

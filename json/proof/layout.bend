@@ -533,7 +533,7 @@ law g_obj_nil_t:
 def g_obj_nil_t(acc, k0, up, r, slack, p, cs, d):
   (A.add(slack, A.len(S.bw(p, S.wstr(cs), d))), adv(slack, S.bw(p, S.wstr(cs), d), SCon{'}', r}, A.len(r), Con{J.FObj{acc, k0}, up}, J.MCommaOrClose{}, {==}, bw_ws(p, cs, d, SCon{'}', r})))
 
-law arr_f.3:
+law arr_f.k3:
   for +h: J.Json
   for +t: List<&2, J.Json>
   for +stk: List<&2, J.Frame>
@@ -552,7 +552,7 @@ law arr_f.3:
   for p2: {J.loop(A.add(w1, A.len(S.lay(J.JArr{t}, True{}, p, S.wstr(cs), d, r))), J.Run{S.lay(J.JArr{t}, True{}, p, S.wstr(cs), d, r), Con{J.FArr{[h]}, stk}, J.MCommaOrClose{}}) == J.loop(A.add(w2, A.len(r)), PA.result(True{}, J.JArr{t}, Con{J.FArr{[h]}, stk}, r)) : J.St}
   Goal(pre, J.JArr{Con{h, t}}, False{}, p, cs, d, m, stk, r, slack)
 
-def arr_f.3(h, t, stk, r, pre, wp, slack, m, vm, p, cs, d, w1, p1, w2, p2):
+def arr_f.k3(h, t, stk, r, pre, wp, slack, m, vm, p, cs, d, w1, p1, w2, p2):
   match m:
     case J.MValue{}:
       (w2, Equal.trans(J.St,
@@ -587,7 +587,7 @@ def arr_f.3(h, t, stk, r, pre, wp, slack, m, vm, p, cs, d, w1, p1, w2, p2):
     case J.MCommaOrClose{}:
       match vm:
 
-law arr_f.2:
+law arr_f.k2:
   for +h: J.Json
   for +t: List<&2, J.Json>
   for +stk: List<&2, J.Frame>
@@ -605,11 +605,11 @@ law arr_f.2:
   for g2: Goal("", J.JArr{t}, True{}, p, cs, d, J.MCommaOrClose{}, Con{J.FArr{[h]}, stk}, r, w1)
   Goal(pre, J.JArr{Con{h, t}}, False{}, p, cs, d, m, stk, r, slack)
 
-def arr_f.2(h, t, stk, r, pre, wp, slack, m, vm, p, cs, d, w1, p1, g2):
+def arr_f.k2(h, t, stk, r, pre, wp, slack, m, vm, p, cs, d, w1, p1, g2):
   (+w2, p2) = g2
-  arr_f.3(h, t, stk, r, pre, wp, slack, m, vm, p, cs, d, w1, p1, w2, p2)
+  arr_f.k3(h, t, stk, r, pre, wp, slack, m, vm, p, cs, d, w1, p1, w2, p2)
 
-law arr_f.1:
+law arr_f.k1:
   for +h: J.Json
   for +t: List<&2, J.Json>
   for +stk: List<&2, J.Frame>
@@ -626,11 +626,11 @@ law arr_f.1:
   for ih2: @w: Nat -> Goal("", J.JArr{t}, True{}, p, cs, d, J.MCommaOrClose{}, Con{J.FArr{[h]}, stk}, r, w)
   Goal(pre, J.JArr{Con{h, t}}, False{}, p, cs, d, m, stk, r, slack)
 
-def arr_f.1(h, t, stk, r, pre, wp, slack, m, vm, p, cs, d, g1, ih2):
+def arr_f.k1(h, t, stk, r, pre, wp, slack, m, vm, p, cs, d, g1, ih2):
   (+w1, p1) = g1
-  arr_f.2(h, t, stk, r, pre, wp, slack, m, vm, p, cs, d, w1, p1, ih2(w1))
+  arr_f.k2(h, t, stk, r, pre, wp, slack, m, vm, p, cs, d, w1, p1, ih2(w1))
 
-law arr_t.3:
+law arr_t.k3:
   for +h: J.Json
   for +t: List<&2, J.Json>
   for +acc: List<&2, J.Json>
@@ -646,7 +646,7 @@ law arr_t.3:
   for p2: {J.loop(A.add(w1, A.len(S.lay(J.JArr{t}, True{}, p, S.wstr(cs), d, r))), J.Run{S.lay(J.JArr{t}, True{}, p, S.wstr(cs), d, r), Con{J.FArr{Con{h, acc}}, up}, J.MCommaOrClose{}}) == J.loop(A.add(w2, A.len(r)), PA.result(True{}, J.JArr{t}, Con{J.FArr{Con{h, acc}}, up}, r)) : J.St}
   Goal("", J.JArr{Con{h, t}}, True{}, p, cs, d, J.MCommaOrClose{}, Con{J.FArr{acc}, up}, r, slack)
 
-def arr_t.3(h, t, acc, up, r, slack, p, cs, d, w1, p1, w2, p2):
+def arr_t.k3(h, t, acc, up, r, slack, p, cs, d, w1, p1, w2, p2):
   (w2, Equal.trans(J.St,
     J.loop(A.add(slack, A.len(SCon{',', S.bw(p, S.wstr(cs), 1n+d) ++ S.lay(h, False{}, p, S.wstr(cs), 1n+d, S.lay(J.JArr{t}, True{}, p, S.wstr(cs), d, r))})), J.Run{SCon{',', S.bw(p, S.wstr(cs), 1n+d) ++ S.lay(h, False{}, p, S.wstr(cs), 1n+d, S.lay(J.JArr{t}, True{}, p, S.wstr(cs), d, r))}, Con{J.FArr{acc}, up}, J.MCommaOrClose{}}),
     J.loop(A.add(slack, A.len(S.bw(p, S.wstr(cs), 1n+d) ++ S.lay(h, False{}, p, S.wstr(cs), 1n+d, S.lay(J.JArr{t}, True{}, p, S.wstr(cs), d, r)))), J.Run{S.bw(p, S.wstr(cs), 1n+d) ++ S.lay(h, False{}, p, S.wstr(cs), 1n+d, S.lay(J.JArr{t}, True{}, p, S.wstr(cs), d, r)), Con{J.FArr{acc}, up}, J.MValue{}}),
@@ -659,7 +659,7 @@ def arr_t.3(h, t, acc, up, r, slack, p, cs, d, w1, p1, w2, p2):
       p1,
       p2)))
 
-law arr_t.2:
+law arr_t.k2:
   for +h: J.Json
   for +t: List<&2, J.Json>
   for +acc: List<&2, J.Json>
@@ -674,11 +674,11 @@ law arr_t.2:
   for g2: Goal("", J.JArr{t}, True{}, p, cs, d, J.MCommaOrClose{}, Con{J.FArr{Con{h, acc}}, up}, r, w1)
   Goal("", J.JArr{Con{h, t}}, True{}, p, cs, d, J.MCommaOrClose{}, Con{J.FArr{acc}, up}, r, slack)
 
-def arr_t.2(h, t, acc, up, r, slack, p, cs, d, w1, p1, g2):
+def arr_t.k2(h, t, acc, up, r, slack, p, cs, d, w1, p1, g2):
   (+w2, p2) = g2
-  arr_t.3(h, t, acc, up, r, slack, p, cs, d, w1, p1, w2, p2)
+  arr_t.k3(h, t, acc, up, r, slack, p, cs, d, w1, p1, w2, p2)
 
-law arr_t.1:
+law arr_t.k1:
   for +h: J.Json
   for +t: List<&2, J.Json>
   for +acc: List<&2, J.Json>
@@ -692,11 +692,11 @@ law arr_t.1:
   for ih2: @w: Nat -> Goal("", J.JArr{t}, True{}, p, cs, d, J.MCommaOrClose{}, Con{J.FArr{Con{h, acc}}, up}, r, w)
   Goal("", J.JArr{Con{h, t}}, True{}, p, cs, d, J.MCommaOrClose{}, Con{J.FArr{acc}, up}, r, slack)
 
-def arr_t.1(h, t, acc, up, r, slack, p, cs, d, g1, ih2):
+def arr_t.k1(h, t, acc, up, r, slack, p, cs, d, g1, ih2):
   (+w1, p1) = g1
-  arr_t.2(h, t, acc, up, r, slack, p, cs, d, w1, p1, ih2(w1))
+  arr_t.k2(h, t, acc, up, r, slack, p, cs, d, w1, p1, ih2(w1))
 
-law obj_f.4:
+law obj_f.k4:
   for +k: String
   for +v: J.Json
   for +t: List<&2, J.Field>
@@ -718,7 +718,7 @@ law obj_f.4:
   for p2: {J.loop(A.add(w1, A.len(S.lay(J.JObj{t}, True{}, p, S.wstr(cs), d, r))), J.Run{S.lay(J.JObj{t}, True{}, p, S.wstr(cs), d, r), Con{J.FObj{[J.Field{k, v}], ""}, stk}, J.MCommaOrClose{}}) == J.loop(A.add(w2, A.len(r)), PA.result(True{}, J.JObj{t}, Con{J.FObj{[J.Field{k, v}], ""}, stk}, r)) : J.St}
   Goal(pre, J.JObj{Con{J.Field{k, v}, t}}, False{}, p, cs, d, m, stk, r, slack)
 
-def obj_f.4(k, v, t, stk, r, pre, wp, slack, m, vm, p, cs, d, x, ex, w1, p1, w2, p2):
+def obj_f.k4(k, v, t, stk, r, pre, wp, slack, m, vm, p, cs, d, x, ex, w1, p1, w2, p2):
   match m:
     case J.MValue{}:
       (w2, Equal.trans(J.St,
@@ -803,7 +803,7 @@ def obj_f.4(k, v, t, stk, r, pre, wp, slack, m, vm, p, cs, d, x, ex, w1, p1, w2,
     case J.MCommaOrClose{}:
       match vm:
 
-law obj_f.3:
+law obj_f.k3:
   for +k: String
   for +v: J.Json
   for +t: List<&2, J.Field>
@@ -824,11 +824,11 @@ law obj_f.3:
   for g2: Goal("", J.JObj{t}, True{}, p, cs, d, J.MCommaOrClose{}, Con{J.FObj{[J.Field{k, v}], ""}, stk}, r, w1)
   Goal(pre, J.JObj{Con{J.Field{k, v}, t}}, False{}, p, cs, d, m, stk, r, slack)
 
-def obj_f.3(k, v, t, stk, r, pre, wp, slack, m, vm, p, cs, d, x, ex, w1, p1, g2):
+def obj_f.k3(k, v, t, stk, r, pre, wp, slack, m, vm, p, cs, d, x, ex, w1, p1, g2):
   (+w2, p2) = g2
-  obj_f.4(k, v, t, stk, r, pre, wp, slack, m, vm, p, cs, d, x, ex, w1, p1, w2, p2)
+  obj_f.k4(k, v, t, stk, r, pre, wp, slack, m, vm, p, cs, d, x, ex, w1, p1, w2, p2)
 
-law obj_f.2:
+law obj_f.k2:
   for +k: String
   for +v: J.Json
   for +t: List<&2, J.Field>
@@ -848,11 +848,11 @@ law obj_f.2:
   for ih2: @w: Nat -> Goal("", J.JObj{t}, True{}, p, cs, d, J.MCommaOrClose{}, Con{J.FObj{[J.Field{k, v}], ""}, stk}, r, w)
   Goal(pre, J.JObj{Con{J.Field{k, v}, t}}, False{}, p, cs, d, m, stk, r, slack)
 
-def obj_f.2(k, v, t, stk, r, pre, wp, slack, m, vm, p, cs, d, x, ex, g1, ih2):
+def obj_f.k2(k, v, t, stk, r, pre, wp, slack, m, vm, p, cs, d, x, ex, g1, ih2):
   (+w1, p1) = g1
-  obj_f.3(k, v, t, stk, r, pre, wp, slack, m, vm, p, cs, d, x, ex, w1, p1, ih2(w1))
+  obj_f.k3(k, v, t, stk, r, pre, wp, slack, m, vm, p, cs, d, x, ex, w1, p1, ih2(w1))
 
-law obj_f.1:
+law obj_f.k1:
   for +k: String
   for +v: J.Json
   for +t: List<&2, J.Field>
@@ -871,11 +871,11 @@ law obj_f.1:
   for ih2: @w: Nat -> Goal("", J.JObj{t}, True{}, p, cs, d, J.MCommaOrClose{}, Con{J.FObj{[J.Field{k, v}], ""}, stk}, r, w)
   Goal(pre, J.JObj{Con{J.Field{k, v}, t}}, False{}, p, cs, d, m, stk, r, slack)
 
-def obj_f.1(k, v, t, stk, r, pre, wp, slack, m, vm, p, cs, d, pk, ih1, ih2):
+def obj_f.k1(k, v, t, stk, r, pre, wp, slack, m, vm, p, cs, d, pk, ih1, ih2):
   (+x, ex) = pk
-  obj_f.2(k, v, t, stk, r, pre, wp, slack, m, vm, p, cs, d, x, ex, ih1(A.add(A.add(A.add(A.add(slack, A.len(pre)), A.len(S.bw(p, S.wstr(cs), 1n+d))), x), 1n)), ih2)
+  obj_f.k2(k, v, t, stk, r, pre, wp, slack, m, vm, p, cs, d, x, ex, ih1(A.add(A.add(A.add(A.add(slack, A.len(pre)), A.len(S.bw(p, S.wstr(cs), 1n+d))), x), 1n)), ih2)
 
-law obj_t.4:
+law obj_t.k4:
   for +k: String
   for +v: J.Json
   for +t: List<&2, J.Field>
@@ -895,7 +895,7 @@ law obj_t.4:
   for p2: {J.loop(A.add(w1, A.len(S.lay(J.JObj{t}, True{}, p, S.wstr(cs), d, r))), J.Run{S.lay(J.JObj{t}, True{}, p, S.wstr(cs), d, r), Con{J.FObj{Con{J.Field{k, v}, acc}, ""}, up}, J.MCommaOrClose{}}) == J.loop(A.add(w2, A.len(r)), PA.result(True{}, J.JObj{t}, Con{J.FObj{Con{J.Field{k, v}, acc}, ""}, up}, r)) : J.St}
   Goal("", J.JObj{Con{J.Field{k, v}, t}}, True{}, p, cs, d, J.MCommaOrClose{}, Con{J.FObj{acc, k0}, up}, r, slack)
 
-def obj_t.4(k, v, t, acc, k0, up, r, slack, p, cs, d, x, ex, w1, p1, w2, p2):
+def obj_t.k4(k, v, t, acc, k0, up, r, slack, p, cs, d, x, ex, w1, p1, w2, p2):
   (w2, Equal.trans(J.St,
     J.loop(A.add(slack, A.len(SCon{',', S.bw(p, S.wstr(cs), 1n+d) ++ S.str(k, SCon{':', S.sp(p) ++ S.lay(v, False{}, p, S.wstr(cs), 1n+d, S.lay(J.JObj{t}, True{}, p, S.wstr(cs), d, r))})})), J.Run{SCon{',', S.bw(p, S.wstr(cs), 1n+d) ++ S.str(k, SCon{':', S.sp(p) ++ S.lay(v, False{}, p, S.wstr(cs), 1n+d, S.lay(J.JObj{t}, True{}, p, S.wstr(cs), d, r))})}, Con{J.FObj{acc, k0}, up}, J.MCommaOrClose{}}),
     J.loop(A.add(slack, A.len(S.bw(p, S.wstr(cs), 1n+d) ++ S.str(k, SCon{':', S.sp(p) ++ S.lay(v, False{}, p, S.wstr(cs), 1n+d, S.lay(J.JObj{t}, True{}, p, S.wstr(cs), d, r))}))), J.Run{S.bw(p, S.wstr(cs), 1n+d) ++ S.str(k, SCon{':', S.sp(p) ++ S.lay(v, False{}, p, S.wstr(cs), 1n+d, S.lay(J.JObj{t}, True{}, p, S.wstr(cs), d, r))}), Con{J.FObj{acc, k0}, up}, J.MKey{}}),
@@ -933,7 +933,7 @@ def obj_t.4(k, v, t, acc, k0, up, r, slack, p, cs, d, x, ex, w1, p1, w2, p2):
                 p1,
                 p2))))))))
 
-law obj_t.3:
+law obj_t.k3:
   for +k: String
   for +v: J.Json
   for +t: List<&2, J.Field>
@@ -952,11 +952,11 @@ law obj_t.3:
   for g2: Goal("", J.JObj{t}, True{}, p, cs, d, J.MCommaOrClose{}, Con{J.FObj{Con{J.Field{k, v}, acc}, ""}, up}, r, w1)
   Goal("", J.JObj{Con{J.Field{k, v}, t}}, True{}, p, cs, d, J.MCommaOrClose{}, Con{J.FObj{acc, k0}, up}, r, slack)
 
-def obj_t.3(k, v, t, acc, k0, up, r, slack, p, cs, d, x, ex, w1, p1, g2):
+def obj_t.k3(k, v, t, acc, k0, up, r, slack, p, cs, d, x, ex, w1, p1, g2):
   (+w2, p2) = g2
-  obj_t.4(k, v, t, acc, k0, up, r, slack, p, cs, d, x, ex, w1, p1, w2, p2)
+  obj_t.k4(k, v, t, acc, k0, up, r, slack, p, cs, d, x, ex, w1, p1, w2, p2)
 
-law obj_t.2:
+law obj_t.k2:
   for +k: String
   for +v: J.Json
   for +t: List<&2, J.Field>
@@ -974,11 +974,11 @@ law obj_t.2:
   for ih2: @w: Nat -> Goal("", J.JObj{t}, True{}, p, cs, d, J.MCommaOrClose{}, Con{J.FObj{Con{J.Field{k, v}, acc}, ""}, up}, r, w)
   Goal("", J.JObj{Con{J.Field{k, v}, t}}, True{}, p, cs, d, J.MCommaOrClose{}, Con{J.FObj{acc, k0}, up}, r, slack)
 
-def obj_t.2(k, v, t, acc, k0, up, r, slack, p, cs, d, x, ex, g1, ih2):
+def obj_t.k2(k, v, t, acc, k0, up, r, slack, p, cs, d, x, ex, g1, ih2):
   (+w1, p1) = g1
-  obj_t.3(k, v, t, acc, k0, up, r, slack, p, cs, d, x, ex, w1, p1, ih2(w1))
+  obj_t.k3(k, v, t, acc, k0, up, r, slack, p, cs, d, x, ex, w1, p1, ih2(w1))
 
-law obj_t.1:
+law obj_t.k1:
   for +k: String
   for +v: J.Json
   for +t: List<&2, J.Field>
@@ -995,9 +995,9 @@ law obj_t.1:
   for ih2: @w: Nat -> Goal("", J.JObj{t}, True{}, p, cs, d, J.MCommaOrClose{}, Con{J.FObj{Con{J.Field{k, v}, acc}, ""}, up}, r, w)
   Goal("", J.JObj{Con{J.Field{k, v}, t}}, True{}, p, cs, d, J.MCommaOrClose{}, Con{J.FObj{acc, k0}, up}, r, slack)
 
-def obj_t.1(k, v, t, acc, k0, up, r, slack, p, cs, d, pk, ih1, ih2):
+def obj_t.k1(k, v, t, acc, k0, up, r, slack, p, cs, d, pk, ih1, ih2):
   (+x, ex) = pk
-  obj_t.2(k, v, t, acc, k0, up, r, slack, p, cs, d, x, ex, ih1(A.add(A.add(A.add(slack, A.len(S.bw(p, S.wstr(cs), 1n+d))), x), 1n)), ih2)
+  obj_t.k2(k, v, t, acc, k0, up, r, slack, p, cs, d, x, ex, ih1(A.add(A.add(A.add(slack, A.len(S.bw(p, S.wstr(cs), 1n+d))), x), 1n)), ih2)
 
 # the main lemma: from any point where the text of j starts, maybe behind
 # white space, the loop reads it and lands on result(...), with fuel to spare
@@ -1078,7 +1078,7 @@ def run(j, more, pre, wp, np, p, cs, d, m, stk, r, slack, ctx, dl):
     case J.JArr{Con{h, t}}:
       match more:
         case False{}:
-          arr_f.1(h, t, stk, r, pre, wp, slack, m, ctx, p, cs, d,
+          arr_f.k1(h, t, stk, r, pre, wp, slack, m, ctx, p, cs, d,
             run(h, False{}, S.bw(p, S.wstr(cs), 1n+d), w => bw_ws(p, cs, 1n+d, w), Unit{}, p, cs, 1n+d, J.MValueOrClose{}, Con{J.FArr{[]}, stk}, S.lay(J.JArr{t}, True{}, p, S.wstr(cs), d, r), A.add(slack, A.len(pre)), Unit{}, delim_arr(t, r, p, cs, d)),
             w => run(J.JArr{t}, True{}, "", s => {==}, {==}, p, cs, d, J.MCommaOrClose{}, Con{J.FArr{[h]}, stk}, r, w, Unit{}, dl))
         case True{}:
@@ -1087,7 +1087,7 @@ def run(j, more, pre, wp, np, p, cs, d, m, stk, r, slack, ctx, dl):
               match stk:
                 case Con{J.FArr{acc}, up}:
                   %Equal.sym(String, pre, "", np) : Goal(_, J.JArr{Con{h, t}}, True{}, p, cs, d, J.MCommaOrClose{}, Con{J.FArr{acc}, up}, r, slack)
-                  arr_t.1(h, t, acc, up, r, slack, p, cs, d, run(h, False{}, S.bw(p, S.wstr(cs), 1n+d), w => bw_ws(p, cs, 1n+d, w), Unit{}, p, cs, 1n+d, J.MValue{}, Con{J.FArr{acc}, up}, S.lay(J.JArr{t}, True{}, p, S.wstr(cs), d, r), slack, Unit{}, delim_arr(t, r, p, cs, d)), w => run(J.JArr{t}, True{}, "", s => {==}, {==}, p, cs, d, J.MCommaOrClose{}, Con{J.FArr{Con{h, acc}}, up}, r, w, Unit{}, dl))
+                  arr_t.k1(h, t, acc, up, r, slack, p, cs, d, run(h, False{}, S.bw(p, S.wstr(cs), 1n+d), w => bw_ws(p, cs, 1n+d, w), Unit{}, p, cs, 1n+d, J.MValue{}, Con{J.FArr{acc}, up}, S.lay(J.JArr{t}, True{}, p, S.wstr(cs), d, r), slack, Unit{}, delim_arr(t, r, p, cs, d)), w => run(J.JArr{t}, True{}, "", s => {==}, {==}, p, cs, d, J.MCommaOrClose{}, Con{J.FArr{Con{h, acc}}, up}, r, w, Unit{}, dl))
                 case Con{J.FObj{_, _}, _}:
                   match ctx:
                 case Nil{}:
@@ -1130,7 +1130,7 @@ def run(j, more, pre, wp, np, p, cs, d, m, stk, r, slack, ctx, dl):
     case J.JObj{Con{J.Field{k, v}, t}}:
       match more:
         case False{}:
-          obj_f.1(k, v, t, stk, r, pre, wp, slack, m, ctx, p, cs, d, A.pre_esc(k, SCon{'"', SCon{':', S.sp(p) ++ S.lay(v, False{}, p, S.wstr(cs), 1n+d, S.lay(J.JObj{t}, True{}, p, S.wstr(cs), d, r))}}),
+          obj_f.k1(k, v, t, stk, r, pre, wp, slack, m, ctx, p, cs, d, A.pre_esc(k, SCon{'"', SCon{':', S.sp(p) ++ S.lay(v, False{}, p, S.wstr(cs), 1n+d, S.lay(J.JObj{t}, True{}, p, S.wstr(cs), d, r))}}),
             s => run(v, False{}, S.sp(p), w => sp_ws(p, w), Unit{}, p, cs, 1n+d, J.MValue{}, Con{J.FObj{[], k}, stk}, S.lay(J.JObj{t}, True{}, p, S.wstr(cs), d, r), s, Unit{}, delim_obj(t, r, p, cs, d)),
             w => run(J.JObj{t}, True{}, "", s => {==}, {==}, p, cs, d, J.MCommaOrClose{}, Con{J.FObj{[J.Field{k, v}], ""}, stk}, r, w, Unit{}, dl))
         case True{}:
@@ -1139,7 +1139,7 @@ def run(j, more, pre, wp, np, p, cs, d, m, stk, r, slack, ctx, dl):
               match stk:
                 case Con{J.FObj{acc, k0}, up}:
                   %Equal.sym(String, pre, "", np) : Goal(_, J.JObj{Con{J.Field{k, v}, t}}, True{}, p, cs, d, J.MCommaOrClose{}, Con{J.FObj{acc, k0}, up}, r, slack)
-                  obj_t.1(k, v, t, acc, k0, up, r, slack, p, cs, d, A.pre_esc(k, SCon{'"', SCon{':', S.sp(p) ++ S.lay(v, False{}, p, S.wstr(cs), 1n+d, S.lay(J.JObj{t}, True{}, p, S.wstr(cs), d, r))}}), s => run(v, False{}, S.sp(p), w => sp_ws(p, w), Unit{}, p, cs, 1n+d, J.MValue{}, Con{J.FObj{acc, k}, up}, S.lay(J.JObj{t}, True{}, p, S.wstr(cs), d, r), s, Unit{}, delim_obj(t, r, p, cs, d)), w => run(J.JObj{t}, True{}, "", s => {==}, {==}, p, cs, d, J.MCommaOrClose{}, Con{J.FObj{Con{J.Field{k, v}, acc}, ""}, up}, r, w, Unit{}, dl))
+                  obj_t.k1(k, v, t, acc, k0, up, r, slack, p, cs, d, A.pre_esc(k, SCon{'"', SCon{':', S.sp(p) ++ S.lay(v, False{}, p, S.wstr(cs), 1n+d, S.lay(J.JObj{t}, True{}, p, S.wstr(cs), d, r))}}), s => run(v, False{}, S.sp(p), w => sp_ws(p, w), Unit{}, p, cs, 1n+d, J.MValue{}, Con{J.FObj{acc, k}, up}, S.lay(J.JObj{t}, True{}, p, S.wstr(cs), d, r), s, Unit{}, delim_obj(t, r, p, cs, d)), w => run(J.JObj{t}, True{}, "", s => {==}, {==}, p, cs, d, J.MCommaOrClose{}, Con{J.FObj{Con{J.Field{k, v}, acc}, ""}, up}, r, w, Unit{}, dl))
                 case Con{J.FArr{_}, _}:
                   match ctx:
                 case Nil{}:

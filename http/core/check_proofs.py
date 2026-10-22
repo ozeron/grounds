@@ -1,5 +1,6 @@
 """Check the complete unchanged law contract and proof bodies in smaller scopes."""
 from pathlib import Path
+import posixpath
 import re
 import subprocess
 import tempfile
@@ -34,7 +35,7 @@ def imports(source, bodies):
     code = "\n".join(line for line in bodies.splitlines() if not line.lstrip().startswith("#"))
     used = set(re.findall(r"\b(\w+)\.", code))
     return "import Base\n" + "".join(
-        f"import ../{path} as {alias}\n"
+        f"import {posixpath.normpath('../' + path)} as {alias}\n"
         for path, alias in re.findall(r"^import (\S+) as (\w+)$", source, re.MULTILINE)
         if alias in used and alias != "Laws")
 

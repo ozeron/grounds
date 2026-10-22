@@ -4,8 +4,9 @@ Bend counts references on every value of a type once any value of it is
 shared (used twice) somewhere reachable from main, and then each
 constructor of that type pays a heap cell for its fields. For String
 that halves the speed of everything. This builds the program's C and
-reads the compiler's constructor table: CID_HOT_T in Bend 2.0.27,
-or the hot column of CID_T in Bend 2.0.34. Unknown layouts fail the check.
+reads the compiler's constructor table: CID_HOT_T in Bend 2.0.27, the
+hot column of CID_T in Bend 2.0.34, or the hot field of its Cid rows in
+Bend 2.0.38. Unknown layouts fail the check.
 A .c argument is C the compiler already wrote, so it is read, not rebuilt.
 
   python3 scripts/cold.py main.bend [more.bend | built.c ...]
@@ -20,14 +21,18 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 def hot_constructors(text):
-    definitions = re.findall(r"^#define CID_([A-Z0-9_]+) (\d+)\s*$", text, re.M)
+    definitions = re.findall(r"^#define CID_([A-Za-z0-9_]+) (\d+)\s*$", text, re.M)
     names = {int(n): k for k, n in definitions}
     legacy = re.findall(r"\bCID_HOT_T\[\] = \{([^{}]*)\};", text)
     combined = re.findall(r"\bCID_T\[\]\[2\] = \{(.*?)\};", text, re.S)
-    if len(legacy) + len(combined) != 1:
+    rows = re.findall(r"\bCid CID_T\[\] = \{(.*?)\};", text, re.S)
+    if len(legacy) + len(combined) + len(rows) != 1:
         raise ValueError("expected one recognized constructor table")
+    if rows and not re.search(r"typedef struct \{ u8 ar, hot; u16 spine; \} Cid;", text):
+        raise ValueError("unrecognized Cid row layout")
     macro = re.search(r"^#define cid_hot\(x\)\s+([^\n]+)$", text, re.M)
-    expected = "((bool)CID_HOT_T[x])" if legacy else "((bool)CID_T[x][1])"
+    expected = ("((bool)CID_HOT_T[x])" if legacy else "((bool)CID_T[x][1])" if combined
+                else "CID_T[x].hot")
     if macro is None or re.sub(r"\s+", "", macro.group(1)) != expected:
         raise ValueError("unrecognized constructor hot-column accessor")
     if legacy:
@@ -35,6 +40,12 @@ def hot_constructors(text):
         if not re.fullmatch(r"\d+(?:\s*,\s*\d+)*\s*,?", body):
             raise ValueError("malformed CID_HOT_T flags")
         flags = [int(x) for x in body.split(",") if x.strip()]
+    elif rows:
+        row = r"\{\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\}"
+        body = rows[0].strip()
+        if not re.fullmatch(row + r"(?:\s*,\s*" + row + r")*\s*,?", body):
+            raise ValueError("malformed Cid rows")
+        flags = [int(hot) for _arity, hot, _spine in re.findall(row, body)]
     else:
         row = r"\{\s*(\d+)\s*,\s*(\d+)\s*\}"
         body = combined[0].strip()

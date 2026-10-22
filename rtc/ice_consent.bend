@@ -43,7 +43,7 @@ type Step is Data:
   Step{state: State, events: List<&2, Notice>}
 
 type Start is Data:
-  Ready{step: Step}
+  Now{step: Step}
   Later{step: Step, at: Nat}
   Rejected{step: Step}
 
@@ -143,7 +143,7 @@ def binding_request(transaction: List<&2, U32>, +credentials: Ice.Credentials, m
 def admission_raw(raw: Maybe<&2, List<&2, U32>>, step: Step, +transaction: List<&2, U32>, +interval: U32, +now: Nat) -> Start:
   match raw step:
     case Some{+bytes} Step{State{Route{+ref, +gen, creds, check, +mode}, Clock{status, expires, _, +rto, mean, variation}, probes, recent, +token}, events}:
-      Ready{Step{State{Route{ref, gen, creds, check, mode}, Clock{status, expires, Nat.add(now, U32.to_nat(interval)), rto, mean, variation},
+      Now{Step{State{Route{ref, gen, creds, check, mode}, Clock{status, expires, Nat.add(now, U32.to_nat(interval)), rto, mean, variation},
         List.reverse.go(&2, Probe, List.reverse(&2, Probe, probes), [Probe{U32.from_nat(token), transaction, bytes, mode, None{}, Nat.add(now, U32.to_nat(rto)), interval}]),
         Con{transaction, history(63n, recent)}, Nat.add(token, 1n)},
         List.reverse.go(&2, Notice, List.reverse(&2, Notice, events), [Send{ref, gen, U32.from_nat(token), bytes}])}}

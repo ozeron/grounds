@@ -11,7 +11,7 @@ import ./ice_binding.bend as Ice
 import ./ice_incoming.bend as Incoming
 import ./ice_roles.bend as Roles
 import ./ice_transactions.bend as Tx
-import ./ice_reliable.bend as Reliable
+import ./ice_outcome.bend as Reliable
 import ./ice_response.bend as Response
 import ./stun_retry.bend as Retry
 
