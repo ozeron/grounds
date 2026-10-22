@@ -119,19 +119,25 @@ partial coverage, report paths and remaining failures in STACK_PROGRESS.md.
 
 ### M0 — Reproducible current baseline
 
-- [ ] Inspect and finish or isolate the existing uncommitted RSA check-phase
+- [x] Inspect and finish or isolate the existing uncommitted RSA check-phase
   changes without discarding user work. Preserve the full corpus and explicit
   phase accounting; splitting phases must not conceal missing cases.
-- [ ] Obtain a complete fresh crypto gate on the selected supported compiler.
+- [x] Obtain a complete fresh crypto gate on the selected supported compiler.
   The isolated 2.0.34 354-phase pass predates current additions and cannot stand
   in for current-tree acceptance. Resolve primary 2.0.27 failures or qualify a
   compiler migration through actual consumers before changing the pin.
-- [ ] Resolve HTTP consumer compatibility while preserving meaningful equality
+- [x] Resolve HTTP consumer compatibility while preserving meaningful equality
   proofs; verify wire, HTTP and crypto together. Distinguish missing phases,
   compiler errors, resource cutoffs and protocol assertion failures.
 - [ ] Make the complete root gate executable under sequential declared phases,
   existing memory limits and per-phase deadlines. Do not extend a whole-job
   deadline or accept a cached/partial run as complete acceptance.
+
+2026-10-22 baseline: complete crypto, wire and all six HTTP package gates pass
+on pinned Bend 2.0.38. The root manifest now accounts for all thirteen packages,
+but the fresh root run stops at the 4 GiB aggregate cutoff during RTC's native
+`ice_nomination_evidence` frontend build. The final box and M0 exit remain open;
+see the dated evidence ledger for complete versus unexecuted phase counts.
 
 Exit: a reproducible supported toolchain and fresh baseline report identifying
 all passes and remaining blockers. A failed baseline is useful evidence, but M0

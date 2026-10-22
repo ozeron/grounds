@@ -4,6 +4,11 @@ Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and 
 
 The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
 
+- 2026-10-22 (current Bend 2.0.38 baseline): crypto, wire and all six HTTP
+  packages pass fresh guarded checks. The root gate is now fully declared but
+  stops at RTC's `ice_nomination_evidence` frontend memory cutoff. M0 remains
+  incomplete; details and retained failures lead the evidence ledger below.
+
 - 2026-10-08 (Hello framing and P-256 batch changes prepared for commit):
   The focused `2026-10-05/hello-4g-v2/` queue completed frontend, native/Bun
   builds, ordinary checks and stress checks with exit 0 under the 4 GiB guards.
@@ -25,6 +30,137 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 | `rtc` | Bend STUN parsing, IPv4 XOR-MAPPED-ADDRESS, SHA-1/SHA-256/dual integrity, FINGERPRINT, authenticated incoming/outgoing ICE Binding exchanges, retained-socket retransmissions and explicit error/integrity outcomes. IPv4 candidate/pair priorities, bounded checklist formation, stable transport references and guarded state transitions, role-driven priority reordering, a paced shared-socket transaction engine with response-only interruption, protected incoming replies and server-side role decisions, FIFO triggered queues, ordinary round-robin/foundation scheduling and generation/sent-role attempt ownership. A bounded session now binds signaled credentials, registered receiving/sending bases, observed peer-reflexive candidates, deferred incoming work, retained attempts and endpoint integrity policies. Authenticated non-symmetric responses fail only their original current pair; interrupted old listeners retire independently. The live owner fixture explicitly binds unicast IPv4 bases and queries actual local ports before candidate formation. An additive valid-list owner resolves authenticated mappings, learns locally peer-reflexive candidates from retained signed-request priority, allocates IP-keyed foundations, reranks by role and keeps late paths separate from replacement flights. A nomination-evidence owner associates current successful checks with their valid paths and retains qualified incoming intent through materialization, exact triggered flights and response-only listeners; already-Succeeded counterparts resolve their actual generating record. A generation lifecycle owner now applies regular controlling/controlled nomination, selects completed stream paths, removes nominated component checks while retaining response listeners, continues authenticated Binding service, and defers failure through PAC. An outer transport owner derives selected physical consent routes, serves authenticated consent-only Binding requests, shares actual-send pacing and recent transaction identity admission, gates logical application routes, and preserves sealed consent loss. Full/full credential restart rebuilds ICE state while retaining only selected old consent/server contexts until replacement selection. Bounded SDP/signaling now binds connection-owned credentials and the actual retained UDP base; real Chrome verifies direct selected pairs, fresh consent, restart and cleanup on native and Bun. Separate unauthenticated discovery remains available. | Complete crypto/runtime foundations and secure signaling, then gathering, IPv6/TURN, DTLS/SCTP and SRTP/media. |
 
 ## Evidence ledger
+
+- 2026-10-22 (M0 fresh pinned-toolchain baseline; verification continued into
+  2026-10-23 local time):
+
+  Branch `bend-https`, starting revision `63aacf21e79cde205a9f3122a8359cc1c81de707`.
+  The initial tracked tree was clean: there was no uncommitted RSA work to
+  discard or isolate. Existing RSA phases and the full arithmetic/signature
+  corpora were preserved. Local implementation commits are `397fa13` (complete
+  root phase accounting) and `f8054a9` (Bun certificate-signature batch phases).
+  The root run began on clean committed revision
+  `f8054a9d0425904e7c1738f4ae16f86aeaff57e6`; `root-binding-01.json` binds its
+  source hashes. No Bend protocol source or equality proof changed.
+
+  Artifacts in this entry are relative to
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-22/m0/`, outside the repo.
+  `mise install` completed; a final repeat confirms all tools installed
+  (`mise-install-02.log`). Bend reports **2.0.38** using `bend version`;
+  `bend --version` is unsupported by this CLI. Pinned Moon is **2.5.5**, Bun
+  **1.3.14**, Python **3.13.12**, and the test oracle is Homebrew OpenSSL
+  **3.6.3**. `pinned-provenance.json` records executable paths, hashes, versions
+  and actual PATH prefixes. No compiler pin was changed.
+
+  Exact pinned package commands were run sequentially by `baseline.py`:
+
+  ```sh
+  A=/Users/ozeron/.codex/artifacts/grounds/2026-10-22/m0
+  export PATH="/opt/homebrew/opt/openssl@3/bin:/Users/ozeron/.local/share/mise/installs/github-bendlang-bend/2.0.38/bin:/Users/ozeron/.local/share/mise/installs/aqua-moonrepo-moon/2.5.5/moon_cli-aarch64-apple-darwin:$PATH"
+  export PYTHONDONTWRITEBYTECODE=1 BEND_NO_TELEMETRY=1
+  gate() {
+    python3 tools/build_guard.py --memory-mib 4096 --process-memory-mib 4096 \
+      --timeout 120 --phases "$2/check_phases.json" --report "$A/$3.json" \
+      -- nice -n 10 moon --concurrency 1 run "$1:check" --force
+  }
+  gate crypto crypto crypto-02
+  gate wire wire wire-02
+  gate http_core http/core http_core-02
+  gate http_wire http/wire http_wire-02
+  gate http_server http/server http_server-02
+  gate http_client http/client http_client-02
+  gate http_router http/router http_router-02
+  gate http_json http/json http_json-02
+  python3 tools/build_guard.py --memory-mib 4096 --process-memory-mib 4096 \
+    --timeout 120 --phases tools/check_phases.json --report "$A/root-01.json" \
+    -- nice -n 10 moon --concurrency 1 run :check --force
+  ```
+
+  Run from `/Users/ozeron/code/grounds` (canonical
+  `/private/mnt/DATA/code/grounds`). Every pinned invocation has its exact argv,
+  cwd and environment overrides in `<run>-command.json`, and complete output in
+  `<run>.log`. The crypto-02 command used the then-current 961-phase manifest
+  and failed as recorded below; complete crypto acceptance comes from the later
+  forced root run with the final 1,569-phase manifest. The root command was
+  launched by `PYTHONDONTWRITEBYTECODE=1 python3 "$A/verify.py" root`.
+
+  | Package | Fresh result / phases | Report and scope |
+  |---|---|---|
+  | crypto | PASS, 1,569/1,569 | `root-01.json`; complete native/Bun Moon task passed |
+  | wire | PASS, 13/13 | `wire-02.json`; also 13/13 in root |
+  | http/core | PASS, 1/1 | `http_core-02.json`; also 1/1 in root |
+  | http/wire | PASS, 1/1 | `http_wire-02.json`; also 1/1 in root |
+  | http/server | PASS, 13/13 | `http_server-02.json`; also 13/13 in root |
+  | http/client | PASS, 1/1 | `http_client-02.json`; not reached in root |
+  | http/router | PASS, 1/1 | `http_router-02.json`; also 1/1 in root |
+  | http/json | PASS, 1/1 | `http_json-02.json`; not reached in root |
+  | io | PASS, 1/1 | `root-01.json` |
+  | json | PASS, 1/1 | `root-01.json`; includes 706/706 native integration cases |
+  | redis | PASS, 1/1 | `root-01.json` |
+  | utf8 | PASS, 1/1 | `root-01.json` |
+  | rtc | INCOMPLETE, 55/161 passed | `root-01.json`; one cutoff phase, 105 unexecuted |
+  | root | FAIL, exit 137 | 1,657/1,765 passed; one cutoff phase, 107 unexecuted |
+
+  `baseline-summary.json` derives these counts from the unchanged raw reports.
+  No phase was skipped in any passing package report or the observed root
+  prefix, and no textual prerequisite skip was observed. Root elapsed time was
+  **1,700.887 s**; aggregate sampled peak **4,109.255 MiB**, largest individual
+  process **4,035.816 MiB** (`bend`). The guard retained the 4,096 MiB aggregate
+  and per-process limits, 120 s per declared phase, ten-second transition bound,
+  shared sequential lock and live OS pressure checks. Pressure remained normal;
+  there was no pressure refusal or bypass. No cached Moon task was accepted.
+
+  Failures, fixes and remaining limitations:
+
+  - **External oracle prerequisite, resolved:** `crypto-01.json/.log` failed
+    after 93 passed phases (exit 125), and `wire-01.json/.log` after three
+    (exit 1), because macOS LibreSSL 3.3.6 lacks `openssl enc -chacha20`.
+    Select installed OpenSSL 3 explicitly on PATH; the requirement is now
+    documented in `tools/README.md`. This was not a Bend assertion failure.
+    Initial HTTP `*-01` passes used Homebrew Moon 2.6.1 and are superseded by
+    pinned `*-02` passes; `provenance.json` retains that earlier environment.
+  - **Phase-manifest gap, resolved:** the root gate previously had no combined
+    manifest and short packages did not announce phases. All thirteen packages
+    are now required, allowing Moon's package order while rejecting missing,
+    repeated, interleaved or failed phases. Existing fine phases remain intact;
+    short packages wrap their entire original command. The final root manifest
+    declares 1,765 phases (`manifest-audit-02.json`). Sixteen guard tests and
+    eleven phase tests pass under the guard, including three added root tests
+    (`tools_guard-01.*`, `tools_phases-01.*`; red/green root-test evidence in
+    `root-phases-red.log` and `root-phases-green.log`).
+  - **Resource cutoff, resolved for crypto:** `crypto-02.json/.log` timed out
+    at Bun `x509_signature_check` (exit 124, 957 passed phases, one interrupted,
+    three unexecuted; total 1,631.671 s). Its existing 608 evaluator batches now
+    announce individual phases, followed by the same three CLI rejection
+    checks. All **4,825 cases**, batch boundaries, oracle and case generator are
+    unchanged, proven by `x509-signature-phase-audit.json` and the pre-change
+    audit. Ordered corpus SHA-256 is
+    `8b96f6e3bd03b9e70973bec5c08b2da7717d670258e8ad8bdc152f345db2ede2`.
+    Focused real Bun verification passes all 610 build/check phases
+    (`x509_signature-01.*`, `x509-signature-focused-corpus-01.json`), followed
+    by the full 1,569-phase crypto pass inside root. No case was removed and
+    no deadline was raised.
+  - **Resource cutoff, remaining root blocker:** `root-01.json/.log` stops in
+    `rtc/native/build/ice_nomination_evidence`, while Bend emits C for
+    `rtc/examples/ice_nomination_evidence.bend`; Clang and its evaluator had
+    not started. Aggregate sampled usage crosses 4 GiB before the individual
+    process limit. The raw interrupted phase remains `running` in the report;
+    this is not a pass. The guard cleaned up its owned job; no guarded build or
+    Bend process remained afterward. This is neither a pressure refusal nor a
+    demonstrated compiler/protocol assertion error. Proposed next action:
+    isolate/profile this frontend under the same guard, reduce its compiler
+    workload or memory use while preserving the complete nomination evaluator,
+    then rerun RTC and the forced root gate. No speculative RTC rewrite or
+    identical heavy retry was made for this M0 baseline.
+
+  No 2.0.38 constructor migration or real protocol assertion failure was
+  observed in executed checks. No external implementation source was consulted;
+  OpenSSL remained the existing test oracle/peer. The historical CA-path draft
+  `x509_ca_path.bend` under `~/.codex/artifacts/grounds/2026-10-04/` is absent;
+  **M1 must rebuild it**. M1 work was not started. M0's first three items are
+  satisfied by fresh package evidence, but its root item and exit remain open
+  because RTC and the complete root gate did not finish. HTTPS/M1-M4 and RTC
+  expansion remain incomplete; `bounty/` was untouched, with no push or PR.
 
 - 2026-10-05 (full-stack thread blocked audit after preserved CA preparation):
   The preceding goal turn makes concrete draft/oracle/source-review progress;
