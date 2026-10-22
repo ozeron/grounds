@@ -98,14 +98,14 @@ Read one document many times only with the typed `_at` reads: `at`, `array_at` a
 | tool | time | peak memory |
 |---|---|---|
 | `grounds-json --compact` | 1.4 s | 2.9 GB |
-| `grounds-json` (pretty) | 2.1 s | 4.6 GB |
+| `grounds-json` (pretty) | 2.7 s | 4.1 GB |
 | `spec-grounds-json --compact` (proven path) | 2.0 s | 3.0 GB |
 | Go `encoding/json` | 1.0 s | 0.7 GB |
 | jq | 1.7 s | 1.0 GB |
 
 Memory is the cost of Bend strings: a cons cell per char, for the input and the output both, about 29 bytes per input byte. Use `--max-bytes` to cap it.
 
-`grounds-json` runs everything through `fast.bend`: one pass that checks the input and writes the output, compact or indented, without building a `Json` value. It answers exactly what the proven `J.parse`, `J.encode` and `J.pretty` answer, errors included: `suite.bend` checks this on every JSONTestSuite case, and `scripts/integration.py` fuzzes `grounds-json` against `spec_cli.bend`, the same CLI on the proven parser.
+`grounds-json` runs everything through `fast.bend`: one pass that checks the input and writes compact output, without building a `Json` value; indented output is a second, small pass over that text (`lay`). It answers exactly what the proven `J.parse`, `J.encode` and `J.pretty` answer, errors included: `suite.bend` checks this on every JSONTestSuite case, and `scripts/integration.py` fuzzes `grounds-json` against `spec_cli.bend`, the same CLI on the proven parser.
 
 Neither `grounds-json` nor the proven library may share a String: one shared String makes the runtime count references on every String in the program, which halves the speed. `scripts/cold.py` fails the check if `main.bend` or `spec_cli.bend` does. So the proven parser's errors count the chars left instead of keeping the input, and its round trip, UTF-8 decoding included, takes 55 ms on canada and 13 ms on twitter.
 

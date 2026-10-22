@@ -329,6 +329,62 @@ def dec(d: Nat) -> Nat:
     case 1n+p:
       p
 
+# lay indents reformat's text. That text has no white space and escapes
+# every quote inside a string, so outside strings each [ { , : } ] is
+# structure. LOpen is just after [ or {, where ] or } makes an empty one
+type Lay is Data:
+  LVal{}
+  LStr{}
+  LEsc{}
+  LOpen{}
+
+def lay(fuel: String, mode: Lay, s: String, +d: Nat, out: String) -> String:
+  match fuel mode s:
+    case _ _ SNil{}:
+      String.reverse(out)
+    case SNil{} _ _:
+      String.reverse(out)
+    case SCon{_, f} LStr{} SCon{'"', t}:
+      lay(f, LVal{}, t, d, SCon{'"', out})
+    case SCon{_, f} LStr{} SCon{'\\', t}:
+      lay(f, LEsc{}, t, d, SCon{'\\', out})
+    case SCon{_, f} LStr{} SCon{c, t}:
+      lay(f, LStr{}, t, d, SCon{c, out})
+    case SCon{_, f} LEsc{} SCon{c, t}:
+      lay(f, LStr{}, t, d, SCon{c, out})
+    case SCon{_, f} LOpen{} SCon{']', t}:
+      lay(f, LVal{}, t, dec(d), SCon{']', out})
+    case SCon{_, f} LOpen{} SCon{'}', t}:
+      lay(f, LVal{}, t, dec(d), SCon{'}', out})
+    case SCon{_, f} LOpen{} SCon{'"', t}:
+      lay(f, LStr{}, t, d, SCon{'"', nl(d, out)})
+    case SCon{_, f} LOpen{} SCon{'[', t}:
+      lay(f, LOpen{}, t, 1n+d, SCon{'[', nl(d, out)})
+    case SCon{_, f} LOpen{} SCon{'{', t}:
+      lay(f, LOpen{}, t, 1n+d, SCon{'{', nl(d, out)})
+    case SCon{_, f} LOpen{} SCon{c, t}:
+      lay(f, LVal{}, t, d, SCon{c, nl(d, out)})
+    case SCon{_, f} LVal{} SCon{'"', t}:
+      lay(f, LStr{}, t, d, SCon{'"', out})
+    case SCon{_, f} LVal{} SCon{'[', t}:
+      lay(f, LOpen{}, t, 1n+d, SCon{'[', out})
+    case SCon{_, f} LVal{} SCon{'{', t}:
+      lay(f, LOpen{}, t, 1n+d, SCon{'{', out})
+    case SCon{_, f} LVal{} SCon{']', t}:
+      lay(f, LVal{}, t, dec(d), SCon{']', nl(dec(d), out)})
+    case SCon{_, f} LVal{} SCon{'}', t}:
+      lay(f, LVal{}, t, dec(d), SCon{'}', nl(dec(d), out)})
+    case SCon{_, f} LVal{} SCon{',', t}:
+      lay(f, LVal{}, t, d, nl(d, SCon{',', out}))
+    case SCon{_, f} LVal{} SCon{':', t}:
+      lay(f, LVal{}, t, d, SCon{' ', SCon{':', out}})
+    case SCon{_, f} LVal{} SCon{c, t}:
+      lay(f, LVal{}, t, d, SCon{c, out})
+
+# the fuel is the very list lay reads, as for the loop below
+def lay.start(+t: String) -> String:
+  lay(t, LVal{}, t, 0n, "")
+
 # what reformat answers
 type Out is Data:
   Ok{text: String}
@@ -365,7 +421,7 @@ def finish(mode: Mode, stack: List<&2, Box>, out: String, +at: U32) -> Out:
 # the current escape, or of an error found inside a string (the B modes
 # report it at the next step). hi is a pending high surrogate, code the
 # \\u digits so far, key whether the string is an object key. gc writes
-# compact text; gp the same loop indenting, with d the depth
+# compact text; pretty indents it after (lay)
 
 def gc(fuel: String, mode: Mode, s: String, stack: List<&2, Box>, out: String, +hi: U32, +code: U32, +key: Bool, +at: U32, +ea: U32) -> Out:
   match fuel mode s stack:
@@ -990,641 +1046,22 @@ def gc(fuel: String, mode: Mode, s: String, stack: List<&2, Box>, out: String, +
     case SCon{_, f} VColon{} SCon{c, _} _:
       Err{J.UnexpectedChar{c}, at}
 
-def gp(fuel: String, mode: Mode, s: String, stack: List<&2, Box>, out: String, +hi: U32, +code: U32, +key: Bool, +at: U32, +ea: U32, +d: Nat) -> Out:
-  match fuel mode s stack:
-    case _ BCtrl{} _ _:
-      Err{J.ControlChar{}, ea}
-    case _ BUni{} _ _:
-      Err{J.InvalidUnicode{}, ea}
-    case _ BLone{} _ _:
-      Err{J.LoneSurrogate{}, ea}
-    case _ BEsc{} _ _:
-      Err{J.InvalidEscape{}, ea}
-    case _ m SNil{} stk:
-      finish(m, stk, out, at)
-    case SNil{} _ _ _:
-      Err{J.Internal{}, at}
-    case SCon{_, f} SStr{} SCon{+c, t} stk:
-      +k = J.class(c)
-      gp(f, str_mode(k, key), t, stk, str_out(k, c, out), 0, 0, key, (at + 1 : U32), str_ea(k, at, ea), d)
-    case SCon{_, f} SEsc{} SCon{+c, t} stk:
-      +k = J.class(c)
-      gp(f, esc_mode(k, c), t, stk, esc_out(k, c, out), hi, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} SU4{} SCon{+c, t} stk:
-      gp(f, hex_mode(hex_digit(c), SU3{}), t, stk, out, hi, hex_add(hex_digit(c), code), key, (at + 1 : U32), ea, d)
-    case SCon{_, f} SU3{} SCon{+c, t} stk:
-      gp(f, hex_mode(hex_digit(c), SU2{}), t, stk, out, hi, hex_add(hex_digit(c), code), key, (at + 1 : U32), ea, d)
-    case SCon{_, f} SU2{} SCon{+c, t} stk:
-      gp(f, hex_mode(hex_digit(c), SU1{}), t, stk, out, hi, hex_add(hex_digit(c), code), key, (at + 1 : U32), ea, d)
-    case SCon{_, f} SU1{} SCon{+c, t} stk:
-      gp(f, u_mode(code_of(c, code), hi), t, stk, u_out(code_of(c, code), hi, out), u_hi(code_of(c, code), hi), 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} SHi{} SCon{'\\', t} stk:
-      gp(f, SHiU{}, t, stk, out, hi, 0, key, (at + 1 : U32), at, d)
-    case SCon{_, f} SHi{} SCon{+c, _} _:
-      Bool.pick(Out, ctrl(c), Err{J.ControlChar{}, at}, Err{J.LoneSurrogate{}, at})
-    case SCon{_, f} SHiU{} SCon{'u', t} stk:
-      gp(f, SU4{}, t, stk, out, hi, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} SHiU{} SCon{'"', t} _:
-      Err{J.LoneSurrogate{}, ea}
-    case SCon{_, f} SHiU{} SCon{'\\', t} _:
-      Err{J.LoneSurrogate{}, ea}
-    case SCon{_, f} SHiU{} SCon{'/', t} _:
-      Err{J.LoneSurrogate{}, ea}
-    case SCon{_, f} SHiU{} SCon{'b', t} _:
-      Err{J.LoneSurrogate{}, ea}
-    case SCon{_, f} SHiU{} SCon{'f', t} _:
-      Err{J.LoneSurrogate{}, ea}
-    case SCon{_, f} SHiU{} SCon{'n', t} _:
-      Err{J.LoneSurrogate{}, ea}
-    case SCon{_, f} SHiU{} SCon{'r', t} _:
-      Err{J.LoneSurrogate{}, ea}
-    case SCon{_, f} SHiU{} SCon{'t', t} _:
-      Err{J.LoneSurrogate{}, ea}
-    case SCon{_, f} SHiU{} _ _:
-      Err{J.InvalidEscape{}, ea}
-    case SCon{_, f} NInt{} SCon{'0', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'0', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NInt{} SCon{'1', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'1', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NInt{} SCon{'2', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'2', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NInt{} SCon{'3', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'3', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NInt{} SCon{'4', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'4', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NInt{} SCon{'5', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'5', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NInt{} SCon{'6', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'6', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NInt{} SCon{'7', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'7', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NInt{} SCon{'8', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'8', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NInt{} SCon{'9', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'9', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NFrac{} SCon{'0', t} stk:
-      gp(f, NFrac{}, t, stk, SCon{'0', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NFrac{} SCon{'1', t} stk:
-      gp(f, NFrac{}, t, stk, SCon{'1', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NFrac{} SCon{'2', t} stk:
-      gp(f, NFrac{}, t, stk, SCon{'2', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NFrac{} SCon{'3', t} stk:
-      gp(f, NFrac{}, t, stk, SCon{'3', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NFrac{} SCon{'4', t} stk:
-      gp(f, NFrac{}, t, stk, SCon{'4', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NFrac{} SCon{'5', t} stk:
-      gp(f, NFrac{}, t, stk, SCon{'5', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NFrac{} SCon{'6', t} stk:
-      gp(f, NFrac{}, t, stk, SCon{'6', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NFrac{} SCon{'7', t} stk:
-      gp(f, NFrac{}, t, stk, SCon{'7', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NFrac{} SCon{'8', t} stk:
-      gp(f, NFrac{}, t, stk, SCon{'8', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NFrac{} SCon{'9', t} stk:
-      gp(f, NFrac{}, t, stk, SCon{'9', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NExp{} SCon{'0', t} stk:
-      gp(f, NExp{}, t, stk, SCon{'0', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NExp{} SCon{'1', t} stk:
-      gp(f, NExp{}, t, stk, SCon{'1', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NExp{} SCon{'2', t} stk:
-      gp(f, NExp{}, t, stk, SCon{'2', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NExp{} SCon{'3', t} stk:
-      gp(f, NExp{}, t, stk, SCon{'3', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NExp{} SCon{'4', t} stk:
-      gp(f, NExp{}, t, stk, SCon{'4', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NExp{} SCon{'5', t} stk:
-      gp(f, NExp{}, t, stk, SCon{'5', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NExp{} SCon{'6', t} stk:
-      gp(f, NExp{}, t, stk, SCon{'6', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NExp{} SCon{'7', t} stk:
-      gp(f, NExp{}, t, stk, SCon{'7', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NExp{} SCon{'8', t} stk:
-      gp(f, NExp{}, t, stk, SCon{'8', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NExp{} SCon{'9', t} stk:
-      gp(f, NExp{}, t, stk, SCon{'9', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NMin{} SCon{'0', t} stk:
-      gp(f, NZero{}, t, stk, SCon{'0', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NMin{} SCon{'1', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'1', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NMin{} SCon{'2', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'2', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NMin{} SCon{'3', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'3', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NMin{} SCon{'4', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'4', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NMin{} SCon{'5', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'5', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NMin{} SCon{'6', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'6', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NMin{} SCon{'7', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'7', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NMin{} SCon{'8', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'8', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NMin{} SCon{'9', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'9', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NZero{} SCon{'.', t} stk:
-      gp(f, NDot{}, t, stk, SCon{'.', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NZero{} SCon{'e', t} stk:
-      gp(f, NE{}, t, stk, SCon{'e', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NZero{} SCon{'E', t} stk:
-      gp(f, NE{}, t, stk, SCon{'E', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NInt{} SCon{'.', t} stk:
-      gp(f, NDot{}, t, stk, SCon{'.', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NInt{} SCon{'e', t} stk:
-      gp(f, NE{}, t, stk, SCon{'e', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NInt{} SCon{'E', t} stk:
-      gp(f, NE{}, t, stk, SCon{'E', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NFrac{} SCon{'e', t} stk:
-      gp(f, NE{}, t, stk, SCon{'e', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NFrac{} SCon{'E', t} stk:
-      gp(f, NE{}, t, stk, SCon{'E', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NDot{} SCon{'0', t} stk:
-      gp(f, NFrac{}, t, stk, SCon{'0', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NDot{} SCon{'1', t} stk:
-      gp(f, NFrac{}, t, stk, SCon{'1', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NDot{} SCon{'2', t} stk:
-      gp(f, NFrac{}, t, stk, SCon{'2', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NDot{} SCon{'3', t} stk:
-      gp(f, NFrac{}, t, stk, SCon{'3', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NDot{} SCon{'4', t} stk:
-      gp(f, NFrac{}, t, stk, SCon{'4', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NDot{} SCon{'5', t} stk:
-      gp(f, NFrac{}, t, stk, SCon{'5', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NDot{} SCon{'6', t} stk:
-      gp(f, NFrac{}, t, stk, SCon{'6', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NDot{} SCon{'7', t} stk:
-      gp(f, NFrac{}, t, stk, SCon{'7', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NDot{} SCon{'8', t} stk:
-      gp(f, NFrac{}, t, stk, SCon{'8', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NDot{} SCon{'9', t} stk:
-      gp(f, NFrac{}, t, stk, SCon{'9', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NE{} SCon{'+', t} stk:
-      gp(f, NESign{}, t, stk, SCon{'+', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NE{} SCon{'-', t} stk:
-      gp(f, NESign{}, t, stk, SCon{'-', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NE{} SCon{'0', t} stk:
-      gp(f, NExp{}, t, stk, SCon{'0', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NESign{} SCon{'0', t} stk:
-      gp(f, NExp{}, t, stk, SCon{'0', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NE{} SCon{'1', t} stk:
-      gp(f, NExp{}, t, stk, SCon{'1', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NESign{} SCon{'1', t} stk:
-      gp(f, NExp{}, t, stk, SCon{'1', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NE{} SCon{'2', t} stk:
-      gp(f, NExp{}, t, stk, SCon{'2', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NESign{} SCon{'2', t} stk:
-      gp(f, NExp{}, t, stk, SCon{'2', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NE{} SCon{'3', t} stk:
-      gp(f, NExp{}, t, stk, SCon{'3', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NESign{} SCon{'3', t} stk:
-      gp(f, NExp{}, t, stk, SCon{'3', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NE{} SCon{'4', t} stk:
-      gp(f, NExp{}, t, stk, SCon{'4', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NESign{} SCon{'4', t} stk:
-      gp(f, NExp{}, t, stk, SCon{'4', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NE{} SCon{'5', t} stk:
-      gp(f, NExp{}, t, stk, SCon{'5', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NESign{} SCon{'5', t} stk:
-      gp(f, NExp{}, t, stk, SCon{'5', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NE{} SCon{'6', t} stk:
-      gp(f, NExp{}, t, stk, SCon{'6', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NESign{} SCon{'6', t} stk:
-      gp(f, NExp{}, t, stk, SCon{'6', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NE{} SCon{'7', t} stk:
-      gp(f, NExp{}, t, stk, SCon{'7', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NESign{} SCon{'7', t} stk:
-      gp(f, NExp{}, t, stk, SCon{'7', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NE{} SCon{'8', t} stk:
-      gp(f, NExp{}, t, stk, SCon{'8', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NESign{} SCon{'8', t} stk:
-      gp(f, NExp{}, t, stk, SCon{'8', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NE{} SCon{'9', t} stk:
-      gp(f, NExp{}, t, stk, SCon{'9', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NESign{} SCon{'9', t} stk:
-      gp(f, NExp{}, t, stk, SCon{'9', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NMin{} _ _:
-      Err{J.InvalidNumber{}, at}
-    case SCon{_, f} NDot{} _ _:
-      Err{J.InvalidNumber{}, at}
-    case SCon{_, f} NE{} _ _:
-      Err{J.InvalidNumber{}, at}
-    case SCon{_, f} NESign{} _ _:
-      Err{J.InvalidNumber{}, at}
-    case SCon{_, f} VAfter{} SCon{' ', t} stk:
-      gp(f, VAfter{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VAfter{} SCon{'\t', t} stk:
-      gp(f, VAfter{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VAfter{} SCon{'\n', t} stk:
-      gp(f, VAfter{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VAfter{} SCon{'\r', t} stk:
-      gp(f, VAfter{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VAfter{} SCon{',', t} Con{BArr{}, up}:
-      gp(f, VItem{}, t, Con{BArr{}, up}, nl(d, SCon{',', out}), 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VAfter{} SCon{',', t} Con{BObj{}, up}:
-      gp(f, VKey{}, t, Con{BObj{}, up}, nl(d, SCon{',', out}), 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VAfter{} SCon{']', t} Con{BArr{}, up}:
-      gp(f, VAfter{}, t, up, SCon{']', nl(dec(d), out)}, 0, 0, key, (at + 1 : U32), ea, dec(d))
-    case SCon{_, f} VAfter{} SCon{'}', t} Con{BObj{}, up}:
-      gp(f, VAfter{}, t, up, SCon{'}', nl(dec(d), out)}, 0, 0, key, (at + 1 : U32), ea, dec(d))
-    case SCon{_, f} VAfter{} _ Nil{}:
-      Err{J.TrailingInput{}, at}
-    case SCon{_, f} VAfter{} SCon{c, _} _:
-      Err{J.UnexpectedChar{c}, at}
-    case SCon{_, f} NZero{} SCon{' ', t} stk:
-      gp(f, VAfter{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NZero{} SCon{'\t', t} stk:
-      gp(f, VAfter{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NZero{} SCon{'\n', t} stk:
-      gp(f, VAfter{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NZero{} SCon{'\r', t} stk:
-      gp(f, VAfter{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NZero{} SCon{',', t} Con{BArr{}, up}:
-      gp(f, VItem{}, t, Con{BArr{}, up}, nl(d, SCon{',', out}), 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NZero{} SCon{',', t} Con{BObj{}, up}:
-      gp(f, VKey{}, t, Con{BObj{}, up}, nl(d, SCon{',', out}), 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NZero{} SCon{']', t} Con{BArr{}, up}:
-      gp(f, VAfter{}, t, up, SCon{']', nl(dec(d), out)}, 0, 0, key, (at + 1 : U32), ea, dec(d))
-    case SCon{_, f} NZero{} SCon{'}', t} Con{BObj{}, up}:
-      gp(f, VAfter{}, t, up, SCon{'}', nl(dec(d), out)}, 0, 0, key, (at + 1 : U32), ea, dec(d))
-    case SCon{_, f} NZero{} _ Nil{}:
-      Err{J.TrailingInput{}, at}
-    case SCon{_, f} NZero{} SCon{c, _} _:
-      Err{J.UnexpectedChar{c}, at}
-    case SCon{_, f} NInt{} SCon{' ', t} stk:
-      gp(f, VAfter{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NInt{} SCon{'\t', t} stk:
-      gp(f, VAfter{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NInt{} SCon{'\n', t} stk:
-      gp(f, VAfter{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NInt{} SCon{'\r', t} stk:
-      gp(f, VAfter{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NInt{} SCon{',', t} Con{BArr{}, up}:
-      gp(f, VItem{}, t, Con{BArr{}, up}, nl(d, SCon{',', out}), 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NInt{} SCon{',', t} Con{BObj{}, up}:
-      gp(f, VKey{}, t, Con{BObj{}, up}, nl(d, SCon{',', out}), 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NInt{} SCon{']', t} Con{BArr{}, up}:
-      gp(f, VAfter{}, t, up, SCon{']', nl(dec(d), out)}, 0, 0, key, (at + 1 : U32), ea, dec(d))
-    case SCon{_, f} NInt{} SCon{'}', t} Con{BObj{}, up}:
-      gp(f, VAfter{}, t, up, SCon{'}', nl(dec(d), out)}, 0, 0, key, (at + 1 : U32), ea, dec(d))
-    case SCon{_, f} NInt{} _ Nil{}:
-      Err{J.TrailingInput{}, at}
-    case SCon{_, f} NInt{} SCon{c, _} _:
-      Err{J.UnexpectedChar{c}, at}
-    case SCon{_, f} NFrac{} SCon{' ', t} stk:
-      gp(f, VAfter{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NFrac{} SCon{'\t', t} stk:
-      gp(f, VAfter{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NFrac{} SCon{'\n', t} stk:
-      gp(f, VAfter{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NFrac{} SCon{'\r', t} stk:
-      gp(f, VAfter{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NFrac{} SCon{',', t} Con{BArr{}, up}:
-      gp(f, VItem{}, t, Con{BArr{}, up}, nl(d, SCon{',', out}), 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NFrac{} SCon{',', t} Con{BObj{}, up}:
-      gp(f, VKey{}, t, Con{BObj{}, up}, nl(d, SCon{',', out}), 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NFrac{} SCon{']', t} Con{BArr{}, up}:
-      gp(f, VAfter{}, t, up, SCon{']', nl(dec(d), out)}, 0, 0, key, (at + 1 : U32), ea, dec(d))
-    case SCon{_, f} NFrac{} SCon{'}', t} Con{BObj{}, up}:
-      gp(f, VAfter{}, t, up, SCon{'}', nl(dec(d), out)}, 0, 0, key, (at + 1 : U32), ea, dec(d))
-    case SCon{_, f} NFrac{} _ Nil{}:
-      Err{J.TrailingInput{}, at}
-    case SCon{_, f} NFrac{} SCon{c, _} _:
-      Err{J.UnexpectedChar{c}, at}
-    case SCon{_, f} NExp{} SCon{' ', t} stk:
-      gp(f, VAfter{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NExp{} SCon{'\t', t} stk:
-      gp(f, VAfter{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NExp{} SCon{'\n', t} stk:
-      gp(f, VAfter{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NExp{} SCon{'\r', t} stk:
-      gp(f, VAfter{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NExp{} SCon{',', t} Con{BArr{}, up}:
-      gp(f, VItem{}, t, Con{BArr{}, up}, nl(d, SCon{',', out}), 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NExp{} SCon{',', t} Con{BObj{}, up}:
-      gp(f, VKey{}, t, Con{BObj{}, up}, nl(d, SCon{',', out}), 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} NExp{} SCon{']', t} Con{BArr{}, up}:
-      gp(f, VAfter{}, t, up, SCon{']', nl(dec(d), out)}, 0, 0, key, (at + 1 : U32), ea, dec(d))
-    case SCon{_, f} NExp{} SCon{'}', t} Con{BObj{}, up}:
-      gp(f, VAfter{}, t, up, SCon{'}', nl(dec(d), out)}, 0, 0, key, (at + 1 : U32), ea, dec(d))
-    case SCon{_, f} NExp{} _ Nil{}:
-      Err{J.TrailingInput{}, at}
-    case SCon{_, f} NExp{} SCon{c, _} _:
-      Err{J.UnexpectedChar{c}, at}
-    case SCon{_, f} T1{} SCon{'r', t} stk:
-      gp(f, T2{}, t, stk, SCon{'r', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} T1{} SCon{c, _} _:
-      Err{J.UnexpectedChar{c}, at}
-    case SCon{_, f} T2{} SCon{'u', t} stk:
-      gp(f, T3{}, t, stk, SCon{'u', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} T2{} SCon{c, _} _:
-      Err{J.UnexpectedChar{c}, at}
-    case SCon{_, f} T3{} SCon{'e', t} stk:
-      gp(f, VAfter{}, t, stk, SCon{'e', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} T3{} SCon{c, _} _:
-      Err{J.UnexpectedChar{c}, at}
-    case SCon{_, f} F1{} SCon{'a', t} stk:
-      gp(f, F2{}, t, stk, SCon{'a', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} F1{} SCon{c, _} _:
-      Err{J.UnexpectedChar{c}, at}
-    case SCon{_, f} F2{} SCon{'l', t} stk:
-      gp(f, F3{}, t, stk, SCon{'l', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} F2{} SCon{c, _} _:
-      Err{J.UnexpectedChar{c}, at}
-    case SCon{_, f} F3{} SCon{'s', t} stk:
-      gp(f, F4{}, t, stk, SCon{'s', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} F3{} SCon{c, _} _:
-      Err{J.UnexpectedChar{c}, at}
-    case SCon{_, f} F4{} SCon{'e', t} stk:
-      gp(f, VAfter{}, t, stk, SCon{'e', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} F4{} SCon{c, _} _:
-      Err{J.UnexpectedChar{c}, at}
-    case SCon{_, f} U1{} SCon{'u', t} stk:
-      gp(f, U2{}, t, stk, SCon{'u', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} U1{} SCon{c, _} _:
-      Err{J.UnexpectedChar{c}, at}
-    case SCon{_, f} U2{} SCon{'l', t} stk:
-      gp(f, U3{}, t, stk, SCon{'l', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} U2{} SCon{c, _} _:
-      Err{J.UnexpectedChar{c}, at}
-    case SCon{_, f} U3{} SCon{'l', t} stk:
-      gp(f, VAfter{}, t, stk, SCon{'l', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} U3{} SCon{c, _} _:
-      Err{J.UnexpectedChar{c}, at}
-    case SCon{_, f} VTop{} SCon{' ', t} stk:
-      gp(f, VTop{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VTop{} SCon{'\t', t} stk:
-      gp(f, VTop{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VTop{} SCon{'\n', t} stk:
-      gp(f, VTop{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VTop{} SCon{'\r', t} stk:
-      gp(f, VTop{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VTop{} SCon{'[', t} stk:
-      gp(f, VFirst{}, t, Con{BArr{}, stk}, SCon{'[', out}, 0, 0, key, (at + 1 : U32), ea, 1n+d)
-    case SCon{_, f} VTop{} SCon{'{', t} stk:
-      gp(f, VObjFirst{}, t, Con{BObj{}, stk}, SCon{'{', out}, 0, 0, key, (at + 1 : U32), ea, 1n+d)
-    case SCon{_, f} VTop{} SCon{'"', t} stk:
-      gp(f, SStr{}, t, stk, SCon{'"', out}, 0, 0, False{}, (at + 1 : U32), ea, d)
-    case SCon{_, f} VTop{} SCon{'-', t} stk:
-      gp(f, NMin{}, t, stk, SCon{'-', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VTop{} SCon{'0', t} stk:
-      gp(f, NZero{}, t, stk, SCon{'0', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VTop{} SCon{'1', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'1', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VTop{} SCon{'2', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'2', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VTop{} SCon{'3', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'3', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VTop{} SCon{'4', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'4', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VTop{} SCon{'5', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'5', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VTop{} SCon{'6', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'6', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VTop{} SCon{'7', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'7', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VTop{} SCon{'8', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'8', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VTop{} SCon{'9', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'9', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VTop{} SCon{'t', t} stk:
-      gp(f, T1{}, t, stk, SCon{'t', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VTop{} SCon{'f', t} stk:
-      gp(f, F1{}, t, stk, SCon{'f', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VTop{} SCon{'n', t} stk:
-      gp(f, U1{}, t, stk, SCon{'n', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VTop{} SCon{c, _} _:
-      Err{J.UnexpectedChar{c}, at}
-    case SCon{_, f} VFirst{} SCon{' ', t} stk:
-      gp(f, VFirst{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VFirst{} SCon{'\t', t} stk:
-      gp(f, VFirst{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VFirst{} SCon{'\n', t} stk:
-      gp(f, VFirst{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VFirst{} SCon{'\r', t} stk:
-      gp(f, VFirst{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VFirst{} SCon{'[', t} stk:
-      gp(f, VFirst{}, t, Con{BArr{}, stk}, SCon{'[', nl(d, out)}, 0, 0, key, (at + 1 : U32), ea, 1n+d)
-    case SCon{_, f} VFirst{} SCon{'{', t} stk:
-      gp(f, VObjFirst{}, t, Con{BObj{}, stk}, SCon{'{', nl(d, out)}, 0, 0, key, (at + 1 : U32), ea, 1n+d)
-    case SCon{_, f} VFirst{} SCon{'"', t} stk:
-      gp(f, SStr{}, t, stk, SCon{'"', nl(d, out)}, 0, 0, False{}, (at + 1 : U32), ea, d)
-    case SCon{_, f} VFirst{} SCon{'-', t} stk:
-      gp(f, NMin{}, t, stk, SCon{'-', nl(d, out)}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VFirst{} SCon{'0', t} stk:
-      gp(f, NZero{}, t, stk, SCon{'0', nl(d, out)}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VFirst{} SCon{'1', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'1', nl(d, out)}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VFirst{} SCon{'2', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'2', nl(d, out)}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VFirst{} SCon{'3', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'3', nl(d, out)}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VFirst{} SCon{'4', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'4', nl(d, out)}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VFirst{} SCon{'5', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'5', nl(d, out)}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VFirst{} SCon{'6', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'6', nl(d, out)}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VFirst{} SCon{'7', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'7', nl(d, out)}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VFirst{} SCon{'8', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'8', nl(d, out)}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VFirst{} SCon{'9', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'9', nl(d, out)}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VFirst{} SCon{'t', t} stk:
-      gp(f, T1{}, t, stk, SCon{'t', nl(d, out)}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VFirst{} SCon{'f', t} stk:
-      gp(f, F1{}, t, stk, SCon{'f', nl(d, out)}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VFirst{} SCon{'n', t} stk:
-      gp(f, U1{}, t, stk, SCon{'n', nl(d, out)}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VFirst{} SCon{']', t} Con{_, up}:
-      gp(f, VAfter{}, t, up, SCon{']', out}, 0, 0, key, (at + 1 : U32), ea, dec(d))
-    case SCon{_, f} VFirst{} SCon{c, _} _:
-      Err{J.UnexpectedChar{c}, at}
-    case SCon{_, f} VItem{} SCon{' ', t} stk:
-      gp(f, VItem{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VItem{} SCon{'\t', t} stk:
-      gp(f, VItem{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VItem{} SCon{'\n', t} stk:
-      gp(f, VItem{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VItem{} SCon{'\r', t} stk:
-      gp(f, VItem{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VItem{} SCon{'[', t} stk:
-      gp(f, VFirst{}, t, Con{BArr{}, stk}, SCon{'[', out}, 0, 0, key, (at + 1 : U32), ea, 1n+d)
-    case SCon{_, f} VItem{} SCon{'{', t} stk:
-      gp(f, VObjFirst{}, t, Con{BObj{}, stk}, SCon{'{', out}, 0, 0, key, (at + 1 : U32), ea, 1n+d)
-    case SCon{_, f} VItem{} SCon{'"', t} stk:
-      gp(f, SStr{}, t, stk, SCon{'"', out}, 0, 0, False{}, (at + 1 : U32), ea, d)
-    case SCon{_, f} VItem{} SCon{'-', t} stk:
-      gp(f, NMin{}, t, stk, SCon{'-', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VItem{} SCon{'0', t} stk:
-      gp(f, NZero{}, t, stk, SCon{'0', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VItem{} SCon{'1', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'1', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VItem{} SCon{'2', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'2', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VItem{} SCon{'3', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'3', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VItem{} SCon{'4', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'4', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VItem{} SCon{'5', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'5', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VItem{} SCon{'6', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'6', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VItem{} SCon{'7', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'7', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VItem{} SCon{'8', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'8', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VItem{} SCon{'9', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'9', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VItem{} SCon{'t', t} stk:
-      gp(f, T1{}, t, stk, SCon{'t', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VItem{} SCon{'f', t} stk:
-      gp(f, F1{}, t, stk, SCon{'f', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VItem{} SCon{'n', t} stk:
-      gp(f, U1{}, t, stk, SCon{'n', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VItem{} SCon{c, _} _:
-      Err{J.UnexpectedChar{c}, at}
-    case SCon{_, f} VObjVal{} SCon{' ', t} stk:
-      gp(f, VObjVal{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VObjVal{} SCon{'\t', t} stk:
-      gp(f, VObjVal{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VObjVal{} SCon{'\n', t} stk:
-      gp(f, VObjVal{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VObjVal{} SCon{'\r', t} stk:
-      gp(f, VObjVal{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VObjVal{} SCon{'[', t} stk:
-      gp(f, VFirst{}, t, Con{BArr{}, stk}, SCon{'[', out}, 0, 0, key, (at + 1 : U32), ea, 1n+d)
-    case SCon{_, f} VObjVal{} SCon{'{', t} stk:
-      gp(f, VObjFirst{}, t, Con{BObj{}, stk}, SCon{'{', out}, 0, 0, key, (at + 1 : U32), ea, 1n+d)
-    case SCon{_, f} VObjVal{} SCon{'"', t} stk:
-      gp(f, SStr{}, t, stk, SCon{'"', out}, 0, 0, False{}, (at + 1 : U32), ea, d)
-    case SCon{_, f} VObjVal{} SCon{'-', t} stk:
-      gp(f, NMin{}, t, stk, SCon{'-', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VObjVal{} SCon{'0', t} stk:
-      gp(f, NZero{}, t, stk, SCon{'0', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VObjVal{} SCon{'1', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'1', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VObjVal{} SCon{'2', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'2', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VObjVal{} SCon{'3', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'3', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VObjVal{} SCon{'4', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'4', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VObjVal{} SCon{'5', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'5', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VObjVal{} SCon{'6', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'6', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VObjVal{} SCon{'7', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'7', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VObjVal{} SCon{'8', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'8', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VObjVal{} SCon{'9', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'9', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VObjVal{} SCon{'t', t} stk:
-      gp(f, T1{}, t, stk, SCon{'t', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VObjVal{} SCon{'f', t} stk:
-      gp(f, F1{}, t, stk, SCon{'f', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VObjVal{} SCon{'n', t} stk:
-      gp(f, U1{}, t, stk, SCon{'n', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VObjVal{} SCon{c, _} _:
-      Err{J.UnexpectedChar{c}, at}
-    case SCon{_, f} VStart{} SCon{' ', t} stk:
-      gp(f, VTop{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VStart{} SCon{'\t', t} stk:
-      gp(f, VTop{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VStart{} SCon{'\n', t} stk:
-      gp(f, VTop{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VStart{} SCon{'\r', t} stk:
-      gp(f, VTop{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VStart{} SCon{'[', t} stk:
-      gp(f, VFirst{}, t, Con{BArr{}, stk}, SCon{'[', out}, 0, 0, key, (at + 1 : U32), ea, 1n+d)
-    case SCon{_, f} VStart{} SCon{'{', t} stk:
-      gp(f, VObjFirst{}, t, Con{BObj{}, stk}, SCon{'{', out}, 0, 0, key, (at + 1 : U32), ea, 1n+d)
-    case SCon{_, f} VStart{} SCon{'"', t} stk:
-      gp(f, SStr{}, t, stk, SCon{'"', out}, 0, 0, False{}, (at + 1 : U32), ea, d)
-    case SCon{_, f} VStart{} SCon{'-', t} stk:
-      gp(f, NMin{}, t, stk, SCon{'-', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VStart{} SCon{'0', t} stk:
-      gp(f, NZero{}, t, stk, SCon{'0', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VStart{} SCon{'1', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'1', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VStart{} SCon{'2', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'2', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VStart{} SCon{'3', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'3', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VStart{} SCon{'4', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'4', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VStart{} SCon{'5', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'5', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VStart{} SCon{'6', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'6', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VStart{} SCon{'7', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'7', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VStart{} SCon{'8', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'8', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VStart{} SCon{'9', t} stk:
-      gp(f, NInt{}, t, stk, SCon{'9', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VStart{} SCon{'t', t} stk:
-      gp(f, T1{}, t, stk, SCon{'t', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VStart{} SCon{'f', t} stk:
-      gp(f, F1{}, t, stk, SCon{'f', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VStart{} SCon{'n', t} stk:
-      gp(f, U1{}, t, stk, SCon{'n', out}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VStart{} SCon{'\u{FEFF}', t} stk:
-      gp(f, VTop{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VStart{} SCon{c, _} _:
-      Err{J.UnexpectedChar{c}, at}
-    case SCon{_, f} VObjFirst{} SCon{' ', t} stk:
-      gp(f, VObjFirst{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VObjFirst{} SCon{'\t', t} stk:
-      gp(f, VObjFirst{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VObjFirst{} SCon{'\n', t} stk:
-      gp(f, VObjFirst{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VObjFirst{} SCon{'\r', t} stk:
-      gp(f, VObjFirst{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VKey{} SCon{' ', t} stk:
-      gp(f, VKey{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VKey{} SCon{'\t', t} stk:
-      gp(f, VKey{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VKey{} SCon{'\n', t} stk:
-      gp(f, VKey{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VKey{} SCon{'\r', t} stk:
-      gp(f, VKey{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VColon{} SCon{' ', t} stk:
-      gp(f, VColon{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VColon{} SCon{'\t', t} stk:
-      gp(f, VColon{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VColon{} SCon{'\n', t} stk:
-      gp(f, VColon{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VColon{} SCon{'\r', t} stk:
-      gp(f, VColon{}, t, stk, out, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VObjFirst{} SCon{'"', t} stk:
-      gp(f, SStr{}, t, stk, SCon{'"', nl(d, out)}, 0, 0, True{}, (at + 1 : U32), ea, d)
-    case SCon{_, f} VKey{} SCon{'"', t} stk:
-      gp(f, SStr{}, t, stk, SCon{'"', out}, 0, 0, True{}, (at + 1 : U32), ea, d)
-    case SCon{_, f} VObjFirst{} SCon{'}', t} Con{_, up}:
-      gp(f, VAfter{}, t, up, SCon{'}', out}, 0, 0, key, (at + 1 : U32), ea, dec(d))
-    case SCon{_, f} VColon{} SCon{':', t} stk:
-      gp(f, VObjVal{}, t, stk, SCon{' ', SCon{':', out}}, 0, 0, key, (at + 1 : U32), ea, d)
-    case SCon{_, f} VObjFirst{} SCon{c, _} _:
-      Err{J.UnexpectedChar{c}, at}
-    case SCon{_, f} VKey{} SCon{c, _} _:
-      Err{J.UnexpectedChar{c}, at}
-    case SCon{_, f} VColon{} SCon{c, _} _:
-      Err{J.UnexpectedChar{c}, at}
-
 # the fuel must be the very list the loop reads: a second list over the
 # same chars makes every node shared, which doubles the time
 def start.c(+t: String) -> Out:
   gc(t, VStart{}, t, [], "", 0, 0, False{}, 0, 0)
 
-def start.p(+t: String) -> Out:
-  gp(t, VStart{}, t, [], "", 0, 0, False{}, 0, 0, 0n)
-
 # compact text, as J.encode writes it
 def reformat(s: String) -> Out:
   start.c(s)
 
+def pretty.of(o: Out) -> Out:
+  match o:
+    case Ok{t}:
+      Ok{lay.start(t)}
+    case Err{r, at}:
+      Err{r, at}
+
 # indented text, as J.pretty(j, "  ") writes it
 def pretty(s: String) -> Out:
-  start.p(s)
+  pretty.of(reformat(s))

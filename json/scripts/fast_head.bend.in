@@ -329,6 +329,62 @@ def dec(d: Nat) -> Nat:
     case 1n+p:
       p
 
+# lay indents reformat's text. That text has no white space and escapes
+# every quote inside a string, so outside strings each [ { , : } ] is
+# structure. LOpen is just after [ or {, where ] or } makes an empty one
+type Lay is Data:
+  LVal{}
+  LStr{}
+  LEsc{}
+  LOpen{}
+
+def lay(fuel: String, mode: Lay, s: String, +d: Nat, out: String) -> String:
+  match fuel mode s:
+    case _ _ SNil{}:
+      String.reverse(out)
+    case SNil{} _ _:
+      String.reverse(out)
+    case SCon{_, f} LStr{} SCon{'"', t}:
+      lay(f, LVal{}, t, d, SCon{'"', out})
+    case SCon{_, f} LStr{} SCon{'\\', t}:
+      lay(f, LEsc{}, t, d, SCon{'\\', out})
+    case SCon{_, f} LStr{} SCon{c, t}:
+      lay(f, LStr{}, t, d, SCon{c, out})
+    case SCon{_, f} LEsc{} SCon{c, t}:
+      lay(f, LStr{}, t, d, SCon{c, out})
+    case SCon{_, f} LOpen{} SCon{']', t}:
+      lay(f, LVal{}, t, dec(d), SCon{']', out})
+    case SCon{_, f} LOpen{} SCon{'}', t}:
+      lay(f, LVal{}, t, dec(d), SCon{'}', out})
+    case SCon{_, f} LOpen{} SCon{'"', t}:
+      lay(f, LStr{}, t, d, SCon{'"', nl(d, out)})
+    case SCon{_, f} LOpen{} SCon{'[', t}:
+      lay(f, LOpen{}, t, 1n+d, SCon{'[', nl(d, out)})
+    case SCon{_, f} LOpen{} SCon{'{', t}:
+      lay(f, LOpen{}, t, 1n+d, SCon{'{', nl(d, out)})
+    case SCon{_, f} LOpen{} SCon{c, t}:
+      lay(f, LVal{}, t, d, SCon{c, nl(d, out)})
+    case SCon{_, f} LVal{} SCon{'"', t}:
+      lay(f, LStr{}, t, d, SCon{'"', out})
+    case SCon{_, f} LVal{} SCon{'[', t}:
+      lay(f, LOpen{}, t, 1n+d, SCon{'[', out})
+    case SCon{_, f} LVal{} SCon{'{', t}:
+      lay(f, LOpen{}, t, 1n+d, SCon{'{', out})
+    case SCon{_, f} LVal{} SCon{']', t}:
+      lay(f, LVal{}, t, dec(d), SCon{']', nl(dec(d), out)})
+    case SCon{_, f} LVal{} SCon{'}', t}:
+      lay(f, LVal{}, t, dec(d), SCon{'}', nl(dec(d), out)})
+    case SCon{_, f} LVal{} SCon{',', t}:
+      lay(f, LVal{}, t, d, nl(d, SCon{',', out}))
+    case SCon{_, f} LVal{} SCon{':', t}:
+      lay(f, LVal{}, t, d, SCon{' ', SCon{':', out}})
+    case SCon{_, f} LVal{} SCon{c, t}:
+      lay(f, LVal{}, t, d, SCon{c, out})
+
+# the fuel is the very list lay reads, as for the loop below
+def lay.start(+t: String) -> String:
+  lay(t, LVal{}, t, 0n, "")
+
 # what reformat answers
 type Out is Data:
   Ok{text: String}

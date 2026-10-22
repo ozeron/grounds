@@ -7,7 +7,8 @@ on:
     - cron: "17 3 * * *"
   workflow_dispatch:
 
-# Linux only: building the fast loop takes about 9 GB, over a macOS runner's 7
+# Linux only: building the fast loop took about 9 GB, over a macOS runner's 7;
+# it is about 5 GB now (json/docs/TODO.md)
 jobs:
   ci:
     runs-on: ubuntu-latest

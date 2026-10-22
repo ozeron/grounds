@@ -14,21 +14,14 @@ ACC = ["NZero", "NInt", "NFrac", "NExp"]
 WS = ["' '", "'\\t'", "'\\n'", "'\\r'"]
 DIGITS = [str(i) for i in range(10)]
 rows = []
-PRETTY = False  # set per loop below: the compact loop has no pretty code
 
 
 def row(mode, s, stack, body):
     rows.append(f"    case SCon{{_, f}} {mode} {s} {stack}:\n      {body}")
 
 
-def nlx(out, d="d"):
-    return f"nl({d}, {out})" if PRETTY else out
-
-
-def go(mode, t="t", stack="stk", out="out", hi="0", code="0", key="key", ea="ea", d="d"):
-    name = "gp" if PRETTY else "gc"
-    extra = f", {d}" if PRETTY else ""
-    return f"{name}(f, {mode}, {t}, {stack}, {out}, {hi}, {code}, {key}, (at + 1 : U32), {ea}{extra})"
+def go(mode, t="t", stack="stk", out="out", hi="0", code="0", key="key", ea="ea"):
+    return f"gc(f, {mode}, {t}, {stack}, {out}, {hi}, {code}, {key}, (at + 1 : U32), {ea})"
 
 
 def err(reason, at="at"):
@@ -100,10 +93,10 @@ def build():
     for m in ["VAfter"] + ACC:
         for w in WS:
             row(m + "{}", f"SCon{{{w}, t}}", "stk", go("VAfter{}"))
-        row(m + "{}", ch(","), "Con{BArr{}, up}", go("VItem{}", stack="Con{BArr{}, up}", out=nlx("SCon{',', out}")))
-        row(m + "{}", ch(","), "Con{BObj{}, up}", go("VKey{}", stack="Con{BObj{}, up}", out=nlx("SCon{',', out}")))
-        row(m + "{}", ch("]"), "Con{BArr{}, up}", go("VAfter{}", stack="up", out="SCon{']', " + nlx("out", "dec(d)") + "}", d="dec(d)"))
-        row(m + "{}", ch("}"), "Con{BObj{}, up}", go("VAfter{}", stack="up", out="SCon{'}', " + nlx("out", "dec(d)") + "}", d="dec(d)"))
+        row(m + "{}", ch(","), "Con{BArr{}, up}", go("VItem{}", stack="Con{BArr{}, up}", out="SCon{',', out}"))
+        row(m + "{}", ch(","), "Con{BObj{}, up}", go("VKey{}", stack="Con{BObj{}, up}", out="SCon{',', out}"))
+        row(m + "{}", ch("]"), "Con{BArr{}, up}", go("VAfter{}", stack="up", out="SCon{']', out}"))
+        row(m + "{}", ch("}"), "Con{BObj{}, up}", go("VAfter{}", stack="up", out="SCon{'}', out}"))
         row(m + "{}", "_", "Nil{}", err("J.TrailingInput{}"))
         row(m + "{}", "SCon{c, _}", "_", err("J.UnexpectedChar{c}"))
 
@@ -119,20 +112,19 @@ def build():
     # Where a value may start. VStart is VTop at the very first char, where a
     # byte order mark may be skipped (it still counts in the offset)
     def value_rows(m, after_ws):
-        o = nlx("out") if m == "VFirst" else "out"
         for w in WS:
             row(m + "{}", f"SCon{{{w}, t}}", "stk", go(after_ws + "{}"))
-        row(m + "{}", ch("["), "stk", go("VFirst{}", stack="Con{BArr{}, stk}", out=f"SCon{{'[', {o}}}", d="1n+d"))
-        row(m + "{}", ch("{"), "stk", go("VObjFirst{}", stack="Con{BObj{}, stk}", out=f"SCon{{'{{', {o}}}", d="1n+d"))
-        row(m + "{}", ch('"'), "stk", go("SStr{}", out=f"SCon{{'\"', {o}}}", key="False{}"))
-        row(m + "{}", ch("-"), "stk", go("NMin{}", out=f"SCon{{'-', {o}}}"))
-        row(m + "{}", ch("0"), "stk", go("NZero{}", out=f"SCon{{'0', {o}}}"))
+        row(m + "{}", ch("["), "stk", go("VFirst{}", stack="Con{BArr{}, stk}", out=f"SCon{{'[', out}}"))
+        row(m + "{}", ch("{"), "stk", go("VObjFirst{}", stack="Con{BObj{}, stk}", out=f"SCon{{'{{', out}}"))
+        row(m + "{}", ch('"'), "stk", go("SStr{}", out=f"SCon{{'\"', out}}", key="False{}"))
+        row(m + "{}", ch("-"), "stk", go("NMin{}", out=f"SCon{{'-', out}}"))
+        row(m + "{}", ch("0"), "stk", go("NZero{}", out=f"SCon{{'0', out}}"))
         for dg in DIGITS[1:]:
-            row(m + "{}", ch(dg), "stk", go("NInt{}", out=f"SCon{{'{dg}', {o}}}"))
+            row(m + "{}", ch(dg), "stk", go("NInt{}", out=f"SCon{{'{dg}', out}}"))
         for c, to in [("t", "T1"), ("f", "F1"), ("n", "U1")]:
-            row(m + "{}", ch(c), "stk", go(to + "{}", out=f"SCon{{'{c}', {o}}}"))
+            row(m + "{}", ch(c), "stk", go(to + "{}", out=f"SCon{{'{c}', out}}"))
         if m == "VFirst":
-            row("VFirst{}", ch("]"), "Con{_, up}", go("VAfter{}", stack="up", out="SCon{']', out}", d="dec(d)"))
+            row("VFirst{}", ch("]"), "Con{_, up}", go("VAfter{}", stack="up", out="SCon{']', out}"))
         if m == "VStart":
             row("VStart{}", "SCon{'\\u{FEFF}', t}", "stk", go("VTop{}"))
         row(m + "{}", "SCon{c, _}", "_", err("J.UnexpectedChar{c}"))
@@ -146,10 +138,10 @@ def build():
     for m in ["VObjFirst", "VKey", "VColon"]:
         for w in WS:
             row(m + "{}", f"SCon{{{w}, t}}", "stk", go(m + "{}"))
-    row("VObjFirst{}", ch('"'), "stk", go("SStr{}", out="SCon{'\"', " + nlx("out") + "}", key="True{}"))
+    row("VObjFirst{}", ch('"'), "stk", go("SStr{}", out="SCon{'\"', out}", key="True{}"))
     row("VKey{}", ch('"'), "stk", go("SStr{}", out="SCon{'\"', out}", key="True{}"))
-    row("VObjFirst{}", ch("}"), "Con{_, up}", go("VAfter{}", stack="up", out="SCon{'}', out}", d="dec(d)"))
-    row("VColon{}", ch(":"), "stk", go("VObjVal{}", out="SCon{' ', SCon{':', out}}" if PRETTY else "SCon{':', out}"))
+    row("VObjFirst{}", ch("}"), "Con{_, up}", go("VAfter{}", stack="up", out="SCon{'}', out}"))
+    row("VColon{}", ch(":"), "stk", go("VObjVal{}", out="SCon{':', out}"))
     for m in ["VObjFirst", "VKey", "VColon"]:
         row(m + "{}", "SCon{c, _}", "_", err("J.UnexpectedChar{c}"))
 
@@ -157,14 +149,11 @@ def build():
     return rows
 
 
-def loop(name, pretty):
-    global PRETTY
-    PRETTY = pretty
+def loop():
     rs = build()
-    extra = ", +d: Nat" if pretty else ""
     fin = "finish(m, stk, out, at)"
     return f"""
-def {name}(fuel: String, mode: Mode, s: String, stack: List<&2, Box>, out: String, +hi: U32, +code: U32, +key: Bool, +at: U32, +ea: U32{extra}) -> Out:
+def gc(fuel: String, mode: Mode, s: String, stack: List<&2, Box>, out: String, +hi: U32, +code: U32, +key: Bool, +at: U32, +ea: U32) -> Out:
   match fuel mode s stack:
     case _ BCtrl{{}} _ _:
       Err{{J.ControlChar{{}}, ea}}
@@ -189,24 +178,28 @@ text = f'''# generated by scripts/gen_fast.py; do not edit
 # the current escape, or of an error found inside a string (the B modes
 # report it at the next step). hi is a pending high surrogate, code the
 # \\\\u digits so far, key whether the string is an object key. gc writes
-# compact text; gp the same loop indenting, with d the depth
-{loop("gc", False)}{loop("gp", True)}
+# compact text; pretty indents it after (lay)
+{loop()}
 # the fuel must be the very list the loop reads: a second list over the
 # same chars makes every node shared, which doubles the time
 def start.c(+t: String) -> Out:
   gc(t, VStart{{}}, t, [], "", 0, 0, False{{}}, 0, 0)
 
-def start.p(+t: String) -> Out:
-  gp(t, VStart{{}}, t, [], "", 0, 0, False{{}}, 0, 0, 0n)
-
 # compact text, as J.encode writes it
 def reformat(s: String) -> Out:
   start.c(s)
 
+def pretty.of(o: Out) -> Out:
+  match o:
+    case Ok{{t}}:
+      Ok{{lay.start(t)}}
+    case Err{{r, at}}:
+      Err{{r, at}}
+
 # indented text, as J.pretty(j, "  ") writes it
 def pretty(s: String) -> Out:
-  start.p(s)
+  pretty.of(reformat(s))
 '''
 head = (ROOT / "scripts/fast_head.bend.in").read_text()
 (ROOT / "fast.bend").write_text(head + text)
-print(f"{len(build())} cases per loop -> fast.bend")
+print(f"{len(build())} cases in the loop -> fast.bend")

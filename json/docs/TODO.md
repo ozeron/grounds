@@ -107,7 +107,7 @@ The blocker for an any-input proof: both loops match char literals (`'['`, `'0'`
 
 ## CI
 - [x] One Linux job: `check.sh`, the bench gate, a nightly fuzz that saves failing inputs for `examples/regress/`; verified with `act`
-- [ ] macOS: building the fast loop takes about 9 GB, over a macOS runner's 7 GB; cut the build's memory first
+- [ ] macOS: building the fast loop took about 9 GB, over a macOS runner's 7 GB; with one loop the largest build (suite.bend) peaks at about 5 GB on Bend 2.0.27, so a macOS job may fit now
 
 ## Next: stream the input in chunks (measured, `bench/spike/`)
 
