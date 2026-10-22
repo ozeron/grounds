@@ -4,6 +4,7 @@ import ./io/io.bend as Io
 import ./wire/wire.bend as W
 import ./json/json.bend as J
 import ./http/core/http.bend as Http
+import ./http/core/cookie_sign.bend as CookieSign
 import ./http/wire/http1.bend as H1
 import ./http/router/router.bend as Router
 import ./http/server/http_server.bend as Server
