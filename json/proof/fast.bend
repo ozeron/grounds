@@ -11,20 +11,6 @@ import ./fast_text.bend as T
 def push(a: String, out: String) -> String:
   String.reverse.go(a, out)
 
-# the offset and escape position after a stretch of input
-type P2 is Data:
-  P2{at: U32, ea: U32}
-
-def p_at(p: P2) -> U32:
-  match p:
-    case P2{a, _}:
-      a
-
-def p_ea(p: P2) -> U32:
-  match p:
-    case P2{_, e}:
-      e
-
 # A control char is one of 32: five free bits, then zeros
 type B5 is Data:
   B5{b0: Bool, b1: Bool, b2: Bool, b3: Bool, b4: Bool}
@@ -94,8 +80,8 @@ def shape(c, e):
 
 # One char of a string body, printed by S.esc_char and read by the loop:
 # it pushes the same text and leaves the loop in the string again
-def CS(k: J.Class, c: Char, x: String, stk: List<&2, F.Box>, out: String, key: Bool, at: U32, ea: U32) -> Type:
-  &p: P2 -> {F.gc(S.esc_char(k, c, x), F.SStr{}, S.esc_char(k, c, x), stk, out, 0, 0, key, at, ea) == F.gc(x, F.SStr{}, x, stk, push(S.esc_char(k, c, ""), out), 0, 0, key, p_at(p), p_ea(p)) : F.Out}
+def CS(k: J.Class, c: Char, x: String, stk: List<&2, F.Box>, out: String, key: Bool, bk: U32) -> Type:
+  &p: U32 -> {F.gc(S.esc_char(k, c, x), F.SStr{}, S.esc_char(k, c, x), stk, out, 0, 0, key, bk) == F.gc(x, F.SStr{}, x, stk, push(S.esc_char(k, c, ""), out), 0, 0, key, p) : F.Out}
 
 # the 32 control chars, one case each
 law cs.ctrl:
@@ -104,76 +90,75 @@ law cs.ctrl:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  CS(J.KCtrl{}, ofb(b), x, stk, out, key, at, ea)
+  for +bk: U32
+  CS(J.KCtrl{}, ofb(b), x, stk, out, key, bk)
 
-def cs.ctrl(b, x, stk, out, key, at, ea):
+def cs.ctrl(b, x, stk, out, key, bk):
   match b:
     case B5{False{}, False{}, False{}, False{}, False{}}:
-      (P2{((((((at + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32), at}, {==})
+      (6, {==})
     case B5{False{}, False{}, False{}, False{}, True{}}:
-      (P2{((((((at + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32), at}, {==})
+      (6, {==})
     case B5{False{}, False{}, False{}, True{}, False{}}:
-      (P2{((at + 1 : U32) + 1 : U32), at}, {==})
+      (2, {==})
     case B5{False{}, False{}, False{}, True{}, True{}}:
-      (P2{((((((at + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32), at}, {==})
+      (6, {==})
     case B5{False{}, False{}, True{}, False{}, False{}}:
-      (P2{((((((at + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32), at}, {==})
+      (6, {==})
     case B5{False{}, False{}, True{}, False{}, True{}}:
-      (P2{((((((at + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32), at}, {==})
+      (6, {==})
     case B5{False{}, False{}, True{}, True{}, False{}}:
-      (P2{((at + 1 : U32) + 1 : U32), at}, {==})
+      (2, {==})
     case B5{False{}, False{}, True{}, True{}, True{}}:
-      (P2{((((((at + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32), at}, {==})
+      (6, {==})
     case B5{False{}, True{}, False{}, False{}, False{}}:
-      (P2{((((((at + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32), at}, {==})
+      (6, {==})
     case B5{False{}, True{}, False{}, False{}, True{}}:
-      (P2{((((((at + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32), at}, {==})
+      (6, {==})
     case B5{False{}, True{}, False{}, True{}, False{}}:
-      (P2{((at + 1 : U32) + 1 : U32), at}, {==})
+      (2, {==})
     case B5{False{}, True{}, False{}, True{}, True{}}:
-      (P2{((((((at + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32), at}, {==})
+      (6, {==})
     case B5{False{}, True{}, True{}, False{}, False{}}:
-      (P2{((((((at + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32), at}, {==})
+      (6, {==})
     case B5{False{}, True{}, True{}, False{}, True{}}:
-      (P2{((((((at + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32), at}, {==})
+      (6, {==})
     case B5{False{}, True{}, True{}, True{}, False{}}:
-      (P2{((((((at + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32), at}, {==})
+      (6, {==})
     case B5{False{}, True{}, True{}, True{}, True{}}:
-      (P2{((((((at + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32), at}, {==})
+      (6, {==})
     case B5{True{}, False{}, False{}, False{}, False{}}:
-      (P2{((((((at + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32), at}, {==})
+      (6, {==})
     case B5{True{}, False{}, False{}, False{}, True{}}:
-      (P2{((((((at + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32), at}, {==})
+      (6, {==})
     case B5{True{}, False{}, False{}, True{}, False{}}:
-      (P2{((at + 1 : U32) + 1 : U32), at}, {==})
+      (2, {==})
     case B5{True{}, False{}, False{}, True{}, True{}}:
-      (P2{((((((at + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32), at}, {==})
+      (6, {==})
     case B5{True{}, False{}, True{}, False{}, False{}}:
-      (P2{((((((at + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32), at}, {==})
+      (6, {==})
     case B5{True{}, False{}, True{}, False{}, True{}}:
-      (P2{((((((at + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32), at}, {==})
+      (6, {==})
     case B5{True{}, False{}, True{}, True{}, False{}}:
-      (P2{((at + 1 : U32) + 1 : U32), at}, {==})
+      (2, {==})
     case B5{True{}, False{}, True{}, True{}, True{}}:
-      (P2{((((((at + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32), at}, {==})
+      (6, {==})
     case B5{True{}, True{}, False{}, False{}, False{}}:
-      (P2{((((((at + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32), at}, {==})
+      (6, {==})
     case B5{True{}, True{}, False{}, False{}, True{}}:
-      (P2{((((((at + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32), at}, {==})
+      (6, {==})
     case B5{True{}, True{}, False{}, True{}, False{}}:
-      (P2{((((((at + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32), at}, {==})
+      (6, {==})
     case B5{True{}, True{}, False{}, True{}, True{}}:
-      (P2{((((((at + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32), at}, {==})
+      (6, {==})
     case B5{True{}, True{}, True{}, False{}, False{}}:
-      (P2{((((((at + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32), at}, {==})
+      (6, {==})
     case B5{True{}, True{}, True{}, False{}, True{}}:
-      (P2{((((((at + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32), at}, {==})
+      (6, {==})
     case B5{True{}, True{}, True{}, True{}, False{}}:
-      (P2{((((((at + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32), at}, {==})
+      (6, {==})
     case B5{True{}, True{}, True{}, True{}, True{}}:
-      (P2{((((((at + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32), at}, {==})
+      (6, {==})
 
 law cs.ctrl.shape:
   for +c: Char
@@ -182,14 +167,13 @@ law cs.ctrl.shape:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  CS(J.KCtrl{}, c, x, stk, out, key, at, ea)
+  for +bk: U32
+  CS(J.KCtrl{}, c, x, stk, out, key, bk)
 
-def cs.ctrl.shape(c, sh, x, stk, out, key, at, ea):
+def cs.ctrl.shape(c, sh, x, stk, out, key, bk):
   (+b, eq) = sh
-  %Equal.sym(Char, c, ofb(b), eq) : CS(J.KCtrl{}, _, x, stk, out, key, at, ea)
-  cs.ctrl(b, x, stk, out, key, at, ea)
+  %Equal.sym(Char, c, ofb(b), eq) : CS(J.KCtrl{}, _, x, stk, out, key, bk)
+  cs.ctrl(b, x, stk, out, key, bk)
 
 law cs.plain:
   for +c: Char
@@ -198,12 +182,11 @@ law cs.plain:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  {F.gc(SCon{c, x}, F.SStr{}, SCon{c, x}, stk, out, 0, 0, key, at, ea) == F.gc(x, F.SStr{}, x, stk, SCon{c, out}, 0, 0, key, (at + 1 : U32), ea) : F.Out}
+  for +bk: U32
+  {F.gc(SCon{c, x}, F.SStr{}, SCon{c, x}, stk, out, 0, 0, key, bk) == F.gc(x, F.SStr{}, x, stk, SCon{c, out}, 0, 0, key, 0) : F.Out}
 
-def cs.plain(c, e, x, stk, out, key, at, ea):
-  %e : {F.gc(x, F.str_mode(_, key), x, stk, F.str_out(_, c, out), 0, 0, key, (at + 1 : U32), F.str_ea(_, at, ea)) == F.gc(x, F.SStr{}, x, stk, SCon{c, out}, 0, 0, key, (at + 1 : U32), ea) : F.Out}
+def cs.plain(c, e, x, stk, out, key, bk):
+  %e : {F.gc(x, F.str_mode(_, key), x, stk, F.str_out(_, c, out), 0, 0, key, F.str_bk(_)) == F.gc(x, F.SStr{}, x, stk, SCon{c, out}, 0, 0, key, 0) : F.Out}
   {==}
 
 # a quote or backslash: printed after a backslash, read back after it
@@ -216,12 +199,11 @@ law cs.esc:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  {F.gc(SCon{c, x}, F.SEsc{}, SCon{c, x}, stk, out, 0, 0, key, (at + 1 : U32), at) == F.gc(x, F.SStr{}, x, stk, F.esc_out(k, c, out), 0, 0, key, ((at + 1 : U32) + 1 : U32), at) : F.Out}
+  {F.gc(SCon{c, x}, F.SEsc{}, SCon{c, x}, stk, out, 0, 0, key, 1) == F.gc(x, F.SStr{}, x, stk, F.esc_out(k, c, out), 0, 0, key, 2) : F.Out}
 
-def cs.esc(c, k, e, ok, x, stk, out, key, at):
-  %e : {F.gc(x, F.esc_mode(_, c), x, stk, F.esc_out(_, c, out), 0, 0, key, ((at + 1 : U32) + 1 : U32), at) == F.gc(x, F.SStr{}, x, stk, F.esc_out(k, c, out), 0, 0, key, ((at + 1 : U32) + 1 : U32), at) : F.Out}
-  %Equal.sym(F.Mode, F.esc_mode(k, c), F.SStr{}, ok) : {F.gc(x, _, x, stk, F.esc_out(k, c, out), 0, 0, key, ((at + 1 : U32) + 1 : U32), at) == F.gc(x, F.SStr{}, x, stk, F.esc_out(k, c, out), 0, 0, key, ((at + 1 : U32) + 1 : U32), at) : F.Out}
+def cs.esc(c, k, e, ok, x, stk, out, key):
+  %e : {F.gc(x, F.esc_mode(_, c), x, stk, F.esc_out(_, c, out), 0, 0, key, 2) == F.gc(x, F.SStr{}, x, stk, F.esc_out(k, c, out), 0, 0, key, 2) : F.Out}
+  %Equal.sym(F.Mode, F.esc_mode(k, c), F.SStr{}, ok) : {F.gc(x, _, x, stk, F.esc_out(k, c, out), 0, 0, key, 2) == F.gc(x, F.SStr{}, x, stk, F.esc_out(k, c, out), 0, 0, key, 2) : F.Out}
   {==}
 
 law cs.go:
@@ -232,20 +214,19 @@ law cs.go:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  CS(k, c, x, stk, out, key, at, ea)
+  for +bk: U32
+  CS(k, c, x, stk, out, key, bk)
 
-def cs.go(c, k, e, x, stk, out, key, at, ea):
+def cs.go(c, k, e, x, stk, out, key, bk):
   match k:
     case J.KPlain{}:
-      (P2{(at + 1 : U32), ea}, cs.plain(c, e, x, stk, out, key, at, ea))
+      (0, cs.plain(c, e, x, stk, out, key, bk))
     case J.KQuote{}:
-      (P2{((at + 1 : U32) + 1 : U32), at}, cs.esc(c, J.KQuote{}, e, {==}, x, stk, out, key, at))
+      (2, cs.esc(c, J.KQuote{}, e, {==}, x, stk, out, key))
     case J.KBack{}:
-      (P2{((at + 1 : U32) + 1 : U32), at}, cs.esc(c, J.KBack{}, e, {==}, x, stk, out, key, at))
+      (2, cs.esc(c, J.KBack{}, e, {==}, x, stk, out, key))
     case J.KCtrl{}:
-      cs.ctrl.shape(c, shape(c, e), x, stk, out, key, at, ea)
+      cs.ctrl.shape(c, shape(c, e), x, stk, out, key, bk)
 
 law cs:
   for +c: Char
@@ -253,16 +234,15 @@ law cs:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  CS(J.class(c), c, x, stk, out, key, at, ea)
+  for +bk: U32
+  CS(J.class(c), c, x, stk, out, key, bk)
 
-def cs(c, x, stk, out, key, at, ea):
-  cs.go(c, J.class(c), {==}, x, stk, out, key, at, ea)
+def cs(c, x, stk, out, key, bk):
+  cs.go(c, J.class(c), {==}, x, stk, out, key, bk)
 
 # a whole string body and its closing quote
-def SB(s: String, r: String, stk: List<&2, F.Box>, out: String, key: Bool, at: U32, ea: U32) -> Type:
-  &p: P2 -> {F.gc(S.esc(s, SCon{'"', r}), F.SStr{}, S.esc(s, SCon{'"', r}), stk, out, 0, 0, key, at, ea) == F.gc(r, F.close_mode(key), r, stk, push(S.esc(s, "\""), out), 0, 0, key, p_at(p), p_ea(p)) : F.Out}
+def SB(s: String, r: String, stk: List<&2, F.Box>, out: String, key: Bool, bk: U32) -> Type:
+  &p: U32 -> {F.gc(S.esc(s, SCon{'"', r}), F.SStr{}, S.esc(s, SCon{'"', r}), stk, out, 0, 0, key, bk) == F.gc(r, F.close_mode(key), r, stk, push(S.esc(s, "\""), out), 0, 0, key, p) : F.Out}
 
 # pushing a char's escape, then the rest, is pushing the whole
 law sb.out:
@@ -286,27 +266,26 @@ law sb.k2:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  for +p1: P2
-  for e1: {F.gc(S.esc_char(J.class(c), c, S.esc(t, SCon{'"', r})), F.SStr{}, S.esc_char(J.class(c), c, S.esc(t, SCon{'"', r})), stk, out, 0, 0, key, at, ea) == F.gc(S.esc(t, SCon{'"', r}), F.SStr{}, S.esc(t, SCon{'"', r}), stk, push(S.esc_char(J.class(c), c, ""), out), 0, 0, key, p_at(p1), p_ea(p1)) : F.Out}
-  for g2: SB(t, r, stk, push(S.esc_char(J.class(c), c, ""), out), key, p_at(p1), p_ea(p1))
-  SB(SCon{c, t}, r, stk, out, key, at, ea)
+  for +bk: U32
+  for +p1: U32
+  for e1: {F.gc(S.esc_char(J.class(c), c, S.esc(t, SCon{'"', r})), F.SStr{}, S.esc_char(J.class(c), c, S.esc(t, SCon{'"', r})), stk, out, 0, 0, key, bk) == F.gc(S.esc(t, SCon{'"', r}), F.SStr{}, S.esc(t, SCon{'"', r}), stk, push(S.esc_char(J.class(c), c, ""), out), 0, 0, key, p1) : F.Out}
+  for g2: SB(t, r, stk, push(S.esc_char(J.class(c), c, ""), out), key, p1)
+  SB(SCon{c, t}, r, stk, out, key, bk)
 
-def sb.k2(c, t, r, stk, out, key, at, ea, p1, e1, g2):
+def sb.k2(c, t, r, stk, out, key, bk, p1, e1, g2):
   (+p2, e2) = g2
   +o1 : String = push(S.esc_char(J.class(c), c, ""), out)
   (p2, Equal.trans(F.Out,
-    F.gc(S.esc(SCon{c, t}, SCon{'"', r}), F.SStr{}, S.esc(SCon{c, t}, SCon{'"', r}), stk, out, 0, 0, key, at, ea),
-    F.gc(S.esc(t, SCon{'"', r}), F.SStr{}, S.esc(t, SCon{'"', r}), stk, o1, 0, 0, key, p_at(p1), p_ea(p1)),
-    F.gc(r, F.close_mode(key), r, stk, push(S.esc(SCon{c, t}, "\""), out), 0, 0, key, p_at(p2), p_ea(p2)),
+    F.gc(S.esc(SCon{c, t}, SCon{'"', r}), F.SStr{}, S.esc(SCon{c, t}, SCon{'"', r}), stk, out, 0, 0, key, bk),
+    F.gc(S.esc(t, SCon{'"', r}), F.SStr{}, S.esc(t, SCon{'"', r}), stk, o1, 0, 0, key, p1),
+    F.gc(r, F.close_mode(key), r, stk, push(S.esc(SCon{c, t}, "\""), out), 0, 0, key, p2),
     e1,
     Equal.trans(F.Out,
-      F.gc(S.esc(t, SCon{'"', r}), F.SStr{}, S.esc(t, SCon{'"', r}), stk, o1, 0, 0, key, p_at(p1), p_ea(p1)),
-      F.gc(r, F.close_mode(key), r, stk, push(S.esc(t, "\""), o1), 0, 0, key, p_at(p2), p_ea(p2)),
-      F.gc(r, F.close_mode(key), r, stk, push(S.esc(SCon{c, t}, "\""), out), 0, 0, key, p_at(p2), p_ea(p2)),
+      F.gc(S.esc(t, SCon{'"', r}), F.SStr{}, S.esc(t, SCon{'"', r}), stk, o1, 0, 0, key, p1),
+      F.gc(r, F.close_mode(key), r, stk, push(S.esc(t, "\""), o1), 0, 0, key, p2),
+      F.gc(r, F.close_mode(key), r, stk, push(S.esc(SCon{c, t}, "\""), out), 0, 0, key, p2),
       e2,
-      Equal.cong(String, F.Out, z => F.gc(r, F.close_mode(key), r, stk, z, 0, 0, key, p_at(p2), p_ea(p2)),
+      Equal.cong(String, F.Out, z => F.gc(r, F.close_mode(key), r, stk, z, 0, 0, key, p2),
         push(S.esc(t, "\""), o1), push(S.esc(SCon{c, t}, "\""), out), sb.out(c, t, out)))))
 
 law sb.k1:
@@ -316,15 +295,14 @@ law sb.k1:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  for g1: CS(J.class(c), c, S.esc(t, SCon{'"', r}), stk, out, key, at, ea)
-  for ih: @p: P2 -> SB(t, r, stk, push(S.esc_char(J.class(c), c, ""), out), key, p_at(p), p_ea(p))
-  SB(SCon{c, t}, r, stk, out, key, at, ea)
+  for +bk: U32
+  for g1: CS(J.class(c), c, S.esc(t, SCon{'"', r}), stk, out, key, bk)
+  for ih: @p: U32 -> SB(t, r, stk, push(S.esc_char(J.class(c), c, ""), out), key, p)
+  SB(SCon{c, t}, r, stk, out, key, bk)
 
-def sb.k1(c, t, r, stk, out, key, at, ea, g1, ih):
+def sb.k1(c, t, r, stk, out, key, bk, g1, ih):
   (+p1, e1) = g1
-  sb.k2(c, t, r, stk, out, key, at, ea, p1, e1, ih(p1))
+  sb.k2(c, t, r, stk, out, key, bk, p1, e1, ih(p1))
 
 law sb:
   for +s: String
@@ -332,14 +310,12 @@ law sb:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  SB(s, r, stk, out, key, at, ea)
+  for +bk: U32
+  SB(s, r, stk, out, key, bk)
 
-def sb(s, r, stk, out, key, at, ea):
+def sb(s, r, stk, out, key, bk):
   match s:
     case SNil{}:
-      (P2{(at + 1 : U32), ea}, {==})
+      (0, {==})
     case SCon{c, t}:
-      sb.k1(c, t, r, stk, out, key, at, ea, cs(c, S.esc(t, SCon{'"', r}), stk, out, key, at, ea),
-        +p => sb(t, r, stk, push(S.esc_char(J.class(c), c, ""), out), key, p_at(p), p_ea(p)))
+      sb.k1(c, t, r, stk, out, key, bk, cs(c, S.esc(t, SCon{'"', r}), stk, out, key, bk), +p => sb(t, r, stk, push(S.esc_char(J.class(c), c, ""), out), key, p))

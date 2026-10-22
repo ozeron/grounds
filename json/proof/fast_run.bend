@@ -15,12 +15,12 @@ def push(a: String, out: String) -> String:
 
 # where the loop is after a value: any mode that may take what follows
 type Q is Data:
-  Q{mode: F.Mode, key: Bool, at: U32, ea: U32}
+  Q{mode: F.Mode, key: Bool, bk: U32}
 
 def after(+r: String, stk: List<&2, F.Box>, out: String, q: Q) -> F.Out:
   match q:
-    case Q{m, k, a, e}:
-      F.gc(r, m, r, stk, out, 0, 0, k, a, e)
+    case Q{m, k, a}:
+      F.gc(r, m, r, stk, out, 0, 0, k, a)
 
 def Aft(m: F.Mode) -> Type:
   match m:
@@ -39,12 +39,12 @@ def Aft(m: F.Mode) -> Type:
 
 def AftQ(q: Q) -> Type:
   match q:
-    case Q{m, _, _, _}:
+    case Q{m, _, _}:
       Aft(m)
 
 # reading t from mode m reaches r in some Aft mode, having pushed o2
-def V(t: String, m: F.Mode, stk: List<&2, F.Box>, out: String, key: Bool, at: U32, ea: U32, r: String, stk2: List<&2, F.Box>, o2: String) -> Type:
-  &q: Q -> (AftQ(q) & {F.gc(t, m, t, stk, out, 0, 0, key, at, ea) == after(r, stk2, o2, q) : F.Out})
+def V(t: String, m: F.Mode, stk: List<&2, F.Box>, out: String, key: Bool, bk: U32, r: String, stk2: List<&2, F.Box>, o2: String) -> Type:
+  &q: Q -> (AftQ(q) & {F.gc(t, m, t, stk, out, 0, 0, key, bk) == after(r, stk2, o2, q) : F.Out})
 
 def ValM(m: F.Mode) -> Type:
   match m:
@@ -70,11 +70,10 @@ law dstep_int:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  {F.gc(SCon{J.digit_char(d), x}, F.NInt{}, SCon{J.digit_char(d), x}, stk, out, 0, 0, key, at, ea) == F.gc(x, F.NInt{}, x, stk, SCon{J.digit_char(d), out}, 0, 0, key, (at + 1 : U32), ea) : F.Out}
+  for +bk: U32
+  {F.gc(SCon{J.digit_char(d), x}, F.NInt{}, SCon{J.digit_char(d), x}, stk, out, 0, 0, key, bk) == F.gc(x, F.NInt{}, x, stk, SCon{J.digit_char(d), out}, 0, 0, key, 0) : F.Out}
 
-def dstep_int(d, x, stk, out, key, at, ea):
+def dstep_int(d, x, stk, out, key, bk):
   match d stk:
     case J.D0{} Nil{}:
       {==}
@@ -143,11 +142,10 @@ law dstep_frac:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  {F.gc(SCon{J.digit_char(d), x}, F.NFrac{}, SCon{J.digit_char(d), x}, stk, out, 0, 0, key, at, ea) == F.gc(x, F.NFrac{}, x, stk, SCon{J.digit_char(d), out}, 0, 0, key, (at + 1 : U32), ea) : F.Out}
+  for +bk: U32
+  {F.gc(SCon{J.digit_char(d), x}, F.NFrac{}, SCon{J.digit_char(d), x}, stk, out, 0, 0, key, bk) == F.gc(x, F.NFrac{}, x, stk, SCon{J.digit_char(d), out}, 0, 0, key, 0) : F.Out}
 
-def dstep_frac(d, x, stk, out, key, at, ea):
+def dstep_frac(d, x, stk, out, key, bk):
   match d stk:
     case J.D0{} Nil{}:
       {==}
@@ -216,11 +214,10 @@ law dstep_exp:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  {F.gc(SCon{J.digit_char(d), x}, F.NExp{}, SCon{J.digit_char(d), x}, stk, out, 0, 0, key, at, ea) == F.gc(x, F.NExp{}, x, stk, SCon{J.digit_char(d), out}, 0, 0, key, (at + 1 : U32), ea) : F.Out}
+  for +bk: U32
+  {F.gc(SCon{J.digit_char(d), x}, F.NExp{}, SCon{J.digit_char(d), x}, stk, out, 0, 0, key, bk) == F.gc(x, F.NExp{}, x, stk, SCon{J.digit_char(d), out}, 0, 0, key, 0) : F.Out}
 
-def dstep_exp(d, x, stk, out, key, at, ea):
+def dstep_exp(d, x, stk, out, key, bk):
   match d stk:
     case J.D0{} Nil{}:
       {==}
@@ -289,11 +286,10 @@ law dstep_dot:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  {F.gc(SCon{J.digit_char(d), x}, F.NDot{}, SCon{J.digit_char(d), x}, stk, out, 0, 0, key, at, ea) == F.gc(x, F.NFrac{}, x, stk, SCon{J.digit_char(d), out}, 0, 0, key, (at + 1 : U32), ea) : F.Out}
+  for +bk: U32
+  {F.gc(SCon{J.digit_char(d), x}, F.NDot{}, SCon{J.digit_char(d), x}, stk, out, 0, 0, key, bk) == F.gc(x, F.NFrac{}, x, stk, SCon{J.digit_char(d), out}, 0, 0, key, 0) : F.Out}
 
-def dstep_dot(d, x, stk, out, key, at, ea):
+def dstep_dot(d, x, stk, out, key, bk):
   match d stk:
     case J.D0{} Nil{}:
       {==}
@@ -362,11 +358,10 @@ law dstep_e:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  {F.gc(SCon{J.digit_char(d), x}, F.NE{}, SCon{J.digit_char(d), x}, stk, out, 0, 0, key, at, ea) == F.gc(x, F.NExp{}, x, stk, SCon{J.digit_char(d), out}, 0, 0, key, (at + 1 : U32), ea) : F.Out}
+  for +bk: U32
+  {F.gc(SCon{J.digit_char(d), x}, F.NE{}, SCon{J.digit_char(d), x}, stk, out, 0, 0, key, bk) == F.gc(x, F.NExp{}, x, stk, SCon{J.digit_char(d), out}, 0, 0, key, 0) : F.Out}
 
-def dstep_e(d, x, stk, out, key, at, ea):
+def dstep_e(d, x, stk, out, key, bk):
   match d stk:
     case J.D0{} Nil{}:
       {==}
@@ -435,11 +430,10 @@ law dstep_esign:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  {F.gc(SCon{J.digit_char(d), x}, F.NESign{}, SCon{J.digit_char(d), x}, stk, out, 0, 0, key, at, ea) == F.gc(x, F.NExp{}, x, stk, SCon{J.digit_char(d), out}, 0, 0, key, (at + 1 : U32), ea) : F.Out}
+  for +bk: U32
+  {F.gc(SCon{J.digit_char(d), x}, F.NESign{}, SCon{J.digit_char(d), x}, stk, out, 0, 0, key, bk) == F.gc(x, F.NExp{}, x, stk, SCon{J.digit_char(d), out}, 0, 0, key, 0) : F.Out}
 
-def dstep_esign(d, x, stk, out, key, at, ea):
+def dstep_esign(d, x, stk, out, key, bk):
   match d stk:
     case J.D0{} Nil{}:
       {==}
@@ -502,8 +496,8 @@ def dstep_esign(d, x, stk, out, key, at, ea):
     case J.D9{} Con{F.BObj{}, up}:
       {==}
 
-def Run_int(ds: List<&2, J.Digit>, x: String, stk: List<&2, F.Box>, out: String, key: Bool, at: U32, ea: U32) -> Type:
-  &a: U32 -> {F.gc(J.digits_k(ds, x), F.NInt{}, J.digits_k(ds, x), stk, out, 0, 0, key, at, ea) == F.gc(x, F.NInt{}, x, stk, push(J.digits_k(ds, ""), out), 0, 0, key, a, ea) : F.Out}
+def Run_int(ds: List<&2, J.Digit>, x: String, stk: List<&2, F.Box>, out: String, key: Bool, bk: U32) -> Type:
+  &a: U32 -> {F.gc(J.digits_k(ds, x), F.NInt{}, J.digits_k(ds, x), stk, out, 0, 0, key, bk) == F.gc(x, F.NInt{}, x, stk, push(J.digits_k(ds, ""), out), 0, 0, key, a) : F.Out}
 
 law run_int.k1:
   for +d: J.Digit
@@ -512,18 +506,17 @@ law run_int.k1:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  for g: Run_int(t, x, stk, SCon{J.digit_char(d), out}, key, (at + 1 : U32), ea)
-  Run_int(Con{d, t}, x, stk, out, key, at, ea)
+  for +bk: U32
+  for g: Run_int(t, x, stk, SCon{J.digit_char(d), out}, key, 0)
+  Run_int(Con{d, t}, x, stk, out, key, bk)
 
-def run_int.k1(d, t, x, stk, out, key, at, ea, g):
+def run_int.k1(d, t, x, stk, out, key, bk, g):
   (+a, e) = g
   (a, Equal.trans(F.Out,
-    F.gc(SCon{J.digit_char(d), J.digits_k(t, x)}, F.NInt{}, SCon{J.digit_char(d), J.digits_k(t, x)}, stk, out, 0, 0, key, at, ea),
-    F.gc(J.digits_k(t, x), F.NInt{}, J.digits_k(t, x), stk, SCon{J.digit_char(d), out}, 0, 0, key, (at + 1 : U32), ea),
-    F.gc(x, F.NInt{}, x, stk, push(J.digits_k(Con{d, t}, ""), out), 0, 0, key, a, ea),
-    dstep_int(d, J.digits_k(t, x), stk, out, key, at, ea),
+    F.gc(SCon{J.digit_char(d), J.digits_k(t, x)}, F.NInt{}, SCon{J.digit_char(d), J.digits_k(t, x)}, stk, out, 0, 0, key, bk),
+    F.gc(J.digits_k(t, x), F.NInt{}, J.digits_k(t, x), stk, SCon{J.digit_char(d), out}, 0, 0, key, 0),
+    F.gc(x, F.NInt{}, x, stk, push(J.digits_k(Con{d, t}, ""), out), 0, 0, key, a),
+    dstep_int(d, J.digits_k(t, x), stk, out, key, bk),
     e))
 
 law run_int:
@@ -532,19 +525,18 @@ law run_int:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  Run_int(ds, x, stk, out, key, at, ea)
+  for +bk: U32
+  Run_int(ds, x, stk, out, key, bk)
 
-def run_int(ds, x, stk, out, key, at, ea):
+def run_int(ds, x, stk, out, key, bk):
   match ds:
     case Nil{}:
-      (at, {==})
+      (bk, {==})
     case Con{d, t}:
-      run_int.k1(d, t, x, stk, out, key, at, ea, run_int(t, x, stk, SCon{J.digit_char(d), out}, key, (at + 1 : U32), ea))
+      run_int.k1(d, t, x, stk, out, key, bk, run_int(t, x, stk, SCon{J.digit_char(d), out}, key, 0))
 
-def Run_frac(ds: List<&2, J.Digit>, x: String, stk: List<&2, F.Box>, out: String, key: Bool, at: U32, ea: U32) -> Type:
-  &a: U32 -> {F.gc(J.digits_k(ds, x), F.NFrac{}, J.digits_k(ds, x), stk, out, 0, 0, key, at, ea) == F.gc(x, F.NFrac{}, x, stk, push(J.digits_k(ds, ""), out), 0, 0, key, a, ea) : F.Out}
+def Run_frac(ds: List<&2, J.Digit>, x: String, stk: List<&2, F.Box>, out: String, key: Bool, bk: U32) -> Type:
+  &a: U32 -> {F.gc(J.digits_k(ds, x), F.NFrac{}, J.digits_k(ds, x), stk, out, 0, 0, key, bk) == F.gc(x, F.NFrac{}, x, stk, push(J.digits_k(ds, ""), out), 0, 0, key, a) : F.Out}
 
 law run_frac.k1:
   for +d: J.Digit
@@ -553,18 +545,17 @@ law run_frac.k1:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  for g: Run_frac(t, x, stk, SCon{J.digit_char(d), out}, key, (at + 1 : U32), ea)
-  Run_frac(Con{d, t}, x, stk, out, key, at, ea)
+  for +bk: U32
+  for g: Run_frac(t, x, stk, SCon{J.digit_char(d), out}, key, 0)
+  Run_frac(Con{d, t}, x, stk, out, key, bk)
 
-def run_frac.k1(d, t, x, stk, out, key, at, ea, g):
+def run_frac.k1(d, t, x, stk, out, key, bk, g):
   (+a, e) = g
   (a, Equal.trans(F.Out,
-    F.gc(SCon{J.digit_char(d), J.digits_k(t, x)}, F.NFrac{}, SCon{J.digit_char(d), J.digits_k(t, x)}, stk, out, 0, 0, key, at, ea),
-    F.gc(J.digits_k(t, x), F.NFrac{}, J.digits_k(t, x), stk, SCon{J.digit_char(d), out}, 0, 0, key, (at + 1 : U32), ea),
-    F.gc(x, F.NFrac{}, x, stk, push(J.digits_k(Con{d, t}, ""), out), 0, 0, key, a, ea),
-    dstep_frac(d, J.digits_k(t, x), stk, out, key, at, ea),
+    F.gc(SCon{J.digit_char(d), J.digits_k(t, x)}, F.NFrac{}, SCon{J.digit_char(d), J.digits_k(t, x)}, stk, out, 0, 0, key, bk),
+    F.gc(J.digits_k(t, x), F.NFrac{}, J.digits_k(t, x), stk, SCon{J.digit_char(d), out}, 0, 0, key, 0),
+    F.gc(x, F.NFrac{}, x, stk, push(J.digits_k(Con{d, t}, ""), out), 0, 0, key, a),
+    dstep_frac(d, J.digits_k(t, x), stk, out, key, bk),
     e))
 
 law run_frac:
@@ -573,19 +564,18 @@ law run_frac:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  Run_frac(ds, x, stk, out, key, at, ea)
+  for +bk: U32
+  Run_frac(ds, x, stk, out, key, bk)
 
-def run_frac(ds, x, stk, out, key, at, ea):
+def run_frac(ds, x, stk, out, key, bk):
   match ds:
     case Nil{}:
-      (at, {==})
+      (bk, {==})
     case Con{d, t}:
-      run_frac.k1(d, t, x, stk, out, key, at, ea, run_frac(t, x, stk, SCon{J.digit_char(d), out}, key, (at + 1 : U32), ea))
+      run_frac.k1(d, t, x, stk, out, key, bk, run_frac(t, x, stk, SCon{J.digit_char(d), out}, key, 0))
 
-def Run_exp(ds: List<&2, J.Digit>, x: String, stk: List<&2, F.Box>, out: String, key: Bool, at: U32, ea: U32) -> Type:
-  &a: U32 -> {F.gc(J.digits_k(ds, x), F.NExp{}, J.digits_k(ds, x), stk, out, 0, 0, key, at, ea) == F.gc(x, F.NExp{}, x, stk, push(J.digits_k(ds, ""), out), 0, 0, key, a, ea) : F.Out}
+def Run_exp(ds: List<&2, J.Digit>, x: String, stk: List<&2, F.Box>, out: String, key: Bool, bk: U32) -> Type:
+  &a: U32 -> {F.gc(J.digits_k(ds, x), F.NExp{}, J.digits_k(ds, x), stk, out, 0, 0, key, bk) == F.gc(x, F.NExp{}, x, stk, push(J.digits_k(ds, ""), out), 0, 0, key, a) : F.Out}
 
 law run_exp.k1:
   for +d: J.Digit
@@ -594,18 +584,17 @@ law run_exp.k1:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  for g: Run_exp(t, x, stk, SCon{J.digit_char(d), out}, key, (at + 1 : U32), ea)
-  Run_exp(Con{d, t}, x, stk, out, key, at, ea)
+  for +bk: U32
+  for g: Run_exp(t, x, stk, SCon{J.digit_char(d), out}, key, 0)
+  Run_exp(Con{d, t}, x, stk, out, key, bk)
 
-def run_exp.k1(d, t, x, stk, out, key, at, ea, g):
+def run_exp.k1(d, t, x, stk, out, key, bk, g):
   (+a, e) = g
   (a, Equal.trans(F.Out,
-    F.gc(SCon{J.digit_char(d), J.digits_k(t, x)}, F.NExp{}, SCon{J.digit_char(d), J.digits_k(t, x)}, stk, out, 0, 0, key, at, ea),
-    F.gc(J.digits_k(t, x), F.NExp{}, J.digits_k(t, x), stk, SCon{J.digit_char(d), out}, 0, 0, key, (at + 1 : U32), ea),
-    F.gc(x, F.NExp{}, x, stk, push(J.digits_k(Con{d, t}, ""), out), 0, 0, key, a, ea),
-    dstep_exp(d, J.digits_k(t, x), stk, out, key, at, ea),
+    F.gc(SCon{J.digit_char(d), J.digits_k(t, x)}, F.NExp{}, SCon{J.digit_char(d), J.digits_k(t, x)}, stk, out, 0, 0, key, bk),
+    F.gc(J.digits_k(t, x), F.NExp{}, J.digits_k(t, x), stk, SCon{J.digit_char(d), out}, 0, 0, key, 0),
+    F.gc(x, F.NExp{}, x, stk, push(J.digits_k(Con{d, t}, ""), out), 0, 0, key, a),
+    dstep_exp(d, J.digits_k(t, x), stk, out, key, bk),
     e))
 
 law run_exp:
@@ -614,27 +603,25 @@ law run_exp:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  Run_exp(ds, x, stk, out, key, at, ea)
+  for +bk: U32
+  Run_exp(ds, x, stk, out, key, bk)
 
-def run_exp(ds, x, stk, out, key, at, ea):
+def run_exp(ds, x, stk, out, key, bk):
   match ds:
     case Nil{}:
-      (at, {==})
+      (bk, {==})
     case Con{d, t}:
-      run_exp.k1(d, t, x, stk, out, key, at, ea, run_exp(t, x, stk, SCon{J.digit_char(d), out}, key, (at + 1 : U32), ea))
+      run_exp.k1(d, t, x, stk, out, key, bk, run_exp(t, x, stk, SCon{J.digit_char(d), out}, key, 0))
 
 law step_dot.NZero:
   for +x: String
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  {F.gc(SCon{'.', x}, F.NZero{}, SCon{'.', x}, stk, out, 0, 0, key, at, ea) == F.gc(x, F.NDot{}, x, stk, SCon{'.', out}, 0, 0, key, (at + 1 : U32), ea) : F.Out}
+  for +bk: U32
+  {F.gc(SCon{'.', x}, F.NZero{}, SCon{'.', x}, stk, out, 0, 0, key, bk) == F.gc(x, F.NDot{}, x, stk, SCon{'.', out}, 0, 0, key, 0) : F.Out}
 
-def step_dot.NZero(x, stk, out, key, at, ea):
+def step_dot.NZero(x, stk, out, key, bk):
   match stk:
     case Nil{}:
       {==}
@@ -648,11 +635,10 @@ law step_dot.NInt:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  {F.gc(SCon{'.', x}, F.NInt{}, SCon{'.', x}, stk, out, 0, 0, key, at, ea) == F.gc(x, F.NDot{}, x, stk, SCon{'.', out}, 0, 0, key, (at + 1 : U32), ea) : F.Out}
+  for +bk: U32
+  {F.gc(SCon{'.', x}, F.NInt{}, SCon{'.', x}, stk, out, 0, 0, key, bk) == F.gc(x, F.NDot{}, x, stk, SCon{'.', out}, 0, 0, key, 0) : F.Out}
 
-def step_dot.NInt(x, stk, out, key, at, ea):
+def step_dot.NInt(x, stk, out, key, bk):
   match stk:
     case Nil{}:
       {==}
@@ -667,11 +653,10 @@ law step_e.NZero:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  {F.gc(SCon{Bool.pick(Char, u, 'E', 'e'), x}, F.NZero{}, SCon{Bool.pick(Char, u, 'E', 'e'), x}, stk, out, 0, 0, key, at, ea) == F.gc(x, F.NE{}, x, stk, SCon{Bool.pick(Char, u, 'E', 'e'), out}, 0, 0, key, (at + 1 : U32), ea) : F.Out}
+  for +bk: U32
+  {F.gc(SCon{Bool.pick(Char, u, 'E', 'e'), x}, F.NZero{}, SCon{Bool.pick(Char, u, 'E', 'e'), x}, stk, out, 0, 0, key, bk) == F.gc(x, F.NE{}, x, stk, SCon{Bool.pick(Char, u, 'E', 'e'), out}, 0, 0, key, 0) : F.Out}
 
-def step_e.NZero(u, x, stk, out, key, at, ea):
+def step_e.NZero(u, x, stk, out, key, bk):
   match u stk:
     case True{} Nil{}:
       {==}
@@ -692,11 +677,10 @@ law step_e.NInt:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  {F.gc(SCon{Bool.pick(Char, u, 'E', 'e'), x}, F.NInt{}, SCon{Bool.pick(Char, u, 'E', 'e'), x}, stk, out, 0, 0, key, at, ea) == F.gc(x, F.NE{}, x, stk, SCon{Bool.pick(Char, u, 'E', 'e'), out}, 0, 0, key, (at + 1 : U32), ea) : F.Out}
+  for +bk: U32
+  {F.gc(SCon{Bool.pick(Char, u, 'E', 'e'), x}, F.NInt{}, SCon{Bool.pick(Char, u, 'E', 'e'), x}, stk, out, 0, 0, key, bk) == F.gc(x, F.NE{}, x, stk, SCon{Bool.pick(Char, u, 'E', 'e'), out}, 0, 0, key, 0) : F.Out}
 
-def step_e.NInt(u, x, stk, out, key, at, ea):
+def step_e.NInt(u, x, stk, out, key, bk):
   match u stk:
     case True{} Nil{}:
       {==}
@@ -717,11 +701,10 @@ law step_e.NFrac:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  {F.gc(SCon{Bool.pick(Char, u, 'E', 'e'), x}, F.NFrac{}, SCon{Bool.pick(Char, u, 'E', 'e'), x}, stk, out, 0, 0, key, at, ea) == F.gc(x, F.NE{}, x, stk, SCon{Bool.pick(Char, u, 'E', 'e'), out}, 0, 0, key, (at + 1 : U32), ea) : F.Out}
+  for +bk: U32
+  {F.gc(SCon{Bool.pick(Char, u, 'E', 'e'), x}, F.NFrac{}, SCon{Bool.pick(Char, u, 'E', 'e'), x}, stk, out, 0, 0, key, bk) == F.gc(x, F.NE{}, x, stk, SCon{Bool.pick(Char, u, 'E', 'e'), out}, 0, 0, key, 0) : F.Out}
 
-def step_e.NFrac(u, x, stk, out, key, at, ea):
+def step_e.NFrac(u, x, stk, out, key, bk):
   match u stk:
     case True{} Nil{}:
       {==}
@@ -743,11 +726,10 @@ law v_minus:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  {F.gc(SCon{'-', x}, m, SCon{'-', x}, stk, out, 0, 0, key, at, ea) == F.gc(x, F.NMin{}, x, stk, SCon{'-', out}, 0, 0, key, (at + 1 : U32), ea) : F.Out}
+  for +bk: U32
+  {F.gc(SCon{'-', x}, m, SCon{'-', x}, stk, out, 0, 0, key, bk) == F.gc(x, F.NMin{}, x, stk, SCon{'-', out}, 0, 0, key, 0) : F.Out}
 
-def v_minus(m, vm, x, stk, out, key, at, ea):
+def v_minus(m, vm, x, stk, out, key, bk):
   match m stk:
     case F.VStart{} Nil{}:
       {==}
@@ -855,11 +837,10 @@ law v_zero:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  {F.gc(SCon{'0', x}, m, SCon{'0', x}, stk, out, 0, 0, key, at, ea) == F.gc(x, F.NZero{}, x, stk, SCon{'0', out}, 0, 0, key, (at + 1 : U32), ea) : F.Out}
+  for +bk: U32
+  {F.gc(SCon{'0', x}, m, SCon{'0', x}, stk, out, 0, 0, key, bk) == F.gc(x, F.NZero{}, x, stk, SCon{'0', out}, 0, 0, key, 0) : F.Out}
 
-def v_zero(m, vm, x, stk, out, key, at, ea):
+def v_zero(m, vm, x, stk, out, key, bk):
   match m stk:
     case F.VStart{} Nil{}:
       {==}
@@ -968,11 +949,10 @@ law v_lead:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  {F.gc(SCon{J.lead_char(l), x}, m, SCon{J.lead_char(l), x}, stk, out, 0, 0, key, at, ea) == F.gc(x, F.NInt{}, x, stk, SCon{J.lead_char(l), out}, 0, 0, key, (at + 1 : U32), ea) : F.Out}
+  for +bk: U32
+  {F.gc(SCon{J.lead_char(l), x}, m, SCon{J.lead_char(l), x}, stk, out, 0, 0, key, bk) == F.gc(x, F.NInt{}, x, stk, SCon{J.lead_char(l), out}, 0, 0, key, 0) : F.Out}
 
-def v_lead(m, vm, l, x, stk, out, key, at, ea):
+def v_lead(m, vm, l, x, stk, out, key, bk):
   match m l stk:
     case F.VStart{} J.L1{} Nil{}:
       {==}
@@ -1318,11 +1298,10 @@ law min_zero:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  {F.gc(SCon{'0', x}, F.NMin{}, SCon{'0', x}, stk, out, 0, 0, key, at, ea) == F.gc(x, F.NZero{}, x, stk, SCon{'0', out}, 0, 0, key, (at + 1 : U32), ea) : F.Out}
+  for +bk: U32
+  {F.gc(SCon{'0', x}, F.NMin{}, SCon{'0', x}, stk, out, 0, 0, key, bk) == F.gc(x, F.NZero{}, x, stk, SCon{'0', out}, 0, 0, key, 0) : F.Out}
 
-def min_zero(x, stk, out, key, at, ea):
+def min_zero(x, stk, out, key, bk):
   {==}
 
 law min_lead:
@@ -1331,11 +1310,10 @@ law min_lead:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  {F.gc(SCon{J.lead_char(l), x}, F.NMin{}, SCon{J.lead_char(l), x}, stk, out, 0, 0, key, at, ea) == F.gc(x, F.NInt{}, x, stk, SCon{J.lead_char(l), out}, 0, 0, key, (at + 1 : U32), ea) : F.Out}
+  for +bk: U32
+  {F.gc(SCon{J.lead_char(l), x}, F.NMin{}, SCon{J.lead_char(l), x}, stk, out, 0, 0, key, bk) == F.gc(x, F.NInt{}, x, stk, SCon{J.lead_char(l), out}, 0, 0, key, 0) : F.Out}
 
-def min_lead(l, x, stk, out, key, at, ea):
+def min_lead(l, x, stk, out, key, bk):
   match l:
     case J.L1{}:
       {==}
@@ -1364,23 +1342,22 @@ law exp.NZero.NoSign.k:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  for g: Run_exp(ds, r, stk, SCon{J.digit_char(d), SCon{Bool.pick(Char, u, 'E', 'e'), out}}, key, ((at + 1 : U32) + 1 : U32), ea)
-  V(J.exp_k(J.ESome{u, J.NoSign{}, d, ds}, r), F.NZero{}, stk, out, key, at, ea, r, stk, push(J.exp_k(J.ESome{u, J.NoSign{}, d, ds}, ""), out))
+  for +bk: U32
+  for g: Run_exp(ds, r, stk, SCon{J.digit_char(d), SCon{Bool.pick(Char, u, 'E', 'e'), out}}, key, 0)
+  V(J.exp_k(J.ESome{u, J.NoSign{}, d, ds}, r), F.NZero{}, stk, out, key, bk, r, stk, push(J.exp_k(J.ESome{u, J.NoSign{}, d, ds}, ""), out))
 
-def exp.NZero.NoSign.k(u, d, ds, r, stk, out, key, at, ea, g):
+def exp.NZero.NoSign.k(u, d, ds, r, stk, out, key, bk, g):
   (+a, e3) = g
-  (Q{F.NExp{}, key, a, ea}, (Unit{}, Equal.trans(F.Out,
-      F.gc(SCon{Bool.pick(Char, u, 'E', 'e'), SCon{J.digit_char(d), J.digits_k(ds, r)}}, F.NZero{}, SCon{Bool.pick(Char, u, 'E', 'e'), SCon{J.digit_char(d), J.digits_k(ds, r)}}, stk, out, 0, 0, key, at, ea),
-      F.gc(SCon{J.digit_char(d), J.digits_k(ds, r)}, F.NE{}, SCon{J.digit_char(d), J.digits_k(ds, r)}, stk, SCon{Bool.pick(Char, u, 'E', 'e'), out}, 0, 0, key, (at + 1 : U32), ea),
-      F.gc(r, F.NExp{}, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{Bool.pick(Char, u, 'E', 'e'), out}}), 0, 0, key, a, ea),
-      step_e.NZero(u, SCon{J.digit_char(d), J.digits_k(ds, r)}, stk, out, key, at, ea),
+  (Q{F.NExp{}, key, a}, (Unit{}, Equal.trans(F.Out,
+      F.gc(SCon{Bool.pick(Char, u, 'E', 'e'), SCon{J.digit_char(d), J.digits_k(ds, r)}}, F.NZero{}, SCon{Bool.pick(Char, u, 'E', 'e'), SCon{J.digit_char(d), J.digits_k(ds, r)}}, stk, out, 0, 0, key, bk),
+      F.gc(SCon{J.digit_char(d), J.digits_k(ds, r)}, F.NE{}, SCon{J.digit_char(d), J.digits_k(ds, r)}, stk, SCon{Bool.pick(Char, u, 'E', 'e'), out}, 0, 0, key, 0),
+      F.gc(r, F.NExp{}, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{Bool.pick(Char, u, 'E', 'e'), out}}), 0, 0, key, a),
+      step_e.NZero(u, SCon{J.digit_char(d), J.digits_k(ds, r)}, stk, out, key, bk),
       Equal.trans(F.Out,
-        F.gc(SCon{J.digit_char(d), J.digits_k(ds, r)}, F.NE{}, SCon{J.digit_char(d), J.digits_k(ds, r)}, stk, SCon{Bool.pick(Char, u, 'E', 'e'), out}, 0, 0, key, (at + 1 : U32), ea),
-        F.gc(J.digits_k(ds, r), F.NExp{}, J.digits_k(ds, r), stk, SCon{J.digit_char(d), SCon{Bool.pick(Char, u, 'E', 'e'), out}}, 0, 0, key, ((at + 1 : U32) + 1 : U32), ea),
-        F.gc(r, F.NExp{}, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{Bool.pick(Char, u, 'E', 'e'), out}}), 0, 0, key, a, ea),
-        dstep_e(d, J.digits_k(ds, r), stk, SCon{Bool.pick(Char, u, 'E', 'e'), out}, key, (at + 1 : U32), ea),
+        F.gc(SCon{J.digit_char(d), J.digits_k(ds, r)}, F.NE{}, SCon{J.digit_char(d), J.digits_k(ds, r)}, stk, SCon{Bool.pick(Char, u, 'E', 'e'), out}, 0, 0, key, 0),
+        F.gc(J.digits_k(ds, r), F.NExp{}, J.digits_k(ds, r), stk, SCon{J.digit_char(d), SCon{Bool.pick(Char, u, 'E', 'e'), out}}, 0, 0, key, 0),
+        F.gc(r, F.NExp{}, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{Bool.pick(Char, u, 'E', 'e'), out}}), 0, 0, key, a),
+        dstep_e(d, J.digits_k(ds, r), stk, SCon{Bool.pick(Char, u, 'E', 'e'), out}, key, 0),
         e3))))
 
 law exp.NZero.Plus.k:
@@ -1391,28 +1368,27 @@ law exp.NZero.Plus.k:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  for g: Run_exp(ds, r, stk, SCon{J.digit_char(d), SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}, key, (((at + 1 : U32) + 1 : U32) + 1 : U32), ea)
-  V(J.exp_k(J.ESome{u, J.Plus{}, d, ds}, r), F.NZero{}, stk, out, key, at, ea, r, stk, push(J.exp_k(J.ESome{u, J.Plus{}, d, ds}, ""), out))
+  for +bk: U32
+  for g: Run_exp(ds, r, stk, SCon{J.digit_char(d), SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}, key, 0)
+  V(J.exp_k(J.ESome{u, J.Plus{}, d, ds}, r), F.NZero{}, stk, out, key, bk, r, stk, push(J.exp_k(J.ESome{u, J.Plus{}, d, ds}, ""), out))
 
-def exp.NZero.Plus.k(u, d, ds, r, stk, out, key, at, ea, g):
+def exp.NZero.Plus.k(u, d, ds, r, stk, out, key, bk, g):
   (+a, e3) = g
-  (Q{F.NExp{}, key, a, ea}, (Unit{}, Equal.trans(F.Out,
-      F.gc(SCon{Bool.pick(Char, u, 'E', 'e'), SCon{'+', SCon{J.digit_char(d), J.digits_k(ds, r)}}}, F.NZero{}, SCon{Bool.pick(Char, u, 'E', 'e'), SCon{'+', SCon{J.digit_char(d), J.digits_k(ds, r)}}}, stk, out, 0, 0, key, at, ea),
-      F.gc(SCon{'+', SCon{J.digit_char(d), J.digits_k(ds, r)}}, F.NE{}, SCon{'+', SCon{J.digit_char(d), J.digits_k(ds, r)}}, stk, SCon{Bool.pick(Char, u, 'E', 'e'), out}, 0, 0, key, (at + 1 : U32), ea),
-      F.gc(r, F.NExp{}, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}), 0, 0, key, a, ea),
-      step_e.NZero(u, SCon{'+', SCon{J.digit_char(d), J.digits_k(ds, r)}}, stk, out, key, at, ea),
+  (Q{F.NExp{}, key, a}, (Unit{}, Equal.trans(F.Out,
+      F.gc(SCon{Bool.pick(Char, u, 'E', 'e'), SCon{'+', SCon{J.digit_char(d), J.digits_k(ds, r)}}}, F.NZero{}, SCon{Bool.pick(Char, u, 'E', 'e'), SCon{'+', SCon{J.digit_char(d), J.digits_k(ds, r)}}}, stk, out, 0, 0, key, bk),
+      F.gc(SCon{'+', SCon{J.digit_char(d), J.digits_k(ds, r)}}, F.NE{}, SCon{'+', SCon{J.digit_char(d), J.digits_k(ds, r)}}, stk, SCon{Bool.pick(Char, u, 'E', 'e'), out}, 0, 0, key, 0),
+      F.gc(r, F.NExp{}, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}), 0, 0, key, a),
+      step_e.NZero(u, SCon{'+', SCon{J.digit_char(d), J.digits_k(ds, r)}}, stk, out, key, bk),
       Equal.trans(F.Out,
-        F.gc(SCon{'+', SCon{J.digit_char(d), J.digits_k(ds, r)}}, F.NE{}, SCon{'+', SCon{J.digit_char(d), J.digits_k(ds, r)}}, stk, SCon{Bool.pick(Char, u, 'E', 'e'), out}, 0, 0, key, (at + 1 : U32), ea),
-        F.gc(SCon{J.digit_char(d), J.digits_k(ds, r)}, F.NESign{}, SCon{J.digit_char(d), J.digits_k(ds, r)}, stk, SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}, 0, 0, key, ((at + 1 : U32) + 1 : U32), ea),
-        F.gc(r, F.NExp{}, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}), 0, 0, key, a, ea),
+        F.gc(SCon{'+', SCon{J.digit_char(d), J.digits_k(ds, r)}}, F.NE{}, SCon{'+', SCon{J.digit_char(d), J.digits_k(ds, r)}}, stk, SCon{Bool.pick(Char, u, 'E', 'e'), out}, 0, 0, key, 0),
+        F.gc(SCon{J.digit_char(d), J.digits_k(ds, r)}, F.NESign{}, SCon{J.digit_char(d), J.digits_k(ds, r)}, stk, SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}, 0, 0, key, 0),
+        F.gc(r, F.NExp{}, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}), 0, 0, key, a),
         {==},
         Equal.trans(F.Out,
-          F.gc(SCon{J.digit_char(d), J.digits_k(ds, r)}, F.NESign{}, SCon{J.digit_char(d), J.digits_k(ds, r)}, stk, SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}, 0, 0, key, ((at + 1 : U32) + 1 : U32), ea),
-          F.gc(J.digits_k(ds, r), F.NExp{}, J.digits_k(ds, r), stk, SCon{J.digit_char(d), SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}, 0, 0, key, (((at + 1 : U32) + 1 : U32) + 1 : U32), ea),
-          F.gc(r, F.NExp{}, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}), 0, 0, key, a, ea),
-          dstep_esign(d, J.digits_k(ds, r), stk, SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}, key, ((at + 1 : U32) + 1 : U32), ea),
+          F.gc(SCon{J.digit_char(d), J.digits_k(ds, r)}, F.NESign{}, SCon{J.digit_char(d), J.digits_k(ds, r)}, stk, SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}, 0, 0, key, 0),
+          F.gc(J.digits_k(ds, r), F.NExp{}, J.digits_k(ds, r), stk, SCon{J.digit_char(d), SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}, 0, 0, key, 0),
+          F.gc(r, F.NExp{}, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}), 0, 0, key, a),
+          dstep_esign(d, J.digits_k(ds, r), stk, SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}, key, 0),
           e3)))))
 
 law exp.NZero.Minus.k:
@@ -1423,28 +1399,27 @@ law exp.NZero.Minus.k:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  for g: Run_exp(ds, r, stk, SCon{J.digit_char(d), SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}, key, (((at + 1 : U32) + 1 : U32) + 1 : U32), ea)
-  V(J.exp_k(J.ESome{u, J.Minus{}, d, ds}, r), F.NZero{}, stk, out, key, at, ea, r, stk, push(J.exp_k(J.ESome{u, J.Minus{}, d, ds}, ""), out))
+  for +bk: U32
+  for g: Run_exp(ds, r, stk, SCon{J.digit_char(d), SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}, key, 0)
+  V(J.exp_k(J.ESome{u, J.Minus{}, d, ds}, r), F.NZero{}, stk, out, key, bk, r, stk, push(J.exp_k(J.ESome{u, J.Minus{}, d, ds}, ""), out))
 
-def exp.NZero.Minus.k(u, d, ds, r, stk, out, key, at, ea, g):
+def exp.NZero.Minus.k(u, d, ds, r, stk, out, key, bk, g):
   (+a, e3) = g
-  (Q{F.NExp{}, key, a, ea}, (Unit{}, Equal.trans(F.Out,
-      F.gc(SCon{Bool.pick(Char, u, 'E', 'e'), SCon{'-', SCon{J.digit_char(d), J.digits_k(ds, r)}}}, F.NZero{}, SCon{Bool.pick(Char, u, 'E', 'e'), SCon{'-', SCon{J.digit_char(d), J.digits_k(ds, r)}}}, stk, out, 0, 0, key, at, ea),
-      F.gc(SCon{'-', SCon{J.digit_char(d), J.digits_k(ds, r)}}, F.NE{}, SCon{'-', SCon{J.digit_char(d), J.digits_k(ds, r)}}, stk, SCon{Bool.pick(Char, u, 'E', 'e'), out}, 0, 0, key, (at + 1 : U32), ea),
-      F.gc(r, F.NExp{}, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}), 0, 0, key, a, ea),
-      step_e.NZero(u, SCon{'-', SCon{J.digit_char(d), J.digits_k(ds, r)}}, stk, out, key, at, ea),
+  (Q{F.NExp{}, key, a}, (Unit{}, Equal.trans(F.Out,
+      F.gc(SCon{Bool.pick(Char, u, 'E', 'e'), SCon{'-', SCon{J.digit_char(d), J.digits_k(ds, r)}}}, F.NZero{}, SCon{Bool.pick(Char, u, 'E', 'e'), SCon{'-', SCon{J.digit_char(d), J.digits_k(ds, r)}}}, stk, out, 0, 0, key, bk),
+      F.gc(SCon{'-', SCon{J.digit_char(d), J.digits_k(ds, r)}}, F.NE{}, SCon{'-', SCon{J.digit_char(d), J.digits_k(ds, r)}}, stk, SCon{Bool.pick(Char, u, 'E', 'e'), out}, 0, 0, key, 0),
+      F.gc(r, F.NExp{}, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}), 0, 0, key, a),
+      step_e.NZero(u, SCon{'-', SCon{J.digit_char(d), J.digits_k(ds, r)}}, stk, out, key, bk),
       Equal.trans(F.Out,
-        F.gc(SCon{'-', SCon{J.digit_char(d), J.digits_k(ds, r)}}, F.NE{}, SCon{'-', SCon{J.digit_char(d), J.digits_k(ds, r)}}, stk, SCon{Bool.pick(Char, u, 'E', 'e'), out}, 0, 0, key, (at + 1 : U32), ea),
-        F.gc(SCon{J.digit_char(d), J.digits_k(ds, r)}, F.NESign{}, SCon{J.digit_char(d), J.digits_k(ds, r)}, stk, SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}, 0, 0, key, ((at + 1 : U32) + 1 : U32), ea),
-        F.gc(r, F.NExp{}, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}), 0, 0, key, a, ea),
+        F.gc(SCon{'-', SCon{J.digit_char(d), J.digits_k(ds, r)}}, F.NE{}, SCon{'-', SCon{J.digit_char(d), J.digits_k(ds, r)}}, stk, SCon{Bool.pick(Char, u, 'E', 'e'), out}, 0, 0, key, 0),
+        F.gc(SCon{J.digit_char(d), J.digits_k(ds, r)}, F.NESign{}, SCon{J.digit_char(d), J.digits_k(ds, r)}, stk, SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}, 0, 0, key, 0),
+        F.gc(r, F.NExp{}, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}), 0, 0, key, a),
         {==},
         Equal.trans(F.Out,
-          F.gc(SCon{J.digit_char(d), J.digits_k(ds, r)}, F.NESign{}, SCon{J.digit_char(d), J.digits_k(ds, r)}, stk, SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}, 0, 0, key, ((at + 1 : U32) + 1 : U32), ea),
-          F.gc(J.digits_k(ds, r), F.NExp{}, J.digits_k(ds, r), stk, SCon{J.digit_char(d), SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}, 0, 0, key, (((at + 1 : U32) + 1 : U32) + 1 : U32), ea),
-          F.gc(r, F.NExp{}, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}), 0, 0, key, a, ea),
-          dstep_esign(d, J.digits_k(ds, r), stk, SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}, key, ((at + 1 : U32) + 1 : U32), ea),
+          F.gc(SCon{J.digit_char(d), J.digits_k(ds, r)}, F.NESign{}, SCon{J.digit_char(d), J.digits_k(ds, r)}, stk, SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}, 0, 0, key, 0),
+          F.gc(J.digits_k(ds, r), F.NExp{}, J.digits_k(ds, r), stk, SCon{J.digit_char(d), SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}, 0, 0, key, 0),
+          F.gc(r, F.NExp{}, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}), 0, 0, key, a),
+          dstep_esign(d, J.digits_k(ds, r), stk, SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}, key, 0),
           e3)))))
 
 law exp.NZero:
@@ -1453,22 +1428,21 @@ law exp.NZero:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  V(J.exp_k(e, r), F.NZero{}, stk, out, key, at, ea, r, stk, push(J.exp_k(e, ""), out))
+  for +bk: U32
+  V(J.exp_k(e, r), F.NZero{}, stk, out, key, bk, r, stk, push(J.exp_k(e, ""), out))
 
-def exp.NZero(e, r, stk, out, key, at, ea):
+def exp.NZero(e, r, stk, out, key, bk):
   match e:
     case J.ENone{}:
-      (Q{F.NZero{}, key, at, ea}, (Unit{}, {==}))
+      (Q{F.NZero{}, key, bk}, (Unit{}, {==}))
     case J.ESome{u, sg, d, ds}:
       match sg:
         case J.NoSign{}:
-          exp.NZero.NoSign.k(u, d, ds, r, stk, out, key, at, ea, run_exp(ds, r, stk, SCon{J.digit_char(d), SCon{Bool.pick(Char, u, 'E', 'e'), out}}, key, ((at + 1 : U32) + 1 : U32), ea))
+          exp.NZero.NoSign.k(u, d, ds, r, stk, out, key, bk, run_exp(ds, r, stk, SCon{J.digit_char(d), SCon{Bool.pick(Char, u, 'E', 'e'), out}}, key, 0))
         case J.Plus{}:
-          exp.NZero.Plus.k(u, d, ds, r, stk, out, key, at, ea, run_exp(ds, r, stk, SCon{J.digit_char(d), SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}, key, (((at + 1 : U32) + 1 : U32) + 1 : U32), ea))
+          exp.NZero.Plus.k(u, d, ds, r, stk, out, key, bk, run_exp(ds, r, stk, SCon{J.digit_char(d), SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}, key, 0))
         case J.Minus{}:
-          exp.NZero.Minus.k(u, d, ds, r, stk, out, key, at, ea, run_exp(ds, r, stk, SCon{J.digit_char(d), SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}, key, (((at + 1 : U32) + 1 : U32) + 1 : U32), ea))
+          exp.NZero.Minus.k(u, d, ds, r, stk, out, key, bk, run_exp(ds, r, stk, SCon{J.digit_char(d), SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}, key, 0))
 
 law exp.NInt.NoSign.k:
   for +u: Bool
@@ -1478,23 +1452,22 @@ law exp.NInt.NoSign.k:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  for g: Run_exp(ds, r, stk, SCon{J.digit_char(d), SCon{Bool.pick(Char, u, 'E', 'e'), out}}, key, ((at + 1 : U32) + 1 : U32), ea)
-  V(J.exp_k(J.ESome{u, J.NoSign{}, d, ds}, r), F.NInt{}, stk, out, key, at, ea, r, stk, push(J.exp_k(J.ESome{u, J.NoSign{}, d, ds}, ""), out))
+  for +bk: U32
+  for g: Run_exp(ds, r, stk, SCon{J.digit_char(d), SCon{Bool.pick(Char, u, 'E', 'e'), out}}, key, 0)
+  V(J.exp_k(J.ESome{u, J.NoSign{}, d, ds}, r), F.NInt{}, stk, out, key, bk, r, stk, push(J.exp_k(J.ESome{u, J.NoSign{}, d, ds}, ""), out))
 
-def exp.NInt.NoSign.k(u, d, ds, r, stk, out, key, at, ea, g):
+def exp.NInt.NoSign.k(u, d, ds, r, stk, out, key, bk, g):
   (+a, e3) = g
-  (Q{F.NExp{}, key, a, ea}, (Unit{}, Equal.trans(F.Out,
-      F.gc(SCon{Bool.pick(Char, u, 'E', 'e'), SCon{J.digit_char(d), J.digits_k(ds, r)}}, F.NInt{}, SCon{Bool.pick(Char, u, 'E', 'e'), SCon{J.digit_char(d), J.digits_k(ds, r)}}, stk, out, 0, 0, key, at, ea),
-      F.gc(SCon{J.digit_char(d), J.digits_k(ds, r)}, F.NE{}, SCon{J.digit_char(d), J.digits_k(ds, r)}, stk, SCon{Bool.pick(Char, u, 'E', 'e'), out}, 0, 0, key, (at + 1 : U32), ea),
-      F.gc(r, F.NExp{}, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{Bool.pick(Char, u, 'E', 'e'), out}}), 0, 0, key, a, ea),
-      step_e.NInt(u, SCon{J.digit_char(d), J.digits_k(ds, r)}, stk, out, key, at, ea),
+  (Q{F.NExp{}, key, a}, (Unit{}, Equal.trans(F.Out,
+      F.gc(SCon{Bool.pick(Char, u, 'E', 'e'), SCon{J.digit_char(d), J.digits_k(ds, r)}}, F.NInt{}, SCon{Bool.pick(Char, u, 'E', 'e'), SCon{J.digit_char(d), J.digits_k(ds, r)}}, stk, out, 0, 0, key, bk),
+      F.gc(SCon{J.digit_char(d), J.digits_k(ds, r)}, F.NE{}, SCon{J.digit_char(d), J.digits_k(ds, r)}, stk, SCon{Bool.pick(Char, u, 'E', 'e'), out}, 0, 0, key, 0),
+      F.gc(r, F.NExp{}, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{Bool.pick(Char, u, 'E', 'e'), out}}), 0, 0, key, a),
+      step_e.NInt(u, SCon{J.digit_char(d), J.digits_k(ds, r)}, stk, out, key, bk),
       Equal.trans(F.Out,
-        F.gc(SCon{J.digit_char(d), J.digits_k(ds, r)}, F.NE{}, SCon{J.digit_char(d), J.digits_k(ds, r)}, stk, SCon{Bool.pick(Char, u, 'E', 'e'), out}, 0, 0, key, (at + 1 : U32), ea),
-        F.gc(J.digits_k(ds, r), F.NExp{}, J.digits_k(ds, r), stk, SCon{J.digit_char(d), SCon{Bool.pick(Char, u, 'E', 'e'), out}}, 0, 0, key, ((at + 1 : U32) + 1 : U32), ea),
-        F.gc(r, F.NExp{}, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{Bool.pick(Char, u, 'E', 'e'), out}}), 0, 0, key, a, ea),
-        dstep_e(d, J.digits_k(ds, r), stk, SCon{Bool.pick(Char, u, 'E', 'e'), out}, key, (at + 1 : U32), ea),
+        F.gc(SCon{J.digit_char(d), J.digits_k(ds, r)}, F.NE{}, SCon{J.digit_char(d), J.digits_k(ds, r)}, stk, SCon{Bool.pick(Char, u, 'E', 'e'), out}, 0, 0, key, 0),
+        F.gc(J.digits_k(ds, r), F.NExp{}, J.digits_k(ds, r), stk, SCon{J.digit_char(d), SCon{Bool.pick(Char, u, 'E', 'e'), out}}, 0, 0, key, 0),
+        F.gc(r, F.NExp{}, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{Bool.pick(Char, u, 'E', 'e'), out}}), 0, 0, key, a),
+        dstep_e(d, J.digits_k(ds, r), stk, SCon{Bool.pick(Char, u, 'E', 'e'), out}, key, 0),
         e3))))
 
 law exp.NInt.Plus.k:
@@ -1505,28 +1478,27 @@ law exp.NInt.Plus.k:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  for g: Run_exp(ds, r, stk, SCon{J.digit_char(d), SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}, key, (((at + 1 : U32) + 1 : U32) + 1 : U32), ea)
-  V(J.exp_k(J.ESome{u, J.Plus{}, d, ds}, r), F.NInt{}, stk, out, key, at, ea, r, stk, push(J.exp_k(J.ESome{u, J.Plus{}, d, ds}, ""), out))
+  for +bk: U32
+  for g: Run_exp(ds, r, stk, SCon{J.digit_char(d), SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}, key, 0)
+  V(J.exp_k(J.ESome{u, J.Plus{}, d, ds}, r), F.NInt{}, stk, out, key, bk, r, stk, push(J.exp_k(J.ESome{u, J.Plus{}, d, ds}, ""), out))
 
-def exp.NInt.Plus.k(u, d, ds, r, stk, out, key, at, ea, g):
+def exp.NInt.Plus.k(u, d, ds, r, stk, out, key, bk, g):
   (+a, e3) = g
-  (Q{F.NExp{}, key, a, ea}, (Unit{}, Equal.trans(F.Out,
-      F.gc(SCon{Bool.pick(Char, u, 'E', 'e'), SCon{'+', SCon{J.digit_char(d), J.digits_k(ds, r)}}}, F.NInt{}, SCon{Bool.pick(Char, u, 'E', 'e'), SCon{'+', SCon{J.digit_char(d), J.digits_k(ds, r)}}}, stk, out, 0, 0, key, at, ea),
-      F.gc(SCon{'+', SCon{J.digit_char(d), J.digits_k(ds, r)}}, F.NE{}, SCon{'+', SCon{J.digit_char(d), J.digits_k(ds, r)}}, stk, SCon{Bool.pick(Char, u, 'E', 'e'), out}, 0, 0, key, (at + 1 : U32), ea),
-      F.gc(r, F.NExp{}, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}), 0, 0, key, a, ea),
-      step_e.NInt(u, SCon{'+', SCon{J.digit_char(d), J.digits_k(ds, r)}}, stk, out, key, at, ea),
+  (Q{F.NExp{}, key, a}, (Unit{}, Equal.trans(F.Out,
+      F.gc(SCon{Bool.pick(Char, u, 'E', 'e'), SCon{'+', SCon{J.digit_char(d), J.digits_k(ds, r)}}}, F.NInt{}, SCon{Bool.pick(Char, u, 'E', 'e'), SCon{'+', SCon{J.digit_char(d), J.digits_k(ds, r)}}}, stk, out, 0, 0, key, bk),
+      F.gc(SCon{'+', SCon{J.digit_char(d), J.digits_k(ds, r)}}, F.NE{}, SCon{'+', SCon{J.digit_char(d), J.digits_k(ds, r)}}, stk, SCon{Bool.pick(Char, u, 'E', 'e'), out}, 0, 0, key, 0),
+      F.gc(r, F.NExp{}, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}), 0, 0, key, a),
+      step_e.NInt(u, SCon{'+', SCon{J.digit_char(d), J.digits_k(ds, r)}}, stk, out, key, bk),
       Equal.trans(F.Out,
-        F.gc(SCon{'+', SCon{J.digit_char(d), J.digits_k(ds, r)}}, F.NE{}, SCon{'+', SCon{J.digit_char(d), J.digits_k(ds, r)}}, stk, SCon{Bool.pick(Char, u, 'E', 'e'), out}, 0, 0, key, (at + 1 : U32), ea),
-        F.gc(SCon{J.digit_char(d), J.digits_k(ds, r)}, F.NESign{}, SCon{J.digit_char(d), J.digits_k(ds, r)}, stk, SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}, 0, 0, key, ((at + 1 : U32) + 1 : U32), ea),
-        F.gc(r, F.NExp{}, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}), 0, 0, key, a, ea),
+        F.gc(SCon{'+', SCon{J.digit_char(d), J.digits_k(ds, r)}}, F.NE{}, SCon{'+', SCon{J.digit_char(d), J.digits_k(ds, r)}}, stk, SCon{Bool.pick(Char, u, 'E', 'e'), out}, 0, 0, key, 0),
+        F.gc(SCon{J.digit_char(d), J.digits_k(ds, r)}, F.NESign{}, SCon{J.digit_char(d), J.digits_k(ds, r)}, stk, SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}, 0, 0, key, 0),
+        F.gc(r, F.NExp{}, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}), 0, 0, key, a),
         {==},
         Equal.trans(F.Out,
-          F.gc(SCon{J.digit_char(d), J.digits_k(ds, r)}, F.NESign{}, SCon{J.digit_char(d), J.digits_k(ds, r)}, stk, SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}, 0, 0, key, ((at + 1 : U32) + 1 : U32), ea),
-          F.gc(J.digits_k(ds, r), F.NExp{}, J.digits_k(ds, r), stk, SCon{J.digit_char(d), SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}, 0, 0, key, (((at + 1 : U32) + 1 : U32) + 1 : U32), ea),
-          F.gc(r, F.NExp{}, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}), 0, 0, key, a, ea),
-          dstep_esign(d, J.digits_k(ds, r), stk, SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}, key, ((at + 1 : U32) + 1 : U32), ea),
+          F.gc(SCon{J.digit_char(d), J.digits_k(ds, r)}, F.NESign{}, SCon{J.digit_char(d), J.digits_k(ds, r)}, stk, SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}, 0, 0, key, 0),
+          F.gc(J.digits_k(ds, r), F.NExp{}, J.digits_k(ds, r), stk, SCon{J.digit_char(d), SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}, 0, 0, key, 0),
+          F.gc(r, F.NExp{}, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}), 0, 0, key, a),
+          dstep_esign(d, J.digits_k(ds, r), stk, SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}, key, 0),
           e3)))))
 
 law exp.NInt.Minus.k:
@@ -1537,28 +1509,27 @@ law exp.NInt.Minus.k:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  for g: Run_exp(ds, r, stk, SCon{J.digit_char(d), SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}, key, (((at + 1 : U32) + 1 : U32) + 1 : U32), ea)
-  V(J.exp_k(J.ESome{u, J.Minus{}, d, ds}, r), F.NInt{}, stk, out, key, at, ea, r, stk, push(J.exp_k(J.ESome{u, J.Minus{}, d, ds}, ""), out))
+  for +bk: U32
+  for g: Run_exp(ds, r, stk, SCon{J.digit_char(d), SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}, key, 0)
+  V(J.exp_k(J.ESome{u, J.Minus{}, d, ds}, r), F.NInt{}, stk, out, key, bk, r, stk, push(J.exp_k(J.ESome{u, J.Minus{}, d, ds}, ""), out))
 
-def exp.NInt.Minus.k(u, d, ds, r, stk, out, key, at, ea, g):
+def exp.NInt.Minus.k(u, d, ds, r, stk, out, key, bk, g):
   (+a, e3) = g
-  (Q{F.NExp{}, key, a, ea}, (Unit{}, Equal.trans(F.Out,
-      F.gc(SCon{Bool.pick(Char, u, 'E', 'e'), SCon{'-', SCon{J.digit_char(d), J.digits_k(ds, r)}}}, F.NInt{}, SCon{Bool.pick(Char, u, 'E', 'e'), SCon{'-', SCon{J.digit_char(d), J.digits_k(ds, r)}}}, stk, out, 0, 0, key, at, ea),
-      F.gc(SCon{'-', SCon{J.digit_char(d), J.digits_k(ds, r)}}, F.NE{}, SCon{'-', SCon{J.digit_char(d), J.digits_k(ds, r)}}, stk, SCon{Bool.pick(Char, u, 'E', 'e'), out}, 0, 0, key, (at + 1 : U32), ea),
-      F.gc(r, F.NExp{}, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}), 0, 0, key, a, ea),
-      step_e.NInt(u, SCon{'-', SCon{J.digit_char(d), J.digits_k(ds, r)}}, stk, out, key, at, ea),
+  (Q{F.NExp{}, key, a}, (Unit{}, Equal.trans(F.Out,
+      F.gc(SCon{Bool.pick(Char, u, 'E', 'e'), SCon{'-', SCon{J.digit_char(d), J.digits_k(ds, r)}}}, F.NInt{}, SCon{Bool.pick(Char, u, 'E', 'e'), SCon{'-', SCon{J.digit_char(d), J.digits_k(ds, r)}}}, stk, out, 0, 0, key, bk),
+      F.gc(SCon{'-', SCon{J.digit_char(d), J.digits_k(ds, r)}}, F.NE{}, SCon{'-', SCon{J.digit_char(d), J.digits_k(ds, r)}}, stk, SCon{Bool.pick(Char, u, 'E', 'e'), out}, 0, 0, key, 0),
+      F.gc(r, F.NExp{}, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}), 0, 0, key, a),
+      step_e.NInt(u, SCon{'-', SCon{J.digit_char(d), J.digits_k(ds, r)}}, stk, out, key, bk),
       Equal.trans(F.Out,
-        F.gc(SCon{'-', SCon{J.digit_char(d), J.digits_k(ds, r)}}, F.NE{}, SCon{'-', SCon{J.digit_char(d), J.digits_k(ds, r)}}, stk, SCon{Bool.pick(Char, u, 'E', 'e'), out}, 0, 0, key, (at + 1 : U32), ea),
-        F.gc(SCon{J.digit_char(d), J.digits_k(ds, r)}, F.NESign{}, SCon{J.digit_char(d), J.digits_k(ds, r)}, stk, SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}, 0, 0, key, ((at + 1 : U32) + 1 : U32), ea),
-        F.gc(r, F.NExp{}, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}), 0, 0, key, a, ea),
+        F.gc(SCon{'-', SCon{J.digit_char(d), J.digits_k(ds, r)}}, F.NE{}, SCon{'-', SCon{J.digit_char(d), J.digits_k(ds, r)}}, stk, SCon{Bool.pick(Char, u, 'E', 'e'), out}, 0, 0, key, 0),
+        F.gc(SCon{J.digit_char(d), J.digits_k(ds, r)}, F.NESign{}, SCon{J.digit_char(d), J.digits_k(ds, r)}, stk, SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}, 0, 0, key, 0),
+        F.gc(r, F.NExp{}, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}), 0, 0, key, a),
         {==},
         Equal.trans(F.Out,
-          F.gc(SCon{J.digit_char(d), J.digits_k(ds, r)}, F.NESign{}, SCon{J.digit_char(d), J.digits_k(ds, r)}, stk, SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}, 0, 0, key, ((at + 1 : U32) + 1 : U32), ea),
-          F.gc(J.digits_k(ds, r), F.NExp{}, J.digits_k(ds, r), stk, SCon{J.digit_char(d), SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}, 0, 0, key, (((at + 1 : U32) + 1 : U32) + 1 : U32), ea),
-          F.gc(r, F.NExp{}, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}), 0, 0, key, a, ea),
-          dstep_esign(d, J.digits_k(ds, r), stk, SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}, key, ((at + 1 : U32) + 1 : U32), ea),
+          F.gc(SCon{J.digit_char(d), J.digits_k(ds, r)}, F.NESign{}, SCon{J.digit_char(d), J.digits_k(ds, r)}, stk, SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}, 0, 0, key, 0),
+          F.gc(J.digits_k(ds, r), F.NExp{}, J.digits_k(ds, r), stk, SCon{J.digit_char(d), SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}, 0, 0, key, 0),
+          F.gc(r, F.NExp{}, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}), 0, 0, key, a),
+          dstep_esign(d, J.digits_k(ds, r), stk, SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}, key, 0),
           e3)))))
 
 law exp.NInt:
@@ -1567,22 +1538,21 @@ law exp.NInt:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  V(J.exp_k(e, r), F.NInt{}, stk, out, key, at, ea, r, stk, push(J.exp_k(e, ""), out))
+  for +bk: U32
+  V(J.exp_k(e, r), F.NInt{}, stk, out, key, bk, r, stk, push(J.exp_k(e, ""), out))
 
-def exp.NInt(e, r, stk, out, key, at, ea):
+def exp.NInt(e, r, stk, out, key, bk):
   match e:
     case J.ENone{}:
-      (Q{F.NInt{}, key, at, ea}, (Unit{}, {==}))
+      (Q{F.NInt{}, key, bk}, (Unit{}, {==}))
     case J.ESome{u, sg, d, ds}:
       match sg:
         case J.NoSign{}:
-          exp.NInt.NoSign.k(u, d, ds, r, stk, out, key, at, ea, run_exp(ds, r, stk, SCon{J.digit_char(d), SCon{Bool.pick(Char, u, 'E', 'e'), out}}, key, ((at + 1 : U32) + 1 : U32), ea))
+          exp.NInt.NoSign.k(u, d, ds, r, stk, out, key, bk, run_exp(ds, r, stk, SCon{J.digit_char(d), SCon{Bool.pick(Char, u, 'E', 'e'), out}}, key, 0))
         case J.Plus{}:
-          exp.NInt.Plus.k(u, d, ds, r, stk, out, key, at, ea, run_exp(ds, r, stk, SCon{J.digit_char(d), SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}, key, (((at + 1 : U32) + 1 : U32) + 1 : U32), ea))
+          exp.NInt.Plus.k(u, d, ds, r, stk, out, key, bk, run_exp(ds, r, stk, SCon{J.digit_char(d), SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}, key, 0))
         case J.Minus{}:
-          exp.NInt.Minus.k(u, d, ds, r, stk, out, key, at, ea, run_exp(ds, r, stk, SCon{J.digit_char(d), SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}, key, (((at + 1 : U32) + 1 : U32) + 1 : U32), ea))
+          exp.NInt.Minus.k(u, d, ds, r, stk, out, key, bk, run_exp(ds, r, stk, SCon{J.digit_char(d), SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}, key, 0))
 
 law exp.NFrac.NoSign.k:
   for +u: Bool
@@ -1592,23 +1562,22 @@ law exp.NFrac.NoSign.k:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  for g: Run_exp(ds, r, stk, SCon{J.digit_char(d), SCon{Bool.pick(Char, u, 'E', 'e'), out}}, key, ((at + 1 : U32) + 1 : U32), ea)
-  V(J.exp_k(J.ESome{u, J.NoSign{}, d, ds}, r), F.NFrac{}, stk, out, key, at, ea, r, stk, push(J.exp_k(J.ESome{u, J.NoSign{}, d, ds}, ""), out))
+  for +bk: U32
+  for g: Run_exp(ds, r, stk, SCon{J.digit_char(d), SCon{Bool.pick(Char, u, 'E', 'e'), out}}, key, 0)
+  V(J.exp_k(J.ESome{u, J.NoSign{}, d, ds}, r), F.NFrac{}, stk, out, key, bk, r, stk, push(J.exp_k(J.ESome{u, J.NoSign{}, d, ds}, ""), out))
 
-def exp.NFrac.NoSign.k(u, d, ds, r, stk, out, key, at, ea, g):
+def exp.NFrac.NoSign.k(u, d, ds, r, stk, out, key, bk, g):
   (+a, e3) = g
-  (Q{F.NExp{}, key, a, ea}, (Unit{}, Equal.trans(F.Out,
-      F.gc(SCon{Bool.pick(Char, u, 'E', 'e'), SCon{J.digit_char(d), J.digits_k(ds, r)}}, F.NFrac{}, SCon{Bool.pick(Char, u, 'E', 'e'), SCon{J.digit_char(d), J.digits_k(ds, r)}}, stk, out, 0, 0, key, at, ea),
-      F.gc(SCon{J.digit_char(d), J.digits_k(ds, r)}, F.NE{}, SCon{J.digit_char(d), J.digits_k(ds, r)}, stk, SCon{Bool.pick(Char, u, 'E', 'e'), out}, 0, 0, key, (at + 1 : U32), ea),
-      F.gc(r, F.NExp{}, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{Bool.pick(Char, u, 'E', 'e'), out}}), 0, 0, key, a, ea),
-      step_e.NFrac(u, SCon{J.digit_char(d), J.digits_k(ds, r)}, stk, out, key, at, ea),
+  (Q{F.NExp{}, key, a}, (Unit{}, Equal.trans(F.Out,
+      F.gc(SCon{Bool.pick(Char, u, 'E', 'e'), SCon{J.digit_char(d), J.digits_k(ds, r)}}, F.NFrac{}, SCon{Bool.pick(Char, u, 'E', 'e'), SCon{J.digit_char(d), J.digits_k(ds, r)}}, stk, out, 0, 0, key, bk),
+      F.gc(SCon{J.digit_char(d), J.digits_k(ds, r)}, F.NE{}, SCon{J.digit_char(d), J.digits_k(ds, r)}, stk, SCon{Bool.pick(Char, u, 'E', 'e'), out}, 0, 0, key, 0),
+      F.gc(r, F.NExp{}, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{Bool.pick(Char, u, 'E', 'e'), out}}), 0, 0, key, a),
+      step_e.NFrac(u, SCon{J.digit_char(d), J.digits_k(ds, r)}, stk, out, key, bk),
       Equal.trans(F.Out,
-        F.gc(SCon{J.digit_char(d), J.digits_k(ds, r)}, F.NE{}, SCon{J.digit_char(d), J.digits_k(ds, r)}, stk, SCon{Bool.pick(Char, u, 'E', 'e'), out}, 0, 0, key, (at + 1 : U32), ea),
-        F.gc(J.digits_k(ds, r), F.NExp{}, J.digits_k(ds, r), stk, SCon{J.digit_char(d), SCon{Bool.pick(Char, u, 'E', 'e'), out}}, 0, 0, key, ((at + 1 : U32) + 1 : U32), ea),
-        F.gc(r, F.NExp{}, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{Bool.pick(Char, u, 'E', 'e'), out}}), 0, 0, key, a, ea),
-        dstep_e(d, J.digits_k(ds, r), stk, SCon{Bool.pick(Char, u, 'E', 'e'), out}, key, (at + 1 : U32), ea),
+        F.gc(SCon{J.digit_char(d), J.digits_k(ds, r)}, F.NE{}, SCon{J.digit_char(d), J.digits_k(ds, r)}, stk, SCon{Bool.pick(Char, u, 'E', 'e'), out}, 0, 0, key, 0),
+        F.gc(J.digits_k(ds, r), F.NExp{}, J.digits_k(ds, r), stk, SCon{J.digit_char(d), SCon{Bool.pick(Char, u, 'E', 'e'), out}}, 0, 0, key, 0),
+        F.gc(r, F.NExp{}, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{Bool.pick(Char, u, 'E', 'e'), out}}), 0, 0, key, a),
+        dstep_e(d, J.digits_k(ds, r), stk, SCon{Bool.pick(Char, u, 'E', 'e'), out}, key, 0),
         e3))))
 
 law exp.NFrac.Plus.k:
@@ -1619,28 +1588,27 @@ law exp.NFrac.Plus.k:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  for g: Run_exp(ds, r, stk, SCon{J.digit_char(d), SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}, key, (((at + 1 : U32) + 1 : U32) + 1 : U32), ea)
-  V(J.exp_k(J.ESome{u, J.Plus{}, d, ds}, r), F.NFrac{}, stk, out, key, at, ea, r, stk, push(J.exp_k(J.ESome{u, J.Plus{}, d, ds}, ""), out))
+  for +bk: U32
+  for g: Run_exp(ds, r, stk, SCon{J.digit_char(d), SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}, key, 0)
+  V(J.exp_k(J.ESome{u, J.Plus{}, d, ds}, r), F.NFrac{}, stk, out, key, bk, r, stk, push(J.exp_k(J.ESome{u, J.Plus{}, d, ds}, ""), out))
 
-def exp.NFrac.Plus.k(u, d, ds, r, stk, out, key, at, ea, g):
+def exp.NFrac.Plus.k(u, d, ds, r, stk, out, key, bk, g):
   (+a, e3) = g
-  (Q{F.NExp{}, key, a, ea}, (Unit{}, Equal.trans(F.Out,
-      F.gc(SCon{Bool.pick(Char, u, 'E', 'e'), SCon{'+', SCon{J.digit_char(d), J.digits_k(ds, r)}}}, F.NFrac{}, SCon{Bool.pick(Char, u, 'E', 'e'), SCon{'+', SCon{J.digit_char(d), J.digits_k(ds, r)}}}, stk, out, 0, 0, key, at, ea),
-      F.gc(SCon{'+', SCon{J.digit_char(d), J.digits_k(ds, r)}}, F.NE{}, SCon{'+', SCon{J.digit_char(d), J.digits_k(ds, r)}}, stk, SCon{Bool.pick(Char, u, 'E', 'e'), out}, 0, 0, key, (at + 1 : U32), ea),
-      F.gc(r, F.NExp{}, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}), 0, 0, key, a, ea),
-      step_e.NFrac(u, SCon{'+', SCon{J.digit_char(d), J.digits_k(ds, r)}}, stk, out, key, at, ea),
+  (Q{F.NExp{}, key, a}, (Unit{}, Equal.trans(F.Out,
+      F.gc(SCon{Bool.pick(Char, u, 'E', 'e'), SCon{'+', SCon{J.digit_char(d), J.digits_k(ds, r)}}}, F.NFrac{}, SCon{Bool.pick(Char, u, 'E', 'e'), SCon{'+', SCon{J.digit_char(d), J.digits_k(ds, r)}}}, stk, out, 0, 0, key, bk),
+      F.gc(SCon{'+', SCon{J.digit_char(d), J.digits_k(ds, r)}}, F.NE{}, SCon{'+', SCon{J.digit_char(d), J.digits_k(ds, r)}}, stk, SCon{Bool.pick(Char, u, 'E', 'e'), out}, 0, 0, key, 0),
+      F.gc(r, F.NExp{}, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}), 0, 0, key, a),
+      step_e.NFrac(u, SCon{'+', SCon{J.digit_char(d), J.digits_k(ds, r)}}, stk, out, key, bk),
       Equal.trans(F.Out,
-        F.gc(SCon{'+', SCon{J.digit_char(d), J.digits_k(ds, r)}}, F.NE{}, SCon{'+', SCon{J.digit_char(d), J.digits_k(ds, r)}}, stk, SCon{Bool.pick(Char, u, 'E', 'e'), out}, 0, 0, key, (at + 1 : U32), ea),
-        F.gc(SCon{J.digit_char(d), J.digits_k(ds, r)}, F.NESign{}, SCon{J.digit_char(d), J.digits_k(ds, r)}, stk, SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}, 0, 0, key, ((at + 1 : U32) + 1 : U32), ea),
-        F.gc(r, F.NExp{}, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}), 0, 0, key, a, ea),
+        F.gc(SCon{'+', SCon{J.digit_char(d), J.digits_k(ds, r)}}, F.NE{}, SCon{'+', SCon{J.digit_char(d), J.digits_k(ds, r)}}, stk, SCon{Bool.pick(Char, u, 'E', 'e'), out}, 0, 0, key, 0),
+        F.gc(SCon{J.digit_char(d), J.digits_k(ds, r)}, F.NESign{}, SCon{J.digit_char(d), J.digits_k(ds, r)}, stk, SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}, 0, 0, key, 0),
+        F.gc(r, F.NExp{}, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}), 0, 0, key, a),
         {==},
         Equal.trans(F.Out,
-          F.gc(SCon{J.digit_char(d), J.digits_k(ds, r)}, F.NESign{}, SCon{J.digit_char(d), J.digits_k(ds, r)}, stk, SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}, 0, 0, key, ((at + 1 : U32) + 1 : U32), ea),
-          F.gc(J.digits_k(ds, r), F.NExp{}, J.digits_k(ds, r), stk, SCon{J.digit_char(d), SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}, 0, 0, key, (((at + 1 : U32) + 1 : U32) + 1 : U32), ea),
-          F.gc(r, F.NExp{}, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}), 0, 0, key, a, ea),
-          dstep_esign(d, J.digits_k(ds, r), stk, SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}, key, ((at + 1 : U32) + 1 : U32), ea),
+          F.gc(SCon{J.digit_char(d), J.digits_k(ds, r)}, F.NESign{}, SCon{J.digit_char(d), J.digits_k(ds, r)}, stk, SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}, 0, 0, key, 0),
+          F.gc(J.digits_k(ds, r), F.NExp{}, J.digits_k(ds, r), stk, SCon{J.digit_char(d), SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}, 0, 0, key, 0),
+          F.gc(r, F.NExp{}, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}), 0, 0, key, a),
+          dstep_esign(d, J.digits_k(ds, r), stk, SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}, key, 0),
           e3)))))
 
 law exp.NFrac.Minus.k:
@@ -1651,28 +1619,27 @@ law exp.NFrac.Minus.k:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  for g: Run_exp(ds, r, stk, SCon{J.digit_char(d), SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}, key, (((at + 1 : U32) + 1 : U32) + 1 : U32), ea)
-  V(J.exp_k(J.ESome{u, J.Minus{}, d, ds}, r), F.NFrac{}, stk, out, key, at, ea, r, stk, push(J.exp_k(J.ESome{u, J.Minus{}, d, ds}, ""), out))
+  for +bk: U32
+  for g: Run_exp(ds, r, stk, SCon{J.digit_char(d), SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}, key, 0)
+  V(J.exp_k(J.ESome{u, J.Minus{}, d, ds}, r), F.NFrac{}, stk, out, key, bk, r, stk, push(J.exp_k(J.ESome{u, J.Minus{}, d, ds}, ""), out))
 
-def exp.NFrac.Minus.k(u, d, ds, r, stk, out, key, at, ea, g):
+def exp.NFrac.Minus.k(u, d, ds, r, stk, out, key, bk, g):
   (+a, e3) = g
-  (Q{F.NExp{}, key, a, ea}, (Unit{}, Equal.trans(F.Out,
-      F.gc(SCon{Bool.pick(Char, u, 'E', 'e'), SCon{'-', SCon{J.digit_char(d), J.digits_k(ds, r)}}}, F.NFrac{}, SCon{Bool.pick(Char, u, 'E', 'e'), SCon{'-', SCon{J.digit_char(d), J.digits_k(ds, r)}}}, stk, out, 0, 0, key, at, ea),
-      F.gc(SCon{'-', SCon{J.digit_char(d), J.digits_k(ds, r)}}, F.NE{}, SCon{'-', SCon{J.digit_char(d), J.digits_k(ds, r)}}, stk, SCon{Bool.pick(Char, u, 'E', 'e'), out}, 0, 0, key, (at + 1 : U32), ea),
-      F.gc(r, F.NExp{}, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}), 0, 0, key, a, ea),
-      step_e.NFrac(u, SCon{'-', SCon{J.digit_char(d), J.digits_k(ds, r)}}, stk, out, key, at, ea),
+  (Q{F.NExp{}, key, a}, (Unit{}, Equal.trans(F.Out,
+      F.gc(SCon{Bool.pick(Char, u, 'E', 'e'), SCon{'-', SCon{J.digit_char(d), J.digits_k(ds, r)}}}, F.NFrac{}, SCon{Bool.pick(Char, u, 'E', 'e'), SCon{'-', SCon{J.digit_char(d), J.digits_k(ds, r)}}}, stk, out, 0, 0, key, bk),
+      F.gc(SCon{'-', SCon{J.digit_char(d), J.digits_k(ds, r)}}, F.NE{}, SCon{'-', SCon{J.digit_char(d), J.digits_k(ds, r)}}, stk, SCon{Bool.pick(Char, u, 'E', 'e'), out}, 0, 0, key, 0),
+      F.gc(r, F.NExp{}, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}), 0, 0, key, a),
+      step_e.NFrac(u, SCon{'-', SCon{J.digit_char(d), J.digits_k(ds, r)}}, stk, out, key, bk),
       Equal.trans(F.Out,
-        F.gc(SCon{'-', SCon{J.digit_char(d), J.digits_k(ds, r)}}, F.NE{}, SCon{'-', SCon{J.digit_char(d), J.digits_k(ds, r)}}, stk, SCon{Bool.pick(Char, u, 'E', 'e'), out}, 0, 0, key, (at + 1 : U32), ea),
-        F.gc(SCon{J.digit_char(d), J.digits_k(ds, r)}, F.NESign{}, SCon{J.digit_char(d), J.digits_k(ds, r)}, stk, SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}, 0, 0, key, ((at + 1 : U32) + 1 : U32), ea),
-        F.gc(r, F.NExp{}, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}), 0, 0, key, a, ea),
+        F.gc(SCon{'-', SCon{J.digit_char(d), J.digits_k(ds, r)}}, F.NE{}, SCon{'-', SCon{J.digit_char(d), J.digits_k(ds, r)}}, stk, SCon{Bool.pick(Char, u, 'E', 'e'), out}, 0, 0, key, 0),
+        F.gc(SCon{J.digit_char(d), J.digits_k(ds, r)}, F.NESign{}, SCon{J.digit_char(d), J.digits_k(ds, r)}, stk, SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}, 0, 0, key, 0),
+        F.gc(r, F.NExp{}, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}), 0, 0, key, a),
         {==},
         Equal.trans(F.Out,
-          F.gc(SCon{J.digit_char(d), J.digits_k(ds, r)}, F.NESign{}, SCon{J.digit_char(d), J.digits_k(ds, r)}, stk, SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}, 0, 0, key, ((at + 1 : U32) + 1 : U32), ea),
-          F.gc(J.digits_k(ds, r), F.NExp{}, J.digits_k(ds, r), stk, SCon{J.digit_char(d), SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}, 0, 0, key, (((at + 1 : U32) + 1 : U32) + 1 : U32), ea),
-          F.gc(r, F.NExp{}, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}), 0, 0, key, a, ea),
-          dstep_esign(d, J.digits_k(ds, r), stk, SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}, key, ((at + 1 : U32) + 1 : U32), ea),
+          F.gc(SCon{J.digit_char(d), J.digits_k(ds, r)}, F.NESign{}, SCon{J.digit_char(d), J.digits_k(ds, r)}, stk, SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}, 0, 0, key, 0),
+          F.gc(J.digits_k(ds, r), F.NExp{}, J.digits_k(ds, r), stk, SCon{J.digit_char(d), SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}, 0, 0, key, 0),
+          F.gc(r, F.NExp{}, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}), 0, 0, key, a),
+          dstep_esign(d, J.digits_k(ds, r), stk, SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}, key, 0),
           e3)))))
 
 law exp.NFrac:
@@ -1681,22 +1648,21 @@ law exp.NFrac:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  V(J.exp_k(e, r), F.NFrac{}, stk, out, key, at, ea, r, stk, push(J.exp_k(e, ""), out))
+  for +bk: U32
+  V(J.exp_k(e, r), F.NFrac{}, stk, out, key, bk, r, stk, push(J.exp_k(e, ""), out))
 
-def exp.NFrac(e, r, stk, out, key, at, ea):
+def exp.NFrac(e, r, stk, out, key, bk):
   match e:
     case J.ENone{}:
-      (Q{F.NFrac{}, key, at, ea}, (Unit{}, {==}))
+      (Q{F.NFrac{}, key, bk}, (Unit{}, {==}))
     case J.ESome{u, sg, d, ds}:
       match sg:
         case J.NoSign{}:
-          exp.NFrac.NoSign.k(u, d, ds, r, stk, out, key, at, ea, run_exp(ds, r, stk, SCon{J.digit_char(d), SCon{Bool.pick(Char, u, 'E', 'e'), out}}, key, ((at + 1 : U32) + 1 : U32), ea))
+          exp.NFrac.NoSign.k(u, d, ds, r, stk, out, key, bk, run_exp(ds, r, stk, SCon{J.digit_char(d), SCon{Bool.pick(Char, u, 'E', 'e'), out}}, key, 0))
         case J.Plus{}:
-          exp.NFrac.Plus.k(u, d, ds, r, stk, out, key, at, ea, run_exp(ds, r, stk, SCon{J.digit_char(d), SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}, key, (((at + 1 : U32) + 1 : U32) + 1 : U32), ea))
+          exp.NFrac.Plus.k(u, d, ds, r, stk, out, key, bk, run_exp(ds, r, stk, SCon{J.digit_char(d), SCon{'+', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}, key, 0))
         case J.Minus{}:
-          exp.NFrac.Minus.k(u, d, ds, r, stk, out, key, at, ea, run_exp(ds, r, stk, SCon{J.digit_char(d), SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}, key, (((at + 1 : U32) + 1 : U32) + 1 : U32), ea))
+          exp.NFrac.Minus.k(u, d, ds, r, stk, out, key, bk, run_exp(ds, r, stk, SCon{J.digit_char(d), SCon{'-', SCon{Bool.pick(Char, u, 'E', 'e'), out}}}, key, 0))
 
 # the output of fraction then exponent, pushed in turn, is their text
 law out_fe:
@@ -1736,17 +1702,16 @@ law tail.NZero.k2:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
+  for +bk: U32
   for +a: U32
-  for pre: {F.gc(J.frac_k(J.FSome{d, ds}, J.exp_k(e, r)), F.NZero{}, J.frac_k(J.FSome{d, ds}, J.exp_k(e, r)), stk, out, 0, 0, key, at, ea) == F.gc(J.exp_k(e, r), F.NFrac{}, J.exp_k(e, r), stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'.', out}}), 0, 0, key, a, ea) : F.Out}
-  for g: V(J.exp_k(e, r), F.NFrac{}, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'.', out}}), key, a, ea, r, stk, push(J.exp_k(e, ""), push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'.', out}})))
-  V(J.frac_k(J.FSome{d, ds}, J.exp_k(e, r)), F.NZero{}, stk, out, key, at, ea, r, stk, push(J.exp_k(e, ""), push(J.frac_k(J.FSome{d, ds}, ""), out)))
+  for pre: {F.gc(J.frac_k(J.FSome{d, ds}, J.exp_k(e, r)), F.NZero{}, J.frac_k(J.FSome{d, ds}, J.exp_k(e, r)), stk, out, 0, 0, key, bk) == F.gc(J.exp_k(e, r), F.NFrac{}, J.exp_k(e, r), stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'.', out}}), 0, 0, key, a) : F.Out}
+  for g: V(J.exp_k(e, r), F.NFrac{}, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'.', out}}), key, a, r, stk, push(J.exp_k(e, ""), push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'.', out}})))
+  V(J.frac_k(J.FSome{d, ds}, J.exp_k(e, r)), F.NZero{}, stk, out, key, bk, r, stk, push(J.exp_k(e, ""), push(J.frac_k(J.FSome{d, ds}, ""), out)))
 
-def tail.NZero.k2(d, ds, e, r, stk, out, key, at, ea, a, pre, g):
+def tail.NZero.k2(d, ds, e, r, stk, out, key, bk, a, pre, g):
   (+q, pr) = g
   (aft, e4) = pr
-  (q, (aft, Equal.trans(F.Out, F.gc(J.frac_k(J.FSome{d, ds}, J.exp_k(e, r)), F.NZero{}, J.frac_k(J.FSome{d, ds}, J.exp_k(e, r)), stk, out, 0, 0, key, at, ea), F.gc(J.exp_k(e, r), F.NFrac{}, J.exp_k(e, r), stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'.', out}}), 0, 0, key, a, ea), after(r, stk, push(J.exp_k(e, ""), push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'.', out}})), q), pre, e4)))
+  (q, (aft, Equal.trans(F.Out, F.gc(J.frac_k(J.FSome{d, ds}, J.exp_k(e, r)), F.NZero{}, J.frac_k(J.FSome{d, ds}, J.exp_k(e, r)), stk, out, 0, 0, key, bk), F.gc(J.exp_k(e, r), F.NFrac{}, J.exp_k(e, r), stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'.', out}}), 0, 0, key, a), after(r, stk, push(J.exp_k(e, ""), push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'.', out}})), q), pre, e4)))
 
 law tail.NZero.k1:
   for +d: J.Digit
@@ -1756,26 +1721,23 @@ law tail.NZero.k1:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  for g: Run_frac(ds, J.exp_k(e, r), stk, SCon{J.digit_char(d), SCon{'.', out}}, key, ((at + 1 : U32) + 1 : U32), ea)
-  V(J.frac_k(J.FSome{d, ds}, J.exp_k(e, r)), F.NZero{}, stk, out, key, at, ea, r, stk, push(J.exp_k(e, ""), push(J.frac_k(J.FSome{d, ds}, ""), out)))
+  for +bk: U32
+  for g: Run_frac(ds, J.exp_k(e, r), stk, SCon{J.digit_char(d), SCon{'.', out}}, key, 0)
+  V(J.frac_k(J.FSome{d, ds}, J.exp_k(e, r)), F.NZero{}, stk, out, key, bk, r, stk, push(J.exp_k(e, ""), push(J.frac_k(J.FSome{d, ds}, ""), out)))
 
-def tail.NZero.k1(d, ds, e, r, stk, out, key, at, ea, g):
+def tail.NZero.k1(d, ds, e, r, stk, out, key, bk, g):
   (+a, e3) = g
-  tail.NZero.k2(d, ds, e, r, stk, out, key, at, ea, a,
-    Equal.trans(F.Out,
-      F.gc(J.frac_k(J.FSome{d, ds}, J.exp_k(e, r)), F.NZero{}, J.frac_k(J.FSome{d, ds}, J.exp_k(e, r)), stk, out, 0, 0, key, at, ea),
-      F.gc(SCon{J.digit_char(d), J.digits_k(ds, J.exp_k(e, r))}, F.NDot{}, SCon{J.digit_char(d), J.digits_k(ds, J.exp_k(e, r))}, stk, SCon{'.', out}, 0, 0, key, (at + 1 : U32), ea),
-      F.gc(J.exp_k(e, r), F.NFrac{}, J.exp_k(e, r), stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'.', out}}), 0, 0, key, a, ea),
-      step_dot.NZero(SCon{J.digit_char(d), J.digits_k(ds, J.exp_k(e, r))}, stk, out, key, at, ea),
+  tail.NZero.k2(d, ds, e, r, stk, out, key, bk, a, Equal.trans(F.Out,
+      F.gc(J.frac_k(J.FSome{d, ds}, J.exp_k(e, r)), F.NZero{}, J.frac_k(J.FSome{d, ds}, J.exp_k(e, r)), stk, out, 0, 0, key, bk),
+      F.gc(SCon{J.digit_char(d), J.digits_k(ds, J.exp_k(e, r))}, F.NDot{}, SCon{J.digit_char(d), J.digits_k(ds, J.exp_k(e, r))}, stk, SCon{'.', out}, 0, 0, key, 0),
+      F.gc(J.exp_k(e, r), F.NFrac{}, J.exp_k(e, r), stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'.', out}}), 0, 0, key, a),
+      step_dot.NZero(SCon{J.digit_char(d), J.digits_k(ds, J.exp_k(e, r))}, stk, out, key, bk),
       Equal.trans(F.Out,
-        F.gc(SCon{J.digit_char(d), J.digits_k(ds, J.exp_k(e, r))}, F.NDot{}, SCon{J.digit_char(d), J.digits_k(ds, J.exp_k(e, r))}, stk, SCon{'.', out}, 0, 0, key, (at + 1 : U32), ea),
-        F.gc(J.digits_k(ds, J.exp_k(e, r)), F.NFrac{}, J.digits_k(ds, J.exp_k(e, r)), stk, SCon{J.digit_char(d), SCon{'.', out}}, 0, 0, key, ((at + 1 : U32) + 1 : U32), ea),
-        F.gc(J.exp_k(e, r), F.NFrac{}, J.exp_k(e, r), stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'.', out}}), 0, 0, key, a, ea),
-        dstep_dot(d, J.digits_k(ds, J.exp_k(e, r)), stk, SCon{'.', out}, key, (at + 1 : U32), ea),
-        e3)),
-    exp.NFrac(e, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'.', out}}), key, a, ea))
+        F.gc(SCon{J.digit_char(d), J.digits_k(ds, J.exp_k(e, r))}, F.NDot{}, SCon{J.digit_char(d), J.digits_k(ds, J.exp_k(e, r))}, stk, SCon{'.', out}, 0, 0, key, 0),
+        F.gc(J.digits_k(ds, J.exp_k(e, r)), F.NFrac{}, J.digits_k(ds, J.exp_k(e, r)), stk, SCon{J.digit_char(d), SCon{'.', out}}, 0, 0, key, 0),
+        F.gc(J.exp_k(e, r), F.NFrac{}, J.exp_k(e, r), stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'.', out}}), 0, 0, key, a),
+        dstep_dot(d, J.digits_k(ds, J.exp_k(e, r)), stk, SCon{'.', out}, key, 0),
+        e3)), exp.NFrac(e, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'.', out}}), key, a))
 
 law tail.NZero:
   for +f: J.Frac
@@ -1784,16 +1746,15 @@ law tail.NZero:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  V(J.frac_k(f, J.exp_k(e, r)), F.NZero{}, stk, out, key, at, ea, r, stk, push(J.exp_k(e, ""), push(J.frac_k(f, ""), out)))
+  for +bk: U32
+  V(J.frac_k(f, J.exp_k(e, r)), F.NZero{}, stk, out, key, bk, r, stk, push(J.exp_k(e, ""), push(J.frac_k(f, ""), out)))
 
-def tail.NZero(f, e, r, stk, out, key, at, ea):
+def tail.NZero(f, e, r, stk, out, key, bk):
   match f:
     case J.FNone{}:
-      exp.NZero(e, r, stk, out, key, at, ea)
+      exp.NZero(e, r, stk, out, key, bk)
     case J.FSome{d, ds}:
-      tail.NZero.k1(d, ds, e, r, stk, out, key, at, ea, run_frac(ds, J.exp_k(e, r), stk, SCon{J.digit_char(d), SCon{'.', out}}, key, ((at + 1 : U32) + 1 : U32), ea))
+      tail.NZero.k1(d, ds, e, r, stk, out, key, bk, run_frac(ds, J.exp_k(e, r), stk, SCon{J.digit_char(d), SCon{'.', out}}, key, 0))
 
 law tail.NInt.k2:
   for +d: J.Digit
@@ -1803,17 +1764,16 @@ law tail.NInt.k2:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
+  for +bk: U32
   for +a: U32
-  for pre: {F.gc(J.frac_k(J.FSome{d, ds}, J.exp_k(e, r)), F.NInt{}, J.frac_k(J.FSome{d, ds}, J.exp_k(e, r)), stk, out, 0, 0, key, at, ea) == F.gc(J.exp_k(e, r), F.NFrac{}, J.exp_k(e, r), stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'.', out}}), 0, 0, key, a, ea) : F.Out}
-  for g: V(J.exp_k(e, r), F.NFrac{}, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'.', out}}), key, a, ea, r, stk, push(J.exp_k(e, ""), push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'.', out}})))
-  V(J.frac_k(J.FSome{d, ds}, J.exp_k(e, r)), F.NInt{}, stk, out, key, at, ea, r, stk, push(J.exp_k(e, ""), push(J.frac_k(J.FSome{d, ds}, ""), out)))
+  for pre: {F.gc(J.frac_k(J.FSome{d, ds}, J.exp_k(e, r)), F.NInt{}, J.frac_k(J.FSome{d, ds}, J.exp_k(e, r)), stk, out, 0, 0, key, bk) == F.gc(J.exp_k(e, r), F.NFrac{}, J.exp_k(e, r), stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'.', out}}), 0, 0, key, a) : F.Out}
+  for g: V(J.exp_k(e, r), F.NFrac{}, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'.', out}}), key, a, r, stk, push(J.exp_k(e, ""), push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'.', out}})))
+  V(J.frac_k(J.FSome{d, ds}, J.exp_k(e, r)), F.NInt{}, stk, out, key, bk, r, stk, push(J.exp_k(e, ""), push(J.frac_k(J.FSome{d, ds}, ""), out)))
 
-def tail.NInt.k2(d, ds, e, r, stk, out, key, at, ea, a, pre, g):
+def tail.NInt.k2(d, ds, e, r, stk, out, key, bk, a, pre, g):
   (+q, pr) = g
   (aft, e4) = pr
-  (q, (aft, Equal.trans(F.Out, F.gc(J.frac_k(J.FSome{d, ds}, J.exp_k(e, r)), F.NInt{}, J.frac_k(J.FSome{d, ds}, J.exp_k(e, r)), stk, out, 0, 0, key, at, ea), F.gc(J.exp_k(e, r), F.NFrac{}, J.exp_k(e, r), stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'.', out}}), 0, 0, key, a, ea), after(r, stk, push(J.exp_k(e, ""), push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'.', out}})), q), pre, e4)))
+  (q, (aft, Equal.trans(F.Out, F.gc(J.frac_k(J.FSome{d, ds}, J.exp_k(e, r)), F.NInt{}, J.frac_k(J.FSome{d, ds}, J.exp_k(e, r)), stk, out, 0, 0, key, bk), F.gc(J.exp_k(e, r), F.NFrac{}, J.exp_k(e, r), stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'.', out}}), 0, 0, key, a), after(r, stk, push(J.exp_k(e, ""), push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'.', out}})), q), pre, e4)))
 
 law tail.NInt.k1:
   for +d: J.Digit
@@ -1823,26 +1783,23 @@ law tail.NInt.k1:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  for g: Run_frac(ds, J.exp_k(e, r), stk, SCon{J.digit_char(d), SCon{'.', out}}, key, ((at + 1 : U32) + 1 : U32), ea)
-  V(J.frac_k(J.FSome{d, ds}, J.exp_k(e, r)), F.NInt{}, stk, out, key, at, ea, r, stk, push(J.exp_k(e, ""), push(J.frac_k(J.FSome{d, ds}, ""), out)))
+  for +bk: U32
+  for g: Run_frac(ds, J.exp_k(e, r), stk, SCon{J.digit_char(d), SCon{'.', out}}, key, 0)
+  V(J.frac_k(J.FSome{d, ds}, J.exp_k(e, r)), F.NInt{}, stk, out, key, bk, r, stk, push(J.exp_k(e, ""), push(J.frac_k(J.FSome{d, ds}, ""), out)))
 
-def tail.NInt.k1(d, ds, e, r, stk, out, key, at, ea, g):
+def tail.NInt.k1(d, ds, e, r, stk, out, key, bk, g):
   (+a, e3) = g
-  tail.NInt.k2(d, ds, e, r, stk, out, key, at, ea, a,
-    Equal.trans(F.Out,
-      F.gc(J.frac_k(J.FSome{d, ds}, J.exp_k(e, r)), F.NInt{}, J.frac_k(J.FSome{d, ds}, J.exp_k(e, r)), stk, out, 0, 0, key, at, ea),
-      F.gc(SCon{J.digit_char(d), J.digits_k(ds, J.exp_k(e, r))}, F.NDot{}, SCon{J.digit_char(d), J.digits_k(ds, J.exp_k(e, r))}, stk, SCon{'.', out}, 0, 0, key, (at + 1 : U32), ea),
-      F.gc(J.exp_k(e, r), F.NFrac{}, J.exp_k(e, r), stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'.', out}}), 0, 0, key, a, ea),
-      step_dot.NInt(SCon{J.digit_char(d), J.digits_k(ds, J.exp_k(e, r))}, stk, out, key, at, ea),
+  tail.NInt.k2(d, ds, e, r, stk, out, key, bk, a, Equal.trans(F.Out,
+      F.gc(J.frac_k(J.FSome{d, ds}, J.exp_k(e, r)), F.NInt{}, J.frac_k(J.FSome{d, ds}, J.exp_k(e, r)), stk, out, 0, 0, key, bk),
+      F.gc(SCon{J.digit_char(d), J.digits_k(ds, J.exp_k(e, r))}, F.NDot{}, SCon{J.digit_char(d), J.digits_k(ds, J.exp_k(e, r))}, stk, SCon{'.', out}, 0, 0, key, 0),
+      F.gc(J.exp_k(e, r), F.NFrac{}, J.exp_k(e, r), stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'.', out}}), 0, 0, key, a),
+      step_dot.NInt(SCon{J.digit_char(d), J.digits_k(ds, J.exp_k(e, r))}, stk, out, key, bk),
       Equal.trans(F.Out,
-        F.gc(SCon{J.digit_char(d), J.digits_k(ds, J.exp_k(e, r))}, F.NDot{}, SCon{J.digit_char(d), J.digits_k(ds, J.exp_k(e, r))}, stk, SCon{'.', out}, 0, 0, key, (at + 1 : U32), ea),
-        F.gc(J.digits_k(ds, J.exp_k(e, r)), F.NFrac{}, J.digits_k(ds, J.exp_k(e, r)), stk, SCon{J.digit_char(d), SCon{'.', out}}, 0, 0, key, ((at + 1 : U32) + 1 : U32), ea),
-        F.gc(J.exp_k(e, r), F.NFrac{}, J.exp_k(e, r), stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'.', out}}), 0, 0, key, a, ea),
-        dstep_dot(d, J.digits_k(ds, J.exp_k(e, r)), stk, SCon{'.', out}, key, (at + 1 : U32), ea),
-        e3)),
-    exp.NFrac(e, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'.', out}}), key, a, ea))
+        F.gc(SCon{J.digit_char(d), J.digits_k(ds, J.exp_k(e, r))}, F.NDot{}, SCon{J.digit_char(d), J.digits_k(ds, J.exp_k(e, r))}, stk, SCon{'.', out}, 0, 0, key, 0),
+        F.gc(J.digits_k(ds, J.exp_k(e, r)), F.NFrac{}, J.digits_k(ds, J.exp_k(e, r)), stk, SCon{J.digit_char(d), SCon{'.', out}}, 0, 0, key, 0),
+        F.gc(J.exp_k(e, r), F.NFrac{}, J.exp_k(e, r), stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'.', out}}), 0, 0, key, a),
+        dstep_dot(d, J.digits_k(ds, J.exp_k(e, r)), stk, SCon{'.', out}, key, 0),
+        e3)), exp.NFrac(e, r, stk, push(J.digits_k(ds, ""), SCon{J.digit_char(d), SCon{'.', out}}), key, a))
 
 law tail.NInt:
   for +f: J.Frac
@@ -1851,19 +1808,18 @@ law tail.NInt:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  V(J.frac_k(f, J.exp_k(e, r)), F.NInt{}, stk, out, key, at, ea, r, stk, push(J.exp_k(e, ""), push(J.frac_k(f, ""), out)))
+  for +bk: U32
+  V(J.frac_k(f, J.exp_k(e, r)), F.NInt{}, stk, out, key, bk, r, stk, push(J.exp_k(e, ""), push(J.frac_k(f, ""), out)))
 
-def tail.NInt(f, e, r, stk, out, key, at, ea):
+def tail.NInt(f, e, r, stk, out, key, bk):
   match f:
     case J.FNone{}:
-      exp.NInt(e, r, stk, out, key, at, ea)
+      exp.NInt(e, r, stk, out, key, bk)
     case J.FSome{d, ds}:
-      tail.NInt.k1(d, ds, e, r, stk, out, key, at, ea, run_frac(ds, J.exp_k(e, r), stk, SCon{J.digit_char(d), SCon{'.', out}}, key, ((at + 1 : U32) + 1 : U32), ea))
+      tail.NInt.k1(d, ds, e, r, stk, out, key, bk, run_frac(ds, J.exp_k(e, r), stk, SCon{J.digit_char(d), SCon{'.', out}}, key, 0))
 
-def NumV(+n: J.Number, +m: F.Mode, +r: String, +stk: List<&2, F.Box>, +out: String, +key: Bool, +at: U32, +ea: U32) -> Type:
-  V(J.num_k(n, r), m, stk, out, key, at, ea, r, stk, push(J.num_k(n, ""), out))
+def NumV(+n: J.Number, +m: F.Mode, +r: String, +stk: List<&2, F.Box>, +out: String, +key: Bool, +bk: U32) -> Type:
+  V(J.num_k(n, r), m, stk, out, key, bk, r, stk, push(J.num_k(n, ""), out))
 
 law num.mz.k:
   for +m: F.Mode
@@ -1873,16 +1829,15 @@ law num.mz.k:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  for pre: {F.gc(SCon{'-', SCon{'0', J.frac_k(f, J.exp_k(e, r))}}, m, SCon{'-', SCon{'0', J.frac_k(f, J.exp_k(e, r))}}, stk, out, 0, 0, key, at, ea) == F.gc(J.frac_k(f, J.exp_k(e, r)), F.NZero{}, J.frac_k(f, J.exp_k(e, r)), stk, SCon{'0', SCon{'-', out}}, 0, 0, key, ((at + 1 : U32) + 1 : U32), ea) : F.Out}
-  for g: V(J.frac_k(f, J.exp_k(e, r)), F.NZero{}, stk, SCon{'0', SCon{'-', out}}, key, ((at + 1 : U32) + 1 : U32), ea, r, stk, push(J.exp_k(e, ""), push(J.frac_k(f, ""), SCon{'0', SCon{'-', out}})))
-  NumV(J.Number{True{}, J.IZero{}, f, e}, m, r, stk, out, key, at, ea)
+  for +bk: U32
+  for pre: {F.gc(SCon{'-', SCon{'0', J.frac_k(f, J.exp_k(e, r))}}, m, SCon{'-', SCon{'0', J.frac_k(f, J.exp_k(e, r))}}, stk, out, 0, 0, key, bk) == F.gc(J.frac_k(f, J.exp_k(e, r)), F.NZero{}, J.frac_k(f, J.exp_k(e, r)), stk, SCon{'0', SCon{'-', out}}, 0, 0, key, 0) : F.Out}
+  for g: V(J.frac_k(f, J.exp_k(e, r)), F.NZero{}, stk, SCon{'0', SCon{'-', out}}, key, 0, r, stk, push(J.exp_k(e, ""), push(J.frac_k(f, ""), SCon{'0', SCon{'-', out}})))
+  NumV(J.Number{True{}, J.IZero{}, f, e}, m, r, stk, out, key, bk)
 
-def num.mz.k(m, f, e, r, stk, out, key, at, ea, pre, g):
+def num.mz.k(m, f, e, r, stk, out, key, bk, pre, g):
   (+q, pr) = g
   (aft, e3) = pr
-  (q, (aft, Equal.trans(F.Out, F.gc(SCon{'-', SCon{'0', J.frac_k(f, J.exp_k(e, r))}}, m, SCon{'-', SCon{'0', J.frac_k(f, J.exp_k(e, r))}}, stk, out, 0, 0, key, at, ea), F.gc(J.frac_k(f, J.exp_k(e, r)), F.NZero{}, J.frac_k(f, J.exp_k(e, r)), stk, SCon{'0', SCon{'-', out}}, 0, 0, key, ((at + 1 : U32) + 1 : U32), ea), after(r, stk, push(J.num_k(J.Number{True{}, J.IZero{}, f, e}, ""), out), q), pre, Equal.trans(F.Out, F.gc(J.frac_k(f, J.exp_k(e, r)), F.NZero{}, J.frac_k(f, J.exp_k(e, r)), stk, SCon{'0', SCon{'-', out}}, 0, 0, key, ((at + 1 : U32) + 1 : U32), ea), after(r, stk, push(J.exp_k(e, ""), push(J.frac_k(f, ""), SCon{'0', SCon{'-', out}})), q), after(r, stk, push(J.num_k(J.Number{True{}, J.IZero{}, f, e}, ""), out), q), e3, Equal.cong(String, F.Out, z => after(r, stk, z, q), push(J.exp_k(e, ""), push(J.frac_k(f, ""), SCon{'0', SCon{'-', out}})), push(J.num_k(J.Number{True{}, J.IZero{}, f, e}, ""), out), out_fe(f, e, SCon{'0', SCon{'-', out}}))))))
+  (q, (aft, Equal.trans(F.Out, F.gc(SCon{'-', SCon{'0', J.frac_k(f, J.exp_k(e, r))}}, m, SCon{'-', SCon{'0', J.frac_k(f, J.exp_k(e, r))}}, stk, out, 0, 0, key, bk), F.gc(J.frac_k(f, J.exp_k(e, r)), F.NZero{}, J.frac_k(f, J.exp_k(e, r)), stk, SCon{'0', SCon{'-', out}}, 0, 0, key, 0), after(r, stk, push(J.num_k(J.Number{True{}, J.IZero{}, f, e}, ""), out), q), pre, Equal.trans(F.Out, F.gc(J.frac_k(f, J.exp_k(e, r)), F.NZero{}, J.frac_k(f, J.exp_k(e, r)), stk, SCon{'0', SCon{'-', out}}, 0, 0, key, 0), after(r, stk, push(J.exp_k(e, ""), push(J.frac_k(f, ""), SCon{'0', SCon{'-', out}})), q), after(r, stk, push(J.num_k(J.Number{True{}, J.IZero{}, f, e}, ""), out), q), e3, Equal.cong(String, F.Out, z => after(r, stk, z, q), push(J.exp_k(e, ""), push(J.frac_k(f, ""), SCon{'0', SCon{'-', out}})), push(J.num_k(J.Number{True{}, J.IZero{}, f, e}, ""), out), out_fe(f, e, SCon{'0', SCon{'-', out}}))))))
 
 law num.mz:
   for +m: F.Mode
@@ -1893,12 +1848,11 @@ law num.mz:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  NumV(J.Number{True{}, J.IZero{}, f, e}, m, r, stk, out, key, at, ea)
+  for +bk: U32
+  NumV(J.Number{True{}, J.IZero{}, f, e}, m, r, stk, out, key, bk)
 
-def num.mz(m, vm, f, e, r, stk, out, key, at, ea):
-  num.mz.k(m, f, e, r, stk, out, key, at, ea, Equal.trans(F.Out, F.gc(SCon{'-', SCon{'0', J.frac_k(f, J.exp_k(e, r))}}, m, SCon{'-', SCon{'0', J.frac_k(f, J.exp_k(e, r))}}, stk, out, 0, 0, key, at, ea), F.gc(SCon{'0', J.frac_k(f, J.exp_k(e, r))}, F.NMin{}, SCon{'0', J.frac_k(f, J.exp_k(e, r))}, stk, SCon{'-', out}, 0, 0, key, (at + 1 : U32), ea), F.gc(J.frac_k(f, J.exp_k(e, r)), F.NZero{}, J.frac_k(f, J.exp_k(e, r)), stk, SCon{'0', SCon{'-', out}}, 0, 0, key, ((at + 1 : U32) + 1 : U32), ea), v_minus(m, vm, SCon{'0', J.frac_k(f, J.exp_k(e, r))}, stk, out, key, at, ea), min_zero(J.frac_k(f, J.exp_k(e, r)), stk, SCon{'-', out}, key, (at + 1 : U32), ea)), tail.NZero(f, e, r, stk, SCon{'0', SCon{'-', out}}, key, ((at + 1 : U32) + 1 : U32), ea))
+def num.mz(m, vm, f, e, r, stk, out, key, bk):
+  num.mz.k(m, f, e, r, stk, out, key, bk, Equal.trans(F.Out, F.gc(SCon{'-', SCon{'0', J.frac_k(f, J.exp_k(e, r))}}, m, SCon{'-', SCon{'0', J.frac_k(f, J.exp_k(e, r))}}, stk, out, 0, 0, key, bk), F.gc(SCon{'0', J.frac_k(f, J.exp_k(e, r))}, F.NMin{}, SCon{'0', J.frac_k(f, J.exp_k(e, r))}, stk, SCon{'-', out}, 0, 0, key, 0), F.gc(J.frac_k(f, J.exp_k(e, r)), F.NZero{}, J.frac_k(f, J.exp_k(e, r)), stk, SCon{'0', SCon{'-', out}}, 0, 0, key, 0), v_minus(m, vm, SCon{'0', J.frac_k(f, J.exp_k(e, r))}, stk, out, key, bk), min_zero(J.frac_k(f, J.exp_k(e, r)), stk, SCon{'-', out}, key, 0)), tail.NZero(f, e, r, stk, SCon{'0', SCon{'-', out}}, key, 0))
 
 law num.ml.k2:
   for +m: F.Mode
@@ -1910,17 +1864,16 @@ law num.ml.k2:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
+  for +bk: U32
   for +a: U32
-  for pre: {F.gc(SCon{'-', SCon{J.lead_char(l), J.digits_k(ds, J.frac_k(f, J.exp_k(e, r)))}}, m, SCon{'-', SCon{J.lead_char(l), J.digits_k(ds, J.frac_k(f, J.exp_k(e, r)))}}, stk, out, 0, 0, key, at, ea) == F.gc(J.frac_k(f, J.exp_k(e, r)), F.NInt{}, J.frac_k(f, J.exp_k(e, r)), stk, push(J.digits_k(ds, ""), SCon{J.lead_char(l), SCon{'-', out}}), 0, 0, key, a, ea) : F.Out}
-  for g: V(J.frac_k(f, J.exp_k(e, r)), F.NInt{}, stk, push(J.digits_k(ds, ""), SCon{J.lead_char(l), SCon{'-', out}}), key, a, ea, r, stk, push(J.exp_k(e, ""), push(J.frac_k(f, ""), push(J.digits_k(ds, ""), SCon{J.lead_char(l), SCon{'-', out}}))))
-  NumV(J.Number{True{}, J.INon{l, ds}, f, e}, m, r, stk, out, key, at, ea)
+  for pre: {F.gc(SCon{'-', SCon{J.lead_char(l), J.digits_k(ds, J.frac_k(f, J.exp_k(e, r)))}}, m, SCon{'-', SCon{J.lead_char(l), J.digits_k(ds, J.frac_k(f, J.exp_k(e, r)))}}, stk, out, 0, 0, key, bk) == F.gc(J.frac_k(f, J.exp_k(e, r)), F.NInt{}, J.frac_k(f, J.exp_k(e, r)), stk, push(J.digits_k(ds, ""), SCon{J.lead_char(l), SCon{'-', out}}), 0, 0, key, a) : F.Out}
+  for g: V(J.frac_k(f, J.exp_k(e, r)), F.NInt{}, stk, push(J.digits_k(ds, ""), SCon{J.lead_char(l), SCon{'-', out}}), key, a, r, stk, push(J.exp_k(e, ""), push(J.frac_k(f, ""), push(J.digits_k(ds, ""), SCon{J.lead_char(l), SCon{'-', out}}))))
+  NumV(J.Number{True{}, J.INon{l, ds}, f, e}, m, r, stk, out, key, bk)
 
-def num.ml.k2(m, f, e, l, ds, r, stk, out, key, at, ea, a, pre, g):
+def num.ml.k2(m, f, e, l, ds, r, stk, out, key, bk, a, pre, g):
   (+q, pr) = g
   (aft, e4) = pr
-  (q, (aft, Equal.trans(F.Out, F.gc(SCon{'-', SCon{J.lead_char(l), J.digits_k(ds, J.frac_k(f, J.exp_k(e, r)))}}, m, SCon{'-', SCon{J.lead_char(l), J.digits_k(ds, J.frac_k(f, J.exp_k(e, r)))}}, stk, out, 0, 0, key, at, ea), F.gc(J.frac_k(f, J.exp_k(e, r)), F.NInt{}, J.frac_k(f, J.exp_k(e, r)), stk, push(J.digits_k(ds, ""), SCon{J.lead_char(l), SCon{'-', out}}), 0, 0, key, a, ea), after(r, stk, push(J.num_k(J.Number{True{}, J.INon{l, ds}, f, e}, ""), out), q), pre, Equal.trans(F.Out, F.gc(J.frac_k(f, J.exp_k(e, r)), F.NInt{}, J.frac_k(f, J.exp_k(e, r)), stk, push(J.digits_k(ds, ""), SCon{J.lead_char(l), SCon{'-', out}}), 0, 0, key, a, ea), after(r, stk, push(J.exp_k(e, ""), push(J.frac_k(f, ""), push(J.digits_k(ds, ""), SCon{J.lead_char(l), SCon{'-', out}}))), q), after(r, stk, push(J.num_k(J.Number{True{}, J.INon{l, ds}, f, e}, ""), out), q), e4, Equal.cong(String, F.Out, z => after(r, stk, z, q), push(J.exp_k(e, ""), push(J.frac_k(f, ""), push(J.digits_k(ds, ""), SCon{J.lead_char(l), SCon{'-', out}}))), push(J.num_k(J.Number{True{}, J.INon{l, ds}, f, e}, ""), out), out_dfe(ds, f, e, SCon{J.lead_char(l), SCon{'-', out}}))))))
+  (q, (aft, Equal.trans(F.Out, F.gc(SCon{'-', SCon{J.lead_char(l), J.digits_k(ds, J.frac_k(f, J.exp_k(e, r)))}}, m, SCon{'-', SCon{J.lead_char(l), J.digits_k(ds, J.frac_k(f, J.exp_k(e, r)))}}, stk, out, 0, 0, key, bk), F.gc(J.frac_k(f, J.exp_k(e, r)), F.NInt{}, J.frac_k(f, J.exp_k(e, r)), stk, push(J.digits_k(ds, ""), SCon{J.lead_char(l), SCon{'-', out}}), 0, 0, key, a), after(r, stk, push(J.num_k(J.Number{True{}, J.INon{l, ds}, f, e}, ""), out), q), pre, Equal.trans(F.Out, F.gc(J.frac_k(f, J.exp_k(e, r)), F.NInt{}, J.frac_k(f, J.exp_k(e, r)), stk, push(J.digits_k(ds, ""), SCon{J.lead_char(l), SCon{'-', out}}), 0, 0, key, a), after(r, stk, push(J.exp_k(e, ""), push(J.frac_k(f, ""), push(J.digits_k(ds, ""), SCon{J.lead_char(l), SCon{'-', out}}))), q), after(r, stk, push(J.num_k(J.Number{True{}, J.INon{l, ds}, f, e}, ""), out), q), e4, Equal.cong(String, F.Out, z => after(r, stk, z, q), push(J.exp_k(e, ""), push(J.frac_k(f, ""), push(J.digits_k(ds, ""), SCon{J.lead_char(l), SCon{'-', out}}))), push(J.num_k(J.Number{True{}, J.INon{l, ds}, f, e}, ""), out), out_dfe(ds, f, e, SCon{J.lead_char(l), SCon{'-', out}}))))))
 
 law num.ml.k1:
   for +m: F.Mode
@@ -1932,15 +1885,14 @@ law num.ml.k1:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  for pre: {F.gc(SCon{'-', SCon{J.lead_char(l), J.digits_k(ds, J.frac_k(f, J.exp_k(e, r)))}}, m, SCon{'-', SCon{J.lead_char(l), J.digits_k(ds, J.frac_k(f, J.exp_k(e, r)))}}, stk, out, 0, 0, key, at, ea) == F.gc(J.digits_k(ds, J.frac_k(f, J.exp_k(e, r))), F.NInt{}, J.digits_k(ds, J.frac_k(f, J.exp_k(e, r))), stk, SCon{J.lead_char(l), SCon{'-', out}}, 0, 0, key, ((at + 1 : U32) + 1 : U32), ea) : F.Out}
-  for g: Run_int(ds, J.frac_k(f, J.exp_k(e, r)), stk, SCon{J.lead_char(l), SCon{'-', out}}, key, ((at + 1 : U32) + 1 : U32), ea)
-  NumV(J.Number{True{}, J.INon{l, ds}, f, e}, m, r, stk, out, key, at, ea)
+  for +bk: U32
+  for pre: {F.gc(SCon{'-', SCon{J.lead_char(l), J.digits_k(ds, J.frac_k(f, J.exp_k(e, r)))}}, m, SCon{'-', SCon{J.lead_char(l), J.digits_k(ds, J.frac_k(f, J.exp_k(e, r)))}}, stk, out, 0, 0, key, bk) == F.gc(J.digits_k(ds, J.frac_k(f, J.exp_k(e, r))), F.NInt{}, J.digits_k(ds, J.frac_k(f, J.exp_k(e, r))), stk, SCon{J.lead_char(l), SCon{'-', out}}, 0, 0, key, 0) : F.Out}
+  for g: Run_int(ds, J.frac_k(f, J.exp_k(e, r)), stk, SCon{J.lead_char(l), SCon{'-', out}}, key, 0)
+  NumV(J.Number{True{}, J.INon{l, ds}, f, e}, m, r, stk, out, key, bk)
 
-def num.ml.k1(m, f, e, l, ds, r, stk, out, key, at, ea, pre, g):
+def num.ml.k1(m, f, e, l, ds, r, stk, out, key, bk, pre, g):
   (+a, e3) = g
-  num.ml.k2(m, f, e, l, ds, r, stk, out, key, at, ea, a, Equal.trans(F.Out, F.gc(SCon{'-', SCon{J.lead_char(l), J.digits_k(ds, J.frac_k(f, J.exp_k(e, r)))}}, m, SCon{'-', SCon{J.lead_char(l), J.digits_k(ds, J.frac_k(f, J.exp_k(e, r)))}}, stk, out, 0, 0, key, at, ea), F.gc(J.digits_k(ds, J.frac_k(f, J.exp_k(e, r))), F.NInt{}, J.digits_k(ds, J.frac_k(f, J.exp_k(e, r))), stk, SCon{J.lead_char(l), SCon{'-', out}}, 0, 0, key, ((at + 1 : U32) + 1 : U32), ea), F.gc(J.frac_k(f, J.exp_k(e, r)), F.NInt{}, J.frac_k(f, J.exp_k(e, r)), stk, push(J.digits_k(ds, ""), SCon{J.lead_char(l), SCon{'-', out}}), 0, 0, key, a, ea), pre, e3), tail.NInt(f, e, r, stk, push(J.digits_k(ds, ""), SCon{J.lead_char(l), SCon{'-', out}}), key, a, ea))
+  num.ml.k2(m, f, e, l, ds, r, stk, out, key, bk, a, Equal.trans(F.Out, F.gc(SCon{'-', SCon{J.lead_char(l), J.digits_k(ds, J.frac_k(f, J.exp_k(e, r)))}}, m, SCon{'-', SCon{J.lead_char(l), J.digits_k(ds, J.frac_k(f, J.exp_k(e, r)))}}, stk, out, 0, 0, key, bk), F.gc(J.digits_k(ds, J.frac_k(f, J.exp_k(e, r))), F.NInt{}, J.digits_k(ds, J.frac_k(f, J.exp_k(e, r))), stk, SCon{J.lead_char(l), SCon{'-', out}}, 0, 0, key, 0), F.gc(J.frac_k(f, J.exp_k(e, r)), F.NInt{}, J.frac_k(f, J.exp_k(e, r)), stk, push(J.digits_k(ds, ""), SCon{J.lead_char(l), SCon{'-', out}}), 0, 0, key, a), pre, e3), tail.NInt(f, e, r, stk, push(J.digits_k(ds, ""), SCon{J.lead_char(l), SCon{'-', out}}), key, a))
 
 law num.ml:
   for +m: F.Mode
@@ -1953,12 +1905,11 @@ law num.ml:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  NumV(J.Number{True{}, J.INon{l, ds}, f, e}, m, r, stk, out, key, at, ea)
+  for +bk: U32
+  NumV(J.Number{True{}, J.INon{l, ds}, f, e}, m, r, stk, out, key, bk)
 
-def num.ml(m, vm, f, e, l, ds, r, stk, out, key, at, ea):
-  num.ml.k1(m, f, e, l, ds, r, stk, out, key, at, ea, Equal.trans(F.Out, F.gc(SCon{'-', SCon{J.lead_char(l), J.digits_k(ds, J.frac_k(f, J.exp_k(e, r)))}}, m, SCon{'-', SCon{J.lead_char(l), J.digits_k(ds, J.frac_k(f, J.exp_k(e, r)))}}, stk, out, 0, 0, key, at, ea), F.gc(SCon{J.lead_char(l), J.digits_k(ds, J.frac_k(f, J.exp_k(e, r)))}, F.NMin{}, SCon{J.lead_char(l), J.digits_k(ds, J.frac_k(f, J.exp_k(e, r)))}, stk, SCon{'-', out}, 0, 0, key, (at + 1 : U32), ea), F.gc(J.digits_k(ds, J.frac_k(f, J.exp_k(e, r))), F.NInt{}, J.digits_k(ds, J.frac_k(f, J.exp_k(e, r))), stk, SCon{J.lead_char(l), SCon{'-', out}}, 0, 0, key, ((at + 1 : U32) + 1 : U32), ea), v_minus(m, vm, SCon{J.lead_char(l), J.digits_k(ds, J.frac_k(f, J.exp_k(e, r)))}, stk, out, key, at, ea), min_lead(l, J.digits_k(ds, J.frac_k(f, J.exp_k(e, r))), stk, SCon{'-', out}, key, (at + 1 : U32), ea)), run_int(ds, J.frac_k(f, J.exp_k(e, r)), stk, SCon{J.lead_char(l), SCon{'-', out}}, key, ((at + 1 : U32) + 1 : U32), ea))
+def num.ml(m, vm, f, e, l, ds, r, stk, out, key, bk):
+  num.ml.k1(m, f, e, l, ds, r, stk, out, key, bk, Equal.trans(F.Out, F.gc(SCon{'-', SCon{J.lead_char(l), J.digits_k(ds, J.frac_k(f, J.exp_k(e, r)))}}, m, SCon{'-', SCon{J.lead_char(l), J.digits_k(ds, J.frac_k(f, J.exp_k(e, r)))}}, stk, out, 0, 0, key, bk), F.gc(SCon{J.lead_char(l), J.digits_k(ds, J.frac_k(f, J.exp_k(e, r)))}, F.NMin{}, SCon{J.lead_char(l), J.digits_k(ds, J.frac_k(f, J.exp_k(e, r)))}, stk, SCon{'-', out}, 0, 0, key, 0), F.gc(J.digits_k(ds, J.frac_k(f, J.exp_k(e, r))), F.NInt{}, J.digits_k(ds, J.frac_k(f, J.exp_k(e, r))), stk, SCon{J.lead_char(l), SCon{'-', out}}, 0, 0, key, 0), v_minus(m, vm, SCon{J.lead_char(l), J.digits_k(ds, J.frac_k(f, J.exp_k(e, r)))}, stk, out, key, bk), min_lead(l, J.digits_k(ds, J.frac_k(f, J.exp_k(e, r))), stk, SCon{'-', out}, key, 0)), run_int(ds, J.frac_k(f, J.exp_k(e, r)), stk, SCon{J.lead_char(l), SCon{'-', out}}, key, 0))
 
 law num.pz.k:
   for +m: F.Mode
@@ -1968,16 +1919,15 @@ law num.pz.k:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  for pre: {F.gc(SCon{'0', J.frac_k(f, J.exp_k(e, r))}, m, SCon{'0', J.frac_k(f, J.exp_k(e, r))}, stk, out, 0, 0, key, at, ea) == F.gc(J.frac_k(f, J.exp_k(e, r)), F.NZero{}, J.frac_k(f, J.exp_k(e, r)), stk, SCon{'0', out}, 0, 0, key, (at + 1 : U32), ea) : F.Out}
-  for g: V(J.frac_k(f, J.exp_k(e, r)), F.NZero{}, stk, SCon{'0', out}, key, (at + 1 : U32), ea, r, stk, push(J.exp_k(e, ""), push(J.frac_k(f, ""), SCon{'0', out})))
-  NumV(J.Number{False{}, J.IZero{}, f, e}, m, r, stk, out, key, at, ea)
+  for +bk: U32
+  for pre: {F.gc(SCon{'0', J.frac_k(f, J.exp_k(e, r))}, m, SCon{'0', J.frac_k(f, J.exp_k(e, r))}, stk, out, 0, 0, key, bk) == F.gc(J.frac_k(f, J.exp_k(e, r)), F.NZero{}, J.frac_k(f, J.exp_k(e, r)), stk, SCon{'0', out}, 0, 0, key, 0) : F.Out}
+  for g: V(J.frac_k(f, J.exp_k(e, r)), F.NZero{}, stk, SCon{'0', out}, key, 0, r, stk, push(J.exp_k(e, ""), push(J.frac_k(f, ""), SCon{'0', out})))
+  NumV(J.Number{False{}, J.IZero{}, f, e}, m, r, stk, out, key, bk)
 
-def num.pz.k(m, f, e, r, stk, out, key, at, ea, pre, g):
+def num.pz.k(m, f, e, r, stk, out, key, bk, pre, g):
   (+q, pr) = g
   (aft, e3) = pr
-  (q, (aft, Equal.trans(F.Out, F.gc(SCon{'0', J.frac_k(f, J.exp_k(e, r))}, m, SCon{'0', J.frac_k(f, J.exp_k(e, r))}, stk, out, 0, 0, key, at, ea), F.gc(J.frac_k(f, J.exp_k(e, r)), F.NZero{}, J.frac_k(f, J.exp_k(e, r)), stk, SCon{'0', out}, 0, 0, key, (at + 1 : U32), ea), after(r, stk, push(J.num_k(J.Number{False{}, J.IZero{}, f, e}, ""), out), q), pre, Equal.trans(F.Out, F.gc(J.frac_k(f, J.exp_k(e, r)), F.NZero{}, J.frac_k(f, J.exp_k(e, r)), stk, SCon{'0', out}, 0, 0, key, (at + 1 : U32), ea), after(r, stk, push(J.exp_k(e, ""), push(J.frac_k(f, ""), SCon{'0', out})), q), after(r, stk, push(J.num_k(J.Number{False{}, J.IZero{}, f, e}, ""), out), q), e3, Equal.cong(String, F.Out, z => after(r, stk, z, q), push(J.exp_k(e, ""), push(J.frac_k(f, ""), SCon{'0', out})), push(J.num_k(J.Number{False{}, J.IZero{}, f, e}, ""), out), out_fe(f, e, SCon{'0', out}))))))
+  (q, (aft, Equal.trans(F.Out, F.gc(SCon{'0', J.frac_k(f, J.exp_k(e, r))}, m, SCon{'0', J.frac_k(f, J.exp_k(e, r))}, stk, out, 0, 0, key, bk), F.gc(J.frac_k(f, J.exp_k(e, r)), F.NZero{}, J.frac_k(f, J.exp_k(e, r)), stk, SCon{'0', out}, 0, 0, key, 0), after(r, stk, push(J.num_k(J.Number{False{}, J.IZero{}, f, e}, ""), out), q), pre, Equal.trans(F.Out, F.gc(J.frac_k(f, J.exp_k(e, r)), F.NZero{}, J.frac_k(f, J.exp_k(e, r)), stk, SCon{'0', out}, 0, 0, key, 0), after(r, stk, push(J.exp_k(e, ""), push(J.frac_k(f, ""), SCon{'0', out})), q), after(r, stk, push(J.num_k(J.Number{False{}, J.IZero{}, f, e}, ""), out), q), e3, Equal.cong(String, F.Out, z => after(r, stk, z, q), push(J.exp_k(e, ""), push(J.frac_k(f, ""), SCon{'0', out})), push(J.num_k(J.Number{False{}, J.IZero{}, f, e}, ""), out), out_fe(f, e, SCon{'0', out}))))))
 
 law num.pz:
   for +m: F.Mode
@@ -1988,12 +1938,11 @@ law num.pz:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  NumV(J.Number{False{}, J.IZero{}, f, e}, m, r, stk, out, key, at, ea)
+  for +bk: U32
+  NumV(J.Number{False{}, J.IZero{}, f, e}, m, r, stk, out, key, bk)
 
-def num.pz(m, vm, f, e, r, stk, out, key, at, ea):
-  num.pz.k(m, f, e, r, stk, out, key, at, ea, v_zero(m, vm, J.frac_k(f, J.exp_k(e, r)), stk, out, key, at, ea), tail.NZero(f, e, r, stk, SCon{'0', out}, key, (at + 1 : U32), ea))
+def num.pz(m, vm, f, e, r, stk, out, key, bk):
+  num.pz.k(m, f, e, r, stk, out, key, bk, v_zero(m, vm, J.frac_k(f, J.exp_k(e, r)), stk, out, key, bk), tail.NZero(f, e, r, stk, SCon{'0', out}, key, 0))
 
 law num.pl.k2:
   for +m: F.Mode
@@ -2005,17 +1954,16 @@ law num.pl.k2:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
+  for +bk: U32
   for +a: U32
-  for pre: {F.gc(SCon{J.lead_char(l), J.digits_k(ds, J.frac_k(f, J.exp_k(e, r)))}, m, SCon{J.lead_char(l), J.digits_k(ds, J.frac_k(f, J.exp_k(e, r)))}, stk, out, 0, 0, key, at, ea) == F.gc(J.frac_k(f, J.exp_k(e, r)), F.NInt{}, J.frac_k(f, J.exp_k(e, r)), stk, push(J.digits_k(ds, ""), SCon{J.lead_char(l), out}), 0, 0, key, a, ea) : F.Out}
-  for g: V(J.frac_k(f, J.exp_k(e, r)), F.NInt{}, stk, push(J.digits_k(ds, ""), SCon{J.lead_char(l), out}), key, a, ea, r, stk, push(J.exp_k(e, ""), push(J.frac_k(f, ""), push(J.digits_k(ds, ""), SCon{J.lead_char(l), out}))))
-  NumV(J.Number{False{}, J.INon{l, ds}, f, e}, m, r, stk, out, key, at, ea)
+  for pre: {F.gc(SCon{J.lead_char(l), J.digits_k(ds, J.frac_k(f, J.exp_k(e, r)))}, m, SCon{J.lead_char(l), J.digits_k(ds, J.frac_k(f, J.exp_k(e, r)))}, stk, out, 0, 0, key, bk) == F.gc(J.frac_k(f, J.exp_k(e, r)), F.NInt{}, J.frac_k(f, J.exp_k(e, r)), stk, push(J.digits_k(ds, ""), SCon{J.lead_char(l), out}), 0, 0, key, a) : F.Out}
+  for g: V(J.frac_k(f, J.exp_k(e, r)), F.NInt{}, stk, push(J.digits_k(ds, ""), SCon{J.lead_char(l), out}), key, a, r, stk, push(J.exp_k(e, ""), push(J.frac_k(f, ""), push(J.digits_k(ds, ""), SCon{J.lead_char(l), out}))))
+  NumV(J.Number{False{}, J.INon{l, ds}, f, e}, m, r, stk, out, key, bk)
 
-def num.pl.k2(m, f, e, l, ds, r, stk, out, key, at, ea, a, pre, g):
+def num.pl.k2(m, f, e, l, ds, r, stk, out, key, bk, a, pre, g):
   (+q, pr) = g
   (aft, e4) = pr
-  (q, (aft, Equal.trans(F.Out, F.gc(SCon{J.lead_char(l), J.digits_k(ds, J.frac_k(f, J.exp_k(e, r)))}, m, SCon{J.lead_char(l), J.digits_k(ds, J.frac_k(f, J.exp_k(e, r)))}, stk, out, 0, 0, key, at, ea), F.gc(J.frac_k(f, J.exp_k(e, r)), F.NInt{}, J.frac_k(f, J.exp_k(e, r)), stk, push(J.digits_k(ds, ""), SCon{J.lead_char(l), out}), 0, 0, key, a, ea), after(r, stk, push(J.num_k(J.Number{False{}, J.INon{l, ds}, f, e}, ""), out), q), pre, Equal.trans(F.Out, F.gc(J.frac_k(f, J.exp_k(e, r)), F.NInt{}, J.frac_k(f, J.exp_k(e, r)), stk, push(J.digits_k(ds, ""), SCon{J.lead_char(l), out}), 0, 0, key, a, ea), after(r, stk, push(J.exp_k(e, ""), push(J.frac_k(f, ""), push(J.digits_k(ds, ""), SCon{J.lead_char(l), out}))), q), after(r, stk, push(J.num_k(J.Number{False{}, J.INon{l, ds}, f, e}, ""), out), q), e4, Equal.cong(String, F.Out, z => after(r, stk, z, q), push(J.exp_k(e, ""), push(J.frac_k(f, ""), push(J.digits_k(ds, ""), SCon{J.lead_char(l), out}))), push(J.num_k(J.Number{False{}, J.INon{l, ds}, f, e}, ""), out), out_dfe(ds, f, e, SCon{J.lead_char(l), out}))))))
+  (q, (aft, Equal.trans(F.Out, F.gc(SCon{J.lead_char(l), J.digits_k(ds, J.frac_k(f, J.exp_k(e, r)))}, m, SCon{J.lead_char(l), J.digits_k(ds, J.frac_k(f, J.exp_k(e, r)))}, stk, out, 0, 0, key, bk), F.gc(J.frac_k(f, J.exp_k(e, r)), F.NInt{}, J.frac_k(f, J.exp_k(e, r)), stk, push(J.digits_k(ds, ""), SCon{J.lead_char(l), out}), 0, 0, key, a), after(r, stk, push(J.num_k(J.Number{False{}, J.INon{l, ds}, f, e}, ""), out), q), pre, Equal.trans(F.Out, F.gc(J.frac_k(f, J.exp_k(e, r)), F.NInt{}, J.frac_k(f, J.exp_k(e, r)), stk, push(J.digits_k(ds, ""), SCon{J.lead_char(l), out}), 0, 0, key, a), after(r, stk, push(J.exp_k(e, ""), push(J.frac_k(f, ""), push(J.digits_k(ds, ""), SCon{J.lead_char(l), out}))), q), after(r, stk, push(J.num_k(J.Number{False{}, J.INon{l, ds}, f, e}, ""), out), q), e4, Equal.cong(String, F.Out, z => after(r, stk, z, q), push(J.exp_k(e, ""), push(J.frac_k(f, ""), push(J.digits_k(ds, ""), SCon{J.lead_char(l), out}))), push(J.num_k(J.Number{False{}, J.INon{l, ds}, f, e}, ""), out), out_dfe(ds, f, e, SCon{J.lead_char(l), out}))))))
 
 law num.pl.k1:
   for +m: F.Mode
@@ -2027,15 +1975,14 @@ law num.pl.k1:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  for pre: {F.gc(SCon{J.lead_char(l), J.digits_k(ds, J.frac_k(f, J.exp_k(e, r)))}, m, SCon{J.lead_char(l), J.digits_k(ds, J.frac_k(f, J.exp_k(e, r)))}, stk, out, 0, 0, key, at, ea) == F.gc(J.digits_k(ds, J.frac_k(f, J.exp_k(e, r))), F.NInt{}, J.digits_k(ds, J.frac_k(f, J.exp_k(e, r))), stk, SCon{J.lead_char(l), out}, 0, 0, key, (at + 1 : U32), ea) : F.Out}
-  for g: Run_int(ds, J.frac_k(f, J.exp_k(e, r)), stk, SCon{J.lead_char(l), out}, key, (at + 1 : U32), ea)
-  NumV(J.Number{False{}, J.INon{l, ds}, f, e}, m, r, stk, out, key, at, ea)
+  for +bk: U32
+  for pre: {F.gc(SCon{J.lead_char(l), J.digits_k(ds, J.frac_k(f, J.exp_k(e, r)))}, m, SCon{J.lead_char(l), J.digits_k(ds, J.frac_k(f, J.exp_k(e, r)))}, stk, out, 0, 0, key, bk) == F.gc(J.digits_k(ds, J.frac_k(f, J.exp_k(e, r))), F.NInt{}, J.digits_k(ds, J.frac_k(f, J.exp_k(e, r))), stk, SCon{J.lead_char(l), out}, 0, 0, key, 0) : F.Out}
+  for g: Run_int(ds, J.frac_k(f, J.exp_k(e, r)), stk, SCon{J.lead_char(l), out}, key, 0)
+  NumV(J.Number{False{}, J.INon{l, ds}, f, e}, m, r, stk, out, key, bk)
 
-def num.pl.k1(m, f, e, l, ds, r, stk, out, key, at, ea, pre, g):
+def num.pl.k1(m, f, e, l, ds, r, stk, out, key, bk, pre, g):
   (+a, e3) = g
-  num.pl.k2(m, f, e, l, ds, r, stk, out, key, at, ea, a, Equal.trans(F.Out, F.gc(SCon{J.lead_char(l), J.digits_k(ds, J.frac_k(f, J.exp_k(e, r)))}, m, SCon{J.lead_char(l), J.digits_k(ds, J.frac_k(f, J.exp_k(e, r)))}, stk, out, 0, 0, key, at, ea), F.gc(J.digits_k(ds, J.frac_k(f, J.exp_k(e, r))), F.NInt{}, J.digits_k(ds, J.frac_k(f, J.exp_k(e, r))), stk, SCon{J.lead_char(l), out}, 0, 0, key, (at + 1 : U32), ea), F.gc(J.frac_k(f, J.exp_k(e, r)), F.NInt{}, J.frac_k(f, J.exp_k(e, r)), stk, push(J.digits_k(ds, ""), SCon{J.lead_char(l), out}), 0, 0, key, a, ea), pre, e3), tail.NInt(f, e, r, stk, push(J.digits_k(ds, ""), SCon{J.lead_char(l), out}), key, a, ea))
+  num.pl.k2(m, f, e, l, ds, r, stk, out, key, bk, a, Equal.trans(F.Out, F.gc(SCon{J.lead_char(l), J.digits_k(ds, J.frac_k(f, J.exp_k(e, r)))}, m, SCon{J.lead_char(l), J.digits_k(ds, J.frac_k(f, J.exp_k(e, r)))}, stk, out, 0, 0, key, bk), F.gc(J.digits_k(ds, J.frac_k(f, J.exp_k(e, r))), F.NInt{}, J.digits_k(ds, J.frac_k(f, J.exp_k(e, r))), stk, SCon{J.lead_char(l), out}, 0, 0, key, 0), F.gc(J.frac_k(f, J.exp_k(e, r)), F.NInt{}, J.frac_k(f, J.exp_k(e, r)), stk, push(J.digits_k(ds, ""), SCon{J.lead_char(l), out}), 0, 0, key, a), pre, e3), tail.NInt(f, e, r, stk, push(J.digits_k(ds, ""), SCon{J.lead_char(l), out}), key, a))
 
 law num.pl:
   for +m: F.Mode
@@ -2048,12 +1995,11 @@ law num.pl:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  NumV(J.Number{False{}, J.INon{l, ds}, f, e}, m, r, stk, out, key, at, ea)
+  for +bk: U32
+  NumV(J.Number{False{}, J.INon{l, ds}, f, e}, m, r, stk, out, key, bk)
 
-def num.pl(m, vm, f, e, l, ds, r, stk, out, key, at, ea):
-  num.pl.k1(m, f, e, l, ds, r, stk, out, key, at, ea, v_lead(m, vm, l, J.digits_k(ds, J.frac_k(f, J.exp_k(e, r))), stk, out, key, at, ea), run_int(ds, J.frac_k(f, J.exp_k(e, r)), stk, SCon{J.lead_char(l), out}, key, (at + 1 : U32), ea))
+def num.pl(m, vm, f, e, l, ds, r, stk, out, key, bk):
+  num.pl.k1(m, f, e, l, ds, r, stk, out, key, bk, v_lead(m, vm, l, J.digits_k(ds, J.frac_k(f, J.exp_k(e, r))), stk, out, key, bk), run_int(ds, J.frac_k(f, J.exp_k(e, r)), stk, SCon{J.lead_char(l), out}, key, 0))
 
 law num:
   for +n: J.Number
@@ -2063,20 +2009,19 @@ law num:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  NumV(n, m, r, stk, out, key, at, ea)
+  for +bk: U32
+  NumV(n, m, r, stk, out, key, bk)
 
-def num(n, m, vm, r, stk, out, key, at, ea):
+def num(n, m, vm, r, stk, out, key, bk):
   match n:
     case J.Number{True{}, J.IZero{}, f, e}:
-      num.mz(m, vm, f, e, r, stk, out, key, at, ea)
+      num.mz(m, vm, f, e, r, stk, out, key, bk)
     case J.Number{True{}, J.INon{l, ds}, f, e}:
-      num.ml(m, vm, f, e, l, ds, r, stk, out, key, at, ea)
+      num.ml(m, vm, f, e, l, ds, r, stk, out, key, bk)
     case J.Number{False{}, J.IZero{}, f, e}:
-      num.pz(m, vm, f, e, r, stk, out, key, at, ea)
+      num.pz(m, vm, f, e, r, stk, out, key, bk)
     case J.Number{False{}, J.INon{l, ds}, f, e}:
-      num.pl(m, vm, f, e, l, ds, r, stk, out, key, at, ea)
+      num.pl(m, vm, f, e, l, ds, r, stk, out, key, bk)
 
 # Values
 # ------
@@ -2088,11 +2033,10 @@ law v_null:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  {F.gc("null" ++ x, m, "null" ++ x, stk, out, 0, 0, key, at, ea) == F.gc(x, F.VAfter{}, x, stk, SCon{'l', SCon{'l', SCon{'u', SCon{'n', out}}}}, 0, 0, key, ((((at + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32), ea) : F.Out}
+  for +bk: U32
+  {F.gc("null" ++ x, m, "null" ++ x, stk, out, 0, 0, key, bk) == F.gc(x, F.VAfter{}, x, stk, SCon{'l', SCon{'l', SCon{'u', SCon{'n', out}}}}, 0, 0, key, 0) : F.Out}
 
-def v_null(m, g, x, stk, out, key, at, ea):
+def v_null(m, g, x, stk, out, key, bk):
   match m stk:
     case F.VStart{} Nil{}:
       {==}
@@ -2200,11 +2144,10 @@ law v_true:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  {F.gc("true" ++ x, m, "true" ++ x, stk, out, 0, 0, key, at, ea) == F.gc(x, F.VAfter{}, x, stk, SCon{'e', SCon{'u', SCon{'r', SCon{'t', out}}}}, 0, 0, key, ((((at + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32), ea) : F.Out}
+  for +bk: U32
+  {F.gc("true" ++ x, m, "true" ++ x, stk, out, 0, 0, key, bk) == F.gc(x, F.VAfter{}, x, stk, SCon{'e', SCon{'u', SCon{'r', SCon{'t', out}}}}, 0, 0, key, 0) : F.Out}
 
-def v_true(m, g, x, stk, out, key, at, ea):
+def v_true(m, g, x, stk, out, key, bk):
   match m stk:
     case F.VStart{} Nil{}:
       {==}
@@ -2312,11 +2255,10 @@ law v_false:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  {F.gc("false" ++ x, m, "false" ++ x, stk, out, 0, 0, key, at, ea) == F.gc(x, F.VAfter{}, x, stk, SCon{'e', SCon{'s', SCon{'l', SCon{'a', SCon{'f', out}}}}}, 0, 0, key, (((((at + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32), ea) : F.Out}
+  for +bk: U32
+  {F.gc("false" ++ x, m, "false" ++ x, stk, out, 0, 0, key, bk) == F.gc(x, F.VAfter{}, x, stk, SCon{'e', SCon{'s', SCon{'l', SCon{'a', SCon{'f', out}}}}}, 0, 0, key, 0) : F.Out}
 
-def v_false(m, g, x, stk, out, key, at, ea):
+def v_false(m, g, x, stk, out, key, bk):
   match m stk:
     case F.VStart{} Nil{}:
       {==}
@@ -2424,11 +2366,10 @@ law v_quote:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  {F.gc(SCon{'"', x}, m, SCon{'"', x}, stk, out, 0, 0, key, at, ea) == F.gc(x, F.SStr{}, x, stk, SCon{'"', out}, 0, 0, False{}, (at + 1 : U32), ea) : F.Out}
+  for +bk: U32
+  {F.gc(SCon{'"', x}, m, SCon{'"', x}, stk, out, 0, 0, key, bk) == F.gc(x, F.SStr{}, x, stk, SCon{'"', out}, 0, 0, False{}, 0) : F.Out}
 
-def v_quote(m, g, x, stk, out, key, at, ea):
+def v_quote(m, g, x, stk, out, key, bk):
   match m stk:
     case F.VStart{} Nil{}:
       {==}
@@ -2536,11 +2477,10 @@ law v_arr:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  {F.gc(SCon{'[', x}, m, SCon{'[', x}, stk, out, 0, 0, key, at, ea) == F.gc(x, F.VFirst{}, x, Con{F.BArr{}, stk}, SCon{'[', out}, 0, 0, key, (at + 1 : U32), ea) : F.Out}
+  for +bk: U32
+  {F.gc(SCon{'[', x}, m, SCon{'[', x}, stk, out, 0, 0, key, bk) == F.gc(x, F.VFirst{}, x, Con{F.BArr{}, stk}, SCon{'[', out}, 0, 0, key, 0) : F.Out}
 
-def v_arr(m, g, x, stk, out, key, at, ea):
+def v_arr(m, g, x, stk, out, key, bk):
   match m stk:
     case F.VStart{} Nil{}:
       {==}
@@ -2648,11 +2588,10 @@ law v_obj:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  {F.gc(SCon{'{', x}, m, SCon{'{', x}, stk, out, 0, 0, key, at, ea) == F.gc(x, F.VObjFirst{}, x, Con{F.BObj{}, stk}, SCon{'{', out}, 0, 0, key, (at + 1 : U32), ea) : F.Out}
+  for +bk: U32
+  {F.gc(SCon{'{', x}, m, SCon{'{', x}, stk, out, 0, 0, key, bk) == F.gc(x, F.VObjFirst{}, x, Con{F.BObj{}, stk}, SCon{'{', out}, 0, 0, key, 0) : F.Out}
 
-def v_obj(m, g, x, stk, out, key, at, ea):
+def v_obj(m, g, x, stk, out, key, bk):
   match m stk:
     case F.VStart{} Nil{}:
       {==}
@@ -2760,11 +2699,10 @@ law v_arr0:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  {F.gc(SCon{'[', SCon{']', x}}, m, SCon{'[', SCon{']', x}}, stk, out, 0, 0, key, at, ea) == F.gc(x, F.VAfter{}, x, stk, SCon{']', SCon{'[', out}}, 0, 0, key, ((at + 1 : U32) + 1 : U32), ea) : F.Out}
+  for +bk: U32
+  {F.gc(SCon{'[', SCon{']', x}}, m, SCon{'[', SCon{']', x}}, stk, out, 0, 0, key, bk) == F.gc(x, F.VAfter{}, x, stk, SCon{']', SCon{'[', out}}, 0, 0, key, 0) : F.Out}
 
-def v_arr0(m, g, x, stk, out, key, at, ea):
+def v_arr0(m, g, x, stk, out, key, bk):
   match m stk:
     case F.VStart{} Nil{}:
       {==}
@@ -2872,11 +2810,10 @@ law v_obj0:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  {F.gc(SCon{'{', SCon{'}', x}}, m, SCon{'{', SCon{'}', x}}, stk, out, 0, 0, key, at, ea) == F.gc(x, F.VAfter{}, x, stk, SCon{'}', SCon{'{', out}}, 0, 0, key, ((at + 1 : U32) + 1 : U32), ea) : F.Out}
+  for +bk: U32
+  {F.gc(SCon{'{', SCon{'}', x}}, m, SCon{'{', SCon{'}', x}}, stk, out, 0, 0, key, bk) == F.gc(x, F.VAfter{}, x, stk, SCon{'}', SCon{'{', out}}, 0, 0, key, 0) : F.Out}
 
-def v_obj0(m, g, x, stk, out, key, at, ea):
+def v_obj0(m, g, x, stk, out, key, bk):
   match m stk:
     case F.VStart{} Nil{}:
       {==}
@@ -2984,11 +2921,10 @@ law a_close:
   for +up: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  {F.gc(SCon{']', x}, m, SCon{']', x}, Con{F.BArr{}, up}, out, 0, 0, key, at, ea) == F.gc(x, F.VAfter{}, x, up, SCon{']', out}, 0, 0, key, (at + 1 : U32), ea) : F.Out}
+  for +bk: U32
+  {F.gc(SCon{']', x}, m, SCon{']', x}, Con{F.BArr{}, up}, out, 0, 0, key, bk) == F.gc(x, F.VAfter{}, x, up, SCon{']', out}, 0, 0, key, 0) : F.Out}
 
-def a_close(m, g, x, up, out, key, at, ea):
+def a_close(m, g, x, up, out, key, bk):
   match m:
     case F.VStart{}:
       match g:
@@ -3076,11 +3012,10 @@ law o_close:
   for +up: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  {F.gc(SCon{'}', x}, m, SCon{'}', x}, Con{F.BObj{}, up}, out, 0, 0, key, at, ea) == F.gc(x, F.VAfter{}, x, up, SCon{'}', out}, 0, 0, key, (at + 1 : U32), ea) : F.Out}
+  for +bk: U32
+  {F.gc(SCon{'}', x}, m, SCon{'}', x}, Con{F.BObj{}, up}, out, 0, 0, key, bk) == F.gc(x, F.VAfter{}, x, up, SCon{'}', out}, 0, 0, key, 0) : F.Out}
 
-def o_close(m, g, x, up, out, key, at, ea):
+def o_close(m, g, x, up, out, key, bk):
   match m:
     case F.VStart{}:
       match g:
@@ -3168,11 +3103,10 @@ law a_comma:
   for +up: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  {F.gc(SCon{',', x}, m, SCon{',', x}, Con{F.BArr{}, up}, out, 0, 0, key, at, ea) == F.gc(x, F.VItem{}, x, Con{F.BArr{}, up}, SCon{',', out}, 0, 0, key, (at + 1 : U32), ea) : F.Out}
+  for +bk: U32
+  {F.gc(SCon{',', x}, m, SCon{',', x}, Con{F.BArr{}, up}, out, 0, 0, key, bk) == F.gc(x, F.VItem{}, x, Con{F.BArr{}, up}, SCon{',', out}, 0, 0, key, 0) : F.Out}
 
-def a_comma(m, g, x, up, out, key, at, ea):
+def a_comma(m, g, x, up, out, key, bk):
   match m:
     case F.VStart{}:
       match g:
@@ -3260,11 +3194,10 @@ law o_comma:
   for +up: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  {F.gc(SCon{',', x}, m, SCon{',', x}, Con{F.BObj{}, up}, out, 0, 0, key, at, ea) == F.gc(x, F.VKey{}, x, Con{F.BObj{}, up}, SCon{',', out}, 0, 0, key, (at + 1 : U32), ea) : F.Out}
+  for +bk: U32
+  {F.gc(SCon{',', x}, m, SCon{',', x}, Con{F.BObj{}, up}, out, 0, 0, key, bk) == F.gc(x, F.VKey{}, x, Con{F.BObj{}, up}, SCon{',', out}, 0, 0, key, 0) : F.Out}
 
-def o_comma(m, g, x, up, out, key, at, ea):
+def o_comma(m, g, x, up, out, key, bk):
   match m:
     case F.VStart{}:
       match g:
@@ -3377,8 +3310,8 @@ def popd(+more: Bool, +stk: List<&2, F.Box>) -> List<&2, F.Box>:
         case Nil{}:
           []
 
-def Goal(+j: J.Json, +more: Bool, +m: F.Mode, +stk: List<&2, F.Box>, +r: String, +out: String, +key: Bool, +at: U32, +ea: U32) -> Type:
-  V(S.text(j, more, r), m, stk, out, key, at, ea, r, popd(more, stk), push(S.text(j, more, ""), out))
+def Goal(+j: J.Json, +more: Bool, +m: F.Mode, +stk: List<&2, F.Box>, +r: String, +out: String, +key: Bool, +bk: U32) -> Type:
+  V(S.text(j, more, r), m, stk, out, key, bk, r, popd(more, stk), push(S.text(j, more, ""), out))
 
 # a value, then more text y: its output then y's is its text before y
 law out_seq:
@@ -3414,16 +3347,15 @@ law str_v.k:
   for +stk: List<&2, F.Box>
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  for s1: {F.gc(SCon{'"', S.esc(s, SCon{'"', r})}, m, SCon{'"', S.esc(s, SCon{'"', r})}, stk, out, 0, 0, key, at, ea) == F.gc(S.esc(s, SCon{'"', r}), F.SStr{}, S.esc(s, SCon{'"', r}), stk, SCon{'"', out}, 0, 0, False{}, (at + 1 : U32), ea) : F.Out}
-  for g: FS.SB(s, r, stk, SCon{'"', out}, False{}, (at + 1 : U32), ea)
-  Goal(J.JStr{s}, False{}, m, stk, r, out, key, at, ea)
+  for +bk: U32
+  for s1: {F.gc(SCon{'"', S.esc(s, SCon{'"', r})}, m, SCon{'"', S.esc(s, SCon{'"', r})}, stk, out, 0, 0, key, bk) == F.gc(S.esc(s, SCon{'"', r}), F.SStr{}, S.esc(s, SCon{'"', r}), stk, SCon{'"', out}, 0, 0, False{}, 0) : F.Out}
+  for g: FS.SB(s, r, stk, SCon{'"', out}, False{}, 0)
+  Goal(J.JStr{s}, False{}, m, stk, r, out, key, bk)
 
-def str_v.k(s, m, r, stk, out, key, at, ea, s1, g):
+def str_v.k(s, m, r, stk, out, key, bk, s1, g):
   (+p, e2) = g
-  (Q{F.VAfter{}, False{}, FS.p_at(p), FS.p_ea(p)}, (Unit{}, Equal.trans(F.Out, F.gc(SCon{'"', S.esc(s, SCon{'"', r})}, m, SCon{'"', S.esc(s, SCon{'"', r})}, stk, out, 0, 0, key, at, ea), F.gc(S.esc(s, SCon{'"', r}), F.SStr{}, S.esc(s, SCon{'"', r}), stk, SCon{'"', out}, 0, 0, False{}, (at + 1 : U32), ea),
-    F.gc(r, F.VAfter{}, r, stk, push(S.esc(s, "\""), SCon{'"', out}), 0, 0, False{}, FS.p_at(p), FS.p_ea(p)), s1, e2)))
+  (Q{F.VAfter{}, False{}, p}, (Unit{}, Equal.trans(F.Out, F.gc(SCon{'"', S.esc(s, SCon{'"', r})}, m, SCon{'"', S.esc(s, SCon{'"', r})}, stk, out, 0, 0, key, bk), F.gc(S.esc(s, SCon{'"', r}), F.SStr{}, S.esc(s, SCon{'"', r}), stk, SCon{'"', out}, 0, 0, False{}, 0),
+    F.gc(r, F.VAfter{}, r, stk, push(S.esc(s, "\""), SCon{'"', out}), 0, 0, False{}, p), s1, e2)))
 
 law arr.f.k3:
   for +h: J.Json
@@ -3433,32 +3365,30 @@ law arr.f.k3:
   for +r: String
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  for pre: {F.gc(SCon{'[', S.text(h, False{}, S.text(J.JArr{t}, True{}, r))}, m, SCon{'[', S.text(h, False{}, S.text(J.JArr{t}, True{}, r))}, stk, out, 0, 0, key, at, ea) == F.gc(S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), F.VFirst{}, S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), Con{F.BArr{}, stk}, SCon{'[', out}, 0, 0, key, (at + 1 : U32), ea) : F.Out}
+  for +bk: U32
+  for pre: {F.gc(SCon{'[', S.text(h, False{}, S.text(J.JArr{t}, True{}, r))}, m, SCon{'[', S.text(h, False{}, S.text(J.JArr{t}, True{}, r))}, stk, out, 0, 0, key, bk) == F.gc(S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), F.VFirst{}, S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), Con{F.BArr{}, stk}, SCon{'[', out}, 0, 0, key, 0) : F.Out}
   for +m1: F.Mode
   for +k1: Bool
   for +a1: U32
-  for +e1: U32
-  for eq1: {F.gc(S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), F.VFirst{}, S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), Con{F.BArr{}, stk}, SCon{'[', out}, 0, 0, key, (at + 1 : U32), ea) == after(S.text(J.JArr{t}, True{}, r), Con{F.BArr{}, stk}, push(S.text(h, False{}, ""), SCon{'[', out}), Q{m1, k1, a1, e1}) : F.Out}
-  for g2: Goal(J.JArr{t}, True{}, m1, Con{F.BArr{}, stk}, r, push(S.text(h, False{}, ""), SCon{'[', out}), k1, a1, e1)
-  Goal(J.JArr{Con{h, t}}, False{}, m, stk, r, out, key, at, ea)
+  for eq1: {F.gc(S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), F.VFirst{}, S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), Con{F.BArr{}, stk}, SCon{'[', out}, 0, 0, key, 0) == after(S.text(J.JArr{t}, True{}, r), Con{F.BArr{}, stk}, push(S.text(h, False{}, ""), SCon{'[', out}), Q{m1, k1, a1}) : F.Out}
+  for g2: Goal(J.JArr{t}, True{}, m1, Con{F.BArr{}, stk}, r, push(S.text(h, False{}, ""), SCon{'[', out}), k1, a1)
+  Goal(J.JArr{Con{h, t}}, False{}, m, stk, r, out, key, bk)
 
-def arr.f.k3(h, t, stk, m, r, out, key, at, ea, pre, m1, k1, a1, e1, eq1, g2):
+def arr.f.k3(h, t, stk, m, r, out, key, bk, pre, m1, k1, a1, eq1, g2):
   (+q2, pr2) = g2
   (aft2, eq2) = pr2
   (q2, (aft2, Equal.trans(F.Out,
-        F.gc(SCon{'[', S.text(h, False{}, S.text(J.JArr{t}, True{}, r))}, m, SCon{'[', S.text(h, False{}, S.text(J.JArr{t}, True{}, r))}, stk, out, 0, 0, key, at, ea),
-        F.gc(S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), F.VFirst{}, S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), Con{F.BArr{}, stk}, SCon{'[', out}, 0, 0, key, (at + 1 : U32), ea),
+        F.gc(SCon{'[', S.text(h, False{}, S.text(J.JArr{t}, True{}, r))}, m, SCon{'[', S.text(h, False{}, S.text(J.JArr{t}, True{}, r))}, stk, out, 0, 0, key, bk),
+        F.gc(S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), F.VFirst{}, S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), Con{F.BArr{}, stk}, SCon{'[', out}, 0, 0, key, 0),
         after(r, stk, push(S.text(J.JArr{Con{h, t}}, False{}, ""), out), q2),
         pre,
         Equal.trans(F.Out,
-          F.gc(S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), F.VFirst{}, S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), Con{F.BArr{}, stk}, SCon{'[', out}, 0, 0, key, (at + 1 : U32), ea),
-          after(S.text(J.JArr{t}, True{}, r), Con{F.BArr{}, stk}, push(S.text(h, False{}, ""), SCon{'[', out}), Q{m1, k1, a1, e1}),
+          F.gc(S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), F.VFirst{}, S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), Con{F.BArr{}, stk}, SCon{'[', out}, 0, 0, key, 0),
+          after(S.text(J.JArr{t}, True{}, r), Con{F.BArr{}, stk}, push(S.text(h, False{}, ""), SCon{'[', out}), Q{m1, k1, a1}),
           after(r, stk, push(S.text(J.JArr{Con{h, t}}, False{}, ""), out), q2),
           eq1,
           Equal.trans(F.Out,
-            after(S.text(J.JArr{t}, True{}, r), Con{F.BArr{}, stk}, push(S.text(h, False{}, ""), SCon{'[', out}), Q{m1, k1, a1, e1}),
+            after(S.text(J.JArr{t}, True{}, r), Con{F.BArr{}, stk}, push(S.text(h, False{}, ""), SCon{'[', out}), Q{m1, k1, a1}),
             after(r, stk, push(S.text(J.JArr{t}, True{}, ""), push(S.text(h, False{}, ""), SCon{'[', out})), q2),
             after(r, stk, push(S.text(J.JArr{Con{h, t}}, False{}, ""), out), q2),
             eq2,
@@ -3472,19 +3402,18 @@ law arr.f.k2:
   for +r: String
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  for pre: {F.gc(SCon{'[', S.text(h, False{}, S.text(J.JArr{t}, True{}, r))}, m, SCon{'[', S.text(h, False{}, S.text(J.JArr{t}, True{}, r))}, stk, out, 0, 0, key, at, ea) == F.gc(S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), F.VFirst{}, S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), Con{F.BArr{}, stk}, SCon{'[', out}, 0, 0, key, (at + 1 : U32), ea) : F.Out}
+  for +bk: U32
+  for pre: {F.gc(SCon{'[', S.text(h, False{}, S.text(J.JArr{t}, True{}, r))}, m, SCon{'[', S.text(h, False{}, S.text(J.JArr{t}, True{}, r))}, stk, out, 0, 0, key, bk) == F.gc(S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), F.VFirst{}, S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), Con{F.BArr{}, stk}, SCon{'[', out}, 0, 0, key, 0) : F.Out}
   for +q1: Q
   for aft1: AftQ(q1)
-  for eq1: {F.gc(S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), F.VFirst{}, S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), Con{F.BArr{}, stk}, SCon{'[', out}, 0, 0, key, (at + 1 : U32), ea) == after(S.text(J.JArr{t}, True{}, r), Con{F.BArr{}, stk}, push(S.text(h, False{}, ""), SCon{'[', out}), q1) : F.Out}
-  for ih2: @m2: F.Mode -> @k2: Bool -> @a2: U32 -> @e2: U32 -> @aft: Aft(m2) -> Goal(J.JArr{t}, True{}, m2, Con{F.BArr{}, stk}, r, push(S.text(h, False{}, ""), SCon{'[', out}), k2, a2, e2)
-  Goal(J.JArr{Con{h, t}}, False{}, m, stk, r, out, key, at, ea)
+  for eq1: {F.gc(S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), F.VFirst{}, S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), Con{F.BArr{}, stk}, SCon{'[', out}, 0, 0, key, 0) == after(S.text(J.JArr{t}, True{}, r), Con{F.BArr{}, stk}, push(S.text(h, False{}, ""), SCon{'[', out}), q1) : F.Out}
+  for ih2: @m2: F.Mode -> @k2: Bool -> @a2: U32 -> @aft: Aft(m2) -> Goal(J.JArr{t}, True{}, m2, Con{F.BArr{}, stk}, r, push(S.text(h, False{}, ""), SCon{'[', out}), k2, a2)
+  Goal(J.JArr{Con{h, t}}, False{}, m, stk, r, out, key, bk)
 
-def arr.f.k2(h, t, stk, m, r, out, key, at, ea, pre, q1, aft1, eq1, ih2):
+def arr.f.k2(h, t, stk, m, r, out, key, bk, pre, q1, aft1, eq1, ih2):
   match q1:
-    case Q{m1, k1, a1, e1}:
-      arr.f.k3(h, t, stk, m, r, out, key, at, ea, pre, m1, k1, a1, e1, eq1, ih2(m1, k1, a1, e1, aft1))
+    case Q{m1, k1, a1}:
+      arr.f.k3(h, t, stk, m, r, out, key, bk, pre, m1, k1, a1, eq1, ih2(m1, k1, a1, aft1))
 
 law arr.f.k1:
   for +h: J.Json
@@ -3494,17 +3423,16 @@ law arr.f.k1:
   for +r: String
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  for pre: {F.gc(SCon{'[', S.text(h, False{}, S.text(J.JArr{t}, True{}, r))}, m, SCon{'[', S.text(h, False{}, S.text(J.JArr{t}, True{}, r))}, stk, out, 0, 0, key, at, ea) == F.gc(S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), F.VFirst{}, S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), Con{F.BArr{}, stk}, SCon{'[', out}, 0, 0, key, (at + 1 : U32), ea) : F.Out}
-  for g1: Goal(h, False{}, F.VFirst{}, Con{F.BArr{}, stk}, S.text(J.JArr{t}, True{}, r), SCon{'[', out}, key, (at + 1 : U32), ea)
-  for ih2: @m2: F.Mode -> @k2: Bool -> @a2: U32 -> @e2: U32 -> @aft: Aft(m2) -> Goal(J.JArr{t}, True{}, m2, Con{F.BArr{}, stk}, r, push(S.text(h, False{}, ""), SCon{'[', out}), k2, a2, e2)
-  Goal(J.JArr{Con{h, t}}, False{}, m, stk, r, out, key, at, ea)
+  for +bk: U32
+  for pre: {F.gc(SCon{'[', S.text(h, False{}, S.text(J.JArr{t}, True{}, r))}, m, SCon{'[', S.text(h, False{}, S.text(J.JArr{t}, True{}, r))}, stk, out, 0, 0, key, bk) == F.gc(S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), F.VFirst{}, S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), Con{F.BArr{}, stk}, SCon{'[', out}, 0, 0, key, 0) : F.Out}
+  for g1: Goal(h, False{}, F.VFirst{}, Con{F.BArr{}, stk}, S.text(J.JArr{t}, True{}, r), SCon{'[', out}, key, 0)
+  for ih2: @m2: F.Mode -> @k2: Bool -> @a2: U32 -> @aft: Aft(m2) -> Goal(J.JArr{t}, True{}, m2, Con{F.BArr{}, stk}, r, push(S.text(h, False{}, ""), SCon{'[', out}), k2, a2)
+  Goal(J.JArr{Con{h, t}}, False{}, m, stk, r, out, key, bk)
 
-def arr.f.k1(h, t, stk, m, r, out, key, at, ea, pre, g1, ih2):
+def arr.f.k1(h, t, stk, m, r, out, key, bk, pre, g1, ih2):
   (+q1, pr1) = g1
   (aft1, eq1) = pr1
-  arr.f.k2(h, t, stk, m, r, out, key, at, ea, pre, q1, aft1, eq1, ih2)
+  arr.f.k2(h, t, stk, m, r, out, key, bk, pre, q1, aft1, eq1, ih2)
 
 law arr.t.k3:
   for +h: J.Json
@@ -3514,32 +3442,30 @@ law arr.t.k3:
   for +r: String
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  for pre: {F.gc(SCon{',', S.text(h, False{}, S.text(J.JArr{t}, True{}, r))}, m, SCon{',', S.text(h, False{}, S.text(J.JArr{t}, True{}, r))}, Con{F.BArr{}, up}, out, 0, 0, key, at, ea) == F.gc(S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), F.VItem{}, S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), Con{F.BArr{}, up}, SCon{',', out}, 0, 0, key, (at + 1 : U32), ea) : F.Out}
+  for +bk: U32
+  for pre: {F.gc(SCon{',', S.text(h, False{}, S.text(J.JArr{t}, True{}, r))}, m, SCon{',', S.text(h, False{}, S.text(J.JArr{t}, True{}, r))}, Con{F.BArr{}, up}, out, 0, 0, key, bk) == F.gc(S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), F.VItem{}, S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), Con{F.BArr{}, up}, SCon{',', out}, 0, 0, key, 0) : F.Out}
   for +m1: F.Mode
   for +k1: Bool
   for +a1: U32
-  for +e1: U32
-  for eq1: {F.gc(S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), F.VItem{}, S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), Con{F.BArr{}, up}, SCon{',', out}, 0, 0, key, (at + 1 : U32), ea) == after(S.text(J.JArr{t}, True{}, r), Con{F.BArr{}, up}, push(S.text(h, False{}, ""), SCon{',', out}), Q{m1, k1, a1, e1}) : F.Out}
-  for g2: Goal(J.JArr{t}, True{}, m1, Con{F.BArr{}, up}, r, push(S.text(h, False{}, ""), SCon{',', out}), k1, a1, e1)
-  Goal(J.JArr{Con{h, t}}, True{}, m, Con{F.BArr{}, up}, r, out, key, at, ea)
+  for eq1: {F.gc(S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), F.VItem{}, S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), Con{F.BArr{}, up}, SCon{',', out}, 0, 0, key, 0) == after(S.text(J.JArr{t}, True{}, r), Con{F.BArr{}, up}, push(S.text(h, False{}, ""), SCon{',', out}), Q{m1, k1, a1}) : F.Out}
+  for g2: Goal(J.JArr{t}, True{}, m1, Con{F.BArr{}, up}, r, push(S.text(h, False{}, ""), SCon{',', out}), k1, a1)
+  Goal(J.JArr{Con{h, t}}, True{}, m, Con{F.BArr{}, up}, r, out, key, bk)
 
-def arr.t.k3(h, t, up, m, r, out, key, at, ea, pre, m1, k1, a1, e1, eq1, g2):
+def arr.t.k3(h, t, up, m, r, out, key, bk, pre, m1, k1, a1, eq1, g2):
   (+q2, pr2) = g2
   (aft2, eq2) = pr2
   (q2, (aft2, Equal.trans(F.Out,
-        F.gc(SCon{',', S.text(h, False{}, S.text(J.JArr{t}, True{}, r))}, m, SCon{',', S.text(h, False{}, S.text(J.JArr{t}, True{}, r))}, Con{F.BArr{}, up}, out, 0, 0, key, at, ea),
-        F.gc(S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), F.VItem{}, S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), Con{F.BArr{}, up}, SCon{',', out}, 0, 0, key, (at + 1 : U32), ea),
+        F.gc(SCon{',', S.text(h, False{}, S.text(J.JArr{t}, True{}, r))}, m, SCon{',', S.text(h, False{}, S.text(J.JArr{t}, True{}, r))}, Con{F.BArr{}, up}, out, 0, 0, key, bk),
+        F.gc(S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), F.VItem{}, S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), Con{F.BArr{}, up}, SCon{',', out}, 0, 0, key, 0),
         after(r, up, push(S.text(J.JArr{Con{h, t}}, True{}, ""), out), q2),
         pre,
         Equal.trans(F.Out,
-          F.gc(S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), F.VItem{}, S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), Con{F.BArr{}, up}, SCon{',', out}, 0, 0, key, (at + 1 : U32), ea),
-          after(S.text(J.JArr{t}, True{}, r), Con{F.BArr{}, up}, push(S.text(h, False{}, ""), SCon{',', out}), Q{m1, k1, a1, e1}),
+          F.gc(S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), F.VItem{}, S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), Con{F.BArr{}, up}, SCon{',', out}, 0, 0, key, 0),
+          after(S.text(J.JArr{t}, True{}, r), Con{F.BArr{}, up}, push(S.text(h, False{}, ""), SCon{',', out}), Q{m1, k1, a1}),
           after(r, up, push(S.text(J.JArr{Con{h, t}}, True{}, ""), out), q2),
           eq1,
           Equal.trans(F.Out,
-            after(S.text(J.JArr{t}, True{}, r), Con{F.BArr{}, up}, push(S.text(h, False{}, ""), SCon{',', out}), Q{m1, k1, a1, e1}),
+            after(S.text(J.JArr{t}, True{}, r), Con{F.BArr{}, up}, push(S.text(h, False{}, ""), SCon{',', out}), Q{m1, k1, a1}),
             after(r, up, push(S.text(J.JArr{t}, True{}, ""), push(S.text(h, False{}, ""), SCon{',', out})), q2),
             after(r, up, push(S.text(J.JArr{Con{h, t}}, True{}, ""), out), q2),
             eq2,
@@ -3553,19 +3479,18 @@ law arr.t.k2:
   for +r: String
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  for pre: {F.gc(SCon{',', S.text(h, False{}, S.text(J.JArr{t}, True{}, r))}, m, SCon{',', S.text(h, False{}, S.text(J.JArr{t}, True{}, r))}, Con{F.BArr{}, up}, out, 0, 0, key, at, ea) == F.gc(S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), F.VItem{}, S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), Con{F.BArr{}, up}, SCon{',', out}, 0, 0, key, (at + 1 : U32), ea) : F.Out}
+  for +bk: U32
+  for pre: {F.gc(SCon{',', S.text(h, False{}, S.text(J.JArr{t}, True{}, r))}, m, SCon{',', S.text(h, False{}, S.text(J.JArr{t}, True{}, r))}, Con{F.BArr{}, up}, out, 0, 0, key, bk) == F.gc(S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), F.VItem{}, S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), Con{F.BArr{}, up}, SCon{',', out}, 0, 0, key, 0) : F.Out}
   for +q1: Q
   for aft1: AftQ(q1)
-  for eq1: {F.gc(S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), F.VItem{}, S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), Con{F.BArr{}, up}, SCon{',', out}, 0, 0, key, (at + 1 : U32), ea) == after(S.text(J.JArr{t}, True{}, r), Con{F.BArr{}, up}, push(S.text(h, False{}, ""), SCon{',', out}), q1) : F.Out}
-  for ih2: @m2: F.Mode -> @k2: Bool -> @a2: U32 -> @e2: U32 -> @aft: Aft(m2) -> Goal(J.JArr{t}, True{}, m2, Con{F.BArr{}, up}, r, push(S.text(h, False{}, ""), SCon{',', out}), k2, a2, e2)
-  Goal(J.JArr{Con{h, t}}, True{}, m, Con{F.BArr{}, up}, r, out, key, at, ea)
+  for eq1: {F.gc(S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), F.VItem{}, S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), Con{F.BArr{}, up}, SCon{',', out}, 0, 0, key, 0) == after(S.text(J.JArr{t}, True{}, r), Con{F.BArr{}, up}, push(S.text(h, False{}, ""), SCon{',', out}), q1) : F.Out}
+  for ih2: @m2: F.Mode -> @k2: Bool -> @a2: U32 -> @aft: Aft(m2) -> Goal(J.JArr{t}, True{}, m2, Con{F.BArr{}, up}, r, push(S.text(h, False{}, ""), SCon{',', out}), k2, a2)
+  Goal(J.JArr{Con{h, t}}, True{}, m, Con{F.BArr{}, up}, r, out, key, bk)
 
-def arr.t.k2(h, t, up, m, r, out, key, at, ea, pre, q1, aft1, eq1, ih2):
+def arr.t.k2(h, t, up, m, r, out, key, bk, pre, q1, aft1, eq1, ih2):
   match q1:
-    case Q{m1, k1, a1, e1}:
-      arr.t.k3(h, t, up, m, r, out, key, at, ea, pre, m1, k1, a1, e1, eq1, ih2(m1, k1, a1, e1, aft1))
+    case Q{m1, k1, a1}:
+      arr.t.k3(h, t, up, m, r, out, key, bk, pre, m1, k1, a1, eq1, ih2(m1, k1, a1, aft1))
 
 law arr.t.k1:
   for +h: J.Json
@@ -3575,17 +3500,16 @@ law arr.t.k1:
   for +r: String
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  for pre: {F.gc(SCon{',', S.text(h, False{}, S.text(J.JArr{t}, True{}, r))}, m, SCon{',', S.text(h, False{}, S.text(J.JArr{t}, True{}, r))}, Con{F.BArr{}, up}, out, 0, 0, key, at, ea) == F.gc(S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), F.VItem{}, S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), Con{F.BArr{}, up}, SCon{',', out}, 0, 0, key, (at + 1 : U32), ea) : F.Out}
-  for g1: Goal(h, False{}, F.VItem{}, Con{F.BArr{}, up}, S.text(J.JArr{t}, True{}, r), SCon{',', out}, key, (at + 1 : U32), ea)
-  for ih2: @m2: F.Mode -> @k2: Bool -> @a2: U32 -> @e2: U32 -> @aft: Aft(m2) -> Goal(J.JArr{t}, True{}, m2, Con{F.BArr{}, up}, r, push(S.text(h, False{}, ""), SCon{',', out}), k2, a2, e2)
-  Goal(J.JArr{Con{h, t}}, True{}, m, Con{F.BArr{}, up}, r, out, key, at, ea)
+  for +bk: U32
+  for pre: {F.gc(SCon{',', S.text(h, False{}, S.text(J.JArr{t}, True{}, r))}, m, SCon{',', S.text(h, False{}, S.text(J.JArr{t}, True{}, r))}, Con{F.BArr{}, up}, out, 0, 0, key, bk) == F.gc(S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), F.VItem{}, S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), Con{F.BArr{}, up}, SCon{',', out}, 0, 0, key, 0) : F.Out}
+  for g1: Goal(h, False{}, F.VItem{}, Con{F.BArr{}, up}, S.text(J.JArr{t}, True{}, r), SCon{',', out}, key, 0)
+  for ih2: @m2: F.Mode -> @k2: Bool -> @a2: U32 -> @aft: Aft(m2) -> Goal(J.JArr{t}, True{}, m2, Con{F.BArr{}, up}, r, push(S.text(h, False{}, ""), SCon{',', out}), k2, a2)
+  Goal(J.JArr{Con{h, t}}, True{}, m, Con{F.BArr{}, up}, r, out, key, bk)
 
-def arr.t.k1(h, t, up, m, r, out, key, at, ea, pre, g1, ih2):
+def arr.t.k1(h, t, up, m, r, out, key, bk, pre, g1, ih2):
   (+q1, pr1) = g1
   (aft1, eq1) = pr1
-  arr.t.k2(h, t, up, m, r, out, key, at, ea, pre, q1, aft1, eq1, ih2)
+  arr.t.k2(h, t, up, m, r, out, key, bk, pre, q1, aft1, eq1, ih2)
 
 law obj.f.k5:
   for +k: String
@@ -3596,34 +3520,30 @@ law obj.f.k5:
   for +r: String
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  for +pa: U32
-  for +pe: U32
-  for pre: {F.gc(SCon{'{', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, m, SCon{'{', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, stk, out, 0, 0, key, at, ea) == F.gc(S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), F.VObjVal{}, S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), Con{F.BObj{}, stk}, SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{'{', out}})}, 0, 0, True{}, (pa + 1 : U32), pe) : F.Out}
+  for +bk: U32
+  for pre: {F.gc(SCon{'{', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, m, SCon{'{', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, stk, out, 0, 0, key, bk) == F.gc(S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), F.VObjVal{}, S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), Con{F.BObj{}, stk}, SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{'{', out}})}, 0, 0, True{}, 0) : F.Out}
   for +m1: F.Mode
   for +k1: Bool
   for +a1: U32
-  for +e1: U32
-  for eq1: {F.gc(S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), F.VObjVal{}, S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), Con{F.BObj{}, stk}, SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{'{', out}})}, 0, 0, True{}, (pa + 1 : U32), pe) == after(S.text(J.JObj{t}, True{}, r), Con{F.BObj{}, stk}, push(S.text(v, False{}, ""), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{'{', out}})}), Q{m1, k1, a1, e1}) : F.Out}
-  for g2: Goal(J.JObj{t}, True{}, m1, Con{F.BObj{}, stk}, r, push(S.text(v, False{}, ""), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{'{', out}})}), k1, a1, e1)
-  Goal(J.JObj{Con{J.Field{k, v}, t}}, False{}, m, stk, r, out, key, at, ea)
+  for eq1: {F.gc(S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), F.VObjVal{}, S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), Con{F.BObj{}, stk}, SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{'{', out}})}, 0, 0, True{}, 0) == after(S.text(J.JObj{t}, True{}, r), Con{F.BObj{}, stk}, push(S.text(v, False{}, ""), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{'{', out}})}), Q{m1, k1, a1}) : F.Out}
+  for g2: Goal(J.JObj{t}, True{}, m1, Con{F.BObj{}, stk}, r, push(S.text(v, False{}, ""), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{'{', out}})}), k1, a1)
+  Goal(J.JObj{Con{J.Field{k, v}, t}}, False{}, m, stk, r, out, key, bk)
 
-def obj.f.k5(k, v, t, stk, m, r, out, key, at, ea, pa, pe, pre, m1, k1, a1, e1, eq1, g2):
+def obj.f.k5(k, v, t, stk, m, r, out, key, bk, pre, m1, k1, a1, eq1, g2):
   (+q2, pr2) = g2
   (aft2, eq2) = pr2
   (q2, (aft2, Equal.trans(F.Out,
-        F.gc(SCon{'{', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, m, SCon{'{', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, stk, out, 0, 0, key, at, ea),
-        F.gc(S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), F.VObjVal{}, S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), Con{F.BObj{}, stk}, SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{'{', out}})}, 0, 0, True{}, (pa + 1 : U32), pe),
+        F.gc(SCon{'{', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, m, SCon{'{', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, stk, out, 0, 0, key, bk),
+        F.gc(S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), F.VObjVal{}, S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), Con{F.BObj{}, stk}, SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{'{', out}})}, 0, 0, True{}, 0),
         after(r, stk, push(S.text(J.JObj{Con{J.Field{k, v}, t}}, False{}, ""), out), q2),
         pre,
         Equal.trans(F.Out,
-          F.gc(S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), F.VObjVal{}, S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), Con{F.BObj{}, stk}, SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{'{', out}})}, 0, 0, True{}, (pa + 1 : U32), pe),
-          after(S.text(J.JObj{t}, True{}, r), Con{F.BObj{}, stk}, push(S.text(v, False{}, ""), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{'{', out}})}), Q{m1, k1, a1, e1}),
+          F.gc(S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), F.VObjVal{}, S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), Con{F.BObj{}, stk}, SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{'{', out}})}, 0, 0, True{}, 0),
+          after(S.text(J.JObj{t}, True{}, r), Con{F.BObj{}, stk}, push(S.text(v, False{}, ""), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{'{', out}})}), Q{m1, k1, a1}),
           after(r, stk, push(S.text(J.JObj{Con{J.Field{k, v}, t}}, False{}, ""), out), q2),
           eq1,
           Equal.trans(F.Out,
-            after(S.text(J.JObj{t}, True{}, r), Con{F.BObj{}, stk}, push(S.text(v, False{}, ""), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{'{', out}})}), Q{m1, k1, a1, e1}),
+            after(S.text(J.JObj{t}, True{}, r), Con{F.BObj{}, stk}, push(S.text(v, False{}, ""), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{'{', out}})}), Q{m1, k1, a1}),
             after(r, stk, push(S.text(J.JObj{t}, True{}, ""), push(S.text(v, False{}, ""), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{'{', out}})})), q2),
             after(r, stk, push(S.text(J.JObj{Con{J.Field{k, v}, t}}, False{}, ""), out), q2),
             eq2,
@@ -3643,21 +3563,18 @@ law obj.f.k4:
   for +r: String
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  for +pa: U32
-  for +pe: U32
-  for pre: {F.gc(SCon{'{', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, m, SCon{'{', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, stk, out, 0, 0, key, at, ea) == F.gc(S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), F.VObjVal{}, S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), Con{F.BObj{}, stk}, SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{'{', out}})}, 0, 0, True{}, (pa + 1 : U32), pe) : F.Out}
+  for +bk: U32
+  for pre: {F.gc(SCon{'{', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, m, SCon{'{', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, stk, out, 0, 0, key, bk) == F.gc(S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), F.VObjVal{}, S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), Con{F.BObj{}, stk}, SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{'{', out}})}, 0, 0, True{}, 0) : F.Out}
   for +q1: Q
   for aft1: AftQ(q1)
-  for eq1: {F.gc(S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), F.VObjVal{}, S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), Con{F.BObj{}, stk}, SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{'{', out}})}, 0, 0, True{}, (pa + 1 : U32), pe) == after(S.text(J.JObj{t}, True{}, r), Con{F.BObj{}, stk}, push(S.text(v, False{}, ""), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{'{', out}})}), q1) : F.Out}
-  for ih2: @m2: F.Mode -> @k2: Bool -> @a2: U32 -> @e2: U32 -> @aft: Aft(m2) -> Goal(J.JObj{t}, True{}, m2, Con{F.BObj{}, stk}, r, push(S.text(v, False{}, ""), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{'{', out}})}), k2, a2, e2)
-  Goal(J.JObj{Con{J.Field{k, v}, t}}, False{}, m, stk, r, out, key, at, ea)
+  for eq1: {F.gc(S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), F.VObjVal{}, S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), Con{F.BObj{}, stk}, SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{'{', out}})}, 0, 0, True{}, 0) == after(S.text(J.JObj{t}, True{}, r), Con{F.BObj{}, stk}, push(S.text(v, False{}, ""), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{'{', out}})}), q1) : F.Out}
+  for ih2: @m2: F.Mode -> @k2: Bool -> @a2: U32 -> @aft: Aft(m2) -> Goal(J.JObj{t}, True{}, m2, Con{F.BObj{}, stk}, r, push(S.text(v, False{}, ""), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{'{', out}})}), k2, a2)
+  Goal(J.JObj{Con{J.Field{k, v}, t}}, False{}, m, stk, r, out, key, bk)
 
-def obj.f.k4(k, v, t, stk, m, r, out, key, at, ea, pa, pe, pre, q1, aft1, eq1, ih2):
+def obj.f.k4(k, v, t, stk, m, r, out, key, bk, pre, q1, aft1, eq1, ih2):
   match q1:
-    case Q{m1, k1, a1, e1}:
-      obj.f.k5(k, v, t, stk, m, r, out, key, at, ea, pa, pe, pre, m1, k1, a1, e1, eq1, ih2(m1, k1, a1, e1, aft1))
+    case Q{m1, k1, a1}:
+      obj.f.k5(k, v, t, stk, m, r, out, key, bk, pre, m1, k1, a1, eq1, ih2(m1, k1, a1, aft1))
 
 law obj.f.k3:
   for +k: String
@@ -3668,19 +3585,16 @@ law obj.f.k3:
   for +r: String
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  for +pa: U32
-  for +pe: U32
-  for pre: {F.gc(SCon{'{', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, m, SCon{'{', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, stk, out, 0, 0, key, at, ea) == F.gc(S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), F.VObjVal{}, S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), Con{F.BObj{}, stk}, SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{'{', out}})}, 0, 0, True{}, (pa + 1 : U32), pe) : F.Out}
-  for g1: Goal(v, False{}, F.VObjVal{}, Con{F.BObj{}, stk}, S.text(J.JObj{t}, True{}, r), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{'{', out}})}, True{}, (pa + 1 : U32), pe)
-  for ih2: @m2: F.Mode -> @k2: Bool -> @a2: U32 -> @e2: U32 -> @aft: Aft(m2) -> Goal(J.JObj{t}, True{}, m2, Con{F.BObj{}, stk}, r, push(S.text(v, False{}, ""), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{'{', out}})}), k2, a2, e2)
-  Goal(J.JObj{Con{J.Field{k, v}, t}}, False{}, m, stk, r, out, key, at, ea)
+  for +bk: U32
+  for pre: {F.gc(SCon{'{', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, m, SCon{'{', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, stk, out, 0, 0, key, bk) == F.gc(S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), F.VObjVal{}, S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), Con{F.BObj{}, stk}, SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{'{', out}})}, 0, 0, True{}, 0) : F.Out}
+  for g1: Goal(v, False{}, F.VObjVal{}, Con{F.BObj{}, stk}, S.text(J.JObj{t}, True{}, r), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{'{', out}})}, True{}, 0)
+  for ih2: @m2: F.Mode -> @k2: Bool -> @a2: U32 -> @aft: Aft(m2) -> Goal(J.JObj{t}, True{}, m2, Con{F.BObj{}, stk}, r, push(S.text(v, False{}, ""), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{'{', out}})}), k2, a2)
+  Goal(J.JObj{Con{J.Field{k, v}, t}}, False{}, m, stk, r, out, key, bk)
 
-def obj.f.k3(k, v, t, stk, m, r, out, key, at, ea, pa, pe, pre, g1, ih2):
+def obj.f.k3(k, v, t, stk, m, r, out, key, bk, pre, g1, ih2):
   (+q1, pr1) = g1
   (aft1, eq1) = pr1
-  obj.f.k4(k, v, t, stk, m, r, out, key, at, ea, pa, pe, pre, q1, aft1, eq1, ih2)
+  obj.f.k4(k, v, t, stk, m, r, out, key, bk, pre, q1, aft1, eq1, ih2)
 
 law obj.f.k2:
   for +k: String
@@ -3691,29 +3605,27 @@ law obj.f.k2:
   for +r: String
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  for pre: {F.gc(SCon{'{', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, m, SCon{'{', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, stk, out, 0, 0, key, at, ea) == F.gc(S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}}), F.SStr{}, S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}}), Con{F.BObj{}, stk}, SCon{'"', SCon{'{', out}}, 0, 0, True{}, ((at + 1 : U32) + 1 : U32), ea) : F.Out}
+  for +bk: U32
+  for pre: {F.gc(SCon{'{', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, m, SCon{'{', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, stk, out, 0, 0, key, bk) == F.gc(S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}}), F.SStr{}, S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}}), Con{F.BObj{}, stk}, SCon{'"', SCon{'{', out}}, 0, 0, True{}, 0) : F.Out}
   for +pa: U32
-  for +pe: U32
-  for eqk: {F.gc(S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}}), F.SStr{}, S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}}), Con{F.BObj{}, stk}, SCon{'"', SCon{'{', out}}, 0, 0, True{}, ((at + 1 : U32) + 1 : U32), ea) == F.gc(SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}, F.VColon{}, SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}, Con{F.BObj{}, stk}, push(S.esc(k, "\""), SCon{'"', SCon{'{', out}}), 0, 0, True{}, pa, pe) : F.Out}
-  for ih1: @pa2: U32 -> @pe2: U32 -> Goal(v, False{}, F.VObjVal{}, Con{F.BObj{}, stk}, S.text(J.JObj{t}, True{}, r), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{'{', out}})}, True{}, (pa2 + 1 : U32), pe2)
-  for ih2: @m2: F.Mode -> @k2: Bool -> @a2: U32 -> @e2: U32 -> @aft: Aft(m2) -> Goal(J.JObj{t}, True{}, m2, Con{F.BObj{}, stk}, r, push(S.text(v, False{}, ""), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{'{', out}})}), k2, a2, e2)
-  Goal(J.JObj{Con{J.Field{k, v}, t}}, False{}, m, stk, r, out, key, at, ea)
+  for eqk: {F.gc(S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}}), F.SStr{}, S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}}), Con{F.BObj{}, stk}, SCon{'"', SCon{'{', out}}, 0, 0, True{}, 0) == F.gc(SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}, F.VColon{}, SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}, Con{F.BObj{}, stk}, push(S.esc(k, "\""), SCon{'"', SCon{'{', out}}), 0, 0, True{}, pa) : F.Out}
+  for ih1: Goal(v, False{}, F.VObjVal{}, Con{F.BObj{}, stk}, S.text(J.JObj{t}, True{}, r), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{'{', out}})}, True{}, 0)
+  for ih2: @m2: F.Mode -> @k2: Bool -> @a2: U32 -> @aft: Aft(m2) -> Goal(J.JObj{t}, True{}, m2, Con{F.BObj{}, stk}, r, push(S.text(v, False{}, ""), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{'{', out}})}), k2, a2)
+  Goal(J.JObj{Con{J.Field{k, v}, t}}, False{}, m, stk, r, out, key, bk)
 
-def obj.f.k2(k, v, t, stk, m, r, out, key, at, ea, pre, pa, pe, eqk, ih1, ih2):
-  obj.f.k3(k, v, t, stk, m, r, out, key, at, ea, pa, pe, Equal.trans(F.Out,
-      F.gc(SCon{'{', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, m, SCon{'{', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, stk, out, 0, 0, key, at, ea),
-      F.gc(S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}}), F.SStr{}, S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}}), Con{F.BObj{}, stk}, SCon{'"', SCon{'{', out}}, 0, 0, True{}, ((at + 1 : U32) + 1 : U32), ea),
-      F.gc(S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), F.VObjVal{}, S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), Con{F.BObj{}, stk}, SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{'{', out}})}, 0, 0, True{}, (pa + 1 : U32), pe),
+def obj.f.k2(k, v, t, stk, m, r, out, key, bk, pre, pa, eqk, ih1, ih2):
+  obj.f.k3(k, v, t, stk, m, r, out, key, bk, Equal.trans(F.Out,
+      F.gc(SCon{'{', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, m, SCon{'{', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, stk, out, 0, 0, key, bk),
+      F.gc(S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}}), F.SStr{}, S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}}), Con{F.BObj{}, stk}, SCon{'"', SCon{'{', out}}, 0, 0, True{}, 0),
+      F.gc(S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), F.VObjVal{}, S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), Con{F.BObj{}, stk}, SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{'{', out}})}, 0, 0, True{}, 0),
       pre,
       Equal.trans(F.Out,
-        F.gc(S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}}), F.SStr{}, S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}}), Con{F.BObj{}, stk}, SCon{'"', SCon{'{', out}}, 0, 0, True{}, ((at + 1 : U32) + 1 : U32), ea),
-        F.gc(SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}, F.VColon{}, SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}, Con{F.BObj{}, stk}, push(S.esc(k, "\""), SCon{'"', SCon{'{', out}}), 0, 0, True{}, pa, pe),
-        F.gc(S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), F.VObjVal{}, S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), Con{F.BObj{}, stk}, SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{'{', out}})}, 0, 0, True{}, (pa + 1 : U32), pe),
+        F.gc(S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}}), F.SStr{}, S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}}), Con{F.BObj{}, stk}, SCon{'"', SCon{'{', out}}, 0, 0, True{}, 0),
+        F.gc(SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}, F.VColon{}, SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}, Con{F.BObj{}, stk}, push(S.esc(k, "\""), SCon{'"', SCon{'{', out}}), 0, 0, True{}, pa),
+        F.gc(S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), F.VObjVal{}, S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), Con{F.BObj{}, stk}, SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{'{', out}})}, 0, 0, True{}, 0),
         eqk,
         {==})),
-    ih1(pa, pe), ih2)
+    ih1, ih2)
 
 law obj.f.k1:
   for +k: String
@@ -3724,17 +3636,16 @@ law obj.f.k1:
   for +r: String
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  for pre: {F.gc(SCon{'{', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, m, SCon{'{', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, stk, out, 0, 0, key, at, ea) == F.gc(S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}}), F.SStr{}, S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}}), Con{F.BObj{}, stk}, SCon{'"', SCon{'{', out}}, 0, 0, True{}, ((at + 1 : U32) + 1 : U32), ea) : F.Out}
-  for gk: FS.SB(k, SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}, Con{F.BObj{}, stk}, SCon{'"', SCon{'{', out}}, True{}, ((at + 1 : U32) + 1 : U32), ea)
-  for ih1: @pa2: U32 -> @pe2: U32 -> Goal(v, False{}, F.VObjVal{}, Con{F.BObj{}, stk}, S.text(J.JObj{t}, True{}, r), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{'{', out}})}, True{}, (pa2 + 1 : U32), pe2)
-  for ih2: @m2: F.Mode -> @k2: Bool -> @a2: U32 -> @e2: U32 -> @aft: Aft(m2) -> Goal(J.JObj{t}, True{}, m2, Con{F.BObj{}, stk}, r, push(S.text(v, False{}, ""), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{'{', out}})}), k2, a2, e2)
-  Goal(J.JObj{Con{J.Field{k, v}, t}}, False{}, m, stk, r, out, key, at, ea)
+  for +bk: U32
+  for pre: {F.gc(SCon{'{', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, m, SCon{'{', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, stk, out, 0, 0, key, bk) == F.gc(S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}}), F.SStr{}, S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}}), Con{F.BObj{}, stk}, SCon{'"', SCon{'{', out}}, 0, 0, True{}, 0) : F.Out}
+  for gk: FS.SB(k, SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}, Con{F.BObj{}, stk}, SCon{'"', SCon{'{', out}}, True{}, 0)
+  for ih1: Goal(v, False{}, F.VObjVal{}, Con{F.BObj{}, stk}, S.text(J.JObj{t}, True{}, r), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{'{', out}})}, True{}, 0)
+  for ih2: @m2: F.Mode -> @k2: Bool -> @a2: U32 -> @aft: Aft(m2) -> Goal(J.JObj{t}, True{}, m2, Con{F.BObj{}, stk}, r, push(S.text(v, False{}, ""), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{'{', out}})}), k2, a2)
+  Goal(J.JObj{Con{J.Field{k, v}, t}}, False{}, m, stk, r, out, key, bk)
 
-def obj.f.k1(k, v, t, stk, m, r, out, key, at, ea, pre, gk, ih1, ih2):
+def obj.f.k1(k, v, t, stk, m, r, out, key, bk, pre, gk, ih1, ih2):
   (+p, eqk) = gk
-  obj.f.k2(k, v, t, stk, m, r, out, key, at, ea, pre, FS.p_at(p), FS.p_ea(p), eqk, ih1, ih2)
+  obj.f.k2(k, v, t, stk, m, r, out, key, bk, pre, p, eqk, ih1, ih2)
 
 law obj.t.k5:
   for +k: String
@@ -3745,34 +3656,30 @@ law obj.t.k5:
   for +r: String
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  for +pa: U32
-  for +pe: U32
-  for pre: {F.gc(SCon{',', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, m, SCon{',', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, Con{F.BObj{}, up}, out, 0, 0, key, at, ea) == F.gc(S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), F.VObjVal{}, S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), Con{F.BObj{}, up}, SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{',', out}})}, 0, 0, True{}, (pa + 1 : U32), pe) : F.Out}
+  for +bk: U32
+  for pre: {F.gc(SCon{',', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, m, SCon{',', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, Con{F.BObj{}, up}, out, 0, 0, key, bk) == F.gc(S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), F.VObjVal{}, S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), Con{F.BObj{}, up}, SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{',', out}})}, 0, 0, True{}, 0) : F.Out}
   for +m1: F.Mode
   for +k1: Bool
   for +a1: U32
-  for +e1: U32
-  for eq1: {F.gc(S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), F.VObjVal{}, S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), Con{F.BObj{}, up}, SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{',', out}})}, 0, 0, True{}, (pa + 1 : U32), pe) == after(S.text(J.JObj{t}, True{}, r), Con{F.BObj{}, up}, push(S.text(v, False{}, ""), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{',', out}})}), Q{m1, k1, a1, e1}) : F.Out}
-  for g2: Goal(J.JObj{t}, True{}, m1, Con{F.BObj{}, up}, r, push(S.text(v, False{}, ""), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{',', out}})}), k1, a1, e1)
-  Goal(J.JObj{Con{J.Field{k, v}, t}}, True{}, m, Con{F.BObj{}, up}, r, out, key, at, ea)
+  for eq1: {F.gc(S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), F.VObjVal{}, S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), Con{F.BObj{}, up}, SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{',', out}})}, 0, 0, True{}, 0) == after(S.text(J.JObj{t}, True{}, r), Con{F.BObj{}, up}, push(S.text(v, False{}, ""), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{',', out}})}), Q{m1, k1, a1}) : F.Out}
+  for g2: Goal(J.JObj{t}, True{}, m1, Con{F.BObj{}, up}, r, push(S.text(v, False{}, ""), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{',', out}})}), k1, a1)
+  Goal(J.JObj{Con{J.Field{k, v}, t}}, True{}, m, Con{F.BObj{}, up}, r, out, key, bk)
 
-def obj.t.k5(k, v, t, up, m, r, out, key, at, ea, pa, pe, pre, m1, k1, a1, e1, eq1, g2):
+def obj.t.k5(k, v, t, up, m, r, out, key, bk, pre, m1, k1, a1, eq1, g2):
   (+q2, pr2) = g2
   (aft2, eq2) = pr2
   (q2, (aft2, Equal.trans(F.Out,
-        F.gc(SCon{',', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, m, SCon{',', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, Con{F.BObj{}, up}, out, 0, 0, key, at, ea),
-        F.gc(S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), F.VObjVal{}, S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), Con{F.BObj{}, up}, SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{',', out}})}, 0, 0, True{}, (pa + 1 : U32), pe),
+        F.gc(SCon{',', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, m, SCon{',', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, Con{F.BObj{}, up}, out, 0, 0, key, bk),
+        F.gc(S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), F.VObjVal{}, S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), Con{F.BObj{}, up}, SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{',', out}})}, 0, 0, True{}, 0),
         after(r, up, push(S.text(J.JObj{Con{J.Field{k, v}, t}}, True{}, ""), out), q2),
         pre,
         Equal.trans(F.Out,
-          F.gc(S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), F.VObjVal{}, S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), Con{F.BObj{}, up}, SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{',', out}})}, 0, 0, True{}, (pa + 1 : U32), pe),
-          after(S.text(J.JObj{t}, True{}, r), Con{F.BObj{}, up}, push(S.text(v, False{}, ""), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{',', out}})}), Q{m1, k1, a1, e1}),
+          F.gc(S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), F.VObjVal{}, S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), Con{F.BObj{}, up}, SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{',', out}})}, 0, 0, True{}, 0),
+          after(S.text(J.JObj{t}, True{}, r), Con{F.BObj{}, up}, push(S.text(v, False{}, ""), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{',', out}})}), Q{m1, k1, a1}),
           after(r, up, push(S.text(J.JObj{Con{J.Field{k, v}, t}}, True{}, ""), out), q2),
           eq1,
           Equal.trans(F.Out,
-            after(S.text(J.JObj{t}, True{}, r), Con{F.BObj{}, up}, push(S.text(v, False{}, ""), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{',', out}})}), Q{m1, k1, a1, e1}),
+            after(S.text(J.JObj{t}, True{}, r), Con{F.BObj{}, up}, push(S.text(v, False{}, ""), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{',', out}})}), Q{m1, k1, a1}),
             after(r, up, push(S.text(J.JObj{t}, True{}, ""), push(S.text(v, False{}, ""), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{',', out}})})), q2),
             after(r, up, push(S.text(J.JObj{Con{J.Field{k, v}, t}}, True{}, ""), out), q2),
             eq2,
@@ -3792,21 +3699,18 @@ law obj.t.k4:
   for +r: String
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  for +pa: U32
-  for +pe: U32
-  for pre: {F.gc(SCon{',', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, m, SCon{',', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, Con{F.BObj{}, up}, out, 0, 0, key, at, ea) == F.gc(S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), F.VObjVal{}, S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), Con{F.BObj{}, up}, SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{',', out}})}, 0, 0, True{}, (pa + 1 : U32), pe) : F.Out}
+  for +bk: U32
+  for pre: {F.gc(SCon{',', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, m, SCon{',', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, Con{F.BObj{}, up}, out, 0, 0, key, bk) == F.gc(S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), F.VObjVal{}, S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), Con{F.BObj{}, up}, SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{',', out}})}, 0, 0, True{}, 0) : F.Out}
   for +q1: Q
   for aft1: AftQ(q1)
-  for eq1: {F.gc(S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), F.VObjVal{}, S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), Con{F.BObj{}, up}, SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{',', out}})}, 0, 0, True{}, (pa + 1 : U32), pe) == after(S.text(J.JObj{t}, True{}, r), Con{F.BObj{}, up}, push(S.text(v, False{}, ""), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{',', out}})}), q1) : F.Out}
-  for ih2: @m2: F.Mode -> @k2: Bool -> @a2: U32 -> @e2: U32 -> @aft: Aft(m2) -> Goal(J.JObj{t}, True{}, m2, Con{F.BObj{}, up}, r, push(S.text(v, False{}, ""), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{',', out}})}), k2, a2, e2)
-  Goal(J.JObj{Con{J.Field{k, v}, t}}, True{}, m, Con{F.BObj{}, up}, r, out, key, at, ea)
+  for eq1: {F.gc(S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), F.VObjVal{}, S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), Con{F.BObj{}, up}, SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{',', out}})}, 0, 0, True{}, 0) == after(S.text(J.JObj{t}, True{}, r), Con{F.BObj{}, up}, push(S.text(v, False{}, ""), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{',', out}})}), q1) : F.Out}
+  for ih2: @m2: F.Mode -> @k2: Bool -> @a2: U32 -> @aft: Aft(m2) -> Goal(J.JObj{t}, True{}, m2, Con{F.BObj{}, up}, r, push(S.text(v, False{}, ""), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{',', out}})}), k2, a2)
+  Goal(J.JObj{Con{J.Field{k, v}, t}}, True{}, m, Con{F.BObj{}, up}, r, out, key, bk)
 
-def obj.t.k4(k, v, t, up, m, r, out, key, at, ea, pa, pe, pre, q1, aft1, eq1, ih2):
+def obj.t.k4(k, v, t, up, m, r, out, key, bk, pre, q1, aft1, eq1, ih2):
   match q1:
-    case Q{m1, k1, a1, e1}:
-      obj.t.k5(k, v, t, up, m, r, out, key, at, ea, pa, pe, pre, m1, k1, a1, e1, eq1, ih2(m1, k1, a1, e1, aft1))
+    case Q{m1, k1, a1}:
+      obj.t.k5(k, v, t, up, m, r, out, key, bk, pre, m1, k1, a1, eq1, ih2(m1, k1, a1, aft1))
 
 law obj.t.k3:
   for +k: String
@@ -3817,19 +3721,16 @@ law obj.t.k3:
   for +r: String
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  for +pa: U32
-  for +pe: U32
-  for pre: {F.gc(SCon{',', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, m, SCon{',', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, Con{F.BObj{}, up}, out, 0, 0, key, at, ea) == F.gc(S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), F.VObjVal{}, S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), Con{F.BObj{}, up}, SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{',', out}})}, 0, 0, True{}, (pa + 1 : U32), pe) : F.Out}
-  for g1: Goal(v, False{}, F.VObjVal{}, Con{F.BObj{}, up}, S.text(J.JObj{t}, True{}, r), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{',', out}})}, True{}, (pa + 1 : U32), pe)
-  for ih2: @m2: F.Mode -> @k2: Bool -> @a2: U32 -> @e2: U32 -> @aft: Aft(m2) -> Goal(J.JObj{t}, True{}, m2, Con{F.BObj{}, up}, r, push(S.text(v, False{}, ""), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{',', out}})}), k2, a2, e2)
-  Goal(J.JObj{Con{J.Field{k, v}, t}}, True{}, m, Con{F.BObj{}, up}, r, out, key, at, ea)
+  for +bk: U32
+  for pre: {F.gc(SCon{',', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, m, SCon{',', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, Con{F.BObj{}, up}, out, 0, 0, key, bk) == F.gc(S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), F.VObjVal{}, S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), Con{F.BObj{}, up}, SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{',', out}})}, 0, 0, True{}, 0) : F.Out}
+  for g1: Goal(v, False{}, F.VObjVal{}, Con{F.BObj{}, up}, S.text(J.JObj{t}, True{}, r), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{',', out}})}, True{}, 0)
+  for ih2: @m2: F.Mode -> @k2: Bool -> @a2: U32 -> @aft: Aft(m2) -> Goal(J.JObj{t}, True{}, m2, Con{F.BObj{}, up}, r, push(S.text(v, False{}, ""), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{',', out}})}), k2, a2)
+  Goal(J.JObj{Con{J.Field{k, v}, t}}, True{}, m, Con{F.BObj{}, up}, r, out, key, bk)
 
-def obj.t.k3(k, v, t, up, m, r, out, key, at, ea, pa, pe, pre, g1, ih2):
+def obj.t.k3(k, v, t, up, m, r, out, key, bk, pre, g1, ih2):
   (+q1, pr1) = g1
   (aft1, eq1) = pr1
-  obj.t.k4(k, v, t, up, m, r, out, key, at, ea, pa, pe, pre, q1, aft1, eq1, ih2)
+  obj.t.k4(k, v, t, up, m, r, out, key, bk, pre, q1, aft1, eq1, ih2)
 
 law obj.t.k2:
   for +k: String
@@ -3840,29 +3741,27 @@ law obj.t.k2:
   for +r: String
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  for pre: {F.gc(SCon{',', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, m, SCon{',', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, Con{F.BObj{}, up}, out, 0, 0, key, at, ea) == F.gc(S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}}), F.SStr{}, S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}}), Con{F.BObj{}, up}, SCon{'"', SCon{',', out}}, 0, 0, True{}, ((at + 1 : U32) + 1 : U32), ea) : F.Out}
+  for +bk: U32
+  for pre: {F.gc(SCon{',', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, m, SCon{',', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, Con{F.BObj{}, up}, out, 0, 0, key, bk) == F.gc(S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}}), F.SStr{}, S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}}), Con{F.BObj{}, up}, SCon{'"', SCon{',', out}}, 0, 0, True{}, 0) : F.Out}
   for +pa: U32
-  for +pe: U32
-  for eqk: {F.gc(S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}}), F.SStr{}, S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}}), Con{F.BObj{}, up}, SCon{'"', SCon{',', out}}, 0, 0, True{}, ((at + 1 : U32) + 1 : U32), ea) == F.gc(SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}, F.VColon{}, SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}, Con{F.BObj{}, up}, push(S.esc(k, "\""), SCon{'"', SCon{',', out}}), 0, 0, True{}, pa, pe) : F.Out}
-  for ih1: @pa2: U32 -> @pe2: U32 -> Goal(v, False{}, F.VObjVal{}, Con{F.BObj{}, up}, S.text(J.JObj{t}, True{}, r), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{',', out}})}, True{}, (pa2 + 1 : U32), pe2)
-  for ih2: @m2: F.Mode -> @k2: Bool -> @a2: U32 -> @e2: U32 -> @aft: Aft(m2) -> Goal(J.JObj{t}, True{}, m2, Con{F.BObj{}, up}, r, push(S.text(v, False{}, ""), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{',', out}})}), k2, a2, e2)
-  Goal(J.JObj{Con{J.Field{k, v}, t}}, True{}, m, Con{F.BObj{}, up}, r, out, key, at, ea)
+  for eqk: {F.gc(S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}}), F.SStr{}, S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}}), Con{F.BObj{}, up}, SCon{'"', SCon{',', out}}, 0, 0, True{}, 0) == F.gc(SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}, F.VColon{}, SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}, Con{F.BObj{}, up}, push(S.esc(k, "\""), SCon{'"', SCon{',', out}}), 0, 0, True{}, pa) : F.Out}
+  for ih1: Goal(v, False{}, F.VObjVal{}, Con{F.BObj{}, up}, S.text(J.JObj{t}, True{}, r), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{',', out}})}, True{}, 0)
+  for ih2: @m2: F.Mode -> @k2: Bool -> @a2: U32 -> @aft: Aft(m2) -> Goal(J.JObj{t}, True{}, m2, Con{F.BObj{}, up}, r, push(S.text(v, False{}, ""), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{',', out}})}), k2, a2)
+  Goal(J.JObj{Con{J.Field{k, v}, t}}, True{}, m, Con{F.BObj{}, up}, r, out, key, bk)
 
-def obj.t.k2(k, v, t, up, m, r, out, key, at, ea, pre, pa, pe, eqk, ih1, ih2):
-  obj.t.k3(k, v, t, up, m, r, out, key, at, ea, pa, pe, Equal.trans(F.Out,
-      F.gc(SCon{',', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, m, SCon{',', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, Con{F.BObj{}, up}, out, 0, 0, key, at, ea),
-      F.gc(S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}}), F.SStr{}, S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}}), Con{F.BObj{}, up}, SCon{'"', SCon{',', out}}, 0, 0, True{}, ((at + 1 : U32) + 1 : U32), ea),
-      F.gc(S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), F.VObjVal{}, S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), Con{F.BObj{}, up}, SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{',', out}})}, 0, 0, True{}, (pa + 1 : U32), pe),
+def obj.t.k2(k, v, t, up, m, r, out, key, bk, pre, pa, eqk, ih1, ih2):
+  obj.t.k3(k, v, t, up, m, r, out, key, bk, Equal.trans(F.Out,
+      F.gc(SCon{',', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, m, SCon{',', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, Con{F.BObj{}, up}, out, 0, 0, key, bk),
+      F.gc(S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}}), F.SStr{}, S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}}), Con{F.BObj{}, up}, SCon{'"', SCon{',', out}}, 0, 0, True{}, 0),
+      F.gc(S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), F.VObjVal{}, S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), Con{F.BObj{}, up}, SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{',', out}})}, 0, 0, True{}, 0),
       pre,
       Equal.trans(F.Out,
-        F.gc(S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}}), F.SStr{}, S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}}), Con{F.BObj{}, up}, SCon{'"', SCon{',', out}}, 0, 0, True{}, ((at + 1 : U32) + 1 : U32), ea),
-        F.gc(SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}, F.VColon{}, SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}, Con{F.BObj{}, up}, push(S.esc(k, "\""), SCon{'"', SCon{',', out}}), 0, 0, True{}, pa, pe),
-        F.gc(S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), F.VObjVal{}, S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), Con{F.BObj{}, up}, SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{',', out}})}, 0, 0, True{}, (pa + 1 : U32), pe),
+        F.gc(S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}}), F.SStr{}, S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}}), Con{F.BObj{}, up}, SCon{'"', SCon{',', out}}, 0, 0, True{}, 0),
+        F.gc(SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}, F.VColon{}, SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}, Con{F.BObj{}, up}, push(S.esc(k, "\""), SCon{'"', SCon{',', out}}), 0, 0, True{}, pa),
+        F.gc(S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), F.VObjVal{}, S.text(v, False{}, S.text(J.JObj{t}, True{}, r)), Con{F.BObj{}, up}, SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{',', out}})}, 0, 0, True{}, 0),
         eqk,
         {==})),
-    ih1(pa, pe), ih2)
+    ih1, ih2)
 
 law obj.t.k1:
   for +k: String
@@ -3873,17 +3772,16 @@ law obj.t.k1:
   for +r: String
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
-  for pre: {F.gc(SCon{',', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, m, SCon{',', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, Con{F.BObj{}, up}, out, 0, 0, key, at, ea) == F.gc(S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}}), F.SStr{}, S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}}), Con{F.BObj{}, up}, SCon{'"', SCon{',', out}}, 0, 0, True{}, ((at + 1 : U32) + 1 : U32), ea) : F.Out}
-  for gk: FS.SB(k, SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}, Con{F.BObj{}, up}, SCon{'"', SCon{',', out}}, True{}, ((at + 1 : U32) + 1 : U32), ea)
-  for ih1: @pa2: U32 -> @pe2: U32 -> Goal(v, False{}, F.VObjVal{}, Con{F.BObj{}, up}, S.text(J.JObj{t}, True{}, r), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{',', out}})}, True{}, (pa2 + 1 : U32), pe2)
-  for ih2: @m2: F.Mode -> @k2: Bool -> @a2: U32 -> @e2: U32 -> @aft: Aft(m2) -> Goal(J.JObj{t}, True{}, m2, Con{F.BObj{}, up}, r, push(S.text(v, False{}, ""), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{',', out}})}), k2, a2, e2)
-  Goal(J.JObj{Con{J.Field{k, v}, t}}, True{}, m, Con{F.BObj{}, up}, r, out, key, at, ea)
+  for +bk: U32
+  for pre: {F.gc(SCon{',', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, m, SCon{',', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, Con{F.BObj{}, up}, out, 0, 0, key, bk) == F.gc(S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}}), F.SStr{}, S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}}), Con{F.BObj{}, up}, SCon{'"', SCon{',', out}}, 0, 0, True{}, 0) : F.Out}
+  for gk: FS.SB(k, SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}, Con{F.BObj{}, up}, SCon{'"', SCon{',', out}}, True{}, 0)
+  for ih1: Goal(v, False{}, F.VObjVal{}, Con{F.BObj{}, up}, S.text(J.JObj{t}, True{}, r), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{',', out}})}, True{}, 0)
+  for ih2: @m2: F.Mode -> @k2: Bool -> @a2: U32 -> @aft: Aft(m2) -> Goal(J.JObj{t}, True{}, m2, Con{F.BObj{}, up}, r, push(S.text(v, False{}, ""), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{',', out}})}), k2, a2)
+  Goal(J.JObj{Con{J.Field{k, v}, t}}, True{}, m, Con{F.BObj{}, up}, r, out, key, bk)
 
-def obj.t.k1(k, v, t, up, m, r, out, key, at, ea, pre, gk, ih1, ih2):
+def obj.t.k1(k, v, t, up, m, r, out, key, bk, pre, gk, ih1, ih2):
   (+p, eqk) = gk
-  obj.t.k2(k, v, t, up, m, r, out, key, at, ea, pre, FS.p_at(p), FS.p_ea(p), eqk, ih1, ih2)
+  obj.t.k2(k, v, t, up, m, r, out, key, bk, pre, p, eqk, ih1, ih2)
 
 # the main lemma: from where the text of j may start, the loop reads it
 # and lands, with the same text pushed, where what follows may come
@@ -3895,52 +3793,51 @@ law run:
   for +r: String
   for +out: String
   for +key: Bool
-  for +at: U32
-  for +ea: U32
+  for +bk: U32
   for ctx: Ctx(more, j, m, stk)
-  Goal(j, more, m, stk, r, out, key, at, ea)
+  Goal(j, more, m, stk, r, out, key, bk)
 
-def run(j, more, m, stk, r, out, key, at, ea, ctx):
+def run(j, more, m, stk, r, out, key, bk, ctx):
   match j:
     case J.JNull{}:
       match more:
         case False{}:
-          (Q{F.VAfter{}, key, ((((at + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32), ea}, (Unit{}, v_null(m, ctx, r, stk, out, key, at, ea)))
+          (Q{F.VAfter{}, key, 0}, (Unit{}, v_null(m, ctx, r, stk, out, key, bk)))
         case True{}:
           match ctx:
     case J.JBool{True{}}:
       match more:
         case False{}:
-          (Q{F.VAfter{}, key, ((((at + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32), ea}, (Unit{}, v_true(m, ctx, r, stk, out, key, at, ea)))
+          (Q{F.VAfter{}, key, 0}, (Unit{}, v_true(m, ctx, r, stk, out, key, bk)))
         case True{}:
           match ctx:
     case J.JBool{False{}}:
       match more:
         case False{}:
-          (Q{F.VAfter{}, key, (((((at + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32) + 1 : U32), ea}, (Unit{}, v_false(m, ctx, r, stk, out, key, at, ea)))
+          (Q{F.VAfter{}, key, 0}, (Unit{}, v_false(m, ctx, r, stk, out, key, bk)))
         case True{}:
           match ctx:
     case J.JNum{n}:
       match more:
         case False{}:
-          num(n, m, ctx, r, stk, out, key, at, ea)
+          num(n, m, ctx, r, stk, out, key, bk)
         case True{}:
           match ctx:
     case J.JStr{s}:
       match more:
         case False{}:
-          str_v.k(s, m, r, stk, out, key, at, ea, v_quote(m, ctx, S.esc(s, SCon{'"', r}), stk, out, key, at, ea),
-            FS.sb(s, r, stk, SCon{'"', out}, False{}, (at + 1 : U32), ea))
+          str_v.k(s, m, r, stk, out, key, bk, v_quote(m, ctx, S.esc(s, SCon{'"', r}), stk, out, key, bk),
+            FS.sb(s, r, stk, SCon{'"', out}, False{}, 0))
         case True{}:
           match ctx:
     case J.JArr{Nil{}}:
       match more:
         case False{}:
-          (Q{F.VAfter{}, key, ((at + 1 : U32) + 1 : U32), ea}, (Unit{}, v_arr0(m, ctx, r, stk, out, key, at, ea)))
+          (Q{F.VAfter{}, key, 0}, (Unit{}, v_arr0(m, ctx, r, stk, out, key, bk)))
         case True{}:
           match stk:
             case Con{F.BArr{}, up}:
-              (Q{F.VAfter{}, key, (at + 1 : U32), ea}, (Unit{}, a_close(m, ctx, r, up, out, key, at, ea)))
+              (Q{F.VAfter{}, key, 0}, (Unit{}, a_close(m, ctx, r, up, out, key, bk)))
             case Con{F.BObj{}, _}:
               match ctx:
             case Nil{}:
@@ -3948,15 +3845,15 @@ def run(j, more, m, stk, r, out, key, at, ea, ctx):
     case J.JArr{Con{h, t}}:
       match more:
         case False{}:
-          arr.f.k1(h, t, stk, m, r, out, key, at, ea, v_arr(m, ctx, S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), stk, out, key, at, ea),
-            run(h, False{}, F.VFirst{}, Con{F.BArr{}, stk}, S.text(J.JArr{t}, True{}, r), SCon{'[', out}, key, (at + 1 : U32), ea, Unit{}),
-            +m2 => +k2 => +a2 => +e2 => aft => run(J.JArr{t}, True{}, m2, Con{F.BArr{}, stk}, r, push(S.text(h, False{}, ""), SCon{'[', out}), k2, a2, e2, aft))
+          arr.f.k1(h, t, stk, m, r, out, key, bk, v_arr(m, ctx, S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), stk, out, key, bk),
+            run(h, False{}, F.VFirst{}, Con{F.BArr{}, stk}, S.text(J.JArr{t}, True{}, r), SCon{'[', out}, key, 0, Unit{}),
+            +m2 => +k2 => +a2 => aft => run(J.JArr{t}, True{}, m2, Con{F.BArr{}, stk}, r, push(S.text(h, False{}, ""), SCon{'[', out}), k2, a2, aft))
         case True{}:
           match stk:
             case Con{F.BArr{}, up}:
-              arr.t.k1(h, t, up, m, r, out, key, at, ea, a_comma(m, ctx, S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), up, out, key, at, ea),
-            run(h, False{}, F.VItem{}, Con{F.BArr{}, up}, S.text(J.JArr{t}, True{}, r), SCon{',', out}, key, (at + 1 : U32), ea, Unit{}),
-            +m2 => +k2 => +a2 => +e2 => aft => run(J.JArr{t}, True{}, m2, Con{F.BArr{}, up}, r, push(S.text(h, False{}, ""), SCon{',', out}), k2, a2, e2, aft))
+              arr.t.k1(h, t, up, m, r, out, key, bk, a_comma(m, ctx, S.text(h, False{}, S.text(J.JArr{t}, True{}, r)), up, out, key, bk),
+            run(h, False{}, F.VItem{}, Con{F.BArr{}, up}, S.text(J.JArr{t}, True{}, r), SCon{',', out}, key, 0, Unit{}),
+            +m2 => +k2 => +a2 => aft => run(J.JArr{t}, True{}, m2, Con{F.BArr{}, up}, r, push(S.text(h, False{}, ""), SCon{',', out}), k2, a2, aft))
             case Con{F.BObj{}, _}:
               match ctx:
             case Nil{}:
@@ -3964,11 +3861,11 @@ def run(j, more, m, stk, r, out, key, at, ea, ctx):
     case J.JObj{Nil{}}:
       match more:
         case False{}:
-          (Q{F.VAfter{}, key, ((at + 1 : U32) + 1 : U32), ea}, (Unit{}, v_obj0(m, ctx, r, stk, out, key, at, ea)))
+          (Q{F.VAfter{}, key, 0}, (Unit{}, v_obj0(m, ctx, r, stk, out, key, bk)))
         case True{}:
           match stk:
             case Con{F.BObj{}, up}:
-              (Q{F.VAfter{}, key, (at + 1 : U32), ea}, (Unit{}, o_close(m, ctx, r, up, out, key, at, ea)))
+              (Q{F.VAfter{}, key, 0}, (Unit{}, o_close(m, ctx, r, up, out, key, bk)))
             case Con{F.BArr{}, _}:
               match ctx:
             case Nil{}:
@@ -3976,27 +3873,27 @@ def run(j, more, m, stk, r, out, key, at, ea, ctx):
     case J.JObj{Con{J.Field{k, v}, t}}:
       match more:
         case False{}:
-          obj.f.k1(k, v, t, stk, m, r, out, key, at, ea, Equal.trans(F.Out,
-        F.gc(SCon{'{', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, m, SCon{'{', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, stk, out, 0, 0, key, at, ea),
-        F.gc(SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}, F.VObjFirst{}, SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}, Con{F.BObj{}, stk}, SCon{'{', out}, 0, 0, key, (at + 1 : U32), ea),
-        F.gc(S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}}), F.SStr{}, S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}}), Con{F.BObj{}, stk}, SCon{'"', SCon{'{', out}}, 0, 0, True{}, ((at + 1 : U32) + 1 : U32), ea),
-        v_obj(m, ctx, SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}, stk, out, key, at, ea),
+          obj.f.k1(k, v, t, stk, m, r, out, key, bk, Equal.trans(F.Out,
+        F.gc(SCon{'{', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, m, SCon{'{', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, stk, out, 0, 0, key, bk),
+        F.gc(SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}, F.VObjFirst{}, SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}, Con{F.BObj{}, stk}, SCon{'{', out}, 0, 0, key, 0),
+        F.gc(S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}}), F.SStr{}, S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}}), Con{F.BObj{}, stk}, SCon{'"', SCon{'{', out}}, 0, 0, True{}, 0),
+        v_obj(m, ctx, SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}, stk, out, key, bk),
         {==}),
-            FS.sb(k, SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}, Con{F.BObj{}, stk}, SCon{'"', SCon{'{', out}}, True{}, ((at + 1 : U32) + 1 : U32), ea),
-            +pa2 => +pe2 => run(v, False{}, F.VObjVal{}, Con{F.BObj{}, stk}, S.text(J.JObj{t}, True{}, r), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{'{', out}})}, True{}, (pa2 + 1 : U32), pe2, Unit{}),
-            +m2 => +k2 => +a2 => +e2 => aft => run(J.JObj{t}, True{}, m2, Con{F.BObj{}, stk}, r, push(S.text(v, False{}, ""), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{'{', out}})}), k2, a2, e2, aft))
+            FS.sb(k, SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}, Con{F.BObj{}, stk}, SCon{'"', SCon{'{', out}}, True{}, 0),
+            run(v, False{}, F.VObjVal{}, Con{F.BObj{}, stk}, S.text(J.JObj{t}, True{}, r), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{'{', out}})}, True{}, 0, Unit{}),
+            +m2 => +k2 => +a2 => aft => run(J.JObj{t}, True{}, m2, Con{F.BObj{}, stk}, r, push(S.text(v, False{}, ""), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{'{', out}})}), k2, a2, aft))
         case True{}:
           match stk:
             case Con{F.BObj{}, up}:
-              obj.t.k1(k, v, t, up, m, r, out, key, at, ea, Equal.trans(F.Out,
-        F.gc(SCon{',', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, m, SCon{',', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, Con{F.BObj{}, up}, out, 0, 0, key, at, ea),
-        F.gc(SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}, F.VKey{}, SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}, Con{F.BObj{}, up}, SCon{',', out}, 0, 0, key, (at + 1 : U32), ea),
-        F.gc(S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}}), F.SStr{}, S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}}), Con{F.BObj{}, up}, SCon{'"', SCon{',', out}}, 0, 0, True{}, ((at + 1 : U32) + 1 : U32), ea),
-        o_comma(m, ctx, SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}, up, out, key, at, ea),
+              obj.t.k1(k, v, t, up, m, r, out, key, bk, Equal.trans(F.Out,
+        F.gc(SCon{',', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, m, SCon{',', SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}}, Con{F.BObj{}, up}, out, 0, 0, key, bk),
+        F.gc(SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}, F.VKey{}, SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}, Con{F.BObj{}, up}, SCon{',', out}, 0, 0, key, 0),
+        F.gc(S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}}), F.SStr{}, S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}}), Con{F.BObj{}, up}, SCon{'"', SCon{',', out}}, 0, 0, True{}, 0),
+        o_comma(m, ctx, SCon{'"', S.esc(k, SCon{'"', SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}})}, up, out, key, bk),
         {==}),
-            FS.sb(k, SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}, Con{F.BObj{}, up}, SCon{'"', SCon{',', out}}, True{}, ((at + 1 : U32) + 1 : U32), ea),
-            +pa2 => +pe2 => run(v, False{}, F.VObjVal{}, Con{F.BObj{}, up}, S.text(J.JObj{t}, True{}, r), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{',', out}})}, True{}, (pa2 + 1 : U32), pe2, Unit{}),
-            +m2 => +k2 => +a2 => +e2 => aft => run(J.JObj{t}, True{}, m2, Con{F.BObj{}, up}, r, push(S.text(v, False{}, ""), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{',', out}})}), k2, a2, e2, aft))
+            FS.sb(k, SCon{':', S.text(v, False{}, S.text(J.JObj{t}, True{}, r))}, Con{F.BObj{}, up}, SCon{'"', SCon{',', out}}, True{}, 0),
+            run(v, False{}, F.VObjVal{}, Con{F.BObj{}, up}, S.text(J.JObj{t}, True{}, r), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{',', out}})}, True{}, 0, Unit{}),
+            +m2 => +k2 => +a2 => aft => run(J.JObj{t}, True{}, m2, Con{F.BObj{}, up}, r, push(S.text(v, False{}, ""), SCon{':', push(S.esc(k, "\""), SCon{'"', SCon{',', out}})}), k2, a2, aft))
             case Con{F.BArr{}, _}:
               match ctx:
             case Nil{}:
@@ -4007,12 +3904,11 @@ law finish.m:
   for +m: F.Mode
   for +k: Bool
   for +a: U32
-  for +e: U32
   for +out: String
   for aft: Aft(m)
-  {after("", [], out, Q{m, k, a, e}) == F.Ok{String.reverse(out)} : F.Out}
+  {after("", [], out, Q{m, k, a}) == F.Ok{String.reverse(out)} : F.Out}
 
-def finish.m(m, k, a, e, out, aft):
+def finish.m(m, k, a, out, aft):
   match m:
     case F.VStart{}:
       match aft:
@@ -4101,8 +3997,8 @@ law finish:
 
 def finish(out, q, aft):
   match q:
-    case Q{m, k, a, e}:
-      finish.m(m, k, a, e, out, aft)
+    case Q{m, k, a}:
+      finish.m(m, k, a, out, aft)
 
 law rev_rev:
   for +a: String
@@ -4113,13 +4009,13 @@ def rev_rev(a):
 
 law round_trip.go:
   for +t: String
-  for g: V(t, F.VStart{}, [], "", False{}, 0, 0, "", [], push(t, ""))
-  {F.gc(t, F.VStart{}, t, [], "", 0, 0, False{}, 0, 0) == F.Ok{t} : F.Out}
+  for g: V(t, F.VStart{}, [], "", False{}, 0, "", [], push(t, ""))
+  {F.gc(t, F.VStart{}, t, [], "", 0, 0, False{}, 0) == F.Ok{t} : F.Out}
 
 def round_trip.go(t, g):
   (+q, pr) = g
   (aft, eq) = pr
-  Equal.trans(F.Out, F.gc(t, F.VStart{}, t, [], "", 0, 0, False{}, 0, 0), after("", [], push(t, ""), q), F.Ok{t},
+  Equal.trans(F.Out, F.gc(t, F.VStart{}, t, [], "", 0, 0, False{}, 0), after("", [], push(t, ""), q), F.Ok{t},
     eq,
     Equal.trans(F.Out, after("", [], push(t, ""), q), F.Ok{String.reverse(push(t, ""))}, F.Ok{t},
       finish(push(t, ""), q, aft),
@@ -4133,4 +4029,4 @@ law fast_round_trip:
 def fast_round_trip(j):
   +t : String = S.text(j, False{}, "")
   %Equal.sym(String, J.encode(j), t, P.print(j)) : {F.reformat(_) == F.Ok{_} : F.Out}
-  round_trip.go(t, run(j, False{}, F.VStart{}, [], "", "", False{}, 0, 0, Unit{}))
+  round_trip.go(t, run(j, False{}, F.VStart{}, [], "", "", False{}, 0, Unit{}))
