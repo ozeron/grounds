@@ -104,7 +104,7 @@ def last.go(xs: List<&1, Idle>, acc: List<&1, Idle>) -> Last:
 type Plan is Type:
   Use{conn: Idle}
   New{evict: Maybe<&1, Idle>}
-  Wait{}
+  Await{}
   Gone{}
 
 type Dec is Type:
@@ -115,7 +115,7 @@ def decide.full(l: Last, +waiting: Nat, dead: List<&1, Idle>) -> Dec:
     case Last{init, Some{x}}:
       Dec{New{Some{x}}, St{init, 0n, waiting, False{}}, dead}
     case Last{init, None{}}:
-      Dec{Wait{}, St{init, 0n, Nat.add(waiting, 1n), False{}}, dead}
+      Dec{Await{}, St{init, 0n, Nat.add(waiting, 1n), False{}}, dead}
 
 def decide.free(room: Bool, rest: List<&1, Idle>, +free: Nat, +waiting: Nat, dead: List<&1, Idle>) -> Dec:
   match room:
@@ -159,7 +159,7 @@ def acted(plan: Plan, +p: Pool, +key: String, +fuel: Nat, again: Unit -> IO(Take
       IO.pure(Taken, Kept{s, tls})
     case New{ev} _:
       IO.bind(Unit, Taken, evicted(ev), u => IO.pure(Taken, Room{}))
-    case Wait{} Pool{_, _, +w, _}:
+    case Await{} Pool{_, _, +w, _}:
       IO.bind(Maybe<&1, Unit>, Taken, Chan.recv(Unit, w), u => again(Unit{}))
     case Gone{} _:
       IO.pure(Taken, Shut{})

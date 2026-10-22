@@ -161,6 +161,6 @@ def request(host: String, port: U32, policy: Retry.Policy, credentials: Ice.Cred
     a : U32 <- IO.try(U32, IO.random_u32())
     b : U32 <- IO.try(U32, IO.random_u32())
     c : U32 <- IO.try(U32, IO.random_u32())
-    socket : Socket <- IO.try(Socket, UDP.bind(0))
+    socket : Socket <- IO.try(Socket, UDP.bind("0.0.0.0", 0))
     reply : Reply() <- exchange(socket, Discovery.transaction(a, b, c), host, port, policy, credentials, check, mode)
     closed(reply)

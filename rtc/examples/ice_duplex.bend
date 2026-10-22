@@ -13,6 +13,7 @@ import ../stun_client.bend as Discovery
 import ../../wire/wire.bend as W
 import ./ice_exchange.bend as Fixture
 import ./ice_accept.bend as Output
+import ../../io/io.bend as Io
 
 type Driver is Data:
   Driver{transactions: Tx.State, role: Ice.Role, finished: Bool, accepted: Nat, target: Nat, deadline: Nat}
@@ -130,7 +131,7 @@ def loop(fuel: Nat, socket: Socket, driver: Driver) -> IO(Unit):
 
 def started(result: Tx.Start, socket: Socket, +now: Nat, target: Nat) -> IO(Unit):
   match result:
-    case Tx.Ready{step}:
+    case Tx.Now{step}:
       IO.bind(SocketIO.Reply(), Unit, SocketIO.execute(socket, step),
         reply => polled(reply, Ice.Controlling{0, 1}, False{}, 0n, target, Nat.add(now, 3000n), s => d => loop(65536n, s, d)))
     case _:
@@ -144,7 +145,7 @@ def start(socket: Socket, peer_port: U32, +now: Nat, target: Nat) -> IO(Unit):
 
 def run(local: U32, peer: U32, target: U32) -> IO(Unit):
   do IO<Unit>:
-    socket : Socket <- IO.try(Socket, UDP.bind(local))
+    socket : Socket <- IO.try(Socket, UDP.bind("0.0.0.0", local))
     now : Nat <- IO.now()
     start(socket, peer, now, U32.to_nat(target))
 
@@ -160,6 +161,6 @@ def dispatch(args: List<String>) -> IO(Unit):
 
 def main() -> IO(Unit):
   do IO<Unit>:
-    args : List<String> <- IO.args()
+    args : List<String> <- Io.args()
     dispatch(args)
 

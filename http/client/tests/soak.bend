@@ -2,6 +2,7 @@ import Base
 import ../client.bend as C
 import ../pool.bend as Pool
 import ../../../json/json.bend as J
+import ../../../io/io.bend as Io
 
 # tests/soak.py's client: ROUNDS rounds, each a one-shot GET, three GETs
 # through an http pool and one through an https pool, a get_json, a
@@ -97,5 +98,5 @@ def count(a: List<String>) -> Nat:
 
 def main() -> IO(Unit):
   do IO<Unit>:
-    a : List<String> <- IO.args()
+    a : List<String> <- Io.args()
     Pool.with(Unit, C.default(), 4, p => soaked(p, count(a)))

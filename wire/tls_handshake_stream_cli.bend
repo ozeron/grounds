@@ -105,5 +105,5 @@ def args(args: List<String>) -> IO(Unit):
 
 def main() -> IO(Unit):
   do IO<Unit>:
-    values : List<String> <- IO.args()
+    values : List<String> <- Io.args()
     args(values)

@@ -1,6 +1,7 @@
 import Base
 import ../client.bend as C
 import ../../core/event.bend as Ev
+import ../../../io/io.bend as Io
 
 # tests/fuzz_events.py's client: N event streams from 127.0.0.1:7401, one
 # line per event and one per end, each string as its code points, for the
@@ -53,4 +54,4 @@ def count(a: List<String>) -> Nat:
       100n
 
 def main() -> IO(Unit):
-  IO.bind(List<String>, Unit, IO.args(), a => run(count(a)))
+  IO.bind(List<String>, Unit, Io.args(), a => run(count(a)))

@@ -40,7 +40,7 @@ def changed(step: Consent.Step, previous: Maybe<&2, Consent.Notice>, now: Nat, t
 
 def started(start: Consent.Start, previous: Maybe<&2, Consent.Notice>, now: Nat) -> Turn:
   match start:
-    case Consent.Ready{step}: changed(step, previous, now, "ready")
+    case Consent.Now{step}: changed(step, previous, now, "ready")
     case Consent.Later{step, at}: changed(step, previous, now, "later:" ++ Nat.show(at))
     case Consent.Rejected{step}: changed(step, previous, now, "rejected")
 
@@ -181,5 +181,5 @@ def dispatch(args: List<String>) -> IO(Unit):
 
 def main() -> IO(Unit):
   do IO<Unit>:
-    args : List<String> <- IO.args()
+    args : List<String> <- Io.args()
     dispatch(args)

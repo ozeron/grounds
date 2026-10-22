@@ -75,7 +75,7 @@ def request.with_transaction(+transaction: List<&2, U32>, +host: String,
                              +port: U32, +ms: U32) -> IO(Maybe<&2, Stun.IPv4>):
   do IO<Maybe<&2, Stun.IPv4>>:
     bytes : List<&2, U32> <- required(Stun.binding_request(transaction))
-    socket : Socket <- IO.try(Socket, UDP.bind(0))
+    socket : Socket <- IO.try(Socket, UDP.bind("0.0.0.0", 0))
     sent_packet : RU() <- W.wire_udp_send_to(socket, host, port, bytes, ms)
     socket2 : Socket <- sent(sent_packet)
     reply : RD() <- W.wire_udp_recv_from_timeout(socket2, 65535, ms)

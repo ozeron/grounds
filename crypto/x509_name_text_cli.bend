@@ -54,5 +54,5 @@ def command(args: List<String>) -> IO(Unit):
 
 def main() -> IO(Unit):
   do IO<Unit>:
-    args : List<String> <- IO.args()
+    args : List<String> <- Io.args()
     command(args)

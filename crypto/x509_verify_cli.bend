@@ -15,9 +15,8 @@ def dispatch(args: List<String>) -> IO(Unit):
     case _:
       IO.die(Unit, 2, "usage: x509_verify_cli verify <issuer-spki> <certificate> ...")
 
-# Bend 2.0.27 returns only arguments; 2.0.32+ includes the invoked program.
-# Require an explicit fixture command in either position so paths are never
-# guessed from argument parity. No certificate logic lives in this adapter.
+# an explicit fixture command, so paths are never guessed from argument
+# parity. No certificate logic lives in this adapter
 def command.checked(valid: Bool, rest: List<String>) -> IO(Unit):
   match valid:
     case True{}:
@@ -25,28 +24,14 @@ def command.checked(valid: Bool, rest: List<String>) -> IO(Unit):
     case False{}:
       IO.die(Unit, 2, "usage: x509_verify_cli verify <issuer-spki> <certificate> ...")
 
-def command.shifted(args: List<String>) -> IO(Unit):
+def command(args: List<String>) -> IO(Unit):
   match args:
     case Con{flag, rest}:
       command.checked(String.eq(flag, "verify"), rest)
     case _:
       IO.die(Unit, 2, "usage: x509_verify_cli verify <issuer-spki> <certificate> ...")
 
-def command.first(valid: Bool, rest: List<String>) -> IO(Unit):
-  match valid:
-    case True{}:
-      dispatch(rest)
-    case False{}:
-      command.shifted(rest)
-
-def command(args: List<String>) -> IO(Unit):
-  match args:
-    case Con{flag, rest}:
-      command.first(String.eq(flag, "verify"), rest)
-    case _:
-      IO.die(Unit, 2, "usage: x509_verify_cli verify <issuer-spki> <certificate> ...")
-
 def main() -> IO(Unit):
   do IO<Unit>:
-    args : List<String> <- IO.args()
+    args : List<String> <- Io.args()
     command(args)

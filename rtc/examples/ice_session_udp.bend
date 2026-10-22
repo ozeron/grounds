@@ -19,6 +19,7 @@ import ../stun_client.bend as Discovery
 import ./ice_session_output.bend as Output
 import ./ice_valid_output.bend as ValidOutput
 import ../../wire/wire.bend as W
+import ../../io/io.bend as Io
 
 type Driver is Data:
   Driver{state: V.State, first: Stun.IPv4, second: Stun.IPv4, bind_at: Nat, end: Nat, bound: Bool, next: Bool}
@@ -389,5 +390,5 @@ def dispatch(args: List<String>) -> IO(Unit):
 
 def main() -> IO(Unit):
   do IO<Unit>:
-    args : List<String> <- IO.args()
+    args : List<String> <- Io.args()
     dispatch(args)

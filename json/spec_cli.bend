@@ -22,7 +22,7 @@ def path_of(args: List<String>) -> String:
 
 def fail(e: J.Error) -> IO(Unit):
   do IO<Unit>:
-    args : List<String> <- IO.args()
+    args : List<String> <- Io.args()
     IO.die(Unit, 1, path_of(args) ++ ":" ++ J.message(e))
 
 def emit(compact: Bool, r: Result<&2, &2, J.Error, J.Json>) -> IO(Unit):
@@ -57,5 +57,5 @@ def dispatch(args: List<String>) -> IO(Unit):
 
 def main() -> IO(Unit):
   do IO<Unit>:
-    args : List<String> <- IO.args()
+    args : List<String> <- Io.args()
     dispatch(args)

@@ -46,7 +46,7 @@ def wire_send_timeout(sock: Socket, data: List<&2, U32>, ms: U32) ->
   import "./effs/wire.js"
 
 def listen(port: U32) -> IO(Result<&1, &1, U32 & String, Listener>):
-  TCP.listen(port)
+  TCP.listen("0.0.0.0", port)
 
 def accept(l: Listener) -> IO(Listener & Result<&1, &1, U32 & String, Socket>):
   TCP.accept(l)

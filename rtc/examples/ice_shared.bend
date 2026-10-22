@@ -12,6 +12,7 @@ import ../stun.bend as Stun
 import ../stun_client.bend as Discovery
 import ../../crypto/bytes.bend as B
 import ./ice_exchange.bend as Fixture
+import ../../io/io.bend as Io
 
 type Driver is Data:
   Driver{transactions: Tx.State, lists: List<&2, Check.Checklist>, next: Nat, done: Nat, deadline: Nat, cancel: U32}
@@ -142,7 +143,7 @@ def started(result: Tx.Start, socket: Socket, driver: Driver,
             again: Socket -> Driver -> IO(Unit)) -> IO(Unit):
   match result driver:
     case Tx.Rejected{} _: IO.die(Unit, 3, "fixture transaction rejected")
-    case Tx.Ready{step} Driver{_, +lists, +next, done, deadline, cancel}:
+    case Tx.Now{step} Driver{_, +lists, +next, done, deadline, cancel}:
       applied_begin(Check.begin(lists, 1, next), step, socket, next, done, deadline, cancel, again)
     case Tx.Later{_} Driver{tx, lists, next, done, deadline, cancel}:
       IO.bind(SocketIO.Reply(), Unit, SocketIO.poll(socket, tx, 10),
@@ -198,7 +199,7 @@ def initialized(lists: Maybe<&2, List<&2, Check.Checklist>>, local_port: U32, ca
     case None{}: IO.die(Unit, 3, "bad fixture candidates")
     case Some{lists}:
       do IO<Unit>:
-        socket : Socket <- IO.try(Socket, UDP.bind(local_port))
+        socket : Socket <- IO.try(Socket, UDP.bind("0.0.0.0", local_port))
         now : Nat <- IO.now()
         loop(65536n, socket, Driver{Tx.default(), lists, 0n, 0n, Nat.add(now, 3000n), cancel})
 
@@ -225,5 +226,5 @@ def dispatch(args: List<String>) -> IO(Unit):
 
 def main() -> IO(Unit):
   do IO<Unit>:
-    args : List<String> <- IO.args()
+    args : List<String> <- Io.args()
     dispatch(args)

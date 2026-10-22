@@ -14,7 +14,7 @@ type Sequence is Data:
   Spent{}
 
 type Epoch is Type:
-  Ready{secret: List<&2, U32>, key: List<&2, U32>, iv: List<&2, U32>, sequence: Sequence}
+  ChachaReady{secret: List<&2, U32>, key: List<&2, U32>, iv: List<&2, U32>, sequence: Sequence}
   AesReady{secret: List<&2, U32>, key: List<&2, U32>, iv: List<&2, U32>, sequence: Sequence}
   Gone{}
 
@@ -58,7 +58,7 @@ def expand_label(+secret: List<&2, U32>, +label: List<&2, U32>, +context: List<&
 def derived(secret: List<&2, U32>, key: Maybe<&2, List<&2, U32>>, iv: Maybe<&2, List<&2, U32>>) -> Maybe<&1, Epoch>:
   match key iv:
     case Some{key} Some{iv}:
-      Some{Ready{secret, key, iv, Counter{0, 0}}}
+      Some{ChachaReady{secret, key, iv, Counter{0, 0}}}
     case _ _:
       None{}
 
@@ -182,10 +182,10 @@ def seal.epoch(epoch: Epoch, aad: List<&2, U32>, plaintext: List<&2, U32>) -> Ep
   match epoch:
     case Gone{}:
       (Gone{}, Fail{Closed{}})
-    case Ready{_, _, _, Spent{}}:
+    case ChachaReady{_, _, _, Spent{}}:
       (Gone{}, Fail{Exhausted{}})
-    case Ready{secret, +key, +iv, Counter{+high, +low}}:
-      seal.result(Ready{secret, key, iv, next(Counter{high, low})},
+    case ChachaReady{secret, +key, +iv, Counter{+high, +low}}:
+      seal.result(ChachaReady{secret, key, iv, next(Counter{high, low})},
         A.seal(key, nonce(iv, high, low), aad, plaintext))
     case AesReady{_, _, _, Spent{}}:
       (Gone{}, Fail{Exhausted{}})
@@ -220,10 +220,10 @@ def open.epoch(epoch: Epoch, +aad: List<&2, U32>, +ciphertext: List<&2, U32>, ta
   match epoch:
     case Gone{}:
       (Gone{}, Fail{Closed{}})
-    case Ready{_, _, _, Spent{}}:
+    case ChachaReady{_, _, _, Spent{}}:
       (Gone{}, Fail{Exhausted{}})
-    case Ready{secret, +key, +iv, Counter{+high, +low}}:
-      open.result(Ready{secret, key, iv, next(Counter{high, low})},
+    case ChachaReady{secret, +key, +iv, Counter{+high, +low}}:
+      open.result(ChachaReady{secret, key, iv, next(Counter{high, low})},
         A.open(key, nonce(iv, high, low), aad, ciphertext, tag))
     case AesReady{_, _, _, Spent{}}:
       (Gone{}, Fail{Exhausted{}})
@@ -258,7 +258,7 @@ def update(epoch: Epoch) -> Maybe<&1, Epoch>:
   match epoch:
     case Gone{}:
       None{}
-    case Ready{secret, _, _, _}:
+    case ChachaReady{secret, _, _, _}:
       update.secret(expand_label(secret, [116, 114, 97, 102, 102, 105, 99, 32, 117, 112, 100], [], 32n))
     case AesReady{secret, _, _, _}:
       update.aes_secret(expand_label(secret, [116, 114, 97, 102, 102, 105, 99, 32, 117, 112, 100], [], 32n))

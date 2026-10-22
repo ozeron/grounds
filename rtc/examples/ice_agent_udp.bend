@@ -19,6 +19,7 @@ import ./ice_valid_output.bend as ValidOutput
 import ./ice_agent.bend as Format
 import ./ice_session_udp.bend as Entropy
 import ../../wire/wire.bend as W
+import ../../io/io.bend as Io
 
 # OS effects only. All packet construction, authentication, nomination and
 # lifecycle decisions run through Agent on this one retained actual UDP socket.
@@ -251,5 +252,5 @@ def dispatch(args: List<String>) -> IO(Unit):
 
 def main() -> IO(Unit):
   do IO<Unit>:
-    args : List<String> <- IO.args()
+    args : List<String> <- Io.args()
     dispatch(args)

@@ -1,5 +1,6 @@
 import Base
 import ./wire.bend as W
+import ../io/io.bend as Io
 
 # Reproducible local foundation measurements. All fixtures are public patterns
 # or fresh synthetic RNG output; these timings do not prove secret safety.
@@ -153,5 +154,5 @@ def dispatch(args: List<String>) -> IO(Unit):
 
 def main() -> IO(Unit):
   do IO<Unit>:
-    args : List<String> <- IO.args()
+    args : List<String> <- Io.args()
     dispatch(args)

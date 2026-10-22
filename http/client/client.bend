@@ -72,7 +72,7 @@ def Kv() -> Type:
 type Body is Type:
   Empty{}
   Bytes{kind: String, bytes: List<&2, U32>}
-  Text{text: String}
+  Plain{text: String}
   Json{value: J.Json}
   Form{fields: Kv()}
 
@@ -84,7 +84,7 @@ def bytes(kind: String, bs: List<&2, U32>) -> Body:
 
 # s in UTF-8, as text/plain; charset=utf-8
 def text(s: String) -> Body:
-  Text{s}
+  Plain{s}
 
 # the status, headers, and whether the connection may carry another request
 type Meta is Data:
@@ -399,7 +399,7 @@ def body.of(b: Body) -> Bd:
       Bd{None{}, False{}, B.BNil{}}
     case Bytes{k, bs}:
       Bd{Some{k}, False{}, B.of_list(bs)}
-    case Text{s}:
+    case Plain{s}:
       Bd{Some{"text/plain; charset=utf-8"}, False{}, B.of_list(U.encode(s))}
     case Json{j}:
       Bd{Some{"application/json"}, True{}, B.of_list(U.encode(J.encode(j)))}

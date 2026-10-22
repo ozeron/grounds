@@ -509,7 +509,7 @@ def consent_updated(step: Consent.Step, slot: Slot, +state: State) -> Step:
 
 def consent_started(start: Consent.Start, slot: Slot, state: State) -> Step:
   match start:
-    case Consent.Ready{step}: consent_updated(step, slot, state)
+    case Consent.Now{step}: consent_updated(step, slot, state)
     case Consent.Later{step, at}: join([Waiting{at}], consent_updated(step, slot, state))
     case Consent.Rejected{step}: join([Rejected{}], consent_updated(step, slot, state))
 

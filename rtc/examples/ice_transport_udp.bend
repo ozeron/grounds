@@ -16,6 +16,7 @@ import ../stun_client.bend as Discovery
 import ./ice_transport_output.bend as Output
 import ./ice_entropy.bend as Entropy
 import ../../wire/wire.bend as W
+import ../../io/io.bend as Io
 
 # Trusted OS adapter on one retained actual socket. Packet decisions, credential
 # restart, nomination, incoming service and every data gate are owned by Bend.
@@ -361,5 +362,5 @@ def dispatch(args: List<String>) -> IO(Unit):
 
 def main() -> IO(Unit):
   do IO<Unit>:
-    args : List<String> <- IO.args()
+    args : List<String> <- Io.args()
     dispatch(args)

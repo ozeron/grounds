@@ -136,7 +136,7 @@ def got(r: Io.Read, limit: Maybe<&2, U32>) -> IO(String):
       IO.pure(String, text)
     case Io.TooBig{n}:
       do IO<String>:
-        args : List<String> <- IO.args()
+        args : List<String> <- Io.args()
         IO.die(String, 1, path_of(args) ++ too_big(n, limit))
 
 def read(path: String, +limit: Maybe<&2, U32>) -> IO(String):
@@ -151,12 +151,12 @@ def fail.at(r: J.Reason, +at: U32, text: String, path: String) -> IO(Unit):
 
 def fail.again(r: J.Reason, +at: U32, text: String) -> IO(Unit):
   do IO<Unit>:
-    args : List<String> <- IO.args()
+    args : List<String> <- Io.args()
     fail.at(r, at, text, path_of(args))
 
 def fail(r: J.Reason, +at: U32) -> IO(Unit):
   do IO<Unit>:
-    args : List<String> <- IO.args()
+    args : List<String> <- Io.args()
     text : String <- read(path_of(args), None{})
     fail.again(r, at, text)
 
@@ -187,7 +187,7 @@ def format(compact: Bool, text: String) -> F.Out:
 
 def bad_utf8(+at: U32, +before: String) -> IO(Unit):
   do IO<Unit>:
-    args : List<String> <- IO.args()
+    args : List<String> <- Io.args()
     IO.die(Unit, 1, path_of(args) ++ ":" ++ J.message(J.bad_utf8(at, before)))
 
 def decoded(compact: Bool, t: U.Text) -> IO(Unit):
@@ -201,7 +201,7 @@ def decoded(compact: Bool, t: U.Text) -> IO(Unit):
 # sequence
 def recheck(compact: Bool) -> IO(Unit):
   do IO<Unit>:
-    args : List<String> <- IO.args()
+    args : List<String> <- Io.args()
     bytes : List<&2, U32> <- Io.read_bytes(path_of(args))
     decoded(compact, U.decode(bytes))
 
@@ -229,5 +229,5 @@ def dispatch(o: Opts) -> IO(Unit):
 
 def main() -> IO(Unit):
   do IO<Unit>:
-    args : List<String> <- IO.args()
+    args : List<String> <- Io.args()
     dispatch(parse_args(args))

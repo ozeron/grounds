@@ -1,4 +1,5 @@
 import Base
+import ../../../io/io.bend as Io
 
 # count quote chars: the cheapest loop that touches every element
 
@@ -102,5 +103,5 @@ def run(args: List<String>) -> IO(Unit):
 
 def main() -> IO(Unit):
   do IO<Unit>:
-    args : List<String> <- IO.args()
+    args : List<String> <- Io.args()
     run(args)

@@ -5,6 +5,7 @@ import ../stun_auth.bend as Auth
 import ../stun.bend as Stun
 import ../stun_client.bend as Discovery
 import ./binding.bend as Output
+import ../../io/io.bend as Io
 
 def credentials() -> Ice.Credentials:
   Ice.Credentials{"localFrag", "remoteFrag", "SyntheticPassword123456789"}
@@ -25,7 +26,7 @@ def again(port: U32, first: Client.Reply()) -> IO(Unit):
 
 def twice(+port: U32) -> IO(Unit):
   do IO<Unit>:
-    socket : Socket <- IO.try(Socket, UDP.bind(0))
+    socket : Socket <- IO.try(Socket, UDP.bind("0.0.0.0", 0))
     first : Client.Reply() <- Client.exchange(socket, Discovery.transaction(1, 2, 3), "127.0.0.1", port,
       250, credentials(), Ice.Check{1845494271, Ice.Controlling{4275878552, 1985229328}}, Auth.Dual{})
     again(port, first)
@@ -68,5 +69,5 @@ def dispatch(args: List<String>) -> IO(Unit):
 
 def main() -> IO(Unit):
   do IO<Unit>:
-    args : List<String> <- IO.args()
+    args : List<String> <- Io.args()
     dispatch(args)

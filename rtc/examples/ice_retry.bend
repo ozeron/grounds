@@ -7,6 +7,7 @@ import ../stun_auth.bend as Auth
 import ../stun_client.bend as Discovery
 import ./ice_exchange.bend as Fixture
 import ./binding.bend as Output
+import ../../io/io.bend as Io
 
 def show(outcome: Client.Outcome) -> IO(Unit):
   match outcome:
@@ -35,7 +36,7 @@ def again(port: U32, mode: Auth.Mode, reply: Client.Reply()) -> IO(Unit):
 
 def reuse(+port: U32, +mode: Auth.Mode) -> IO(Unit):
   do IO<Unit>:
-    socket : Socket <- IO.try(Socket, UDP.bind(0))
+    socket : Socket <- IO.try(Socket, UDP.bind("0.0.0.0", 0))
     first : Client.Reply() <- Client.exchange(socket, Discovery.transaction(1, 2, 3), "127.0.0.1", port,
       Retry.Policy{500, 1, 1}, Fixture.credentials(), Ice.Check{1845494271, Ice.Controlling{4275878552, 1985229328}}, mode)
     again(port, mode, first)
@@ -76,5 +77,5 @@ def dispatch(args: List<String>) -> IO(Unit):
 
 def main() -> IO(Unit):
   do IO<Unit>:
-    args : List<String> <- IO.args()
+    args : List<String> <- Io.args()
     dispatch(args)

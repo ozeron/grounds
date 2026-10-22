@@ -298,7 +298,7 @@ terminal state. It does not send ordinary/triggered checks automatically.
 
 `ice_transactions.bend` is a pure shared-socket transaction engine. Its default
 state uses Ta 50 ms and capacity 100; configurable states require Ta 5–60000 ms
-and capacity 1–256. `start` validates/signs once and returns `Ready{step}`,
+and capacity 1–256. `start` validates/signs once and returns `Now{step}`,
 `Later{at}` for pacing, or `Rejected{}`. Each active transaction needs a unique
 token and a fresh 96-bit transaction ID. `tick(state, now)` emits at most one
 retransmission per turn, with a 5 ms minimum between send commands;

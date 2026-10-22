@@ -1,5 +1,6 @@
 import Base
 import ../stun_retry.bend as Retry
+import ../../io/io.bend as Io
 
 def output(waits: List<&2, U32>) -> IO(Unit):
   match waits:
@@ -26,5 +27,5 @@ def dispatch(args: List<String>) -> IO(Unit):
 
 def main() -> IO(Unit):
   do IO<Unit>:
-    args : List<String> <- IO.args()
+    args : List<String> <- Io.args()
     dispatch(args)

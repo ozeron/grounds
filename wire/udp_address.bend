@@ -1,6 +1,7 @@
 import Base
 import ./wire.bend as W
 import ./udp.bend as Bytes
+import ../io/io.bend as Io
 
 def Name() -> Type:
   Socket & Result<&1, &1, U32 & String, String & U32>
@@ -94,5 +95,5 @@ def dispatch(args: List<String>) -> IO(Unit):
 
 def main() -> IO(Unit):
   do IO<Unit>:
-    args : List<String> <- IO.args()
+    args : List<String> <- Io.args()
     dispatch(args)

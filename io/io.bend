@@ -90,3 +90,8 @@ def read_bytes(path: String) -> IO(List<&2, U32>):
     f : File <- IO.try(File, File.open(path, "r"))
     m : File & Result<&1, &1, (U32 & String), U32> <- File.size(f)
     bytes.size(m)
+
+# the command line's arguments. Since Bend 2.0.32 IO.args() starts with the
+# program as invoked, which no grounds program reads
+def args() -> IO(List<String>):
+  IO.bind(List<String>, List<String>, IO.args(), a => IO.pure(List<String>, List.tail(&1, String, a)))

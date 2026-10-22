@@ -1,5 +1,6 @@
 import Base
 import ./wire.bend as W
+import ../io/io.bend as Io
 
 # wire_tls_*: a GET over TLS to tls.py on 7202, whose certificate is for
 # localhost and trusted through GROUNDS_TLS_CA; prints what came back.
@@ -67,7 +68,7 @@ def host(a: List<String>) -> String:
 
 def main() -> IO(Unit):
   do IO<Unit>:
-    args : List<String> <- IO.args()
+    args : List<String> <- Io.args()
     s : Socket <- IO.try(Socket, W.wire_connect_timeout("127.0.0.1", 7202, 2000))
     m : RU() <- W.wire_tls_connect(s, host(args), 2000)
     shook(m)

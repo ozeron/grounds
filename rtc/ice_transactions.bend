@@ -30,7 +30,7 @@ type Step is Data:
   Step{state: State, events: List<&2, Notice>}
 
 type Start is Data:
-  Ready{step: Step}
+  Now{step: Step}
   Later{at: Nat}
   Rejected{}
 
@@ -72,7 +72,7 @@ def sending(entry: Entry, fresh: Bool) -> Notice:
     case Listening{token, _, _}: Retired{token}
 
 def added(+entry: Entry, entries: List<&2, Entry>, +ta: U32, capacity: U32, +now: Nat) -> Start:
-  Ready{Step{State{List.reverse.go(&2, Entry, List.reverse(&2, Entry, entries), [entry]),
+  Now{Step{State{List.reverse.go(&2, Entry, List.reverse(&2, Entry, entries), [entry]),
     ta, capacity, Nat.add(now, U32.to_nat(ta)), Nat.add(now, 5n)}, [sending(entry, True{})]}}
 
 def prepared(ok: Bool, state: State, token: U32, +context: Reliable.Context, +now: Nat,

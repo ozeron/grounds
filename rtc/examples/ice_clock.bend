@@ -35,7 +35,7 @@ def emit(step: Tx.Step, base: Nat) -> IO(Tx.State):
 
 def begun(result: Tx.Start, state: Tx.State, +base: Nat) -> IO(Tx.State):
   match result:
-    case Tx.Ready{step}: emit(step, base)
+    case Tx.Now{step}: emit(step, base)
     case Tx.Later{at}:
       do IO<Tx.State>:
         x : Unit <- IO.print("later:" ++ Nat.show(Nat.sub(at, base)))
@@ -85,7 +85,7 @@ def stale(step: Tx.Step) -> IO(Unit):
 
 def cancel_result(result: Tx.Start) -> IO(Unit):
   match result:
-    case Tx.Ready{step}: stale(step)
+    case Tx.Now{step}: stale(step)
     case _: IO.die(Unit, 3, "bad fixture start")
 
 def cancel_test() -> IO(Unit):
@@ -172,7 +172,7 @@ def stop_queued(step: Tx.Step) -> IO(Unit):
 
 def stopped_queued(result: Tx.Start) -> IO(Unit):
   match result:
-    case Tx.Ready{step}: stop_queued(step)
+    case Tx.Now{step}: stop_queued(step)
     case _: IO.die(Unit, 3, "bad queued fixture")
 
 def queued_test() -> IO(Unit):
@@ -182,7 +182,7 @@ def queued_test() -> IO(Unit):
 
 def queued_retry(result: Tx.Start) -> IO(Unit):
   match result:
-    case Tx.Ready{Tx.Step{state, _}}: stop_queued(Tx.tick(state, 500n))
+    case Tx.Now{Tx.Step{state, _}}: stop_queued(Tx.tick(state, 500n))
     case _: IO.die(Unit, 3, "bad queued retry fixture")
 
 def retry_queued_test() -> IO(Unit):
@@ -192,7 +192,7 @@ def retry_queued_test() -> IO(Unit):
 
 def default_stopped(result: Tx.Start, +base: Nat) -> IO(Unit):
   match result:
-    case Tx.Ready{step}:
+    case Tx.Now{step}:
       do IO<Unit>:
         s0 : Tx.State <- emit(step, base)
         s1 : Tx.State <- emit(Tx.stop_retries(s0, 0), base)
@@ -265,5 +265,5 @@ def dispatch(args: List<String>) -> IO(Unit):
 
 def main() -> IO(Unit):
   do IO<Unit>:
-    args : List<String> <- IO.args()
+    args : List<String> <- Io.args()
     dispatch(args)
