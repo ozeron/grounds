@@ -101,7 +101,9 @@ class Driver:
         self.answer(first, gen)
         nominate = self.request("nominate", gen)
         self.answer(nominate, gen)
-        assert self.requests[-1][1] - self.requests[-2][1] >= 0.045, self.requests
+        # Ta is 50 ms; times are arrivals here, so a late wake-up on a busy
+        # host shortens the gap. Missing pacing would be near 0
+        assert self.requests[-1][1] - self.requests[-2][1] >= 0.040, self.requests
         return self.request("probe", gen)
 
     def application(self, gen=7):
