@@ -4,10 +4,11 @@ Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and 
 
 The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
 
-- 2026-10-22 (current Bend 2.0.38 baseline): crypto, wire and all six HTTP
-  packages pass fresh guarded checks. The root gate is now fully declared but
-  stops at RTC's `ice_nomination_evidence` frontend memory cutoff. M0 remains
-  incomplete; details and retained failures lead the evidence ledger below.
+- 2026-10-23 (M0 round 2, Bend 2.0.38): RTC now passes all 161 declared
+  phases under the unchanged 4 GiB guard, including native/Bun nomination
+  evidence and full Chrome acceptance. Compiler-only GC settings resolve the
+  frontend cutoff without source or corpus changes. Fresh root acceptance
+  remains pending; details and retained failures lead the ledger below.
 
 - 2026-10-08 (Hello framing and P-256 batch changes prepared for commit):
   The focused `2026-10-05/hello-4g-v2/` queue completed frontend, native/Bun
@@ -30,6 +31,86 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 | `rtc` | Bend STUN parsing, IPv4 XOR-MAPPED-ADDRESS, SHA-1/SHA-256/dual integrity, FINGERPRINT, authenticated incoming/outgoing ICE Binding exchanges, retained-socket retransmissions and explicit error/integrity outcomes. IPv4 candidate/pair priorities, bounded checklist formation, stable transport references and guarded state transitions, role-driven priority reordering, a paced shared-socket transaction engine with response-only interruption, protected incoming replies and server-side role decisions, FIFO triggered queues, ordinary round-robin/foundation scheduling and generation/sent-role attempt ownership. A bounded session now binds signaled credentials, registered receiving/sending bases, observed peer-reflexive candidates, deferred incoming work, retained attempts and endpoint integrity policies. Authenticated non-symmetric responses fail only their original current pair; interrupted old listeners retire independently. The live owner fixture explicitly binds unicast IPv4 bases and queries actual local ports before candidate formation. An additive valid-list owner resolves authenticated mappings, learns locally peer-reflexive candidates from retained signed-request priority, allocates IP-keyed foundations, reranks by role and keeps late paths separate from replacement flights. A nomination-evidence owner associates current successful checks with their valid paths and retains qualified incoming intent through materialization, exact triggered flights and response-only listeners; already-Succeeded counterparts resolve their actual generating record. A generation lifecycle owner now applies regular controlling/controlled nomination, selects completed stream paths, removes nominated component checks while retaining response listeners, continues authenticated Binding service, and defers failure through PAC. An outer transport owner derives selected physical consent routes, serves authenticated consent-only Binding requests, shares actual-send pacing and recent transaction identity admission, gates logical application routes, and preserves sealed consent loss. Full/full credential restart rebuilds ICE state while retaining only selected old consent/server contexts until replacement selection. Bounded SDP/signaling now binds connection-owned credentials and the actual retained UDP base; real Chrome verifies direct selected pairs, fresh consent, restart and cleanup on native and Bun. Separate unauthenticated discovery remains available. | Complete crypto/runtime foundations and secure signaling, then gathering, IPv6/TURN, DTLS/SCTP and SRTP/media. |
 
 ## Evidence ledger
+
+- 2026-10-23 (M0 round 2; follows the 2026-10-22 baseline):
+
+  Branch `bend-https`, starting revision
+  `f10f40ae1353a386063d81f456e04512b9f789b8` (see the exact full revision in
+  each `*-binding.json`). All artifacts below are relative to
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-23/m0r2/` outside the repo.
+  `pinned-provenance.json` rechecks Bend **2.0.38**, Moon **2.5.5**, Bun
+  **1.3.14**, Python **3.13.12**, OpenSSL **3.6.3**, executable hashes and PATH.
+  The tracked starting tree was clean; the six pre-existing untracked Python
+  cache files are excluded from every commit. No `bounty/` file was accessed
+  or staged, no dependency was added, and no push/PR or M1 work was performed.
+
+  Commands (from `/Users/ozeron/code/grounds`, canonical
+  `/private/mnt/DATA/code/grounds`):
+
+  ```sh
+  A=/Users/ozeron/.codex/artifacts/grounds/2026-10-23/m0r2
+  export PATH="/opt/homebrew/opt/openssl@3/bin:/Users/ozeron/.local/share/mise/installs/github-bendlang-bend/2.0.38/bin:/Users/ozeron/.local/share/mise/installs/aqua-moonrepo-moon/2.5.5/moon_cli-aarch64-apple-darwin:$PATH"
+  export PYTHONDONTWRITEBYTECODE=1 BEND_NO_TELEMETRY=1
+  python3 tools/build_guard.py --memory-mib 4096 --process-memory-mib 4096 \
+    --timeout 120 --report "$A/nomination-reproduce-01.json" -- nice -n 10 \
+    sh tools/bend_native.sh rtc/examples/ice_nomination_evidence.bend "$A/nomination-original"
+  python3 tools/build_guard.py --memory-mib 4096 --process-memory-mib 4096 \
+    --timeout 120 --report "$A/nomination-gc-01.json" -- nice -n 10 \
+    env BUN_OPTIONS=--smol BUN_JSC_forceRAMSize=134217728 \
+    sh tools/bend_native.sh rtc/examples/ice_nomination_evidence.bend "$A/nomination-gc"
+  python3 tools/build_guard.py --memory-mib 4096 --process-memory-mib 4096 \
+    --timeout 120 --phases rtc/check_phases.json --report "$A/rtc-01.json" \
+    -- nice -n 10 moon --concurrency 1 run rtc:check --force
+  ```
+
+  `run.py` retains exact argv, cwd, invocation-local environment and tracked
+  source hashes in `*-command.json` and `*-binding.json` for its focused and
+  package runs; complete output is in matching `.log` files. The reproduction
+  and first factoring experiment preceded this runner; their guard reports
+  retain exact argv/cwd and both failed source patches are preserved separately.
+
+  The original single phase reproduces **exit 137**, per-process cutoff,
+  **4,118.282 MiB** aggregate / **4,117.016 MiB** largest process in
+  **7.695 s**, with normal pressure (`nomination-reproduce-01.*`). Three
+  source experiments also reached the cap: factoring synthetic generation
+  destructuring (`nomination-factored-01.*`, 4,096.988 MiB), using existing
+  shared formatting imports (`nomination-imports-01.*`, 4,116.348 MiB), and
+  separating JSON/state dispatch (`nomination-dispatch-01.*`, 4,106.426 MiB).
+  These were frontend resource cutoffs, not assertion failures; cutoff peaks
+  cannot measure each program's full demand. Astra at low reasoning effort
+  was consulted after each pair of failures. All experimental Bend changes
+  were reverted; `unsuccessful-generation-factoring.patch` and
+  `unsuccessful-import-dispatch.patch` retain them outside the repo.
+
+  The unchanged original source completes its full native build with
+  `BUN_OPTIONS=--smol BUN_JSC_forceRAMSize=134217728`: **exit 0**, **39.932 s**,
+  **2,312.906 MiB** aggregate / **2,310.891 MiB** largest process
+  (`nomination-gc-01.*`). Its unchanged evaluator passes all **46 cases**
+  (`nomination-evaluator-01.*`). `rtc/check.sh` now scopes those compiler GC
+  settings to its existing 61 native/JS build commands, appending `--smol`
+  to existing Bun options. They do not leak to generated-program evaluator
+  commands or disable JIT. This establishes a build-time collection-policy
+  remedy; it does not claim the compiler's underlying allocation issue is fixed.
+
+  Fresh RTC acceptance: **PASS, 161/161 phases**, exit 0, no skipped or
+  unexecuted phases, **1,494.902 s**, **2,340.095 MiB** aggregate peak /
+  **2,281.219 MiB** largest process (`rtc-01.json/.log`). Native nomination
+  build/check pass in **40.402/0.569 s**; Bun build/check in **7.899/2.635 s**.
+  Each target passes the complete 46-case nomination evaluator. Both full
+  Chrome live scenarios and independent packet validation pass for actual
+  authenticated WebSocket signaling, nomination, consent and credential restart;
+  DTLS/data/media remain absent and deferred. Pressure stayed normal throughout.
+
+  `preservation-audit.json` proves unchanged build arguments after removing
+  the `compile` wrapper, all 68 native/Bun evaluator command lines unchanged,
+  and identical hashes for every other tracked RTC file plus the guard and root
+  manifest. No assertion or case generator changed, no new phase or skip was
+  added, and the RTC/root manifests remain **161/1,765 phases**. Shell syntax
+  and `git diff --check` pass. All runs retain the 4,096 MiB aggregate/process
+  caps, 120 s phase deadline, shared lock, pressure checks and sequential work.
+
+  The fresh forced root gate is the next step. M0's final box and exit remain
+  open until that entire run passes; historical round-1 root failure follows.
 
 - 2026-10-22 (M0 fresh pinned-toolchain baseline; verification continued into
   2026-10-23 local time):

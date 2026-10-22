@@ -61,6 +61,15 @@ Neither setting is a memory quota; the separate guard measures the owned
 process tree and stops it at the sampled cutoff. These settings are local to
 the invocation and do not alter the installed compiler or user configuration.
 
+RTC's `check.sh` applies `BUN_OPTIONS=--smol` (appended to existing options) and
+`BUN_JSC_forceRAMSize=134217728` to its native/JS fixture build commands. On
+Bend 2.0.38 the unchanged nomination-evidence fixture otherwise crosses 4 GiB
+in the frontend. Earlier collection fits its complete native build within the
+existing guard; this is a GC scheduling change, not a raised memory allowance.
+The settings do not escape the build command, disable JIT, or change generated
+native/Bun evaluator invocations. All RTC cases and phase declarations remain
+unchanged. The dated M0 round-2 ledger records measurements and full-gate results.
+
 This is a sampled cutoff, not a kernel-enforced allocation quota: a fast
 allocation can overshoot between samples. The guard includes descendants in
 separate process groups and retains observed ownership after reparenting, using
