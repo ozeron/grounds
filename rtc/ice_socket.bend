@@ -1,7 +1,7 @@
 import Base
 import ./ice_transactions.bend as Tx
 import ./stun_client.bend as Discovery
-import ./ice_reliable.bend as Reliable
+import ./ice_outcome.bend as Reliable
 import ../wire/wire.bend as W
 
 def Reply() -> Type:

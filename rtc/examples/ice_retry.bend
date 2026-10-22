@@ -1,6 +1,7 @@
 import Base
 import ../ice_binding.bend as Ice
 import ../ice_reliable.bend as Client
+import ../ice_outcome.bend as Out
 import ../ice_response.bend as Response
 import ../stun_retry.bend as Retry
 import ../stun_auth.bend as Auth
@@ -9,20 +10,20 @@ import ./ice_exchange.bend as Fixture
 import ./binding.bend as Output
 import ../../io/io.bend as Io
 
-def show(outcome: Client.Outcome) -> IO(Unit):
+def show(outcome: Out.Outcome) -> IO(Unit):
   match outcome:
-    case Client.Received{Response.Success{address}, _}: Output.show(Some{address})
-    case Client.Received{Response.Error{code}, _}: IO.print("error:" ++ U32.show(code))
-    case Client.Received{Response.Invalid{}, _}: IO.print("invalid-response")
-    case Client.TimedOut{}: IO.print("timeout")
-    case Client.IntegrityViolation{}: IO.print("integrity-violation")
-    case Client.TransportError{code}: IO.print("transport:" ++ U32.show(code))
-    case Client.FloodLimit{}: IO.print("flood-limit")
-    case Client.InvalidInput{}: IO.print("invalid-input")
+    case Out.Received{Response.Success{address}, _}: Output.show(Some{address})
+    case Out.Received{Response.Error{code}, _}: IO.print("error:" ++ U32.show(code))
+    case Out.Received{Response.Invalid{}, _}: IO.print("invalid-response")
+    case Out.TimedOut{}: IO.print("timeout")
+    case Out.IntegrityViolation{}: IO.print("integrity-violation")
+    case Out.TransportError{code}: IO.print("transport:" ++ U32.show(code))
+    case Out.FloodLimit{}: IO.print("flood-limit")
+    case Out.InvalidInput{}: IO.print("invalid-input")
 
-def selected(outcome: Client.Outcome, fallback: Auth.Mode) -> Auth.Mode:
+def selected(outcome: Out.Outcome, fallback: Auth.Mode) -> Auth.Mode:
   match outcome:
-    case Client.Received{_, mode}: mode
+    case Out.Received{_, mode}: mode
     case _: fallback
 
 def again(port: U32, mode: Auth.Mode, reply: Client.Reply()) -> IO(Unit):
@@ -31,7 +32,7 @@ def again(port: U32, mode: Auth.Mode, reply: Client.Reply()) -> IO(Unit):
     x : Unit <- show(outcome)
     second : Client.Reply() <- Client.exchange(socket, Discovery.transaction(4, 5, 6), "127.0.0.1", port,
       Retry.Policy{500, 3, 1}, Fixture.credentials(), Ice.Check{1845494271, Ice.Controlled{4275878552, 1985229328}}, selected(outcome, mode))
-    result : Client.Outcome <- Client.closed(second)
+    result : Out.Outcome <- Client.closed(second)
     show(result)
 
 def reuse(+port: U32, +mode: Auth.Mode) -> IO(Unit):
@@ -43,7 +44,7 @@ def reuse(+port: U32, +mode: Auth.Mode) -> IO(Unit):
 
 def run(port: U32, mode: Auth.Mode, policy: Retry.Policy, host: String) -> IO(Unit):
   do IO<Unit>:
-    result : Client.Outcome <- Client.request(host, port, policy, Fixture.credentials(),
+    result : Out.Outcome <- Client.request(host, port, policy, Fixture.credentials(),
       Ice.Check{1845494271, Ice.Controlling{4275878552, 1985229328}}, mode)
     show(result)
 

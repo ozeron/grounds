@@ -9,7 +9,7 @@ import ../ice_incoming.bend as Incoming
 import ../ice_checklist.bend as Check
 import ../ice_candidates.bend as C
 import ../ice_transactions.bend as Tx
-import ../ice_reliable.bend as Reliable
+import ../ice_outcome.bend as Reliable
 import ../ice_response.bend as Response
 import ./ice_scheduler_output.bend as Scheduler
 import ./ice_model_output.bend as Model

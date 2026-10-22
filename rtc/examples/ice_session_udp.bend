@@ -10,7 +10,7 @@ import ../ice_candidates.bend as C
 import ../ice_checklist.bend as Check
 import ../ice_pairs.bend as Pairs
 import ../ice_transactions.bend as Tx
-import ../ice_reliable.bend as Reliable
+import ../ice_outcome.bend as Reliable
 import ../ice_response.bend as Response
 import ../stun.bend as Stun
 import ../stun_auth.bend as Auth

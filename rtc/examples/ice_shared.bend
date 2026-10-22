@@ -4,7 +4,7 @@ import ../ice_checklist.bend as Check
 import ../ice_transactions.bend as Tx
 import ../ice_socket.bend as SocketIO
 import ../ice_binding.bend as Ice
-import ../ice_reliable.bend as Reliable
+import ../ice_outcome.bend as Reliable
 import ../ice_response.bend as Response
 import ../stun_auth.bend as Auth
 import ../stun_retry.bend as Retry
