@@ -20,12 +20,15 @@ class SplitError(ValueError):
 
 GLOBALS = frozenset({
     'CORPUS', 'ALC', 'KEEP_WORDS', 'CUBE_LOG', 'bank_lock', 'pool_size',
-    'pool_row', 'pool_grow', 'pool_tick', 'pool_done', 'pool_lock', 'pool_wake',
+    'pool_row', 'pool_grow', 'pool_tick', 'pool_done', 'pool_lock', 'pool_wake', 'pool_join',
     'BEND_SRC', 'gpu_dev', 'gpu_que', 'gpu_pso', 'gpu_buf', 'gpu_enc',
     'gpu_lib', 'io_gpu', 'io_stk', 'CLI_HELP', 'ERR_TEXT',
 })
 EXTERNAL_FUNCTIONS = ('f32_show', 'f32_read', 'corpus_grow')
-SEGMENT = re.compile(r'^  WL_CASE\((FID_[A-Z0-9_]+)\)\n.*?^  }}\n', re.M | re.S)
+# Runtime functions whose local statics hold process-wide state (Bend 2.0.38's
+# first-failure claim): runtime.c alone defines them, other units declare them.
+OWNED_FUNCTIONS = ('err_claim',)
+SEGMENT = re.compile(r'^  WL_CASE\((FID_[A-Za-z0-9_]+)\)\n.*?^  }}\n', re.M | re.S)
 LITERALS = re.compile(r'//[^\n]*|/\*[\s\S]*?\*/|"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'')
 
 
@@ -42,10 +45,20 @@ def require(condition, message):
         raise SplitError(message)
 
 
+def case_opens(masked):
+    # Bend 2.0.38 moved each segment's opening brace into WL_CASE itself.
+    defines = re.findall(r'^#define WL_CASE\(F\)([^\n]*)$', masked, re.M)
+    require(bool(defines), 'Missing segment macro')
+    opens = {define.rstrip().endswith('{') for define in defines}
+    require(len(opens) == 1, 'Inconsistent segment macros')
+    return opens.pop()
+
+
 def extract(text):
     masked = mask(text)
+    in_case = case_opens(masked)
     matches = list(SEGMENT.finditer(masked))
-    names = re.findall(r'^\s*WL_CASE\((FID_[A-Z0-9_]+)\)', masked, re.M)
+    names = re.findall(r'^\s*WL_CASE\((FID_[A-Za-z0-9_]+)\)', masked, re.M)
     require(bool(matches), 'No recognized CPU segments')
     require([match[1] for match in matches] == names, 'Incomplete segment extraction')
     require(len(names) == len(set(names)), 'Duplicate segment IDs')
@@ -53,16 +66,33 @@ def extract(text):
     for match in matches:
         body = masked[match.start():match.end()]
         opens = body.count('{') + len(re.findall(r'\bWL_OPEN\b', body))
+        opens += in_case
         require(opens == body.count('}'), f'Unbalanced segment: {match[1]}')
         bodies.append({'name': match[1], 'text': text[match.start():match.end()],
                        'start': match.start(), 'end': match.end()})
     return bodies
 
 
+def owned_functions(prefix):
+    for name in OWNED_FUNCTIONS:
+        pattern = re.compile(r'^FAR ([^\n]*\b' + name + r'\([^\n]*\)) \{\n.*?^\}\n', re.M | re.S)
+        found = list(pattern.finditer(mask(prefix)))
+        if not found:
+            continue
+        require(len(found) == 1, 'Duplicate runtime definition: ' + name)
+        match = found[0]
+        definition = prefix[match.start():match.end()].removeprefix('FAR ')
+        prefix = (prefix[:match.start()] + '#ifdef GROUNDS_RUNTIME_OWNER\n' + definition
+                  + '#else\n' + match[1] + ';\n#endif\n' + prefix[match.end():])
+    return prefix
+
+
 def shared_prefix(prefix, source):
-    masked = mask(prefix)
-    require(not re.search(r'^[ \t]+static\b', masked, re.M),
+    prefix = owned_functions(prefix)
+    masked = re.sub(r'^#ifdef GROUNDS_RUNTIME_OWNER\n.*?^#endif\n', '', mask(prefix), flags=re.M | re.S)
+    require(not re.search(r'^[ \t]+static\b(?!\s+const\b)', masked, re.M),
             'Local static storage cannot be copied into translation units')
+    masked = mask(prefix)
     declarations = []
     for match in re.finditer(r'^static\s+([^\n]+)', masked, re.M):
         first = match[1].split('=', 1)[0].split('__attribute__', 1)[0]
@@ -129,7 +159,9 @@ def prepare(source, directory, max_bytes=524288, max_segments=128):
         gap_start = segment['end']
     require(not cpu_guard, 'Unclosed CPU segment guard')
     prefix, globals_ = shared_prefix(text[:work], source)
-    prefix, count = re.subn(r'^(#define WL_FN\s+)static ', r'\1', prefix, flags=re.M)
+    # Before 2.0.38 WL_FN is static; since then FAR, static and noinline.
+    prefix, count = re.subn(r'^(#define WL_FN\s+)(?:static |FAR )',
+                            r'\1__attribute__((noinline)) ', prefix, flags=re.M)
     require(count == 1, 'Unrecognized segment calling-convention macro')
     prelude, count = re.subn(r'^static const WlFn wl_tab\[\] = \{ WL_TABLE \};',
                              'extern const WlFn wl_tab[];', text[work:loop], flags=re.M)

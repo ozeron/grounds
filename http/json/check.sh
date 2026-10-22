@@ -5,7 +5,7 @@ set -eu
 cd "$(dirname "$0")"
 tmp=$(mktemp -d)
 pid=
-trap '[ -n "$pid" ] && kill "$pid" 2>/dev/null; rm -rf "$tmp"' EXIT
+trap '[ -n "$pid" ] && kill "$pid" 2>/dev/null && wait "$pid" 2>/dev/null; rm -rf "$tmp"' EXIT
 bend test.bend
 bend PROOF.bend
 bend examples/todo.bend -o "$tmp/todo" > /dev/null
