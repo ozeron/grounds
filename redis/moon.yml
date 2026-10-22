@@ -6,8 +6,12 @@ dependsOn:
 
 tasks:
   check:
-    command: "./check.sh"
+    command: "python3 ../tools/check_package.py redis/check -- ./check.sh"
     inputs:
+      - "check.sh"
+      - "check_phases.json"
+      - "/tools/check_phase.py"
+      - "/tools/check_package.py"
       - "/json/scripts/cold.py"
       - "*.bend"
       - "examples/*.bend"

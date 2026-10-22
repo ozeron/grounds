@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "phases": [
+    {
+      "name": "utf8/check",
+      "optional": false
+    }
+  ]
+}

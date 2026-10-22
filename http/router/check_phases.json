@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "phases": [
+    {
+      "name": "http_router/check",
+      "optional": false
+    }
+  ]
+}

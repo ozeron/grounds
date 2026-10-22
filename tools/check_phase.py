@@ -22,19 +22,28 @@ class Phases:
     def __init__(self, manifest, timeout, report):
         raw = manifest.read_bytes()
         value = json.loads(raw)
-        if not isinstance(value, dict) or set(value) != {'version', 'phases'} or value['version'] != 1:
-            raise PhaseError('Unrecognized phase manifest')
-        self.expected = value['phases']
-        if not isinstance(self.expected, list) or not self.expected:
-            raise PhaseError('A nonempty phase sequence is required')
-        names = []
-        for phase in self.expected:
-            if (not isinstance(phase, dict) or set(phase) != {'name', 'optional'}
-                    or not isinstance(phase['name'], str)
-                    or re.fullmatch(r'[a-z0-9][a-z0-9_/-]{0,99}', phase['name']) is None
-                    or type(phase['optional']) is not bool):
-                raise PhaseError('Invalid phase declaration')
-            names.append(phase['name'])
+        sources = []
+        if isinstance(value, dict) and set(value) == {'version', 'manifests'} and value['version'] == 2:
+            refs = value['manifests']
+            if not isinstance(refs, list) or not refs or not all(isinstance(ref, str) and ref for ref in refs):
+                raise PhaseError('A nonempty package manifest list is required')
+            groups = []
+            for ref in refs:
+                source = (manifest.parent / ref).resolve()
+                data = source.read_bytes()
+                package = json.loads(data)
+                groups.append(self.sequence(package))
+                sources.append({'path': str(source), 'sha256': hashlib.sha256(data).hexdigest(),
+                                'manifest': package})
+            # Moon chooses the package order. Each selected package must finish
+            # its complete ordered sequence before another package can start.
+            self.expected = []
+            self.pending = groups.copy()
+        else:
+            self.expected = self.sequence(value)
+            groups = [self.expected]
+            self.pending = []
+        names = [phase['name'] for group in groups for phase in group]
         if len(names) != len(set(names)):
             raise PhaseError('Duplicate phase declarations')
         self.timeout = timeout
@@ -42,6 +51,8 @@ class Phases:
         report.update(phase_manifest_sha256=hashlib.sha256(raw).hexdigest(),
                       phase_manifest=value, timeout_scope='each-declared-phase',
                       phase_idle_timeout_seconds=IDLE_TIMEOUT, phases=[])
+        if sources:
+            report['phase_manifest_sources'] = sources
         self.index = 0
         self.active = None
         self.since = time.monotonic()
@@ -50,6 +61,21 @@ class Phases:
         self.socket = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
         self.socket.bind(self.address)
         self.socket.setblocking(False)
+
+    @staticmethod
+    def sequence(value):
+        if not isinstance(value, dict) or set(value) != {'version', 'phases'} or value['version'] != 1:
+            raise PhaseError('Unrecognized phase manifest')
+        expected = value['phases']
+        if not isinstance(expected, list) or not expected:
+            raise PhaseError('A nonempty phase sequence is required')
+        for phase in expected:
+            if (not isinstance(phase, dict) or set(phase) != {'name', 'optional'}
+                    or not isinstance(phase['name'], str)
+                    or re.fullmatch(r'[a-z0-9][a-z0-9_/-]{0,99}', phase['name']) is None
+                    or type(phase['optional']) is not bool):
+                raise PhaseError('Invalid phase declaration')
+        return expected
 
     def close(self):
         self.socket.close()
@@ -65,7 +91,16 @@ class Phases:
 
     def event(self, value, now):
         if self.index >= len(self.expected):
-            raise PhaseError('Event after the final phase')
+            if not self.pending:
+                raise PhaseError('Event after the final phase')
+            if not isinstance(value, dict):
+                raise PhaseError('Unexpected or out-of-order phase')
+            group = next((group for group in self.pending if group[0]['name'] == value.get('phase')), None)
+            if group is None:
+                raise PhaseError('Unexpected or out-of-order phase')
+            self.pending.remove(group)
+            self.expected = group
+            self.index = 0
         phase = self.expected[self.index]
         if not isinstance(value, dict) or value.get('phase') != phase['name']:
             raise PhaseError('Unexpected or out-of-order phase')
@@ -111,7 +146,7 @@ class Phases:
         self.socket.sendto(b'ok', address)
 
     def finish(self):
-        if self.active is not None or self.index != len(self.expected):
+        if self.pending or self.active is not None or self.index != len(self.expected):
             raise PhaseError('Missing or unfinished phases')
 
 

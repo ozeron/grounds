@@ -1,5 +1,12 @@
 # Local build resource guard
 
+The crypto differential checks require the OpenSSL 3 CLI on `PATH`. macOS's
+`/usr/bin/openssl` is LibreSSL and does not supply `enc -chacha20`. Check
+`openssl version` before starting the gate. With Homebrew, select the installed
+oracle explicitly, for example `export PATH="$(brew --prefix openssl@3)/bin:$PATH"`.
+Record that path and version with the run. This CLI is a test oracle/fixture
+dependency; selecting it does not implement any Grounds protocol operation.
+
 Run compilation and package/repository checks through `build_guard.py` after
 the 2026-10-01 resource incident. The lock is shared across Grounds checkouts.
 The guard refuses a second guarded job or an existing same-user Bend process,
@@ -32,10 +39,11 @@ Linux does not currently have this additional system-pressure check; its report
 marks that metric unsupported while retaining process-group RSS monitoring.
 
 ```sh
-PYTHONDONTWRITEBYTECODE=1 nice -n 10 python3 tools/build_guard.py \
+PYTHONDONTWRITEBYTECODE=1 python3 tools/build_guard.py \
   --memory-mib 4096 --process-memory-mib 4096 --timeout 120 \
+  --phases tools/check_phases.json \
   --report /tmp/grounds-check-resource.json \
-  -- moon --concurrency 1 run :check
+  -- nice -n 10 moon --concurrency 1 run :check --force
 ```
 
 Recent isolated compiler diagnostics also use `BUN_OPTIONS=--smol`,
@@ -106,9 +114,18 @@ and announcement helper are Moon cache inputs. A full fresh run must finish the
 entire declared sequence; passing a subset does not satisfy the package gate.
 Crypto and RTC also declare their complete existing check sequences. Crypto's
 long Bun P-256/ECDSA oracles announce the existing batches individually without
-reducing their corpora. A combined root manifest is not yet implemented.
+reducing their corpora. Short package checks use `check_package.py` to announce
+their complete existing command as one required phase; its failure status is
+preserved. HTTP server, wire, crypto and RTC retain their finer phase boundaries.
 Migration alone does not complete a package gate: historical failed runs and
 the latest actual check results are in `STACK_PROGRESS.md`.
+
+`tools/check_phases.json` combines all thirteen package manifests for a fresh
+root gate. Its version-2 manifest allows Moon to choose the package order, but
+requires each package's entire declared sequence before another package starts.
+Overlapping packages, missing packages/phases, repeated phases and failures
+reject the run. Reports retain the contents and SHA-256 of every referenced
+manifest. Package manifests remain version 1 and keep their strict phase order.
 
 Evaluators use the current 4 GiB aggregate/process cap, a 120-second deadline
 and nice 10. Historical reports retain their older explicit budgets. Keep the

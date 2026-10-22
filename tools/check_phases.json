@@ -1,0 +1,18 @@
+{
+  "version": 2,
+  "manifests": [
+    "../crypto/check_phases.json",
+    "../wire/check_phases.json",
+    "../http/core/check_phases.json",
+    "../http/wire/check_phases.json",
+    "../http/server/check_phases.json",
+    "../http/client/check_phases.json",
+    "../http/router/check_phases.json",
+    "../http/json/check_phases.json",
+    "../io/check_phases.json",
+    "../json/check_phases.json",
+    "../redis/check_phases.json",
+    "../rtc/check_phases.json",
+    "../utf8/check_phases.json"
+  ]
+}

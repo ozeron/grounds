@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "phases": [
+    {
+      "name": "json/check",
+      "optional": false
+    }
+  ]
+}

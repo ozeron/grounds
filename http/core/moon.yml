@@ -8,8 +8,11 @@ dependsOn:
 
 tasks:
   check:
-    command: "./check.sh"
+    command: "python3 ../../tools/check_package.py http_core/check -- ./check.sh"
     inputs:
+      - "check_phases.json"
+      - "/tools/check_phase.py"
+      - "/tools/check_package.py"
       - "check.sh"
       - "check_units.py"
       - "check_proofs.py"
