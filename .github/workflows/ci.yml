@@ -17,14 +17,10 @@ jobs:
         image: redis:7-alpine
         ports:
           - 6379:6379
-      redis-auth:
-        image: bitnami/redis:7.2
-        env:
-          REDIS_PASSWORD: s3cret
-        ports:
-          - 6380:6379
     steps:
       - uses: actions/checkout@v4
+      # a service can't pass --requirepass, and bitnami/redis is gone from Docker Hub
+      - run: docker run -d --name redis-auth -p 6380:6379 redis:7-alpine redis-server --requirepass s3cret
       - uses: jdx/mise-action@v2
       - uses: actions/setup-go@v5
         with:
