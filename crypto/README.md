@@ -1122,7 +1122,7 @@ the fresh root check stops in crypto at 386.4 MiB (26.907 s). Neither of those
 preparation-era gates completes. The accepted report manifest distinguishes the final sealed
 programs and 4 MiB Bun stress runs from earlier failed attempts.
 
-`check_phases.json` now enumerates 961 required/optional resource phases,
+`check_phases.json` now enumerates 1,569 required/optional resource phases,
 including the Name-comparison additions. The Bun P-256 checker runs all 609
 cases in 153 batches of at most four using `--batch-size 4`; its default remains
 16 for the native invocation. This partition replaces the earlier 39 sixteen-case
@@ -1130,6 +1130,13 @@ Bun batches after a batch exceeded the 120-second deadline. Ordered inputs,
 expected results and oracle/corpus generation are unchanged. `--report` writes
 complete-corpus counts, hash and source digests only after all cases pass.
 The ECDSA corpus still requires all 384 cases across its existing 100 phases.
+
+The Bun whole-certificate signature checker announces its existing 608 evaluator
+batches and the three CLI rejection checks (one final phase) separately. The
+4,825 ordered cases, oracle and eight-case/large-input batch boundaries are
+unchanged. This replaces one phase that exceeded 120 seconds on Bend 2.0.38;
+it does not extend a deadline. Successful reports include the complete corpus
+SHA-256 `8b96f6e3bd03b9e70973bec5c08b2da7717d670258e8ad8bdc152f345db2ede2`.
 
 Use `tools/build_guard.py --phases crypto/check_phases.json` around the Moon
 command for one aggregate 4 GiB process-tree guard, a 120-second deadline per

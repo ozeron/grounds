@@ -253,7 +253,7 @@ if command -v bun > /dev/null 2>&1; then
   env BUN_JSC_forceRAMSize=4194304 python3 x509_name_match_check.py --mode regular --phase-prefix crypto/bun/check/x509_name_match -- bun "$tmp/x509_name_match.js"
   env BUN_JSC_forceRAMSize=4194304 python3 x509_name_match_check.py --mode stress --phase-prefix crypto/bun/check/x509_name_match -- bun "$tmp/x509_name_match.js"
   check bun/check/x509_extension_policy_check python3 x509_extension_policy_check.py --bun --signature-binary "$tmp/x509_verify.js" -- bun "$tmp/x509_extension_policy.js"
-  check bun/check/x509_signature_check python3 x509_signature_check.py -- bun "$tmp/x509_verify.js"
+  python3 x509_signature_check.py --phase-prefix crypto/bun/check/x509_signature_check -- bun "$tmp/x509_verify.js"
   check bun/check/x25519_check python3 x25519_check.py bun "$tmp/x25519.js"
   check bun/check/traffic_check python3 traffic_check.py python3 traffic_fixture.py --bun --write "$tmp/traffic_write.js" --read "$tmp/traffic_read.js" --
   check bun/check/traffic_aes_check python3 traffic_aes_check.py python3 traffic_fixture.py --bun --write "$tmp/traffic_write.js" --read "$tmp/traffic_read.js" --
