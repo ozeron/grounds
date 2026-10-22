@@ -11,6 +11,9 @@ on:
 jobs:
   ci:
     runs-on: ubuntu-latest
+    # the emitted C uses clang's musttail, which gcc (the runner's cc) rejects
+    env:
+      CC: clang
     # redis:check runs its live tests against these: one open, one with a password
     services:
       redis:
