@@ -89,11 +89,11 @@ def back(-A: Data, +ch: Chan(Slot()), g: Got(A)) -> IO(Result<&1, &1, Down, A>):
   match g:
     case Done{(c, a)}:
       do IO<Result<&1, &1, Down, A>>:
-        x : Bool <- Chan.send(Slot(), ch, Some{c})
+        x : Result<&1, &1, Slot(), Unit> <- Chan.send(Slot(), ch, Some{c})
         return Done{a}
     case Fail{d}:
       do IO<Result<&1, &1, Down, A>>:
-        x : Bool <- Chan.send(Slot(), ch, None{})
+        x : Result<&1, &1, Slot(), Unit> <- Chan.send(Slot(), ch, None{})
         return Fail{d}
 
 def use(-A: Data, +ch: Chan(Slot()), r: Result<&1, &1, Down, Client()>, f: Client() -> IO(Got(A))) -> IO(Result<&1, &1, Down, A>):
@@ -102,7 +102,7 @@ def use(-A: Data, +ch: Chan(Slot()), r: Result<&1, &1, Down, Client()>, f: Clien
       IO.bind(Got(A), Result<&1, &1, Down, A>, f(c), g => back(A, ch, g))
     case Fail{d}:
       do IO<Result<&1, &1, Down, A>>:
-        x : Bool <- Chan.send(Slot(), ch, None{})
+        x : Result<&1, &1, Slot(), Unit> <- Chan.send(Slot(), ch, None{})
         return Fail{d}
 
 def auth(user: Maybe<&2, String>, pw: Maybe<&2, String>) -> List<&2, List<&2, String>>:
@@ -483,7 +483,7 @@ def pool.fill(+n: Nat, +ch: Chan(Slot())) -> IO(Unit):
     case 0n:
       IO.pure(Unit, Unit{})
     case 1n+m:
-      IO.bind(Bool, Unit, Chan.send(Slot(), ch, None{}), x => pool.fill(m, ch))
+      IO.bind(Result<&1, &1, Slot(), Unit>, Unit, Chan.send(Slot(), ch, None{}), x => pool.fill(m, ch))
 
 # a pool of up to n clients, opened as they are first used
 def pool(cfg: Config, +n: U32) -> IO(Pool):

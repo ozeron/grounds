@@ -31,12 +31,12 @@ type Pool is Data:
   Pool{cfg: C.Config, state: Chan(St), wake: Chan(Unit), size: U32}
 
 def put(+ch: Chan(St), s: St) -> IO(Unit):
-  IO.bind(Bool, Unit, Chan.send(St, ch, s), x => IO.pure(Unit, Unit{}))
+  IO.bind(Result<&1, &1, St, Unit>, Unit, Chan.send(St, ch, s), x => IO.pure(Unit, Unit{}))
 
 def wake(n: Bool, +w: Chan(Unit)) -> IO(Unit):
   match n:
     case True{}:
-      IO.bind(Bool, Unit, Chan.send(Unit, w, Unit{}), x => IO.pure(Unit, Unit{}))
+      IO.bind(Result<&1, &1, Unit, Unit>, Unit, Chan.send(Unit, w, Unit{}), x => IO.pure(Unit, Unit{}))
     case False{}:
       IO.pure(Unit, Unit{})
 

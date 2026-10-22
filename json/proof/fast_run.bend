@@ -505,7 +505,7 @@ def dstep_esign(d, x, stk, out, key, at, ea):
 def Run_int(ds: List<&2, J.Digit>, x: String, stk: List<&2, F.Box>, out: String, key: Bool, at: U32, ea: U32) -> Type:
   &a: U32 -> {F.gc(J.digits_k(ds, x), F.NInt{}, J.digits_k(ds, x), stk, out, 0, 0, key, at, ea) == F.gc(x, F.NInt{}, x, stk, push(J.digits_k(ds, ""), out), 0, 0, key, a, ea) : F.Out}
 
-law run_int.1:
+law run_int.k1:
   for +d: J.Digit
   for +t: List<&2, J.Digit>
   for +x: String
@@ -517,7 +517,7 @@ law run_int.1:
   for g: Run_int(t, x, stk, SCon{J.digit_char(d), out}, key, (at + 1 : U32), ea)
   Run_int(Con{d, t}, x, stk, out, key, at, ea)
 
-def run_int.1(d, t, x, stk, out, key, at, ea, g):
+def run_int.k1(d, t, x, stk, out, key, at, ea, g):
   (+a, e) = g
   (a, Equal.trans(F.Out,
     F.gc(SCon{J.digit_char(d), J.digits_k(t, x)}, F.NInt{}, SCon{J.digit_char(d), J.digits_k(t, x)}, stk, out, 0, 0, key, at, ea),
@@ -541,12 +541,12 @@ def run_int(ds, x, stk, out, key, at, ea):
     case Nil{}:
       (at, {==})
     case Con{d, t}:
-      run_int.1(d, t, x, stk, out, key, at, ea, run_int(t, x, stk, SCon{J.digit_char(d), out}, key, (at + 1 : U32), ea))
+      run_int.k1(d, t, x, stk, out, key, at, ea, run_int(t, x, stk, SCon{J.digit_char(d), out}, key, (at + 1 : U32), ea))
 
 def Run_frac(ds: List<&2, J.Digit>, x: String, stk: List<&2, F.Box>, out: String, key: Bool, at: U32, ea: U32) -> Type:
   &a: U32 -> {F.gc(J.digits_k(ds, x), F.NFrac{}, J.digits_k(ds, x), stk, out, 0, 0, key, at, ea) == F.gc(x, F.NFrac{}, x, stk, push(J.digits_k(ds, ""), out), 0, 0, key, a, ea) : F.Out}
 
-law run_frac.1:
+law run_frac.k1:
   for +d: J.Digit
   for +t: List<&2, J.Digit>
   for +x: String
@@ -558,7 +558,7 @@ law run_frac.1:
   for g: Run_frac(t, x, stk, SCon{J.digit_char(d), out}, key, (at + 1 : U32), ea)
   Run_frac(Con{d, t}, x, stk, out, key, at, ea)
 
-def run_frac.1(d, t, x, stk, out, key, at, ea, g):
+def run_frac.k1(d, t, x, stk, out, key, at, ea, g):
   (+a, e) = g
   (a, Equal.trans(F.Out,
     F.gc(SCon{J.digit_char(d), J.digits_k(t, x)}, F.NFrac{}, SCon{J.digit_char(d), J.digits_k(t, x)}, stk, out, 0, 0, key, at, ea),
@@ -582,12 +582,12 @@ def run_frac(ds, x, stk, out, key, at, ea):
     case Nil{}:
       (at, {==})
     case Con{d, t}:
-      run_frac.1(d, t, x, stk, out, key, at, ea, run_frac(t, x, stk, SCon{J.digit_char(d), out}, key, (at + 1 : U32), ea))
+      run_frac.k1(d, t, x, stk, out, key, at, ea, run_frac(t, x, stk, SCon{J.digit_char(d), out}, key, (at + 1 : U32), ea))
 
 def Run_exp(ds: List<&2, J.Digit>, x: String, stk: List<&2, F.Box>, out: String, key: Bool, at: U32, ea: U32) -> Type:
   &a: U32 -> {F.gc(J.digits_k(ds, x), F.NExp{}, J.digits_k(ds, x), stk, out, 0, 0, key, at, ea) == F.gc(x, F.NExp{}, x, stk, push(J.digits_k(ds, ""), out), 0, 0, key, a, ea) : F.Out}
 
-law run_exp.1:
+law run_exp.k1:
   for +d: J.Digit
   for +t: List<&2, J.Digit>
   for +x: String
@@ -599,7 +599,7 @@ law run_exp.1:
   for g: Run_exp(t, x, stk, SCon{J.digit_char(d), out}, key, (at + 1 : U32), ea)
   Run_exp(Con{d, t}, x, stk, out, key, at, ea)
 
-def run_exp.1(d, t, x, stk, out, key, at, ea, g):
+def run_exp.k1(d, t, x, stk, out, key, at, ea, g):
   (+a, e) = g
   (a, Equal.trans(F.Out,
     F.gc(SCon{J.digit_char(d), J.digits_k(t, x)}, F.NExp{}, SCon{J.digit_char(d), J.digits_k(t, x)}, stk, out, 0, 0, key, at, ea),
@@ -623,7 +623,7 @@ def run_exp(ds, x, stk, out, key, at, ea):
     case Nil{}:
       (at, {==})
     case Con{d, t}:
-      run_exp.1(d, t, x, stk, out, key, at, ea, run_exp(t, x, stk, SCon{J.digit_char(d), out}, key, (at + 1 : U32), ea))
+      run_exp.k1(d, t, x, stk, out, key, at, ea, run_exp(t, x, stk, SCon{J.digit_char(d), out}, key, (at + 1 : U32), ea))
 
 law step_dot.NZero:
   for +x: String
