@@ -38,7 +38,12 @@ python3 tls_record_check.py python3 tls_record_fixture.py --write "$tmp/tls_reco
 python3 tls_record_check.py --aes python3 tls_record_fixture.py --write "$tmp/tls_record_write" --read "$tmp/tls_record_read" --
 bend random.bend -o "$tmp/random" > /dev/null
 python3 random_check.py "$tmp/random"
-"${CC:-cc}" -std=c11 -O2 -Wall -Wextra -Werror random_host_check.c -o "$tmp/random_host_check"
+# a plain compiler meets CID(name) before Bend rewrites it: as an unset name,
+# so the effect's Bend half drops out as in a program that does not use it
+mkdir -p "$tmp/host/effs"
+cp random_host_check.c "$tmp/host/"
+sed -E 's/CID\(([A-Za-z_]+)\)/CID_\1/g' effs/random.c > "$tmp/host/effs/random.c"
+"${CC:-cc}" -std=c11 -O2 -Wall -Wextra -Werror "$tmp/host/random_host_check.c" -o "$tmp/random_host_check"
 "$tmp/random_host_check"
 bend bench.bend -o "$tmp/bench" > /dev/null
 python3 bench_check.py "$tmp/bench"

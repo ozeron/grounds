@@ -3,9 +3,11 @@
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
-const code = readFileSync(new URL('./effs/random.js', import.meta.url), 'utf8');
+// Bend rewrites CID(Name) to the constructor's tag; here the tag is its name
+const code = readFileSync(new URL('./effs/random.js', import.meta.url), 'utf8')
+  .replace(/CID\(([\w.]+)\)/g, '"$1"');
 const run = entropy => {
-  const ctx = vm.createContext({crypto: {getRandomValues: entropy}, io_fail: code => ({fail: code}), io_done: value => ({done: value})});
+  const ctx = vm.createContext({crypto: {getRandomValues: entropy}, io_fail: code => ({fail: code}), io_done: value => ({done: value}), io_eff: () => {}});
   vm.runInContext(code, ctx);
   return n => ctx.wire_random_bytes(n);
 };
