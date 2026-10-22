@@ -25,7 +25,7 @@ static int gw_random_fill(unsigned char* bytes, size_t count, GwRandomRead read)
 }
 #endif
 
-#ifdef CID_WIRE_RANDOM_BYTES
+#ifdef CID(wire_random_bytes)
 #ifdef __linux__
 #include <sys/random.h>
 static ssize_t gw_random_read(void* bytes, size_t count) {
@@ -46,10 +46,10 @@ static void gw_random_call(IoWork* w) {
 }
 
 static Term gw_random_pack(Env e, IoWork* w) {
-  Term result = term_pak(CID_NIL, 0);
+  Term result = term_pak(CID(Nil), 0);
   if (!w->code) {
     for (size_t i = w->size; i > 0; --i) {
-      result = io_node(e, CID_CON, (unsigned char)w->data[i - 1], result);
+      result = io_node(e, CID(Con), (unsigned char)w->data[i - 1], result);
     }
   }
   // The temporary OS buffer is no longer needed. The returned Bend list still
@@ -62,7 +62,7 @@ static Term gw_random_pack(Env e, IoWork* w) {
 
 Term gw_random_run(Env e, Term* f, IoWork* w) {
   if (f[0] > 1048576) return io_fail(e, EINVAL, NULL);
-  if (f[0] == 0) return io_done(e, term_pak(CID_NIL, 0));
+  if (f[0] == 0) return io_done(e, term_pak(CID(Nil), 0));
   w->size = (size_t)f[0];
   w->data = malloc(w->size);
   if (!w->data) return io_fail(e, ENOMEM, NULL);
@@ -70,6 +70,6 @@ Term gw_random_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) gw_random_use(void) {
-  io_eff(CID_WIRE_RANDOM_BYTES, gw_random_run, 0);
+  io_eff(CID(wire_random_bytes), gw_random_run);
 }
 #endif

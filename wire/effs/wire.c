@@ -3,13 +3,13 @@
 // TCP on bytes: a List<U32> of octets in and out, where Base's socket
 // effects decode and encode UTF-8. After bend-kit-wire (MIT-0).
 
-#if !defined(GROUNDS_WIRE) && defined(CID_CON)
+#if !defined(GROUNDS_WIRE) && defined(CID(Con))
 #define GROUNDS_WIRE
 
 static Term gw_list(Env e, const char* p, u64 n) {
-  Term xs = term_pak(CID_NIL, 0);
+  Term xs = term_pak(CID(Nil), 0);
   for (u64 i = n; i > 0; i -= 1) {
-    xs = io_node(e, CID_CON, ((uint8_t*)p)[i - 1], xs);
+    xs = io_node(e, CID(Con), ((uint8_t*)p)[i - 1], xs);
   }
   return xs;
 }
@@ -20,7 +20,7 @@ static char* gw_octets(Env e, Term xs, u64* len, bool* bad) {
   u64   n   = 0;
   char* buf = io_mem(malloc(cap));
   *bad = false;
-  while (term_aux(xs) == CID_CON) {
+  while (term_aux(xs) == CID(Con)) {
     Term fb[2];
     spare_free(e, cls_fit(2), ctr_take(e, xs, 2, fb));
     if (n + 1 > cap) {
@@ -49,7 +49,7 @@ static bool gw_tls_on(Term sock) {
 
 #endif
 
-#ifdef CID_WIRE_RECV
+#ifdef CID(wire_recv)
 
 // The loop parked the request until the socket was readable; a recv that
 // still finds nothing (the socket is non-blocking) parks again.
@@ -72,12 +72,12 @@ Term gw_recv_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) gw_recv_use(void) {
-  io_eff(CID_WIRE_RECV, gw_recv_run, IO_READ);
+  io_eff(CID(wire_recv), gw_recv_run);
 }
 
 #endif
 
-#ifdef CID_WIRE_RECV_TIMEOUT
+#ifdef CID(wire_recv_timeout)
 
 // wire_recv with a deadline, as Base's TCP.poll: parks on the socket and
 // the clock, whichever fires first; None{} past the deadline.
@@ -88,14 +88,14 @@ static Term gw_poll_end(Env e, IoWork* w, Term r) {
 
 static Term gw_poll_more(Env e, IoWork* w) {
   int     fd = (int)w->hand;
-  u64     at = io_wait_time(w);
+  u64     at = w->time;
   ssize_t n  = io_sys_end(w, recv(fd, w->data, (size_t)w->made, 0));
   if (w->code == EAGAIN) {
     return io_tick() < at ? io_wait_on(w, fd, POLLIN, at, gw_poll_more)
-      : gw_poll_end(e, w, io_done(e, term_pak(CID_NONE, 0)));
+      : gw_poll_end(e, w, io_done(e, term_pak(CID(None), 0)));
   }
   return gw_poll_end(e, w, w->code ? io_fail(e, w->code, NULL) : io_done(e,
-    io_box(e, CID_SOME, gw_list(e, w->data, (u64)n))));
+    io_box(e, CID(Some), gw_list(e, w->data, (u64)n))));
 }
 
 Term gw_poll_run(Env e, Term* f, IoWork* w) {
@@ -110,12 +110,12 @@ Term gw_poll_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) gw_poll_use(void) {
-  io_eff(CID_WIRE_RECV_TIMEOUT, gw_poll_run, 0);
+  io_eff(CID(wire_recv_timeout), gw_poll_run);
 }
 
 #endif
 
-#ifdef CID_WIRE_SEND
+#ifdef CID(wire_send)
 
 // Sends what is left; a full socket parks until it is writable.
 static Term gw_send_more(Env e, IoWork* w) {
@@ -127,7 +127,7 @@ static Term gw_send_more(Env e, IoWork* w) {
     }
     w->made += io_sys_end(w, n);
   }
-  Term r = w->code != 0 ? io_fail(e, w->code, NULL) : io_done(e, term_pak(CID_UNIT, 0));
+  Term r = w->code != 0 ? io_fail(e, w->code, NULL) : io_done(e, term_pak(CID(Unit), 0));
   free(w->data);
   return io_tup(e, io_hand(w->hand), r);
 }
@@ -142,19 +142,19 @@ Term gw_send_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) gw_send_use(void) {
-  io_eff(CID_WIRE_SEND, gw_send_run, 0);
+  io_eff(CID(wire_send), gw_send_run);
 }
 
 #endif
 
-#ifdef CID_WIRE_SEND_TIMEOUT
+#ifdef CID(wire_send_timeout)
 
 // wire_send with a deadline: a full socket parks on POLLOUT and the clock,
 // whichever fires first; past the deadline the send fails ETIMEDOUT. The
 // first park sets the deadline (the socket is almost always writable).
 static Term gw_sendt_more(Env e, IoWork* w) {
   int fd = (int)w->hand;
-  u64 at = io_wait_time(w);
+  u64 at = w->time;
   while (w->code == 0 && (u64)w->made < w->size) {
     ssize_t n = send(fd, w->data + w->made, w->size - (u64)w->made, 0);
     if (n < 0 && errno == EAGAIN) {
@@ -166,7 +166,7 @@ static Term gw_sendt_more(Env e, IoWork* w) {
     }
     w->made += io_sys_end(w, n);
   }
-  Term r = w->code != 0 ? io_fail(e, w->code, NULL) : io_done(e, term_pak(CID_UNIT, 0));
+  Term r = w->code != 0 ? io_fail(e, w->code, NULL) : io_done(e, term_pak(CID(Unit), 0));
   free(w->data);
   return io_tup(e, io_hand(w->hand), r);
 }
@@ -184,12 +184,12 @@ Term gw_sendt_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) gw_sendt_use(void) {
-  io_eff(CID_WIRE_SEND_TIMEOUT, gw_sendt_run, 0);
+  io_eff(CID(wire_send_timeout), gw_sendt_run);
 }
 
 #endif
 
-#ifdef CID_WIRE_UDP_BIND
+#ifdef CID(wire_udp_bind)
 
 Term gw_udp_bind_run(Env e, Term* f, IoWork* w) {
   struct sockaddr_in at;
@@ -219,12 +219,12 @@ Term gw_udp_bind_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) gw_udp_bind_use(void) {
-  io_eff(CID_WIRE_UDP_BIND, gw_udp_bind_run, 0);
+  io_eff(CID(wire_udp_bind), gw_udp_bind_run);
 }
 
 #endif
 
-#ifdef CID_WIRE_UDP_LOCAL_ADDRESS
+#ifdef CID(wire_udp_local_address)
 
 Term gw_udp_local_run(Env e, Term* f, IoWork* w) {
   int fd = (int)io_hand_v(f[0]);
@@ -245,17 +245,17 @@ Term gw_udp_local_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) gw_udp_local_use(void) {
-  io_eff(CID_WIRE_UDP_LOCAL_ADDRESS, gw_udp_local_run, 0);
+  io_eff(CID(wire_udp_local_address), gw_udp_local_run);
 }
 
 #endif
 
-#ifdef CID_WIRE_UDP_SEND_TO
+#ifdef CID(wire_udp_send_to)
 
 static Term gw_udp_send_more(Env e, IoWork* w) {
   struct sockaddr_in at;
   int fd = (int)w->hand;
-  u64 deadline = io_wait_time(w);
+  u64 deadline = w->time;
   ssize_t n = -1;
   errno = EINVAL;
   if (io_sys_addr(w->text, (u32)w->made, &at) == 0) {
@@ -272,7 +272,7 @@ static Term gw_udp_send_more(Env e, IoWork* w) {
     w->code = EIO;
   }
   Term r = w->code ? io_fail(e, w->code, NULL)
-    : io_done(e, term_pak(CID_UNIT, 0));
+    : io_done(e, term_pak(CID(Unit), 0));
   free(w->text);
   free(w->data);
   return io_tup(e, io_hand(w->hand), r);
@@ -295,19 +295,19 @@ Term gw_udp_send_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) gw_udp_send_use(void) {
-  io_eff(CID_WIRE_UDP_SEND_TO, gw_udp_send_run, 0);
+  io_eff(CID(wire_udp_send_to), gw_udp_send_run);
 }
 
 #endif
 
-#ifdef CID_WIRE_UDP_RECV_FROM_TIMEOUT
+#ifdef CID(wire_udp_recv_from_timeout)
 
 static Term gw_udp_recv_more(Env e, IoWork* w) {
   struct sockaddr_in at = { 0 };
   socklen_t at_len = sizeof(at);
   char host[16];
   int fd = (int)w->hand;
-  u64 deadline = io_wait_time(w);
+  u64 deadline = w->time;
   ssize_t n = io_sys_end(w, recvfrom(fd, w->data, (size_t)w->made, 0,
     (struct sockaddr*)&at, &at_len));
   if (w->code == EAGAIN) {
@@ -315,7 +315,7 @@ static Term gw_udp_recv_more(Env e, IoWork* w) {
       return io_wait_on(w, fd, POLLIN, deadline, gw_udp_recv_more);
     }
     free(w->data);
-    return io_tup(e, io_hand(w->hand), io_done(e, term_pak(CID_NONE, 0)));
+    return io_tup(e, io_hand(w->hand), io_done(e, term_pak(CID(None), 0)));
   }
   Term r;
   if (w->code) {
@@ -327,7 +327,7 @@ static Term gw_udp_recv_more(Env e, IoWork* w) {
   } else {
     Term peer = io_tup(e, io_str(e, host, strlen(host)),
       io_tup(e, ntohs(at.sin_port), gw_list(e, w->data, (u64)n)));
-    r = io_done(e, io_box(e, CID_SOME, peer));
+    r = io_done(e, io_box(e, CID(Some), peer));
   }
   free(w->data);
   return io_tup(e, io_hand(w->hand), r);
@@ -343,12 +343,12 @@ Term gw_udp_recv_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) gw_udp_recv_use(void) {
-  io_eff(CID_WIRE_UDP_RECV_FROM_TIMEOUT, gw_udp_recv_run, 0);
+  io_eff(CID(wire_udp_recv_from_timeout), gw_udp_recv_run);
 }
 
 #endif
 
-#ifdef CID_WIRE_CONNECT_TIMEOUT
+#ifdef CID(wire_connect_timeout)
 
 // TCP.connect with a deadline: the connect parks on POLLOUT and the clock;
 // a socket still not writable at the deadline is closed, ETIMEDOUT.
@@ -358,7 +358,7 @@ static Term gw_conn_more(Env e, IoWork* w) {
   if (err == EINPROGRESS) {
     struct pollfd p = { fd, POLLOUT, 0 };
     if (poll(&p, 1, 0) == 0) {
-      u64 at = io_wait_time(w);
+      u64 at = w->time;
       if (io_tick() < at) {
         return io_wait_on(w, fd, POLLOUT, at, gw_conn_more);
       }
@@ -396,12 +396,12 @@ Term gw_conn_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) gw_conn_use(void) {
-  io_eff(CID_WIRE_CONNECT_TIMEOUT, gw_conn_run, 0);
+  io_eff(CID(wire_connect_timeout), gw_conn_run);
 }
 
 #endif
 
-#ifdef CID_WIRE_ACCEPT_TIMEOUT
+#ifdef CID(wire_accept_timeout)
 
 // TCP.accept with a deadline: accepts at once when a connection waits,
 // else parks on the listener and the clock; None{} when none comes by then.
@@ -416,9 +416,9 @@ static Term gw_acc_more(Env e, IoWork* w) {
   io_sys_end(w, got);
   if (w->code == EAGAIN) {
     return io_tick() < at ? io_wait_on(w, fd, POLLIN, at, gw_acc_more)
-      : io_tup(e, io_hand(fd), io_done(e, term_pak(CID_NONE, 0)));
+      : io_tup(e, io_hand(fd), io_done(e, term_pak(CID(None), 0)));
   }
-  Term r = w->code != 0 ? io_fail(e, w->code, NULL) : io_done(e, io_box(e, CID_SOME, io_hand(got)));
+  Term r = w->code != 0 ? io_fail(e, w->code, NULL) : io_done(e, io_box(e, CID(Some), io_hand(got)));
   return io_tup(e, io_hand(fd), r);
 }
 
@@ -429,14 +429,14 @@ Term gw_acc_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) gw_acc_use(void) {
-  io_eff(CID_WIRE_ACCEPT_TIMEOUT, gw_acc_run, 0);
+  io_eff(CID(wire_accept_timeout), gw_acc_run);
 }
 
 #endif
 
 // SIGTERM and SIGINT set a flag the program polls; the live count is the
 // connections a server is still serving. Both are process-wide.
-#if defined(CID_WIRE_ON_STOP) || defined(CID_WIRE_STOPPING)
+#if defined(CID(wire_on_stop)) || defined(CID(wire_stopping))
 static volatile sig_atomic_t gw_stop = 0;
 
 static void gw_on_signal(int sig) {
@@ -445,7 +445,7 @@ static void gw_on_signal(int sig) {
 }
 #endif
 
-#ifdef CID_WIRE_ON_STOP
+#ifdef CID(wire_on_stop)
 
 Term gw_on_stop_run(Env e, Term* f, IoWork* w) {
   struct sigaction sa;
@@ -454,28 +454,28 @@ Term gw_on_stop_run(Env e, Term* f, IoWork* w) {
   sigemptyset(&sa.sa_mask);
   sigaction(SIGTERM, &sa, NULL);
   sigaction(SIGINT, &sa, NULL);
-  return term_pak(CID_UNIT, 0);
+  return term_pak(CID(Unit), 0);
 }
 
 static void __attribute__((constructor)) gw_on_stop_use(void) {
-  io_eff(CID_WIRE_ON_STOP, gw_on_stop_run, 0);
+  io_eff(CID(wire_on_stop), gw_on_stop_run);
 }
 
 #endif
 
-#ifdef CID_WIRE_STOPPING
+#ifdef CID(wire_stopping)
 
 Term gw_stopping_run(Env e, Term* f, IoWork* w) {
   return (Term)(u32)(gw_stop ? 1 : 0);
 }
 
 static void __attribute__((constructor)) gw_stopping_use(void) {
-  io_eff(CID_WIRE_STOPPING, gw_stopping_run, 0);
+  io_eff(CID(wire_stopping), gw_stopping_run);
 }
 
 #endif
 
-#ifdef CID_WIRE_LIVE
+#ifdef CID(wire_live)
 
 static u32 gw_live = 0;
 
@@ -486,12 +486,12 @@ Term gw_live_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) gw_live_use(void) {
-  io_eff(CID_WIRE_LIVE, gw_live_run, 0);
+  io_eff(CID(wire_live), gw_live_run);
 }
 
 #endif
 
-#ifdef CID_WIRE_RESOLVE
+#ifdef CID(wire_resolve)
 
 #include <netdb.h>
 
@@ -532,7 +532,7 @@ Term gw_resolve_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) gw_resolve_use(void) {
-  io_eff(CID_WIRE_RESOLVE, gw_resolve_run, 0);
+  io_eff(CID(wire_resolve), gw_resolve_run);
 }
 
 #endif
@@ -545,7 +545,7 @@ static void __attribute__((constructor)) gw_resolve_use(void) {
 // 1.2 is the floor. GROUNDS_TLS_CA names a PEM file to trust as well as
 // the system's roots; BEND_LIBSSL overrides libssl's path.
 
-#if defined(CID_WIRE_TLS_CONNECT) || defined(CID_WIRE_TLS_SEND_TIMEOUT) || defined(CID_WIRE_TLS_RECV_TIMEOUT) || defined(CID_WIRE_TLS_CLOSE) || defined(CID_WIRE_TLS_LISTEN_CTX) || defined(CID_WIRE_TLS_ACCEPT)
+#if defined(CID(wire_tls_connect)) || defined(CID(wire_tls_send_timeout)) || defined(CID(wire_tls_recv_timeout)) || defined(CID(wire_tls_close)) || defined(CID(wire_tls_listen_ctx)) || defined(CID(wire_tls_accept))
 #define GW_TLS_ANY
 #endif
 
@@ -712,7 +712,7 @@ static void __attribute__((constructor)) gw_tls_hooks(void) {
 #endif
 #endif
 
-#ifdef CID_WIRE_TLS_CONNECT
+#ifdef CID(wire_tls_connect)
 
 // The handshake, over a connected socket, by the deadline in w->size.
 static Term gw_tlsc_end(Env e, IoWork* w, Term r) {
@@ -730,7 +730,7 @@ static Term gw_tlsc_more(Env e, IoWork* w) {
   void* ssl = gw_tls_of(fd);
   int   r   = gw_tls.connect(ssl);
   if (r == 1) {
-    return gw_tlsc_end(e, w, io_done(e, term_pak(CID_UNIT, 0)));
+    return gw_tlsc_end(e, w, io_done(e, term_pak(CID(Unit), 0)));
   }
   int err = gw_tls.get_error(ssl, r);
   if (err == 2 || err == 3) {  // SSL_ERROR_WANT_READ, SSL_ERROR_WANT_WRITE
@@ -769,7 +769,7 @@ Term gw_tlsc_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) gw_tlsc_use(void) {
-  io_eff(CID_WIRE_TLS_CONNECT, gw_tlsc_run, 0);
+  io_eff(CID(wire_tls_connect), gw_tlsc_run);
 }
 
 #endif
@@ -803,7 +803,7 @@ static Term gw_tlss_more(Env e, IoWork* w) {
     }
     w->code = EPIPE;
   }
-  Term r = w->code != 0 ? io_fail(e, w->code, NULL) : io_done(e, term_pak(CID_UNIT, 0));
+  Term r = w->code != 0 ? io_fail(e, w->code, NULL) : io_done(e, term_pak(CID(Unit), 0));
   free(w->data);
   free(w->text);
   return io_tup(e, io_hand(w->hand), r);
@@ -822,8 +822,8 @@ Term gw_tlss_run(Env e, Term* f, IoWork* w) {
 
 static void __attribute__((constructor)) gw_tlss_use(void) {
   gw_tls_send_hook = gw_tlss_run;
-#ifdef CID_WIRE_TLS_SEND_TIMEOUT
-  io_eff(CID_WIRE_TLS_SEND_TIMEOUT, gw_tlss_run, 0);
+#ifdef CID(wire_tls_send_timeout)
+  io_eff(CID(wire_tls_send_timeout), gw_tlss_run);
 #endif
 }
 
@@ -841,16 +841,16 @@ static Term gw_tlsr_more(Env e, IoWork* w) {
   int   n   = ssl != NULL ? gw_tls.read(ssl, w->data, (int)w->made) : -1;
   Term  r;
   if (n > 0) {
-    r = io_done(e, io_box(e, CID_SOME, gw_list(e, w->data, (u64)n)));
+    r = io_done(e, io_box(e, CID(Some), gw_list(e, w->data, (u64)n)));
   } else {
     int err = ssl != NULL ? gw_tls.get_error(ssl, n) : 1;
     if (err == 2 || err == 3) {
       if (io_tick() < w->size) {
         return io_wait_on(w, fd, err == 2 ? POLLIN : POLLOUT, w->size, gw_tlsr_more);
       }
-      r = io_done(e, term_pak(CID_NONE, 0));
+      r = io_done(e, term_pak(CID(None), 0));
     } else if (err == 6) {  // SSL_ERROR_ZERO_RETURN: close_notify
-      r = io_done(e, io_box(e, CID_SOME, term_pak(CID_NIL, 0)));
+      r = io_done(e, io_box(e, CID(Some), term_pak(CID(Nil), 0)));
     } else {
       r = io_fail(e, ssl != NULL ? ECONNRESET : EBADF, NULL);
     }
@@ -869,30 +869,30 @@ Term gw_tlsr_run(Env e, Term* f, IoWork* w) {
 
 static void __attribute__((constructor)) gw_tlsr_use(void) {
   gw_tls_recv_hook = gw_tlsr_run;
-#ifdef CID_WIRE_TLS_RECV_TIMEOUT
-  io_eff(CID_WIRE_TLS_RECV_TIMEOUT, gw_tlsr_run, 0);
+#ifdef CID(wire_tls_recv_timeout)
+  io_eff(CID(wire_tls_recv_timeout), gw_tlsr_run);
 #endif
 }
 
 #endif
 
-#ifdef CID_WIRE_TLS_CLOSE
+#ifdef CID(wire_tls_close)
 
 // one close_notify, not waiting for the peer's, then the socket
 Term gw_tlsx_run(Env e, Term* f, IoWork* w) {
   int fd = (int)io_hand_v(f[0]);
   gw_tls_end(fd);
   close(fd);
-  return term_pak(CID_UNIT, 0);
+  return term_pak(CID(Unit), 0);
 }
 
 static void __attribute__((constructor)) gw_tlsx_use(void) {
-  io_eff(CID_WIRE_TLS_CLOSE, gw_tlsx_run, 0);
+  io_eff(CID(wire_tls_close), gw_tlsx_run);
 }
 
 #endif
 
-#ifdef CID_WIRE_TLS_LISTEN_CTX
+#ifdef CID(wire_tls_listen_ctx)
 
 // ALPN (RFC 7301): http/1.1 or nothing. A client that offers protocols but
 // not http/1.1 gets no_application_protocol
@@ -927,7 +927,7 @@ static Term gw_tlsl_end(Env e, char* cert, char* key, void* ctx, u32 code, const
     gw_tls.ctx_free(gw_tls.srv);
   }
   gw_tls.srv = ctx;
-  return io_done(e, term_pak(CID_UNIT, 0));
+  return io_done(e, term_pak(CID(Unit), 0));
 }
 
 // The server's context (RFC 9325): TLS 1.2 the floor, ECDHE with AES-GCM or
@@ -978,12 +978,12 @@ Term gw_tlsl_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) gw_tlsl_use(void) {
-  io_eff(CID_WIRE_TLS_LISTEN_CTX, gw_tlsl_run, 0);
+  io_eff(CID(wire_tls_listen_ctx), gw_tlsl_run);
 }
 
 #endif
 
-#ifdef CID_WIRE_TLS_ACCEPT
+#ifdef CID(wire_tls_accept)
 
 // The server's handshake on an accepted socket, by the deadline in w->size
 static Term gw_tlsa_end(Env e, IoWork* w, Term r) {
@@ -995,7 +995,7 @@ static Term gw_tlsa_more(Env e, IoWork* w) {
   void* ssl = gw_tls_of(fd);
   int   r   = gw_tls.accept(ssl);
   if (r == 1) {
-    return gw_tlsa_end(e, w, io_done(e, term_pak(CID_UNIT, 0)));
+    return gw_tlsa_end(e, w, io_done(e, term_pak(CID(Unit), 0)));
   }
   int err = gw_tls.get_error(ssl, r);
   if ((err == 2 || err == 3) && io_tick() < w->size) {
@@ -1028,12 +1028,12 @@ Term gw_tlsa_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) gw_tlsa_use(void) {
-  io_eff(CID_WIRE_TLS_ACCEPT, gw_tlsa_run, 0);
+  io_eff(CID(wire_tls_accept), gw_tlsa_run);
 }
 
 #endif
 
-#ifdef CID_WIRE_CLOSE
+#ifdef CID(wire_close)
 
 // a socket's close: its TLS session first, if it has one
 Term gw_close_run(Env e, Term* f, IoWork* w) {
@@ -1042,11 +1042,11 @@ Term gw_close_run(Env e, Term* f, IoWork* w) {
     gw_tls_end_hook(fd);
   }
   close(fd);
-  return term_pak(CID_UNIT, 0);
+  return term_pak(CID(Unit), 0);
 }
 
 static void __attribute__((constructor)) gw_close_use(void) {
-  io_eff(CID_WIRE_CLOSE, gw_close_run, 0);
+  io_eff(CID(wire_close), gw_close_run);
 }
 
 #endif
