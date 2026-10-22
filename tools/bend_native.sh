@@ -1,9 +1,10 @@
 #!/bin/sh
 # CPU fixtures: release the Bend frontend before running clang on emitted C.
+# Given C the frontend already wrote, only clang runs.
 set -eu
 
 if [ "$#" -ne 2 ]; then
-  echo "usage: bend_native.sh <source.bend> <new-native-output>" >&2
+  echo "usage: bend_native.sh <source.bend | emitted.c> <new-native-output>" >&2
   exit 2
 fi
 
@@ -17,8 +18,15 @@ fi
 native_tmp=$(mktemp -d "$(dirname "$native_output")/.grounds-native.XXXXXX")
 trap 'rm -rf "$native_tmp"' EXIT HUP INT TERM
 generated_c="$native_tmp/program.c"
-echo "Bend CPU frontend: $source_file" >&2
-bend "$source_file" -o "$generated_c"
+case $source_file in
+  *.c)
+    cp "$source_file" "$generated_c"
+    ;;
+  *)
+    echo "Bend CPU frontend: $source_file" >&2
+    bend "$source_file" -o "$generated_c"
+    ;;
+esac
 
 # The current crypto fixtures are CPU-only. Fail explicitly on a GPU program
 # so this helper never silently builds a different backend.

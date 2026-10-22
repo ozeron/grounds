@@ -83,6 +83,26 @@ class ColdTests(unittest.TestCase):
                     if code:
                         self.assertNotIn(f"{source}: cold\n", result.stdout)
 
+    def test_cli_reads_built_c_without_the_compiler(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            compiler = root / "bend"
+            compiler.write_text(f"#!{sys.executable}\nimport sys\nsys.exit(7)\n")
+            compiler.chmod(0o755)
+            environment = {**os.environ, "PATH": directory + os.pathsep + os.environ["PATH"]}
+            script = Path(__file__).with_name("cold.py")
+            for name, text, code, message in (
+                ("cold.c", COMBINED, 0, "cold.c: cold"),
+                ("hot.c", COMBINED.replace("{2, 0}", "{2, 1}"), 1, "hot constructors: CON"),
+            ):
+                with self.subTest(name=name):
+                    built = root / name
+                    built.write_text(text)
+                    result = subprocess.run([sys.executable, str(script), str(built)], env=environment,
+                                            capture_output=True, text=True, timeout=5)
+                    self.assertEqual(result.returncode, code, result.stderr)
+                    self.assertIn(message, result.stdout)
+
     def test_cli_requires_a_program(self):
         result = subprocess.run([sys.executable, str(Path(__file__).with_name("cold.py"))],
                                 capture_output=True, text=True, timeout=5)

@@ -6,8 +6,9 @@ constructor of that type pays a heap cell for its fields. For String
 that halves the speed of everything. This builds the program's C and
 reads the compiler's constructor table: CID_HOT_T in Bend 2.0.27,
 or the hot column of CID_T in Bend 2.0.34. Unknown layouts fail the check.
+A .c argument is C the compiler already wrote, so it is read, not rebuilt.
 
-  python3 scripts/cold.py main.bend [more.bend ...]
+  python3 scripts/cold.py main.bend [more.bend | built.c ...]
 """
 import re
 import subprocess
@@ -49,6 +50,8 @@ def hot_constructors(text):
 
 
 def hot(src):
+    if src.endswith(".c"):
+        return hot_constructors(Path(src).read_text())
     with tempfile.TemporaryDirectory() as d:
         c = Path(d) / "out.c"
         subprocess.run(["bend", src, "-o", str(c)], cwd=ROOT, check=True, capture_output=True)
