@@ -23,7 +23,7 @@ match HJ.decode(Todo, j => Todo.from_json(j), req):
 - **Answers:** `ok(j)`, `created(j)`, `fail(status, msg)`, `not_found()`, `maybe(A, f, m)` (200 or 404), `decoded(A, f, req, k)` (decode, then `k`, or the error's answer), and `dispatch`: `Router.dispatch` with JSON 404 and 405 bodies.
 - **Pass the decoder as a lambda** (`j => Todo.from_json(j)`): a decoder takes `+j`, which a plain function type does not.
 
-`examples/todo.bend` is a JSON API on port 8081: `GET /todos`, `POST /todos`, `GET /todos/:id`. The handler keeps no state, so the list is fixed and POST answers with the todo it would create.
+`examples/todo.bend` is a JSON API on `$PORT` (8081 when unset): `GET /todos`, `POST /todos`, `GET /todos/:id`. The handler keeps no state, so the list is fixed and POST answers with the todo it would create.
 
 `moon run http_json:check` runs `test.bend`, curls each route of the example (404, 405, 400, 415 included), and runs the cold check.
 

@@ -6,7 +6,7 @@ import ../../server/server.bend as Server
 import ../../core/request.bend as Req
 import ../../core/response.bend as Res
 
-# a JSON API: GET /todos, POST /todos, GET /todos/:id on port 8081.
+# a JSON API: GET /todos, POST /todos, GET /todos/:id on $PORT, else 8081.
 # The handler keeps no state, so the list is fixed and POST answers with
 # the todo it would create
 
@@ -74,4 +74,6 @@ def handle(r: Req.Request) -> Res.Response:
   HJ.dispatch(Route, routes(), r, on)
 
 def main() -> IO(Unit):
-  Server.serve_pure(~handle, Server.default(8081))
+  do IO<Unit>:
+    cfg : Server.Config <- Server.from_env(Server.default(8081))
+    Server.serve_pure(~handle, cfg)

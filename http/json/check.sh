@@ -1,6 +1,6 @@
 #!/bin/sh
-# runs http_json's checks: builds examples/todo, serves it on 8081, asks
-# each route with curl, then the cold check
+# runs http_json's checks: builds examples/todo, serves it on $PORT (a free
+# one when unset), asks each route with curl, then the cold check
 set -eu
 cd "$(dirname "$0")"
 tmp=$(mktemp -d)
@@ -9,10 +9,13 @@ trap '[ -n "$pid" ] && kill "$pid" 2>/dev/null; rm -rf "$tmp"' EXIT
 bend test.bend
 bend PROOF.bend
 bend examples/todo.bend -o "$tmp/todo" > /dev/null
-"$tmp/todo" &
+port=${PORT:-$(python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')}
+PORT=$port "$tmp/todo" &
 pid=$!
 tries=0
-until curl -s -o /dev/null "localhost:8081/todos"; do
+until curl -s -o /dev/null "localhost:$port/todos"; do
+  # a todo that died (the port taken) must not let curl reach another server
+  kill -0 "$pid" 2>/dev/null || { echo "server exited; is port $port taken?"; exit 1; }
   tries=$((tries + 1))
   [ "$tries" -lt 100 ] || { echo "server did not start"; exit 1; }
   python3 -c 'import time; time.sleep(0.05)'
@@ -27,7 +30,7 @@ want() {
   echo "$name: $status $body"
 }
 
-u=localhost:8081
+u=localhost:$port
 j='content-type: application/json'
 want "GET /todos" 200 '[{"id":1,"title":"grind beans","done":true},{"id":2,"title":"brew","done":false},{"id":3,"title":"drink","done":false}]' "$u/todos"
 want "GET /todos/2" 200 '{"id":2,"title":"brew","done":false}' "$u/todos/2"
