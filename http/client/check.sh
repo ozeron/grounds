@@ -6,7 +6,7 @@ cd "$(dirname "$0")"
 tmp=$(mktemp -d)
 fpid=
 spid=
-trap '[ -n "$fpid" ] && kill "$fpid" 2>/dev/null && wait "$fpid" 2>/dev/null; [ -n "$spid" ] && kill "$spid" 2>/dev/null && wait "$spid" 2>/dev/null; rm -rf "$tmp"' EXIT
+trap 'set +e; [ -n "$fpid" ] && kill "$fpid" 2>/dev/null && wait "$fpid" 2>/dev/null; [ -n "$spid" ] && kill "$spid" 2>/dev/null && wait "$spid" 2>/dev/null; rm -rf "$tmp"' EXIT
 bend test.bend
 bend PROOF.bend
 bend tests/live.bend -o "$tmp/live" > /dev/null
