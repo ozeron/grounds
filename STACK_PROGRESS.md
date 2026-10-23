@@ -7,8 +7,9 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 - 2026-10-23 (M0 round 2, Bend 2.0.38): RTC now passes all 161 declared
   phases under the unchanged 4 GiB guard, including native/Bun nomination
   evidence and full Chrome acceptance. Compiler-only GC settings resolve the
-  frontend cutoff without source or corpus changes. Fresh root acceptance
-  remains pending; details and retained failures lead the ledger below.
+  frontend cutoff without source or corpus changes. Fresh root fails at HTTP
+  client differential checks after 1,763/1,765 passed phases; an isolated client
+  pass does not replace root acceptance. M0 remains open; details lead the ledger.
 
 - 2026-10-08 (Hello framing and P-256 batch changes prepared for commit):
   The focused `2026-10-05/hello-4g-v2/` queue completed frontend, native/Bun
@@ -109,8 +110,70 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
   and `git diff --check` pass. All runs retain the 4,096 MiB aggregate/process
   caps, 120 s phase deadline, shared lock, pressure checks and sequential work.
 
-  The fresh forced root gate is the next step. M0's final box and exit remain
-  open until that entire run passes; historical round-1 root failure follows.
+  Local implementation commit **`747965b`** contains the compiler settings and
+  standalone RTC evidence. The fresh forced root run starts from that clean
+  tracked revision, bound in `root-01-binding.json`, with the exact invocation:
+
+  ```sh
+  python3 tools/build_guard.py --memory-mib 4096 --process-memory-mib 4096 \
+    --timeout 120 --phases tools/check_phases.json --report "$A/root-01.json" \
+    -- nice -n 10 moon --concurrency 1 run :check --force
+  ```
+
+  **Root FAIL: 1,763/1,765 passed phases**, one failed, one unexecuted,
+  **2,925.056 s**, aggregate peak **3,881.126 MiB**, largest process
+  **3,686.675 MiB**, normal pressure (`root-01.json/.log`). All eleven packages
+  before HTTP client pass completely: crypto **1,569/1,569**, wire **13/13**,
+  HTTP server **13/13**, RTC **161/161**, and HTTP core/wire/router, io, json,
+  redis and utf8 **1/1 each**. No phase was skipped. RTC again includes both
+  complete Chrome live scenarios and packet validation; its maximum phase peak
+  is **2,324.001 MiB**. Native nomination build/check pass in **42.686/0.593 s**,
+  Bun build/check in **6.733/2.711 s**, with all 46 evaluator cases on each target.
+
+  **Remaining blocker classification: intermittent HTTP client differential
+  check failure; underlying cause unresolved.** `http_client/check` exits **1**
+  after **58.673 s**: its 2,000-response fuzz run matches only **449/2,000**
+  independent reference results. The log retains the first five byte-level
+  expected/actual mismatches. It also records `ValueError: not enough values
+  to unpack (expected 3, got 2)` in `tests/fake.py`'s `flaky` thread after the
+  live/more/events output checks passed; a causal relationship to the response
+  mismatches is not established. This is **not a memory/pressure cutoff,
+  timeout, missing phase or compiler error**. The raw outer report says
+  `reason: guard-error`, `error: Phase command failed`, exit **125** because a
+  required phase reported nonzero; the embedded phase retains its actual exit
+  **1**. The guard then cleaned up its owned job. HTTP JSON was not reached.
+
+  One bounded isolated diagnostic, with unchanged HTTP source, seed default
+  **1**, toolchain and guard, passes the complete package:
+
+  ```sh
+  python3 tools/build_guard.py --memory-mib 4096 --process-memory-mib 4096 \
+    --timeout 120 --phases http/client/check_phases.json \
+    --report "$A/http-client-01.json" \
+    -- nice -n 10 moon --concurrency 1 run http_client:check --force
+  python3 tools/build_guard.py --memory-mib 4096 --process-memory-mib 4096 \
+    --timeout 120 --phases http/json/check_phases.json \
+    --report "$A/http-json-01.json" \
+    -- nice -n 10 moon --concurrency 1 run http_json:check --force
+  ```
+
+  HTTP client: **PASS, 1/1**, **41.622 s**, **1,348.375 MiB** aggregate peak;
+  all **2,000/2,000 responses**, **1,000/1,000 streams (1,837 events)**,
+  live/more/events output comparisons and all five cold-constructor checks
+  pass (`http-client-01.*`). No traceback occurs in this diagnostic. This
+  establishes intermittency, not a repaired parser/harness or a root pass.
+  Fragment sending and case generation share the seeded RNG in the existing
+  harness, so connection timing can change later generated cases; no corpus or
+  parser was changed to obtain this diagnostic pass. The exact cause of the
+  root response mismatches remains unproved. HTTP JSON also passes its complete
+  standalone **1/1** phase (`http-json-01.*`); it remains **unexecuted in root**.
+
+  `summary.json`/`summarize.py` derive all counts from the raw reports, keeping
+  standalone results separate from the failed root result. No speculative HTTP
+  change or identical full-root retry was made to select away this failure.
+  M0's final box and exit remain **open**: the RTC resource blocker is resolved,
+  but a complete root pass is still required. M1 was not started. Historical
+  round-1 evidence below is preserved unchanged.
 
 - 2026-10-22 (M0 fresh pinned-toolchain baseline; verification continued into
   2026-10-23 local time):

@@ -133,11 +133,12 @@ partial coverage, report paths and remaining failures in STACK_PROGRESS.md.
   existing memory limits and per-phase deadlines. Do not extend a whole-job
   deadline or accept a cached/partial run as complete acceptance.
 
-2026-10-22 baseline: complete crypto, wire and all six HTTP package gates pass
-on pinned Bend 2.0.38. The root manifest now accounts for all thirteen packages,
-but the fresh root run stops at the 4 GiB aggregate cutoff during RTC's native
-`ice_nomination_evidence` frontend build. The final box and M0 exit remain open;
-see the dated evidence ledger for complete versus unexecuted phase counts.
+2026-10-23 M0 round 2: RTC passes all 161 phases on pinned Bend 2.0.38 with
+compiler-only GC settings and the unchanged 4 GiB guard. The fresh root run
+passes 1,763/1,765 phases, then fails HTTP client's response differential check;
+HTTP JSON is not reached. Isolated HTTP client and HTTP JSON checks pass, but
+do not replace a complete root pass. The final box and M0 exit remain open;
+see the dated evidence ledger for exact commands and failure classification.
 
 Exit: a reproducible supported toolchain and fresh baseline report identifying
 all passes and remaining blockers. A failed baseline is useful evidence, but M0
