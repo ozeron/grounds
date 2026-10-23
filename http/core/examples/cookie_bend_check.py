@@ -77,12 +77,24 @@ def corpus():
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--report", type=Path)
+    parser.add_argument("--legacy", type=Path, help="native legacy effect signing oracle")
     parser.add_argument("binary", nargs=argparse.REMAINDER)
     args = parser.parse_args()
     command = args.binary[1:] if args.binary[:1] == ["--"] else args.binary
     if not command:
         parser.error("binary required")
     cases = corpus()
+    if args.legacy:
+        samples = [("key", ""), ("key", "The quick brown fox jumps over the lazy dog"),
+                   ("clé.🔑", "café.☕"), ("key", "m4a.synthetic.session"),
+                   ("k" * 65, "value.with.dots"), ("k" * 131, "v" * 129)]
+        for key, value in samples:
+            actual = subprocess.run([str(args.legacy), key, value], check=True,
+                                    capture_output=True, text=True, timeout=10).stdout.rstrip("\n")
+            assert actual == signature(key, value), (key, value, actual)
+            cases += [(["sign", key, value], "ok:" + actual.encode().hex(), "legacy_format"),
+                      (["verify", key, actual], "ok:" + value.encode().hex(), "legacy_verify"),
+                      (["verify", key, "x" + actual], "invalid", "legacy_tamper")]
     with tempfile.TemporaryDirectory(prefix="grounds-cookie-bend-") as temporary:
         fixture = Path(temporary) / "cases.bin"
         for start in range(0, len(cases), 32):

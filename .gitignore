@@ -19,3 +19,5 @@
 !/wire/random_host_check.c
 !/http/core/effs/*.c
 !/http/core/effs/*.js
+!/http/server/effs/*.c
+!/http/server/effs/*.js

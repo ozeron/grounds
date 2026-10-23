@@ -689,12 +689,23 @@ def listen_tls(tls: Maybe<&2, Tls>) -> IO(Bool):
     case None{}:
       IO.pure(Bool, False{})
 
+# All legacy entrypoints converge here, including callers without from_env.
+# Reject the opt-in engine before initializing TLS or opening a listener.
+def legacy.engine(value: Result<&1, &1, U32 & String, String>) -> IO(Unit):
+  match value:
+    case Done{"bend"}:
+      IO.die(Unit, 1, "http: HTTP_TLS_ENGINE=bend requires http/server/bend_server.bend")
+    case _:
+      IO.pure(Unit, Unit{})
+
 # answer requests on cfg's port with h, one at a time per connection, many
 # connections at once; h may stream a body
 def serve_out_context(~C: Data, ~h: C -> Req.Request -> IO(Out), +context: C, cfg: Config) -> IO(Unit):
   match cfg:
     case Config{port, +mh, +mb, mr, +ims, +rms, +dms, tls, +trust}:
       do IO<Unit>:
+        engine : Result<&1, &1, U32 & String, String> <- IO.get_env("HTTP_TLS_ENGINE")
+        legacy.engine(engine)
         x : Unit <- W.wire_on_stop()
         +on : Bool <- listen_tls(tls)
         l : Listener <- IO.try(Listener, W.listen(port))

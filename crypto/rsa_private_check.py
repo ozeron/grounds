@@ -85,6 +85,15 @@ def arithmetic_cases():
         for case in cases[-2:]:
             mod, value = (int.from_bytes(x, 'big') for x in case['values'][:2])
             case['expected'] = be(value % mod, len(case['values'][0])).hex()
+    # Fixed-window boundaries, leading zero windows and all-zero exponents.
+    for bits in (15, 16, 127, 1024, 2048):
+        n = rng.getrandbits(bits) | (1 << (bits-1)) | 1
+        width = len(be(n))
+        for exponent in (0, 1, 15, 16, 255, 256, 65535, 65536):
+            base = rng.randrange(n)
+            encoded = b'\x00' + be(exponent)
+            cases.append(op(f'window-power-{bits}-{exponent}', '4',
+                            [be(n), encoded, be(base)], be(pow(base, exponent, n), width).hex()))
     for width in (1, 2, 4, 16, 64, 128, 256):
         a, b = (1 << (width*8))-1, rng.getrandbits(width*8)
         cases.append(op(f'product-{width}', '2', [b'', be(a), be(b)], be(a*b, 512).hex()))
@@ -94,6 +103,15 @@ def arithmetic_cases():
             cases.append(op(f'subtract-{width}-amount-{amount}', '6',
                             [b'', be(value, width), be(amount)],
                             be(value-amount, width).hex()))
+    # Revisit every table entry in both orders, including leading-zero bytes.
+    # Append after the existing corpus to preserve its seeded inputs exactly.
+    for bits in (15, 16, 127, 1024, 2048):
+        n = rng.getrandbits(bits) | (1 << (bits-1)) | 1
+        for exponent in (0x0123456789abcdef, 0xfedcba9876543210):
+            base = rng.randrange(n)
+            cases.append(op(f'window-scan-{bits}-{exponent}', '4',
+                            [be(n), b'\x00' + be(exponent), be(base)],
+                            be(pow(base, exponent, n), len(be(n))).hex()))
     return cases
 
 

@@ -165,25 +165,6 @@ def r2(+bits: Nat, +limbs: Nat, modulus: Array<U32>) -> ModResult:
   r2.go(Nat.sub(Nat.mul(limbs, 30n), at), limbs,
     ModResult{modulus, Array.set(U32, zero(), U32.from_nat(Nat.div(at, 15n)), U32.shln(1, Nat.mod(at, 15n)))})
 
-type Row is Type:
-  Row{operand: Array<U32>, t: Array<U32>, carry: U32}
-
-def row.t(+i: U32, operand: Array<U32>, av: U32, bv: U32, carry: U32, pair: Array<U32> & U32) -> Row:
-  (t, value) = pair
-  +sum = U32.add(U32.add(value, U32.mul(av, bv)), carry)
-  Row{operand, Array.set(U32, t, i, U32.and(sum, 32767)), U32.shrn(sum, 15n)}
-
-def row.operand(+i: U32, av: U32, t: Array<U32>, carry: U32, pair: Array<U32> & U32) -> Row:
-  (operand, bv) = pair
-  row.t(i, operand, av, bv, carry, Array.get(U32, t, i))
-
-def row.go(left: Nat, +i: U32, +av: U32, state: Row) -> Row:
-  match left state:
-    case 0n Row{operand, t, carry}:
-      Row{operand, t, carry}
-    case 1n+p Row{operand, t, carry}:
-      row.go(p, U32.inc(i), av, row.operand(i, av, t, carry, Array.get(U32, operand, i)))
-
 def high.extra(+at: U32, digit: U32, carry: U32, pair: Array<U32> & U32) -> Array<U32>:
   (t, high) = pair
   Array.set(U32, Array.set(U32, t, at, digit), U32.inc(at), U32.add(high, carry))
@@ -212,25 +193,52 @@ def right.go(left: Nat, +i: U32, t: Array<U32>) -> Array<U32>:
 type Montgomery is Type:
   Montgomery{modulus: Array<U32>, a: Array<U32>, b: Array<U32>, t: Array<U32>}
 
-def mont.reduced(+limbs: Nat, a: Array<U32>, b: Array<U32>, state: Row) -> Montgomery:
-  match state:
-    case Row{modulus, t, carry}:
-      Montgomery{modulus, a, b,
-        right.go(Nat.add(limbs, 1n), 0, high(U32.from_nat(limbs), carry, t))}
+# Fuse the product and reduction rows, storing each reduced limb directly at
+# i-1. Its source at i has already been read; later source limbs stay intact.
+# Both carries use the same base-2^15 bounds as the separate HAC 14.36 rows.
+def mont.extra(+limbs: Nat, modulus: Array<U32>, a: Array<U32>, b: Array<U32>, +product: U32, carry: U32, pair: Array<U32> & U32) -> Montgomery:
+  (t, extra) = pair
+  +sum = U32.add(U32.and(product, 32767), carry)
+  +at = U32.from_nat(limbs)
+  Montgomery{modulus, a, b, Array.set(U32, Array.set(U32,
+    Array.set(U32, t, U32.sub(at, 1), U32.and(sum, 32767)), at,
+    U32.add(extra, U32.add(U32.shrn(product, 15n), U32.shrn(sum, 15n)))), U32.inc(at), 0)}
 
-def mont.low(+limbs: Nat, inverse: U32, modulus: Array<U32>, a: Array<U32>, b: Array<U32>, pair: Array<U32> & U32) -> Montgomery:
-  (t, low) = pair
-  factor = U32.and(U32.mul(low, inverse), 32767)
-  mont.reduced(limbs, a, b, row.go(limbs, 0, factor, Row{modulus, t, 0}))
+def mont.high(+limbs: Nat, modulus: Array<U32>, a: Array<U32>, b: Array<U32>, product_carry: U32, carry: U32, pair: Array<U32> & U32) -> Montgomery:
+  (t, high) = pair
+  mont.extra(limbs, modulus, a, b, U32.add(high, product_carry), carry,
+    Array.get(U32, t, U32.inc(U32.from_nat(limbs))))
 
-def mont.product(+limbs: Nat, inverse: U32, modulus: Array<U32>, a: Array<U32>, state: Row) -> Montgomery:
-  match state:
-    case Row{b, t, carry}:
-      mont.low(limbs, inverse, modulus, a, b, Array.get(U32, high(U32.from_nat(limbs), carry, t), 0))
+def mont.row(left: Nat, +limbs: Nat, +i: U32, +av: U32, +factor: U32, product_carry: U32, carry: U32, a: Array<U32>, source: Array<U32> & U32, operand: Array<U32> & U32, cell: Array<U32> & U32) -> Montgomery:
+  match left:
+    case 0n:
+      (modulus, _) = source
+      (b, _) = operand
+      mont.high(limbs, modulus, a, b, product_carry, carry, cell)
+    case 1n+p:
+      (modulus, nv) = source
+      (b, bv) = operand
+      (t, value) = cell
+      +product = U32.add(U32.add(value, U32.mul(av, bv)), product_carry)
+      +sum = U32.add(U32.add(U32.and(product, 32767), U32.mul(factor, nv)), carry)
+      +next = U32.inc(i)
+      mont.row(p, limbs, next, av, factor, U32.shrn(product, 15n), U32.shrn(sum, 15n), a,
+        Array.get(U32, modulus, next), Array.get(U32, b, next),
+        Array.get(U32, Array.set(U32, t, U32.sub(i, 1), U32.and(sum, 32767)), next))
+
+def mont.first(+limbs: Nat, inverse: U32, +av: U32, a: Array<U32>, source: Array<U32> & U32, operand: Array<U32> & U32, cell: Array<U32> & U32) -> Montgomery:
+  (modulus, nv) = source
+  (b, bv) = operand
+  (t, value) = cell
+  +product = U32.add(value, U32.mul(av, bv))
+  +factor = U32.and(U32.mul(product, inverse), 32767)
+  sum = U32.add(U32.and(product, 32767), U32.mul(factor, nv))
+  mont.row(Nat.sub(limbs, 1n), limbs, 1, av, factor, U32.shrn(product, 15n), U32.shrn(sum, 15n), a,
+    Array.get(U32, modulus, 1), Array.get(U32, b, 1), Array.get(U32, t, 1))
 
 def mont.a(+limbs: Nat, inverse: U32, modulus: Array<U32>, b: Array<U32>, t: Array<U32>, pair: Array<U32> & U32) -> Montgomery:
   (a, av) = pair
-  mont.product(limbs, inverse, modulus, a, row.go(limbs, 0, av, Row{b, t, 0}))
+  mont.first(limbs, inverse, av, a, Array.get(U32, modulus, 0), Array.get(U32, b, 0), Array.get(U32, t, 0))
 
 def mont.go(left: Nat, +limbs: Nat, +inverse: U32, +i: U32, state: Montgomery) -> ModResult:
   match left state:

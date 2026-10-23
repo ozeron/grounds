@@ -69,7 +69,11 @@ def c_effects(source, required=REQUIRED):
     active = {name for name in candidates if name.replace(".", "_") in defined}
     return dict(numeric_cid_count=len(defined), active_effect_ids=sorted(active),
                 inactive_registration_ids=sorted(candidates - active),
-                forbidden_defined_ids=sorted(name for name in defined if re.search(r"(?:^|_)wire_tls_", name)),
+                # A nested HTTP import qualifies pure constructors as
+                # ...wire_tls_record_Record. Match the actual legacy effect
+                # IDs, not every type in a module whose path starts tls_.
+                forbidden_defined_ids=sorted(name for name in defined if re.search(
+                    r"(?:^|_)wire_tls_(?:connect|send_timeout|recv_timeout|close|listen_ctx|accept)$", name)),
                 forbidden_effect_ids=sorted(name for name in active if effect_bad(name)),
                 missing_byte_tcp_rng_effects=missing_required(active, required))
 
@@ -184,6 +188,8 @@ def self_check():
     c = "\n".join(f"#define CID_wire_{name} {n}\nio_eff(CID_wire_{name}, os_effect);" for n,name in enumerate(sorted(REQUIRED),1))
     assert not c_effects(c)["missing_byte_tcp_rng_effects"]
     assert c_effects(c + "\n#define CID_wire_wire_tls_connect 999\nio_eff(CID_wire_wire_tls_connect, legacy);")["forbidden_effect_ids"]
+    assert c_effects(c + "\n#define CID_nested_wire_wire_tls_connect 998")["forbidden_defined_ids"]
+    assert not c_effects(c + "\n#define CID_nested_wire_tls_record_Record 997")["forbidden_defined_ids"]
     assert c_effects(c + "\n#define CID_http_core_cookie_sign_sign 999\nio_eff(CID_http_core_cookie_sign_sign, legacy);")["forbidden_effect_ids"]
     js = "\n".join(f'io_eff("wire:{name}", os_effect);' for name in REQUIRED)
     assert not js_effects(js)["missing_byte_tcp_rng_effects"]

@@ -53,6 +53,23 @@ All 16 Verified RFC 8446 entries were checked against this profile:
 | ALPN | http/1.1 only; never advertise h2/h3. Offered ALPN with no common protocol fails no_application_protocol; absent ALPN permits the HTTP/1.1 default. Reject unsolicited/wrong server selections. |
 | SNI | Client sends one DNS HostName for a DNS identity; server validates and exposes it on the accepted connection. The current caller supplies its credential before accept; dynamic selection callbacks are deferred. Reject empty/duplicate host_name, NUL and IP literals. Verify DNS/IP identity independently. |
 
+The M4a HTTP Bend server has the following target/credential support boundary
+(both suites above). This is a server-adapter latency restriction, not a change
+to the crypto correctness profile or peer certificate verification.
+
+| Bend HTTPS server target | P-256 ECDSA credential | RSA credential |
+|---|---|---|
+| Native | Supported, live-gated | Supported, live-gated |
+| Bun | Supported, live-gated | Unsupported; rejected at startup before listen |
+
+Bun RSA repeated-handshake maxima measured in round 3 were **969.9 ms AES /
+730.7 ms ChaCha**, compared with native **about 46 ms**, against the unchanged
+**1000 ms** handshake deadline. Bun RSA live positive/negative phases are
+excluded from M4a acceptance by user decision; RSA crypto unit/differential
+suites remain unchanged on both targets. The cancelled optimization patch is
+preserved, unapplied, for possible later work at
+`~/.codex/artifacts/grounds/2026-10-23/m4a/round4/cancelled-rsa-wip.patch`.
+
 AES-256/SHA-384, X448, EdDSA and FFDHE are outside the profile. Unknown
 well-formed offers follow context-specific RFC extensibility rules; never
 advertise or select an absent algorithm.
@@ -103,7 +120,7 @@ M3a/M3b supply both socket roles below; HTTP integration remains M4.
 | TCP/alerts/close/deadlines/cancellation | Both connection APIs; asynchronous cancellation remains missing | Exact bounded record reads, actual 3-byte TCP writes/coalescing, partial writes, fatal cleanup/alerts, warning close_notify, EOF/truncation, absolute monotonic deadlines and retained-process descriptor checks. |
 | Unsupported post-handshake disposal | wire/tls_handshake_codec.bend + role-aware bend_tls_client.bend receive loop | Client parses/discards authenticated NST; server sends none and rejects client NST10. No resumption/0-RTT/client auth; unsolicited PHA rejected10. |
 | No-delegation live evidence | bend_tls_no_delegation_build.py + bend_tls_no_openssl_check.py + complete interop corpus | Both roles built with legacy TLS and cookie effects replaced by aborts; native/Bun positive controls prove traps. Emitted C/JS effects/imports/calls, native symbols/libraries/loader literals audited. Invalid loader/host-CA paths are additional evidence only. |
-| HTTP/HTTPS/WSS/browser | Missing (M4): explicit Bend adapter | Preserve HTTP/cookie/Origin/auth behavior and normal browser certificate verification. |
+| HTTP/HTTPS/WSS/browser | M4a server adapter in http/server; verification tracked in STACK_PROGRESS. Client/WSS/browser remain M4b. | Separate bend_server.bend entry graph with BendTls and cookie_bend runtime key owner; legacy server.bend stays cold and excludes Bend crypto. Only dated live/gate receipts establish acceptance; preserve Origin/auth and normal browser certificate verification in M4b. |
 
 ## Client connection behavior built in M3a
 

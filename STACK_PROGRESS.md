@@ -4,6 +4,193 @@ Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and 
 
 The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
 
+- 2026-10-23 (M4a round 3; acceptance **BLOCKED**, fresh root passes):
+  Implementation commits remain `bbd15be` / `bde7815`, followed by Montgomery
+  row fusion `193f731`, fixed four-bit private powers `222985a`, and affine
+  table-array reuse `583a919`. The last optimization removes per-entry clones
+  and factor allocations while scanning every limb of all sixteen entries.
+  Source and emitted C/JS review found no exponent-nibble branch, address,
+  loop count or leading-zero shortcut. Both nibbles of every encoded byte are
+  processed. Width/admission/runtime timing limitations remain; this is not
+  machine-code/JIT constant-time approval. `crypto/RUNTIME_REVIEW.md` and
+  round3 `rsa-{window,scan}-review.json` retain the inspection and hashes.
+
+  Arithmetic/RSA verification passes **920 cases per native/Bun target**:
+  113 private arithmetic, 45 admission, 9 signatures, 28 rejection and
+  725 integer cases (`arithmetic-scan-01.json`, **11/11 phases**, 834.9 MiB).
+  The retained failing RSA fixture also passed both unchanged negative suites
+  in `fixed-02.json` (**2/2**, 251.6 MiB). This did not establish reliability:
+  the fresh post-refactor standalone server attempt below still failed.
+
+  All report names here are relative to
+  `~/.codex/artifacts/grounds/2026-10-23/m4a/round3/`:
+
+  | Fresh report | Result and boundary |
+  |---|---|
+  | `server-05.json` | **23 passed, 1 failed, 17 unexecuted**; Bun RSA/AES negative phase lost a valid handshake with TLS EOF before the request-timeout case; 1635.7 MiB. No server error was retained by that harness, so its precise cause is unconfirmed. |
+  | `core-03.json` | **1/1 passed**, 496.0 MiB; **2,693 cookie cases per target**, existing Base64/method/unit/proof/cold checks passed. |
+  | `root-02.json` | **2,144/2,144 passed**, 3394.1 MiB, 3900.897 s; exact requested nice/concurrency/force command, 4096 MiB aggregate/process and 120 s per phase. Includes **41/41 server phases**, **76 HTTPS scenarios + 5 configuration cases per target**, four host-effect abort controls, legacy HTTP/proxy/auth/CORS/WebSocket/multipart and all RTC phases. |
+
+  Root used `/opt/homebrew/opt/openssl@3/bin` first in PATH: the independent
+  oracle is OpenSSL 3.6.3. `root-01.json` preserves the prior prerequisite
+  failure (**37 passed, 1 failed**, 2106 unexecuted): Apple LibreSSL 3.3.6 lacks
+  the required verify options. No Grounds Bend path gained an oracle call.
+  `core-02.json` was pressure-stopped and retried; cumulative pressure/lock
+  waits were **90.058 seconds of the 90-minute budget**, without foreign
+  process signals. The round-2 server-09 interruption was external, not a test
+  failure, and remains separate from these genuine round-3 failures.
+
+  Earlier reports remain intact: server-01 timed out in tls_proxy (33 passed;
+  ordinary-priority follow-ups restored the original server command);
+  server-02 failed Bun RSA/ChaCha (25 passed); server-03 was pressure-stopped
+  (30 passed); server-04 failed only the unchanged cold check (40 passed).
+  The earlier RSA diagnostic logged a deadline and 947 ms signing, motivating
+  `583a919`; it does not prove the cause of server-05. Root's 32-handshake loops
+  passed with max end-to-end RSA request times of native AES/ChaCha
+  **45.8/46.5 ms**, Bun **969.9/730.7 ms**, under the unchanged 1000 ms handshake
+  deadline. These samples do not close the intermittent failure.
+
+  The authorized API split is implemented and verified **in the worktree**,
+  but held uncommitted while standalone server acceptance remains unresolved.
+  `http/server/server.bend` restores the original socket-only legacy graph;
+  all `serve_*` signatures stay unchanged and every entry rejects
+  `HTTP_TLS_ENGINE=bend` before TLS setup/listen, including callers without
+  `from_env`. Opt-in applications import `http/server/bend_server.bend`, which
+  owns its Config/Out/Sink types, runtime engine selection and hard
+  `serve_bend_out_context` entry. The Bend example, docs, matrix receipts and
+  no-delegation audit use that module. Legacy examples and the zero-hot check
+  are unchanged: **7/7 cold examples**, **9 clean C/JS graphs**, and **4 native/
+  Bun engine-rejection controls** pass (`split-focused.json` and
+  `root-02/legacy-graphs/report.json`). `entrypoint-refactor.patch` and
+  `entrypoint-source-receipt.json` bind the uncommitted implementation.
+
+  Error-logging-only replay of server-05's exact RSA fixture passes all **13
+  negative/lifecycle scenarios**, including the unchanged 32-handshake loop
+  (`diagnose-split-02.json`, 1/1, 254.6 MiB). The first diagnostic's log
+  collector consumed the shutdown text needed by the lifecycle assertion;
+  `diagnose-split-01.json` records that diagnostic-harness failure, not a
+  product failure. Its corrected collector leaves the acceptance tests intact.
+
+  No deadline, repetition, guard limit or existing assertion was loosened
+  relative to `bde7815`; `test-limits.diff` retains the earlier audit, and the
+  current server check adds graph/rejection coverage after the exact cold
+  command. **No M4 checkbox is ticked and no M4a acceptance is claimed** despite
+  the complete root pass. The remaining valid-handshake EOF needs a confirmed
+  cause and fresh server/core/root acceptance after remediation. Synthetic
+  keys only; physical secret erasure remains blocked. OpenSSL stays the legacy
+  default; Bend requires the opt-in module and `with_bend_tls` or its
+  `HTTP_TLS_ENGINE=bend` configuration. HTTP client/WSS/browser work remains
+  M4b. The orchestrator's M5/execution-order edits in STACK_PLAN.md and
+  crypto/ERASURE.md remain untouched and unstaged. No push, PR or bounty work.
+
+- 2026-10-23 (M4a server implementation checkpoint; acceptance PENDING):
+  `with_bend_tls(cfg, cert_path, key_path)` / `BendTls{chain,key,suites}` and
+  `HTTP_TLS_ENGINE=bend|openssl` select explicit transports without changing
+  Config's field count or the legacy Tls constructor/default. A shared affine
+  transport runs the HTTP parse/respond/keep-alive/stream loop. The hard
+  `serve_bend_out_context` entry has no legacy TLS effect; the listener imports
+  PEM once and retains an explicit synthetic credential factory. Request fuel
+  now counts parsed requests rather than partial reads. Existing raw Sink and
+  Upgrade constructors remain; Bend upgrades fail 501 pending M4b. The example
+  selects cookie_bend.SigningKey in runtime handler context explicitly.
+
+  **This is not completed M4a acceptance.** Reports and exact emitted programs
+  are under `~/.codex/artifacts/grounds/2026-10-23/m4a/`; `STATUS.json` and
+  `source-receipt.json` describe the precise source/result boundary. The
+  conservative 45-minute scheduling window began 11:42:22 UTC and expired
+  12:27:22 UTC. Pressure/lock waits stayed bounded; no foreign worker was
+  signaled and no guard cap, timeout, corpus or existing assertion was raised
+  or removed. Source stays on bend-https; no push/PR or bounty work.
+
+  Native and Bun HTTPS executables successfully built with the M3b TLS/cookie
+  abort overlay (`server-02/build-{native,bun}.json`). The corrected permanent
+  effects/imports/calls/symbols/libraries/loader audit and all **four abort
+  controls pass** in `focused-02/no-delegation.json`. The shared audit needed a
+  false-positive repair: fully qualified pure constructors such as
+  wire_tls_record_Record are not legacy TLS effect IDs. Exact legacy effects
+  remain rejected; self-checks cover both constructor and effect identities.
+  The failed original audit remains in server-02/no-delegation.json.
+
+  On these retained no-delegation builds, native passes **72/72 live scenarios**:
+  four P-256/RSA-2048 × AES-128-GCM/ChaCha20-Poly1305 combinations, each with
+  six positive and twelve negative/lifecycle scenarios. **Curl, Python
+  http.client/ssl and a Go net/http peer** all verify the synthetic CA/localhost
+  normally in every native cell. Checks include 204,800-byte binary request/
+  echo across records, chunked input and streamed output, one-connection reuse,
+  pipelining, legacy-identical signed cookies and tamper rejection, secure
+  marking/health, wrong CA, plaintext, handshake/request/idle deadlines,
+  mid-request disconnect, oversize head/body, two multi-record requests at
+  max_requests=2, and SIGTERM during an active request and stream. Reports:
+  `focused-02/native_*.json`.
+
+  Bun passes **six positive scenarios** for P-256/AES, including all three
+  verified clients. Its negative phase passes the first six subcases, then
+  **FAILS expected 408** with RemoteDisconnected. Cause: the new JS OS readiness
+  effect returned boxed Bool constructors; Bend 2's generated branch expects
+  primitive booleans, so boxed False was truthy and consumed the TLS owner in a
+  timed-out receive. `http/server/effs/readable.js` now returns primitive
+  true/false. **The fix has not been live retested or re-emitted/audited**:
+  server-04 was pressure-stopped during the native frontend. Native source is
+  unchanged by this JS-only repair, but the final build receipt is incomplete.
+  Remaining Bun cells and both targets' configuration/PEM-once phases are
+  unexecuted. No PASS is inferred for them.
+
+  Forced server gates use 41 declared phases. Latest server-04 completes
+  **1/41**, is interrupted in phase 2, and leaves **39 unexecuted** by
+  `system-memory-pressure` (1,593.8 MiB peak), not the 4 GiB limit. Server-01 and
+  server-03 also stop for pressure; server-02 is an actual audit false-positive
+  `guard-error`. Focused-01 is an actual system-curl prerequisite failure:
+  exit 4, TLS 1.3 option unavailable. Homebrew installed keg-only curl 8.23.0;
+  GROUNDS_CURL can override the explicit peer executable. Homebrew also
+  upgraded libnghttp2 1.69.0→1.70.0, libssh2 1.11.1_1→1.11.1_7 and
+  ca-certificates 2026-09-25→2026-10-20, and added libnghttp3, libngtcp2 and
+  libpsl; PATH was not edited. `curl-peer-install.log` retains the actual install.
+  Focused-02 is an actual Bun HTTP-timeout failure, not a memory failure.
+  Fresh root-01 is **blocked before launch**, zero of **2,144 declared phases**
+  executed: `system-memory-pressure-before-launch`. Reports retain every
+  failed/partial attempt. The full core gate passes independently as below.
+
+  Commands (A=~/.codex/artifacts/grounds/2026-10-23/m4a; every build/check uses
+  `python3 tools/build_guard.py --memory-mib 4096 --process-memory-mib 4096
+  --timeout 120 --phases MANIFEST --report REPORT -- COMMAND`):
+  server attempts use MANIFEST=http/server/check_phases.json and
+  `GROUNDS_M4A_ARTIFACTS=$A/server-NN moon --concurrency 1 run
+  http_server:check --force`, reports `server-NN-wait-*.json` and logs
+  `server-NN.log`. Focused retained-build commands/manifests are frozen in
+  `$A/focused-{01,02}/check.sh` / phases.json; invocation is
+  `sh $A/focused-02/check.sh` with its matching manifest. Root command uses
+  MANIFEST=tools/check_phases.json, REPORT=$A/root-01.json and
+  `nice -n 10 moon --concurrency 1 run :check --force`.
+  Native builds release the frontend before bounded C compilation;
+  compiler-only BUN_OPTIONS=--smol / BUN_JSC_forceRAMSize=134217728 reduce
+  compiler pressure. Native/Bun evaluator settings stay unchanged.
+
+  Next: fresh forced http_server:check on final source, including Bun 408
+  regression, all remaining matrix cells/config cases and unchanged legacy/
+  cold phases; then fresh full root acceptance when the host allows it.
+  **All M4 boxes remain open. M4b client, WSS and browser work was not started.**
+  No external server reference was used for the adapter design; it extends the
+  existing Grounds loop/M3b API and frozen TLS_PROFILE. Independent tools act
+  only as peers/fixture oracles. Synthetic-key runtime restrictions remain.
+
+- 2026-10-23 (M4a cookie owner and migration regressions, Bend 2.0.38):
+  `cookie_bend.SigningKey{secret}`, `sign_owned` and `verify_owned` give an
+  application an explicit immutable runtime owner without changing legacy
+  `cookie_sign` defaults or the signed value format. Forced `http_core:check`
+  passes **1/1 guarded phase**, zero skipped/unexecuted: native and Bun each
+  pass **2,693 cookie cases** (2,675 unchanged plus 18 actual legacy-effect
+  format/verify/tamper cases), **838 Base64** and **8,320 method** cases.
+  All 93 original unit definitions, eight public laws, 17 contract and 100
+  proof declarations pass; existing cold assertions pass. Command:
+  `PYTHONDONTWRITEBYTECODE=1 python3 tools/build_guard.py --memory-mib 4096
+  --process-memory-mib 4096 --timeout 120 --phases http/core/check_phases.json
+  --report ~/.codex/artifacts/grounds/2026-10-23/m4a/core-01-wait-01.json --
+  moon --concurrency 1 run http_core:check --force` (436.5 MiB peak, 31.96 s
+  Moon task). Full output: `m4a/core-01.log`. The shared runtime review's
+  synthetic-key/physical-erasure restriction remains. HTTPS server integration,
+  live interop and fresh root acceptance are still being verified; M4 boxes
+  remain open.
+
 - 2026-10-23 (M3b focused acceptance complete; fresh root pressure-blocked):
   corrected wire04 passes **230/230 phases**, zero skipped/unexecuted. Native
   and Bun each pass **43+16 negotiation/retry**, **78 server scenarios**

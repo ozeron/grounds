@@ -25,7 +25,7 @@ effect; it is not a whole-runtime constant-time claim.
 | X25519 scalar-bit selection | The existing 255-step ladder unconditionally computes field work and uses XOR-mask coordinate swaps. Emitted JS `x25519_ladder`, `cswap`, `swap_step_b` and C masked-swap path preserve this. Indices/counters are public; all-zero shared output is fully scanned and rejected. No secret-bit branch was introduced. | mitigated |
 | P-256 multiplication | Existing fixed 256-step double/add plus masked selection is retained in JS `p256_multiply_go`/`multiply_selected` and corresponding C. Coordinates are canonical and peers are on-curve before ECDH. Arithmetic still allocates and clones arrays. | mitigated |
 | ECDSA deterministic nonce and retry | RFC 6979 HMAC-SHA256, canonical candidate rejection and r=0/s=0 rejection are implemented, including verified erratum 3812. `search_go`, `search_candidate`, `sign_nonzero` and their emitted C branches expose candidate validity/retry count. The bounded 128-attempt search fails closed. Removing rejection would break the algorithm; a proven constant-time replacement needs a separately validated signing design and runtime. The old open retry finding is explicitly restricted, not pronounced fixed. | accepted-for-synthetic-keys-only |
-| RSA private exponent bit | The new CRT operation always squares and multiplies, then mask-selects the exponent bit, rather than calling the public branch-on-exponent operation. This fixes the direct private-bit branch at the Bend source boundary. Public verification is used only for the final fault check. | fixed |
+| RSA private exponent bit | The CRT operation uses fixed four-bit windows: four squares and one multiply per nibble, with a full sixteen-entry limb-mask scan for the factor. The nibble controls neither a branch nor a table address. Public verification remains the final fault check. This supersedes the earlier square/multiply/bit-mask implementation described in the retained M2 artifact observations below. | fixed |
 | RSA subtraction borrow | The private-factor subtraction loop now visits the complete admitted limb width even when borrow becomes zero. Emitted JS `minus_small_go`/`minus_small_step` and C preserve the fixed-width arithmetic continuation. | fixed |
 | RSA base correlation/faults | Fresh full-width uniform random candidate, checked inverse per factor, CRT recombination and complete public recovery comparison before output mitigate direct base correlation and CRT faults. Candidate rejection fails without a signature; caller supplies fresh entropy on retry. | mitigated |
 | RSA private arithmetic/admission | Factor byte lengths, modulus setup, private-value range/congruence/inverse checks, candidate rejection and allocation remain variable-time. Imported factors must come from trusted prime generation; consistency checking is not a primality certificate. Blinding does not cure all timing/factor-length leaks. | accepted-for-synthetic-keys-only |
@@ -56,6 +56,16 @@ review without retroactively changing their historical evidence.
    Reuse requires a separately supplied/imported owner, never a hidden global
    nonce/key cache. Trusted callers must not unwrap/reconstruct constructors or
    copy their ordinary inner byte lists to bypass this discipline.
+   M4a's `http/server/tls_config.bend` adds an explicit process-lifetime
+   synthetic credential factory: `from_pem` validates once before listen, then
+   the immutable Prepared owner retains the validated private components and
+   issues fresh affine per-handshake signing owners. This is the deliberate
+   identity-key reuse boundary for a multi-connection server, not permission
+   to copy connection/traffic/ephemeral owners. Its Data fields can be shared
+   by the runtime, cannot be physically erased here and must never hold live
+   production secrets. The app similarly retains cookie_bend.SigningKey in
+   immutable runtime handler context; restart replaces these keys, and no
+   rotation or secret-storage mechanism is introduced.
 2. **Entropy.** Generate every connection/replacement share through
    `wire_random_bytes`. X25519 clamps its one 32-byte draw. P-256 rejects zero or
    >=n instead of reducing; each retry draws 32 new bytes. ECDSA uses RFC 6979
@@ -98,7 +108,7 @@ is Bend 2.0.38, executable SHA-256
 | finished (tls_schedule) | `dc2cc8a76fdfe3f4ee8e1d8ab311f79c5b83533934029c0d576fe196793ae198` | `cb87473813a41340f54b478dd5a1548283973549e99d701358486fd612035c48` |
 | rsa_private | `9cf3ca53965ce20ae0c33f88d521b5ed564c502e747450b427872741bbb08fdd` | `012d0884032a597e79e903b01224d633a8c8c930a5292924a926941ef7215731` |
 
-RSA JS `power_bits` unconditionally calls square then `power_bit`, and
+In the retained M2 artifacts above, RSA JS `power_bits` unconditionally calls square then `power_bit`, and
 `power_selected` selects with `32767 * bit`; emitted C `spin_98` retains that
 mask (line 7339). JS `minus_small_go` (12072) branches only on the public
 remaining limb count; `minus_small_step` (12250) computes borrow arithmetically.
@@ -106,6 +116,49 @@ The separate public exponent helper may branch on public e. CRT factor
 inverse and final full-width recovery checks are retained. The fixture CLI
 independently calls the existing Bend PSS verifier before printing a synthetic
 signature. Final focused/gate evidence belongs in STACK_PROGRESS.md.
+
+M4a round 2 replaces that exponentiation loop with the fixed-window scan in
+`rsa_private.bend` and fuses the Montgomery product/reduction/shift rows in
+`rsa_integer.bend`. For each byte both nibbles execute the same four-square,
+one-multiply sequence. `pick.go` visits all sixteen entries in order and forms
+the equality mask arithmetically; each `select.go` visits the same public limb
+prefix. Table construction also has a fixed sixteen-step count. No blinding,
+key-validation, inverse or final signature recovery check is removed. Exact
+rebuilt programs and current acceptance results are retained under
+`~/.codex/artifacts/grounds/2026-10-23/m4a/round2/` and the progress ledger.
+These source-level mitigations do not approve generated-code constant time or
+physical erasure; the synthetic-key restriction remains unchanged.
+
+M4a round 3 rechecked the source at `222985a` against freshly emitted HTTP
+server C and JS. `pick.go` preserves the arithmetic equality mask and scans
+all sixteen entries; C `spin_59`/`spin_60`/`spin_61` retain sequential limb
+addresses and bitwise selection. `window.step` retains four unconditional
+squares before selection/multiplication. `window.bytes` processes both
+nibbles of every supplied byte, including zero bytes and the top nibble;
+there is no leading-zero shortcut. Work is fixed for the supplied exponent
+encoding length and admitted modulus width, not across different key lengths.
+This does not remove the private-admission/length or runtime limitations above.
+The source hashes, generated hashes and numbered C excerpts are retained in
+`~/.codex/artifacts/grounds/2026-10-23/m4a/round3/rsa-window-review.json` and
+`rsa-window-c-excerpts.txt`. The reviewed server C SHA-256 is
+`ef9338ae29be232524203ef16d595cc12e02a1d28eaa96f10162e50476b94e57`;
+JS is `df007717de13dfc4e8b0ce2c808b7ff87391e27625375734207ad87f50314c31`.
+This is generated-source inspection, not a machine-code/JIT timing proof or
+permission to use live secrets.
+
+The round-3 repeated-handshake run subsequently reproduced a `deadline` failure
+on Bun with signing alone taking 947 ms. The lookup now preserves each affine
+table array through `Array.get` and updates the factor in place, instead of
+cloning the table array and allocating a new output for every scanned entry.
+`pick.row` still reads the complete admitted limb prefix of all sixteen entries;
+`pick.cell` uses the same bitwise mask, with no nibble-dependent branch/index.
+The rebuilt server C (`server-03/bend_tls.c`) retains this in `pick.go` and
+`spin_70`; JS retains it in `pick.row`/`pick.cell`. Their SHA-256 values are
+`9b037c8e036184f7c678046fc804100899452c33bbff9ed0ab37e542866c04f1` and
+`77ae6bfd62415aea0d1efe40427f21b2c52bc83c36973c711fb8103fb17362c9`.
+Ten independent power cases revisit all nibble values in both orders. No
+blinding, admission, inverse, recovery, deadline or repetition check is removed.
+The timing and erasure restrictions above still apply.
 
 ## References and evidence limits
 

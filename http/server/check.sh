@@ -12,6 +12,12 @@ phase=
 announce() { python3 ../../tools/check_phase.py "$@"; }
 begin() { phase="http_server/$1"; announce start "$phase"; }
 end() { announce end "$phase" 0; phase=; }
+# Release the frontend before bounded native C compilation. Compiler-only
+# heap settings do not change any server or peer evaluator environment.
+native() {
+  BUN_OPTIONS="${BUN_OPTIONS:-} --smol" BUN_JSC_forceRAMSize=134217728 \
+    sh ../../tools/bend_native.sh "$@"
+}
 stop() {
   [ -n "$1" ] || return 0
   kill "$1" 2>/dev/null || true
@@ -31,20 +37,104 @@ cleanup() {
   exit "$result"
 }
 trap cleanup EXIT
+# M4a: every TLS/cookie host effect is unavailable in these exact outputs.
+# Override the artifact directory to retain full source-bound evidence.
+artifacts=${GROUNDS_M4A_ARTIFACTS:-$tmp/m4a}
+mkdir -p "$artifacts/probes" "$artifacts/fixtures" "$tmp/probes"
+begin bend_tls_fixtures
+python3 examples/bend_tls_check.py --prepare --fixtures "$artifacts/fixtures" --report "$artifacts/fixtures.json"
+end
+begin bend_tls_frontend_native
+bend_bun_options=${BUN_OPTIONS:-}
+BUN_OPTIONS="$bend_bun_options --smol" BUN_JSC_forceRAMSize=134217728 python3 examples/bend_tls_build.py "$artifacts/bend_tls.c" "$artifacts/build-native.json"
+end
+begin bend_tls_compile_native
+native "$artifacts/bend_tls.c" "$artifacts/bend_tls" > /dev/null
+end
+begin bend_tls_frontend_bun
+BUN_OPTIONS="$bend_bun_options --smol" BUN_JSC_forceRAMSize=134217728 python3 examples/bend_tls_build.py "$artifacts/bend_tls.js" "$artifacts/build-bun.json"
+end
+begin bend_tls_go_peer
+# Go is only an independent peer; keep its compiled output outside the repo.
+mise exec go@1.26.9 -- go build -o "$tmp/bend_tls_go" examples/bend_tls_peer.go
+native ../core/examples/cookie_legacy.bend "$tmp/cookie_legacy" > /dev/null
+end
+begin bend_tls_legacy_probe_native
+python3 ../../wire/bend_tls_no_delegation_build.py --program legacy-probe --output "$artifacts/probes/legacy-probe.c" --report "$artifacts/probes/legacy-probe-native.json"
+native "$artifacts/probes/legacy-probe.c" "$tmp/probes/legacy-probe" > /dev/null
+end
+begin bend_tls_legacy_probe_bun
+python3 ../../wire/bend_tls_no_delegation_build.py --program legacy-probe --output "$artifacts/probes/legacy-probe.js" --report "$artifacts/probes/legacy-probe-bun.json"
+end
+begin bend_tls_cookie_probe_native
+python3 ../../wire/bend_tls_no_delegation_build.py --program cookie-probe --output "$artifacts/probes/cookie-probe.c" --report "$artifacts/probes/cookie-probe-native.json"
+native "$artifacts/probes/cookie-probe.c" "$tmp/probes/cookie-probe" > /dev/null
+end
+begin bend_tls_cookie_probe_bun
+python3 ../../wire/bend_tls_no_delegation_build.py --program cookie-probe --output "$artifacts/probes/cookie-probe.js" --report "$artifacts/probes/cookie-probe-bun.json"
+end
+begin bend_tls_no_delegation
+cp "$artifacts/probes/legacy-probe.js" "$artifacts/probes/cookie-probe.js" "$tmp/probes/"
+python3 examples/bend_tls_audit.py --native "$artifacts/bend_tls" --c "$artifacts/bend_tls.c" --js "$artifacts/bend_tls.js" --probe-dir "$tmp/probes" --report "$artifacts/no-delegation.json"
+end
+begin bend_tls_native_ecdsa_aes
+python3 examples/bend_tls_check.py --fixtures "$artifacts/fixtures" --credential ecdsa --suite aes --go "$tmp/bend_tls_go" --legacy "$tmp/cookie_legacy" --report "$artifacts/bend_tls_native_ecdsa_aes.json" -- "$artifacts/bend_tls"
+end
+begin bend_tls_native_ecdsa_aes_negative
+python3 examples/bend_tls_check.py --fixtures "$artifacts/fixtures" --credential ecdsa --suite aes --negative --report "$artifacts/bend_tls_native_ecdsa_aes_negative.json" -- "$artifacts/bend_tls"
+end
+begin bend_tls_native_ecdsa_chacha
+python3 examples/bend_tls_check.py --fixtures "$artifacts/fixtures" --credential ecdsa --suite chacha --go "$tmp/bend_tls_go" --legacy "$tmp/cookie_legacy" --report "$artifacts/bend_tls_native_ecdsa_chacha.json" -- "$artifacts/bend_tls"
+end
+begin bend_tls_native_ecdsa_chacha_negative
+python3 examples/bend_tls_check.py --fixtures "$artifacts/fixtures" --credential ecdsa --suite chacha --negative --report "$artifacts/bend_tls_native_ecdsa_chacha_negative.json" -- "$artifacts/bend_tls"
+end
+begin bend_tls_native_rsa_aes
+python3 examples/bend_tls_check.py --fixtures "$artifacts/fixtures" --credential rsa --suite aes --go "$tmp/bend_tls_go" --legacy "$tmp/cookie_legacy" --report "$artifacts/bend_tls_native_rsa_aes.json" -- "$artifacts/bend_tls"
+end
+begin bend_tls_native_rsa_aes_negative
+python3 examples/bend_tls_check.py --fixtures "$artifacts/fixtures" --credential rsa --suite aes --negative --report "$artifacts/bend_tls_native_rsa_aes_negative.json" -- "$artifacts/bend_tls"
+end
+begin bend_tls_native_rsa_chacha
+python3 examples/bend_tls_check.py --fixtures "$artifacts/fixtures" --credential rsa --suite chacha --go "$tmp/bend_tls_go" --legacy "$tmp/cookie_legacy" --report "$artifacts/bend_tls_native_rsa_chacha.json" -- "$artifacts/bend_tls"
+end
+begin bend_tls_native_rsa_chacha_negative
+python3 examples/bend_tls_check.py --fixtures "$artifacts/fixtures" --credential rsa --suite chacha --negative --report "$artifacts/bend_tls_native_rsa_chacha_negative.json" -- "$artifacts/bend_tls"
+end
+begin bend_tls_bun_ecdsa_aes
+python3 examples/bend_tls_check.py --target bun --fixtures "$artifacts/fixtures" --credential ecdsa --suite aes --go "$tmp/bend_tls_go" --legacy "$tmp/cookie_legacy" --report "$artifacts/bend_tls_bun_ecdsa_aes.json" -- bun "$artifacts/bend_tls.js"
+end
+begin bend_tls_bun_ecdsa_aes_negative
+python3 examples/bend_tls_check.py --target bun --fixtures "$artifacts/fixtures" --credential ecdsa --suite aes --negative --report "$artifacts/bend_tls_bun_ecdsa_aes_negative.json" -- bun "$artifacts/bend_tls.js"
+end
+begin bend_tls_bun_ecdsa_chacha
+python3 examples/bend_tls_check.py --target bun --fixtures "$artifacts/fixtures" --credential ecdsa --suite chacha --go "$tmp/bend_tls_go" --legacy "$tmp/cookie_legacy" --report "$artifacts/bend_tls_bun_ecdsa_chacha.json" -- bun "$artifacts/bend_tls.js"
+end
+begin bend_tls_bun_ecdsa_chacha_negative
+python3 examples/bend_tls_check.py --target bun --fixtures "$artifacts/fixtures" --credential ecdsa --suite chacha --negative --report "$artifacts/bend_tls_bun_ecdsa_chacha_negative.json" -- bun "$artifacts/bend_tls.js"
+end
+
+begin bend_tls_configuration_native
+python3 examples/bend_tls_check.py --configuration --fixtures "$artifacts/fixtures" --report "$artifacts/configuration-native.json" -- "$artifacts/bend_tls"
+end
+begin bend_tls_configuration_bun
+python3 examples/bend_tls_check.py --target bun --configuration --fixtures "$artifacts/fixtures" --report "$artifacts/configuration-bun.json" -- bun "$artifacts/bend_tls.js"
+end
+
 begin context_native
-sh ../../tools/bend_native.sh examples/context.bend "$tmp/context" > /dev/null
+native examples/context.bend "$tmp/context" > /dev/null
 python3 examples/context_check.py "$tmp/context"
 end
 if command -v bun > /dev/null 2>&1; then
   begin context_bun
-  bend examples/context.bend -o "$tmp/context.js" > /dev/null
+  BUN_OPTIONS="${BUN_OPTIONS:-} --smol" BUN_JSC_forceRAMSize=134217728 bend examples/context.bend -o "$tmp/context.js" > /dev/null
   python3 examples/context_check.py bun "$tmp/context.js"
   end
 else
   announce skip http_server/context_bun 'Bun unavailable'
 fi
 begin hello
-bend examples/hello.bend -o "$tmp/hello" > /dev/null
+native examples/hello.bend "$tmp/hello" > /dev/null
 "$tmp/hello" &
 pid=$!
 tries=0
@@ -81,7 +171,7 @@ end
 
 # the middleware stack: request id, recover's 500, body_limit's 413, logs
 begin middleware
-bend examples/stack.bend -o "$tmp/stack" > /dev/null
+native examples/stack.bend "$tmp/stack" > /dev/null
 "$tmp/stack" > "$tmp/log" 2> "$tmp/errlog" &
 spid=$!
 tries=0
@@ -102,7 +192,7 @@ end
 
 # streamed bodies, health, env config and a graceful stop (examples/stream)
 begin stream
-bend examples/stream.bend -o "$tmp/stream" > /dev/null
+native examples/stream.bend "$tmp/stream" > /dev/null
 PORT=8083 "$tmp/stream" > /dev/null 2>&1 &
 tpid=$!
 tries=0
@@ -131,19 +221,19 @@ echo "stop: cut at a 500 ms drain deadline"
 end
 
 begin tls_proxy
-bend examples/tls.bend -o "$tmp/tls" > /dev/null
-bend examples/redirect.bend -o "$tmp/redirect" > /dev/null
-bend examples/trusted_proxy.bend -o "$tmp/trusted_proxy" > /dev/null
+native examples/tls.bend "$tmp/tls" > /dev/null
+native examples/redirect.bend "$tmp/redirect" > /dev/null
+native examples/trusted_proxy.bend "$tmp/trusted_proxy" > /dev/null
 python3 examples/tls_check.py "$tmp/tls" "$tmp/redirect" "$tmp/trusted_proxy"
 end
 
 begin auth
-bend examples/auth.bend -o "$tmp/auth" > /dev/null
+native examples/auth.bend "$tmp/auth" > /dev/null
 python3 examples/auth_check.py "$tmp/auth"
 end
 
 begin cors
-bend examples/cors.bend -o "$tmp/cors" > /dev/null
+native examples/cors.bend "$tmp/cors" > /dev/null
 python3 examples/cors_check.py "$tmp/cors"
 end
 
@@ -154,7 +244,7 @@ begin websocket_frame_units
 bend websocket_frame_test.bend
 end
 begin websocket_live
-bend examples/websocket.bend -o "$tmp/websocket" > /dev/null
+native examples/websocket.bend "$tmp/websocket" > /dev/null
 "$tmp/websocket" > "$tmp/websocket.log" 2>&1 &
 wspid=$!
 tries=0
@@ -169,11 +259,12 @@ wspid=
 end
 
 begin multipart
-sh ../../tools/bend_native.sh examples/multipart.bend "$tmp/multipart" > /dev/null
-sh ../../tools/bend_native.sh ../client/examples/multipart.bend "$tmp/multipart_client" > /dev/null
+native examples/multipart.bend "$tmp/multipart" > /dev/null
+native ../client/examples/multipart.bend "$tmp/multipart_client" > /dev/null
 python3 examples/multipart_fuzz.py "$tmp/multipart" --count 200 --seed "${SEED:-1}" --client "$tmp/multipart_client"
 end
 
 begin cold
-python3 ../../json/scripts/cold.py "$PWD/examples/hello.bend" "$PWD/examples/stack.bend" "$PWD/examples/stream.bend" "$PWD/examples/tls.bend" "$PWD/examples/redirect.bend" "$PWD/examples/trusted_proxy.bend" "$PWD/examples/auth.bend"
+BUN_OPTIONS="${BUN_OPTIONS:-} --smol" BUN_JSC_forceRAMSize=134217728 python3 ../../json/scripts/cold.py "$PWD/examples/hello.bend" "$PWD/examples/stack.bend" "$PWD/examples/stream.bend" "$PWD/examples/tls.bend" "$PWD/examples/redirect.bend" "$PWD/examples/trusted_proxy.bend" "$PWD/examples/auth.bend"
+python3 examples/legacy_graph_audit.py --artifacts "$artifacts/legacy-graphs" --hello "$tmp/hello" --stream "$tmp/stream"
 end
