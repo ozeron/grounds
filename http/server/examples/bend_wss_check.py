@@ -10,7 +10,8 @@ import subprocess
 import sys
 import time
 
-from bend_tls_check import server, context, request
+from bend_tls_check import server, context, request, tls_socket
+from bend_tls_client_check import SUITES
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "wire"))
 from bend_tls_server_check import descriptor_count
 
@@ -80,6 +81,11 @@ def close(peer):
 
 def live(binary, directory, go, suite, rows):
     with server([str(binary)], directory, "ecdsa", suite) as (port, process):
+        with tls_socket(port, directory) as peer:
+            negotiated = peer.cipher()[0]
+            assert negotiated == SUITES[suite][1], ("WSS suite differs", suite, negotiated)
+            assert peer.version() == "TLSv1.3" and peer.selected_alpn_protocol() == "http/1.1"
+        rows.append(dict(name="negotiated-profile", suite=suite, cipher=negotiated, alpn="http/1.1"))
         cookie = request(port, directory, "/mint")[2]["set-cookie"].split(";", 1)[0]
         for name, settings, expected in [
             ("denied-origin", dict(origin="https://denied.test"), 403),

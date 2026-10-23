@@ -54,7 +54,9 @@ def origin_env(value: Result<&1,&1,U32 & String,String>) -> String:
 
 def main() -> IO(Unit):
   do IO<Unit>:
-    cfg : Server.Config <- Server.from_env(Server.with_bend_tls(Server.default(8090),"",""))
+    preference : Result<&1,&1,U32 & String,String> <- IO.get_env("HTTP_BEND_TLS_SUITE")
+    selected : List<&2,U32> <- Http.suites(preference)
+    cfg : Server.Config <- Server.from_env(Server.with_bend_tls_chain(Server.default(8090),[""],"",selected))
     secret : String <- IO.try(String,IO.get_env("HTTP_COOKIE_KEY"))
     expected : Result<&1,&1,U32 & String,String> <- IO.get_env("HTTP_WS_ORIGIN")
     Server.serve_bend_out_context(~Context,~app,Context{Cookie.SigningKey{secret},origin_env(expected)},cfg)

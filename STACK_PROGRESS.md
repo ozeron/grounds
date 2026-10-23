@@ -4,6 +4,24 @@ Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and 
 
 The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
 
+- 2026-10-23 (M4b round 2 audit correction: WSS suite evidence):
+  Source review found `bend_wss.bend` ignored `HTTP_BEND_TLS_SUITE`, while
+  `bend_wss_check.py` labelled rows from that environment without asserting the
+  negotiated cipher. Round-1 WSS per-suite labels were therefore insufficient
+  evidence of ChaCha negotiation. The new Chrome fixture already forced and
+  verified both ciphers independently; its reports are unaffected.
+  Strengthened the existing Python/Go WSS harness with an explicit negotiated
+  TLS 1.3/cipher/http/1.1 assertion. Before fixing the fixture,
+  `round2/server-01/server/m4b/chacha.json` failed exactly with
+  `('WSS suite differs', 'chacha', 'TLS_AES_128_GCM_SHA256')` and zero scenarios;
+  enclosing `server-01.json` is a retained failed/partial reproduction, not a
+  memory-pressure stop or acceptance. The fixture now uses `Http.suites` and
+  `with_bend_tls_chain`, as the HTTP/browser fixtures do. In the subsequent
+  fresh complete `server-02` run, `server/m4b/aes.json` and `chacha.json` pass
+  **13/13 each** (the original 12 plus the negotiated-profile assertion), with
+  the exact WSS native audit passing. Full server/client/root gates remain
+  in progress at this commit. No scenario or deadline was removed/weakened.
+
 - 2026-10-23 (M4b round 2 native performance baseline):
   `http/server/PERFORMANCE.md` documents the reproducible diagnostic using an
   identical eight-byte application handler for Bend/OpenSSL servers and both
