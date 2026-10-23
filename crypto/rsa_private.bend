@@ -195,48 +195,92 @@ def validate(key: Private) -> Maybe<&1, Private>:
     case Private{+n, +e, +d, +p, +q, +dp, +dq, +qi}:
       validate.shape(shape(Private{n, e, d, p, q, dp, dq, qi}), Private{n, e, d, p, q, dp, dq, qi})
 
-# Always square AND multiply, then mask-select the exponent bit. This removes
-# the obvious private-exponent branch; generated-code review is still needed.
-def power.selected(+count: Nat, base: Array<U32>, original: Array<U32>, +bit: U32, result: R.ModResult) -> R.Power:
+# Fixed four-bit windows: four squares and one multiply per nibble. Every
+# lookup scans all sixteen table entries and mask-selects their limbs; neither
+# branches nor array indexes depend on the private exponent nibble.
+type WindowPower is Type:
+  WindowPower{modulus: Array<U32>, table: List<Array<U32>>, acc: Array<U32>}
+
+type TableBuild is Type:
+  TableBuild{power: R.Power, table: List<Array<U32>>, acc: Array<U32>}
+
+def table.cloned(+count: Nat, +inverse: U32, modulus: Array<U32>, base: Array<U32>, table: List<Array<U32>>, acc: Array<U32>, pair: Array<U32> & Array<U32>, next: TableBuild -> WindowPower) -> WindowPower:
+  (value, saved) = pair
+  next(TableBuild{R.power.bit(True{}, count, inverse, R.Power{modulus, base, value}), Con{saved, table}, acc})
+
+def table.build(left: Nat, +count: Nat, +inverse: U32, state: TableBuild) -> WindowPower:
+  match left state:
+    case 0n TableBuild{R.Power{modulus, _, _}, table, acc}:
+      WindowPower{modulus, List.reverse(&1, Array<U32>, table), acc}
+    case 1n+p TableBuild{R.Power{modulus, base, value}, table, acc}:
+      table.cloned(count, inverse, modulus, base, table, acc, Array.clone(U32, value),
+        s => table.build(p, count, inverse, s))
+
+type Pick is Type:
+  Pick{table: List<Array<U32>>, factor: Array<U32>}
+
+def pick.saved(value: Array<U32>, result: Pick) -> Pick:
   match result:
-    case R.ModResult{modulus, candidate}:
-      R.Power{modulus, base, R.select.go(Nat.add(count, 1n), 0, U32.mul(32767, bit), R.Select{original, candidate, R.zero()})}
+    case Pick{table, factor}: Pick{Con{value, table}, factor}
 
-def power.base(+count: Nat, +inverse: U32, modulus: Array<U32>, original: Array<U32>, acc: Array<U32>, +bit: U32, pair: Array<U32> & Array<U32>) -> R.Power:
-  (base, factor) = pair
-  power.selected(count, base, original, bit, R.mont(count, inverse, modulus, acc, factor))
+def pick.cloned(+count: Nat, +mask: U32, factor: Array<U32>, pair: Array<U32> & Array<U32>, next: Array<U32> -> Pick) -> Pick:
+  (value, copy) = pair
+  pick.saved(value, next(R.select.go(Nat.add(count, 1n), 0, mask, R.Select{factor, copy, R.zero()})))
 
-def power.original(+count: Nat, +inverse: U32, modulus: Array<U32>, base: Array<U32>, +bit: U32, pair: Array<U32> & Array<U32>) -> R.Power:
-  (original, acc) = pair
-  power.base(count, inverse, modulus, original, acc, bit, Array.clone(U32, base))
+def pick.go(table: List<Array<U32>>, +count: Nat, +index: U32, +at: U32, factor: Array<U32>) -> Pick:
+  match table:
+    case Nil{}: Pick{[], factor}
+    case Con{value, tail}:
+      # index and at are in 0..15: (index xor at)-1 has its high bit set
+      # exactly on equality. All table entries take this same code path.
+      mask = U32.mul(32767, U32.shrn(U32.sub(U32.xor(index, at), 1), 31n))
+      pick.cloned(count, mask, factor, Array.clone(U32, value),
+        f => pick.go(tail, count, index, U32.inc(at), f))
 
-def power.bit(+count: Nat, +inverse: U32, +bit: U32, state: R.Power) -> R.Power:
+def window.product(table: List<Array<U32>>, result: R.ModResult) -> WindowPower:
+  match result:
+    case R.ModResult{modulus, acc}: WindowPower{modulus, table, acc}
+
+def window.picked(+count: Nat, inverse: U32, modulus: Array<U32>, acc: Array<U32>, value: Pick) -> WindowPower:
+  match value:
+    case Pick{table, factor}: window.product(table, R.mont(count, inverse, modulus, acc, factor))
+
+def window.squared(+count: Nat, inverse: U32, index: U32, table: List<Array<U32>>, power: R.Power) -> WindowPower:
+  match power:
+    case R.Power{modulus, _, acc}:
+      window.picked(count, inverse, modulus, acc, pick.go(table, count, index, 0, R.zero()))
+
+def window.step(+count: Nat, +inverse: U32, index: U32, state: WindowPower) -> WindowPower:
   match state:
-    case R.Power{modulus, base, acc}:
-      power.original(count, inverse, modulus, base, bit, Array.clone(U32, acc))
+    case WindowPower{modulus, table, acc}:
+      window.squared(count, inverse, index, table,
+        R.power.square(count, inverse, R.power.square(count, inverse,
+          R.power.square(count, inverse, R.power.square(count, inverse, R.Power{modulus, R.zero(), acc})))))
 
-def power.bits(+left: Nat, +count: Nat, +inverse: U32, +byte: U32, state: R.Power) -> R.Power:
-  match left:
-    case 0n:
-      state
-    case 1n+ +p:
-      power.bits(p, count, inverse, byte, power.bit(count, inverse, U32.and(U32.shrn(byte, p), 1), R.power.square(count, inverse, state)))
-
-def power.next(state: R.Power, next: R.Power -> R.Power) -> R.Power:
-  next(state)
-
-def power.bytes(+exponent: List<&2, U32>, +count: Nat, +inverse: U32, state: R.Power) -> R.Power:
+def window.bytes(exponent: List<&2, U32>, +count: Nat, +inverse: U32, state: WindowPower) -> WindowPower:
   match exponent:
-    case Nil{}:
-      state
-    case Con{byte, tail}:
-      power.next(power.bits(8n, count, inverse, byte, state), s => power.bytes(tail, count, inverse, s))
+    case Nil{}: state
+    case Con{+byte, tail}:
+      window.bytes(tail, count, inverse,
+        window.step(count, inverse, U32.and(byte, 15), window.step(count, inverse, U32.shrn(byte, 4n), state)))
+
+def window.finished(+count: Nat, inverse: U32, state: WindowPower) -> R.ModResult:
+  match state:
+    case WindowPower{modulus, _, acc}: R.mont(count, inverse, modulus, acc, R.one())
+
+def window.cloned(+count: Nat, +inverse: U32, exponent: List<&2, U32>, modulus: Array<U32>, base: Array<U32>, pair: Array<U32> & Array<U32>) -> R.ModResult:
+  (value, acc) = pair
+  window.finished(count, inverse, window.bytes(exponent, count, inverse,
+    table.build(16n, count, inverse, TableBuild{R.Power{modulus, base, value}, [], acc})))
+
+def window.start(+count: Nat, inverse: U32, exponent: List<&2, U32>, state: R.Power) -> R.ModResult:
+  match state:
+    case R.Power{modulus, base, acc}: window.cloned(count, inverse, exponent, modulus, base, Array.clone(U32, acc))
 
 def power.low(+bits: Nat, +count: Nat, +exponent: List<&2, U32>, base: Array<U32>, pair: Array<U32> & U32) -> R.ModResult:
   (modulus, low) = pair
   +inverse = R.inverse_low(low)
-  R.power.finish(count, inverse, power.bytes(exponent, count, inverse,
-    R.power.r_squared(count, inverse, base, R.r2(bits, count, modulus))))
+  window.start(count, inverse, exponent, R.power.r_squared(count, inverse, base, R.r2(bits, count, modulus)))
 
 def power(+modulus: List<&2, U32>, +exponent: List<&2, U32>, +base: List<&2, U32>) -> List<&2, U32>:
   R.result.encode(B.length(modulus), power.low(R.bit_length(modulus), limbs(modulus), exponent, R.decode(base), Array.get(U32, R.decode(modulus), 0)))

@@ -25,7 +25,7 @@ effect; it is not a whole-runtime constant-time claim.
 | X25519 scalar-bit selection | The existing 255-step ladder unconditionally computes field work and uses XOR-mask coordinate swaps. Emitted JS `x25519_ladder`, `cswap`, `swap_step_b` and C masked-swap path preserve this. Indices/counters are public; all-zero shared output is fully scanned and rejected. No secret-bit branch was introduced. | mitigated |
 | P-256 multiplication | Existing fixed 256-step double/add plus masked selection is retained in JS `p256_multiply_go`/`multiply_selected` and corresponding C. Coordinates are canonical and peers are on-curve before ECDH. Arithmetic still allocates and clones arrays. | mitigated |
 | ECDSA deterministic nonce and retry | RFC 6979 HMAC-SHA256, canonical candidate rejection and r=0/s=0 rejection are implemented, including verified erratum 3812. `search_go`, `search_candidate`, `sign_nonzero` and their emitted C branches expose candidate validity/retry count. The bounded 128-attempt search fails closed. Removing rejection would break the algorithm; a proven constant-time replacement needs a separately validated signing design and runtime. The old open retry finding is explicitly restricted, not pronounced fixed. | accepted-for-synthetic-keys-only |
-| RSA private exponent bit | The new CRT operation always squares and multiplies, then mask-selects the exponent bit, rather than calling the public branch-on-exponent operation. This fixes the direct private-bit branch at the Bend source boundary. Public verification is used only for the final fault check. | fixed |
+| RSA private exponent bit | The CRT operation uses fixed four-bit windows: four squares and one multiply per nibble, with a full sixteen-entry limb-mask scan for the factor. The nibble controls neither a branch nor a table address. Public verification remains the final fault check. This supersedes the earlier square/multiply/bit-mask implementation described in the retained M2 artifact observations below. | fixed |
 | RSA subtraction borrow | The private-factor subtraction loop now visits the complete admitted limb width even when borrow becomes zero. Emitted JS `minus_small_go`/`minus_small_step` and C preserve the fixed-width arithmetic continuation. | fixed |
 | RSA base correlation/faults | Fresh full-width uniform random candidate, checked inverse per factor, CRT recombination and complete public recovery comparison before output mitigate direct base correlation and CRT faults. Candidate rejection fails without a signature; caller supplies fresh entropy on retry. | mitigated |
 | RSA private arithmetic/admission | Factor byte lengths, modulus setup, private-value range/congruence/inverse checks, candidate rejection and allocation remain variable-time. Imported factors must come from trusted prime generation; consistency checking is not a primality certificate. Blinding does not cure all timing/factor-length leaks. | accepted-for-synthetic-keys-only |
@@ -108,7 +108,7 @@ is Bend 2.0.38, executable SHA-256
 | finished (tls_schedule) | `dc2cc8a76fdfe3f4ee8e1d8ab311f79c5b83533934029c0d576fe196793ae198` | `cb87473813a41340f54b478dd5a1548283973549e99d701358486fd612035c48` |
 | rsa_private | `9cf3ca53965ce20ae0c33f88d521b5ed564c502e747450b427872741bbb08fdd` | `012d0884032a597e79e903b01224d633a8c8c930a5292924a926941ef7215731` |
 
-RSA JS `power_bits` unconditionally calls square then `power_bit`, and
+In the retained M2 artifacts above, RSA JS `power_bits` unconditionally calls square then `power_bit`, and
 `power_selected` selects with `32767 * bit`; emitted C `spin_98` retains that
 mask (line 7339). JS `minus_small_go` (12072) branches only on the public
 remaining limb count; `minus_small_step` (12250) computes borrow arithmetically.
@@ -116,6 +116,18 @@ The separate public exponent helper may branch on public e. CRT factor
 inverse and final full-width recovery checks are retained. The fixture CLI
 independently calls the existing Bend PSS verifier before printing a synthetic
 signature. Final focused/gate evidence belongs in STACK_PROGRESS.md.
+
+M4a round 2 replaces that exponentiation loop with the fixed-window scan in
+`rsa_private.bend` and fuses the Montgomery product/reduction/shift rows in
+`rsa_integer.bend`. For each byte both nibbles execute the same four-square,
+one-multiply sequence. `pick.go` visits all sixteen entries in order and forms
+the equality mask arithmetically; each `select.go` visits the same public limb
+prefix. Table construction also has a fixed sixteen-step count. No blinding,
+key-validation, inverse or final signature recovery check is removed. Exact
+rebuilt programs and current acceptance results are retained under
+`~/.codex/artifacts/grounds/2026-10-23/m4a/round2/` and the progress ledger.
+These source-level mitigations do not approve generated-code constant time or
+physical erasure; the synthetic-key restriction remains unchanged.
 
 ## References and evidence limits
 
