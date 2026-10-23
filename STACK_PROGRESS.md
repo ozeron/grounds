@@ -4,6 +4,14 @@ Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and 
 
 The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
 
+- 2026-10-23 (M2 implementation; focused checks complete, full gates pending):
+  Added blinded CRT RSA-PSS signing, bounded private-key/PEM import and
+  leaf-SPKI binding. New crypto cases pass **724/724 per native/Bun target**;
+  key-share/CertificateVerify focused checks pass another **147/147 per target**.
+  The frozen profile and generated-runtime review permit synthetic keys only;
+  physical erasure remains a blocker for live secrets. M2 boxes remain open
+  until fresh package/root gates complete. M3 has not started.
+
 - 2026-10-23 (M1 complete, Bend 2.0.38): `x509_chain.verify` provides one
   bounded server-certificate authentication result. Native and Bun each pass
   **193/193 complete-chain cases** (55 accepted, 138 rejected), independently
@@ -53,6 +61,52 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 | `rtc` | Bend STUN parsing, IPv4 XOR-MAPPED-ADDRESS, SHA-1/SHA-256/dual integrity, FINGERPRINT, authenticated incoming/outgoing ICE Binding exchanges, retained-socket retransmissions and explicit error/integrity outcomes. IPv4 candidate/pair priorities, bounded checklist formation, stable transport references and guarded state transitions, role-driven priority reordering, a paced shared-socket transaction engine with response-only interruption, protected incoming replies and server-side role decisions, FIFO triggered queues, ordinary round-robin/foundation scheduling and generation/sent-role attempt ownership. A bounded session now binds signaled credentials, registered receiving/sending bases, observed peer-reflexive candidates, deferred incoming work, retained attempts and endpoint integrity policies. Authenticated non-symmetric responses fail only their original current pair; interrupted old listeners retire independently. The live owner fixture explicitly binds unicast IPv4 bases and queries actual local ports before candidate formation. An additive valid-list owner resolves authenticated mappings, learns locally peer-reflexive candidates from retained signed-request priority, allocates IP-keyed foundations, reranks by role and keeps late paths separate from replacement flights. A nomination-evidence owner associates current successful checks with their valid paths and retains qualified incoming intent through materialization, exact triggered flights and response-only listeners; already-Succeeded counterparts resolve their actual generating record. A generation lifecycle owner now applies regular controlling/controlled nomination, selects completed stream paths, removes nominated component checks while retaining response listeners, continues authenticated Binding service, and defers failure through PAC. An outer transport owner derives selected physical consent routes, serves authenticated consent-only Binding requests, shares actual-send pacing and recent transaction identity admission, gates logical application routes, and preserves sealed consent loss. Full/full credential restart rebuilds ICE state while retaining only selected old consent/server contexts until replacement selection. Bounded SDP/signaling now binds connection-owned credentials and the actual retained UDP base; real Chrome verifies direct selected pairs, fresh consent, restart and cleanup on native and Bun. Separate unauthenticated discovery remains available. | Complete crypto/runtime foundations and secure signaling, then gathering, IPv6/TURN, DTLS/SCTP and SRTP/media. |
 
 ## Evidence ledger
+
+- 2026-10-23 (M2 crypto implementation checkpoint; full acceptance pending):
+
+  On `bend-https`, added `rsa_private.validate/sign_digest`, `pem.decode`,
+  `private_key.sec1/pkcs1/pkcs8/pem`, and
+  `credential.from_key/import_pem`. RSA uses private CRT with base blinding,
+  checked per-factor inverse and full public recovery before releasing a
+  signature. Private exponent-bit selection and subtraction borrow are masked/
+  fixed-width at source and in the inspected emitted C/JS. Import admits only
+  the frozen P-256/two-prime RSA forms; encrypted PEM rejects distinctly and
+  the imported public key must equal the leaf's admitted SPKI.
+
+  Focused native **724/724** and Bun **724/724** new crypto cases pass:
+  RSA **145** (arithmetic 63, keys 45, signing 9, rejection 28), PEM **436**,
+  private import **123** (EC 76/RSA 47), credential binding **20** (six matched,
+  eleven rejected, three encrypted). Every released RSA signature is checked
+  by the existing Bend verifier, independent Python RFC 8017 arithmetic and
+  OpenSSL. Synthetic modulus sizes include exact 2049 bits as well as
+  2048/3072/4096 and e=3; full-width product/recovery regressions are retained.
+  The 13 RSA and eight credential frontend declarations pass; private-key
+  ownership has two valid probes and four rejected copies/reuses.
+  The frozen private-import oracle is independently rechecked with cryptography
+  **50.0.2**: **123/123** verdicts, 20 matching public keys/103 loader rejections.
+
+  Artifacts: `/Users/ozeron/.codex/artifacts/grounds/2026-10-23/m2/`.
+  `rsa/final_checks.py` records exact commands; `rsa-final-*.json/.log`,
+  paired `-command.json`/`-binding.json` and `rsa/{native,bun}-*.json` retain
+  resource and case evidence. `credentials/run.py`, its command/guard/log
+  reports, `credentials/*-cases.json` and `credentials/result.json` retain the
+  complete import/ownership/oracle evidence. All heavy calls are sequential,
+  nice 10, **4096 MiB aggregate/process**, **120 s** unchanged; the final RSA
+  proof phase takes **13.000 s**. Failed compiler attempts are retained. Two
+  required Astra-low consultations addressed PEM recursive-driver admission
+  and private-import binder ordering before retry; their receipts are in
+  `credentials/{pem,private}-astra-consult.json`. The failed version-metadata
+  call used unsupported `bend --version`; `rsa-final-toolchain-02` fixes it to
+  `bend version` without changing code or repeating passed cases.
+
+  `crypto/RUNTIME_REVIEW.md` inventories every timing, storage, retirement and
+  lifecycle finding with an explicit disposition and exact generated hashes.
+  Live-secret use remains **blocked**: affine consumption is logical retirement,
+  not physical erasure; ECDSA retry/private admission and native/JIT behavior
+  are restricted to synthetic keys. Existing 70 ChaCha/72 AES lifecycle cases
+  already cover counters, usage, updates and failure retirement unchanged.
+  Crypto manifests preserve every original phase and add 29; root acceptance
+  remains pending here. No M3 or live-handshake claim is made.
 
 - 2026-10-23 (M1 acceptance closeout; fresh crypto and root gates pass):
 

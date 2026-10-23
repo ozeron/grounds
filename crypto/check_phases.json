@@ -758,6 +758,74 @@
       "optional": false
     },
     {
+      "name": "crypto/frontend/rsa_private_test",
+      "optional": false
+    },
+    {
+      "name": "crypto/frontend/pem_test",
+      "optional": false
+    },
+    {
+      "name": "crypto/frontend/private_key_test",
+      "optional": false
+    },
+    {
+      "name": "crypto/frontend/credential_test",
+      "optional": false
+    },
+    {
+      "name": "crypto/frontend/private_key_type_check",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/build/rsa_private_cli",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/build/pem_cli",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/build/private_key_cli",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/build/credential_cli",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/rsa_private_arithmetic",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/rsa_private_keys",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/rsa_private_sign",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/rsa_private_reject",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/pem",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/private_key_ec",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/private_key_rsa",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/credential",
+      "optional": false
+    },
+    {
       "name": "crypto/bun/build/cli",
       "optional": true
     },
@@ -6691,6 +6759,54 @@
     },
     {
       "name": "crypto/bun/check/traffic_aes_check",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/build/rsa_private_cli",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/build/pem_cli",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/build/private_key_cli",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/build/credential_cli",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_private_arithmetic",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_private_keys",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_private_sign",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/rsa_private_reject",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/pem",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/private_key_ec",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/private_key_rsa",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/credential",
       "optional": true
     }
   ]

@@ -1,6 +1,6 @@
 # grounds-crypto
 
-Pure Bend cryptographic primitives. This package implements SHA-1, SHA-256, HMAC-SHA1, HMAC-SHA256, HKDF-SHA-256, ChaCha20, Poly1305, ChaCha20-Poly1305 AEAD, AES-128 encryption, AES-128-GCM, X25519, P-256 ECDH, P-256/SHA-256 ECDSA and RSA-PSS/v1.5 SHA-256 digest verification. They are **experimental**: legacy cookie signing and live TLS still use OpenSSL while the Bend implementation is verified and its generated code is reviewed for timing behavior. The HTTP core now exposes explicit Bend cookie HMAC wrappers for synthetic-key verification on native and Bun. Plain SHA-1 is used only for the WebSocket handshake challenge; HMAC-SHA1 is for the legacy STUN MESSAGE-INTEGRITY attribute.
+Pure Bend cryptographic primitives. This package implements SHA-1, SHA-256, HMAC-SHA1, HMAC-SHA256, HKDF-SHA-256, ChaCha20, Poly1305, ChaCha20-Poly1305 AEAD, AES-128 encryption, AES-128-GCM, X25519, P-256 ECDH, P-256/SHA-256 ECDSA, RSA-PSS SHA-256 private signing, RSA-PSS/v1.5 SHA-256 digest verification and bounded server credential import. They are **experimental**: legacy cookie signing and live TLS still use OpenSSL. [RUNTIME_REVIEW.md](RUNTIME_REVIEW.md) restricts the Bend path to synthetic keys; live-secret timing and physical erasure remain blocked. The HTTP core exposes explicit Bend cookie HMAC wrappers for synthetic-key verification on native and Bun. Plain SHA-1 is used only for the WebSocket handshake challenge; HMAC-SHA1 is for legacy STUN MESSAGE-INTEGRITY.
 
 | Module | Public calls | Source |
 |---|---|---|
@@ -24,6 +24,10 @@ Pure Bend cryptographic primitives. This package implements SHA-1, SHA-256, HMAC
 | `rsa_encoding.bend` | `mgf1`, `pss_encode_digest`, `pss_verify_digest`, `v15_encode_digest`, `v15_verify_digest` | RFC 8017 SHA-256 encoding |
 | `rsa_integer.bend` | `public_operation(modulus, exponent, signature)` | Experimental Bend RSAVP1, 2048–4096-bit RSA public keys |
 | `rsa_signature256.bend` | `verify_pss_digest(modulus, exponent, digest, signature)`, `verify_v15_digest(modulus, exponent, digest, signature)` | Experimental full SHA-256 digest-signature verification; 774 focused cases pass on native and Bun |
+| `rsa_private.bend` | `validate(private)`, `sign_digest(private,digest,salt,blind)` | RFC 8017 CRT RSA-PSS/SHA-256 signing, base blinding and public fault check; affine key consumed; trusted prime generation required |
+| `pem.bend` | `decode(bytes)` | Bounded canonical PEM/Base64, distinct encrypted-key rejection |
+| `private_key.bend` | `sec1`, `pkcs1`, `pkcs8`, `pem` | Affine P-256/RSA private import through bounded DER; SEC1/PKCS#8 P-256 and PKCS#1/PKCS#8 RSA |
+| `credential.bend` | `from_key(leaf_der,key)`, `import_pem(leaf_der,private_pem)` | Imported key must match leaf SPKI; RSAE only for local RSA CertificateVerify; no trust decision |
 | `field256.bend` | Internal P-256 prime/order `add`, `sub`, `mul`, `square`, `invert`, `decode_canonical` | SP 800-186 section 3.2.1.3 arithmetic foundation |
 | `bytes.bend` | `length`, `valid`, `append`, `hex` | Tail-recursive byte-list helpers |
 | `der.bend` | `decode(bytes)`, `complete(tag, bytes)` | Bounded DER TLV framing for future certificate schemas; preserves exact consumed bytes |

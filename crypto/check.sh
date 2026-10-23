@@ -166,6 +166,25 @@ done
 check native/check/x25519_check python3 x25519_check.py --iterated "$tmp/x25519"
 check native/check/traffic_check python3 traffic_check.py python3 traffic_fixture.py --write "$tmp/traffic_write" --read "$tmp/traffic_read" --
 check native/check/traffic_aes_check python3 traffic_aes_check.py python3 traffic_fixture.py --write "$tmp/traffic_write" --read "$tmp/traffic_read" --
+# M2 private signing and credential import.
+check frontend/rsa_private_test bend rsa_private_test.bend
+check frontend/pem_test bend pem_test.bend
+check frontend/private_key_test bend private_key_test.bend
+check frontend/credential_test bend credential_test.bend
+check frontend/private_key_type_check python3 private_key_type_check.py
+check native/build/rsa_private_cli ../tools/bend_native.sh rsa_private_cli.bend "$tmp/rsa_private" > /dev/null
+check native/build/pem_cli ../tools/bend_native.sh pem_cli.bend "$tmp/pem" > /dev/null
+check native/build/private_key_cli ../tools/bend_native.sh private_key_cli.bend "$tmp/private_key" > /dev/null
+check native/build/credential_cli ../tools/bend_native.sh credential_cli.bend "$tmp/credential" > /dev/null
+check native/check/rsa_private_arithmetic python3 rsa_private_check.py --section arithmetic -- "$tmp/rsa_private"
+check native/check/rsa_private_keys python3 rsa_private_check.py --section keys -- "$tmp/rsa_private"
+check native/check/rsa_private_sign python3 rsa_private_check.py --section sign -- "$tmp/rsa_private"
+check native/check/rsa_private_reject python3 rsa_private_check.py --section reject -- "$tmp/rsa_private"
+check native/check/pem python3 pem_check.py -- "$tmp/pem"
+check native/check/private_key_ec python3 private_key_check.py --part ec -- "$tmp/private_key"
+check native/check/private_key_rsa python3 private_key_check.py --part rsa -- "$tmp/private_key"
+check native/check/credential python3 credential_check.py -- "$tmp/credential"
+
 if command -v bun > /dev/null 2>&1; then
   check bun/build/cli bend cli.bend -o "$tmp/sha256.js" > /dev/null
   check bun/build/sha256_stream_cli bend sha256_stream_cli.bend -o "$tmp/sha_stream.js" > /dev/null
@@ -269,6 +288,18 @@ if command -v bun > /dev/null 2>&1; then
   check bun/check/x25519_check python3 x25519_check.py bun "$tmp/x25519.js"
   check bun/check/traffic_check python3 traffic_check.py python3 traffic_fixture.py --bun --write "$tmp/traffic_write.js" --read "$tmp/traffic_read.js" --
   check bun/check/traffic_aes_check python3 traffic_aes_check.py python3 traffic_fixture.py --bun --write "$tmp/traffic_write.js" --read "$tmp/traffic_read.js" --
+check bun/build/rsa_private_cli bend rsa_private_cli.bend -o "$tmp/rsa_private.js" > /dev/null
+check bun/build/pem_cli bend pem_cli.bend -o "$tmp/pem.js" > /dev/null
+check bun/build/private_key_cli bend private_key_cli.bend -o "$tmp/private_key.js" > /dev/null
+check bun/build/credential_cli bend credential_cli.bend -o "$tmp/credential.js" > /dev/null
+check bun/check/rsa_private_arithmetic python3 rsa_private_check.py --section arithmetic -- bun "$tmp/rsa_private.js"
+check bun/check/rsa_private_keys python3 rsa_private_check.py --section keys -- bun "$tmp/rsa_private.js"
+check bun/check/rsa_private_sign python3 rsa_private_check.py --section sign -- bun "$tmp/rsa_private.js"
+check bun/check/rsa_private_reject python3 rsa_private_check.py --section reject -- bun "$tmp/rsa_private.js"
+check bun/check/pem python3 pem_check.py -- bun "$tmp/pem.js"
+check bun/check/private_key_ec python3 private_key_check.py --part ec -- bun "$tmp/private_key.js"
+check bun/check/private_key_rsa python3 private_key_check.py --part rsa -- bun "$tmp/private_key.js"
+check bun/check/credential python3 credential_check.py -- bun "$tmp/credential.js"
 else
   echo "crypto JS target: Bun unavailable; skipped"
   python3 - <<'PY'
