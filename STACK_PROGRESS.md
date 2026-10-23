@@ -101,6 +101,10 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
   or tickets are requested/sent. ALPN selects offered http/1.1 only; absent
   ALPN sends no selection, incompatible/disabled offered ALPN fails 120.
 
+  Local server/peer implementation commit: **`d25792c`**. A separate bounded
+  commit adds the permanent unavailable-effects builds, positive controls,
+  audits and 119-phase wire manifest expansion; root acceptance follows it.
+
   HRR prefers the first policy-supported group, uses the message_hash rewrite,
   a fresh stateful 32-byte exact-echo cookie, one requested share and strict CH2
   invariants. PSK identities/binders/modes/order are parsed but never selected;

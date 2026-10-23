@@ -1,4 +1,4 @@
-"""Audit an emitted Bend TLS client for host TLS/crypto delegation.
+"""Audit an emitted Bend TLS role for host TLS/crypto delegation.
 
 This checks emitted effect constructor IDs and registrations, JS imports and
 host crypto calls, native undefined symbols, linked libraries, and literal
@@ -9,8 +9,9 @@ C effect registrations can be active. JS registrations are executable, so an
 unused registered legacy ENOSYS TLS stub is still reported as a failure.
 
 This is a static no-delegation receipt, not proof of physical secret erasure or
-constant-time execution. Pair it with interop under invalid BEND_LIBSSL and
-GROUNDS_TLS_CA paths to exercise the actual client socket path.
+constant-time execution. Pair it with interop built by
+bend_tls_no_delegation_build.py, which removes legacy TLS/cookie effects.
+Invalid BEND_LIBSSL/GROUNDS_TLS_CA paths alone do not disable loader fallbacks.
 """
 
 import argparse
@@ -46,19 +47,21 @@ def strip_comments(source):
 
 
 def effect_bad(name):
-    # Historical native cookie effects are unqualified sign/verify. The new
-    # client needs neither, and must never gain their OpenSSL implementation.
-    return name in {"sign", "verify"} or bool(FORBIDDEN_EFFECT.search(name))
+    # Historical cookie IDs may be qualified by the importing module. Neither
+    # TLS role needs a host sign/verify effect, even an unavailable trap.
+    return bool(re.search(r"(?:^|[_.:])(?:sign|verify)$", name)) or bool(FORBIDDEN_EFFECT.search(name))
 
 
-def missing_required(names):
+def missing_required(names, required=REQUIRED):
     # Bend qualifies C IDs with module underscores and JS IDs with a colon.
-    return sorted(required for required in REQUIRED if not any(
-        name == required or any(name.endswith(separator + required) for separator in ("_", ":", "."))
+    def normalize(name):
+        return name.replace(":", "_").replace(".", "_")
+    return sorted(item for item in required if not any(
+        normalize(name) == normalize(item) or normalize(name).endswith("_" + normalize(item))
         for name in names))
 
 
-def c_effects(source):
+def c_effects(source, required=REQUIRED):
     clean = strip_comments(source)
     defined = set(re.findall(r"^\s*#\s*define\s+CID_([A-Za-z0-9_]+)\s+[0-9]+\b", clean, re.M))
     candidates = set(re.findall(r"\bio_eff\s*\(\s*CID_([A-Za-z0-9_]+)\s*,", clean))
@@ -68,10 +71,10 @@ def c_effects(source):
                 inactive_registration_ids=sorted(candidates - active),
                 forbidden_defined_ids=sorted(name for name in defined if re.search(r"(?:^|_)wire_tls_", name)),
                 forbidden_effect_ids=sorted(name for name in active if effect_bad(name)),
-                missing_byte_tcp_rng_effects=missing_required(active))
+                missing_byte_tcp_rng_effects=missing_required(active, required))
 
 
-def js_effects(source):
+def js_effects(source, required=REQUIRED):
     clean = strip_comments(source)
     registered = set(re.findall(r'\bio_eff\s*\(\s*["\']([^"\']+)["\']\s*,', clean))
     unresolved = re.findall(r"\bio_eff\s*\(\s*CID\s*\(", clean)
@@ -101,7 +104,7 @@ def js_effects(source):
                 unresolved_cid_registrations=len(unresolved), imports=sorted(imported),
                 literal_dlopen_libraries=sorted(libraries),
                 forbidden_effect_ids=sorted(name for name in registered | constructed if effect_bad(name)),
-                missing_byte_tcp_rng_effects=missing_required(registered),
+                missing_byte_tcp_rng_effects=missing_required(registered, required),
                 forbidden_imports=sorted(name for name in imported if FORBIDDEN_LIBRARY.search(name)),
                 forbidden_loader_literals=forbidden_loaders, forbidden_host_crypto_calls=host_calls)
 
@@ -153,10 +156,12 @@ def self_check():
     c = "\n".join(f"#define CID_wire_{name} {n}\nio_eff(CID_wire_{name}, os_effect);" for n,name in enumerate(sorted(REQUIRED),1))
     assert not c_effects(c)["missing_byte_tcp_rng_effects"]
     assert c_effects(c + "\n#define CID_wire_wire_tls_connect 999\nio_eff(CID_wire_wire_tls_connect, legacy);")["forbidden_effect_ids"]
+    assert c_effects(c + "\n#define CID_http_core_cookie_sign_sign 999\nio_eff(CID_http_core_cookie_sign_sign, legacy);")["forbidden_effect_ids"]
     js = "\n".join(f'io_eff("wire:{name}", os_effect);' for name in REQUIRED)
     assert not js_effects(js)["missing_byte_tcp_rng_effects"]
     assert not js_effects(js + 'const pure = {$:"Crypto"};')["forbidden_loader_literals"]
     assert js_effects(js + 'io_eff("wire:wire_tls_connect", legacy);')["forbidden_effect_ids"]
+    assert js_effects(js + 'io_eff("http.core.cookie_sign:sign", legacy);')["forbidden_effect_ids"]
     assert js_effects(js + 'require("node:crypto");')["forbidden_imports"]
     assert js_effects(js + 'ffi.dlopen(mac ? "libssl.dylib" : "libcrypto.so", {});')["forbidden_loader_literals"]
     assert js_effects(js + 'ffi.dlopen("Crypto", {});')["forbidden_loader_literals"]
@@ -169,6 +174,7 @@ def main():
     parser.add_argument("--c", type=Path, required=True)
     parser.add_argument("--js", type=Path, required=True)
     parser.add_argument("--report", type=Path)
+    parser.add_argument("--role", choices=["client", "server"], default="client")
     args = parser.parse_args()
     self_check()
     report = dict(scope="Static emitted-program/import audit; pair with independent live synthetic interop",
@@ -185,8 +191,10 @@ def main():
             report[name + "_artifact"] = dict(path=str(path.resolve()), bytes=path.stat().st_size,
                                               sha256=hashlib.sha256(path.read_bytes()).hexdigest())
     if not problems:
-        report["results"]["c"] = c_effects(args.c.read_text())
-        report["results"]["js"] = js_effects(args.js.read_text())
+        required = REQUIRED if args.role == "client" else {"wire_random_bytes", "wire_recv_timeout", "wire_send_timeout", "TCP.listen", "TCP.accept"}
+        report["role"] = args.role
+        report["results"]["c"] = c_effects(args.c.read_text(), required)
+        report["results"]["js"] = js_effects(args.js.read_text(), required)
         try:
             report["results"]["native"] = native_imports(args.native)
         except (OSError, RuntimeError, subprocess.TimeoutExpired) as error:
