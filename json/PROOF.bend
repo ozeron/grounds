@@ -5,6 +5,7 @@ import ./proof/parse.bend as RoundTrip
 import ./proof/fast_run.bend as FastRoundTrip
 import ./proof/layout.bend as Layout
 import ./proof/access.bend as Access
+import ./proof/u32.bend as Unsigned
 
 def Laws.round_trip(j):
   RoundTrip.round_trip(j)
@@ -233,3 +234,6 @@ def Laws.key_reads_back(k):
 
 def Laws.skip_ws_space(s):
   {==}
+
+def Laws.u32_round_trip(x):
+  Unsigned.u32_round_trip(x)

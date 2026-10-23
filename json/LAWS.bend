@@ -199,3 +199,8 @@ law get_kind:
 law skip_ws_space:
   for s: String
   {J.skip_ws(SCon{' ', s}) == J.skip_ws(s) : String}
+
+# A typed unsigned integer reads back for every word, without opaque text.
+law u32_round_trip:
+  for +x: U32
+  {J.u32(J.num_u32(x)) == Done{x} : Result<&2, &2, J.Access, U32>}

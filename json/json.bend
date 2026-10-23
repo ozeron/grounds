@@ -1,4 +1,5 @@
 import Base
+import ../decimal/decimal.bend as Decimal
 import ../utf8/utf8.bend as U
 
 # Model
@@ -1099,8 +1100,87 @@ def num_u32.go(m: Maybe<&2, Json>) -> Json:
     case None{}:
       JNull{}
 
+# The two packages keep their own public digit types.
+def decimal_digit(d: Decimal.Dig) -> Digit:
+  match d:
+    case Decimal.D0{}:
+      D0{}
+    case Decimal.D1{}:
+      D1{}
+    case Decimal.D2{}:
+      D2{}
+    case Decimal.D3{}:
+      D3{}
+    case Decimal.D4{}:
+      D4{}
+    case Decimal.D5{}:
+      D5{}
+    case Decimal.D6{}:
+      D6{}
+    case Decimal.D7{}:
+      D7{}
+    case Decimal.D8{}:
+      D8{}
+    case Decimal.D9{}:
+      D9{}
+
+def digit_decimal(d: Digit) -> Decimal.Dig:
+  match d:
+    case D0{}:
+      Decimal.D0{}
+    case D1{}:
+      Decimal.D1{}
+    case D2{}:
+      Decimal.D2{}
+    case D3{}:
+      Decimal.D3{}
+    case D4{}:
+      Decimal.D4{}
+    case D5{}:
+      Decimal.D5{}
+    case D6{}:
+      Decimal.D6{}
+    case D7{}:
+      Decimal.D7{}
+    case D8{}:
+      Decimal.D8{}
+    case D9{}:
+      Decimal.D9{}
+
+def decimal_int.con(d: Decimal.Dig, i: Int) -> Int:
+  match d i:
+    case Decimal.D0{} IZero{}:
+      IZero{}
+    case Decimal.D1{} IZero{}:
+      INon{L1{}, []}
+    case Decimal.D2{} IZero{}:
+      INon{L2{}, []}
+    case Decimal.D3{} IZero{}:
+      INon{L3{}, []}
+    case Decimal.D4{} IZero{}:
+      INon{L4{}, []}
+    case Decimal.D5{} IZero{}:
+      INon{L5{}, []}
+    case Decimal.D6{} IZero{}:
+      INon{L6{}, []}
+    case Decimal.D7{} IZero{}:
+      INon{L7{}, []}
+    case Decimal.D8{} IZero{}:
+      INon{L8{}, []}
+    case Decimal.D9{} IZero{}:
+      INon{L9{}, []}
+    case x INon{l, ds}:
+      INon{l, List.append(&2, Digit, ds, [decimal_digit(x)])}
+
+def decimal_int(d: Decimal.Dec) -> Int:
+  match d:
+    case Decimal.DNil{}:
+      IZero{}
+    case Decimal.DCon{x, t}:
+      decimal_int.con(x, decimal_int(t))
+
 def num_u32(x: U32) -> Json:
-  num_u32.go(num(U32.show(x)))
+  JNum{Number{False{}, decimal_int(Decimal.of_u32(x)), FNone{}, ENone{}}}
 
 # None for inf and nan
 def num_f32(x: F32) -> Maybe<&2, Json>:
@@ -1205,7 +1285,8 @@ def object(j: Json) -> Result<&2, &2, Access, List<&2, Field>>:
 # 100 as written. The digits d1..dk, with leading and trailing zeros gone,
 # are the whole number d1..dk followed by q - k zeros, where q is where
 # the point falls: the integer digits, less the leading zeros, plus the
-# exponent. The number is whole when q >= k, and fits when q <= 10.
+# exponent. The number is whole when q >= k. Bounded decimal steps check
+# its range before each next digit or shifted zero can grow the count.
 
 def lead_digit(l: Lead) -> Digit:
   match l:
@@ -1368,12 +1449,33 @@ def u32.fits.go(ok: Bool, +v: Nat) -> Result<&2, &2, Access, U32>:
       Fail{OutOfRange{[]}}
 
 def u32.fits(+v: Nat) -> Result<&2, &2, Access, U32>:
-  u32.fits.go(Nat.is_le(v, 4294967295n), v)
+  u32.fits.go(Decimal.fits(v), v)
 
-def u32.whole(ok: Bool, sig: List<&2, Digit>, +shift: Nat) -> Result<&2, &2, Access, U32>:
+# Stop at the first overflowing prefix, without copying a long significand.
+def u32.count(ds: List<&2, Digit>, m: Maybe<&2, Nat>) -> Maybe<&2, Nat>:
+  match ds m:
+    case _ None{}:
+      None{}
+    case Nil{} Some{v}:
+      Some{v}
+    case Con{d, t} Some{v}:
+      u32.count(t, Decimal.to_u32.step(digit_decimal(d), Some{v}))
+
+# Short-circuit before another multiplication once the value is out of
+# range. Neither a long significand nor a huge exponent builds a big Nat.
+def u32.scale(n: Nat, m: Maybe<&2, Nat>) -> Result<&2, &2, Access, U32>:
+  match n m:
+    case _ None{}:
+      Fail{OutOfRange{[]}}
+    case 0n Some{v}:
+      Done{U32.from_nat(v)}
+    case 1n+p Some{v}:
+      u32.scale(p, Decimal.to_u32.step(Decimal.D0{}, Some{v}))
+
+def u32.whole(ok: Bool, sig: List<&2, Digit>, shift: Nat) -> Result<&2, &2, Access, U32>:
   match ok:
     case True{}:
-      u32.fits(times10(shift, dvalue(sig, 0n)))
+      u32.scale(shift, u32.count(sig, Some{0n}))
     case False{}:
       Fail{OutOfRange{[]}}
 
@@ -1386,7 +1488,7 @@ def u32.sig(+k: Nat, neg: Bool, sig: List<&2, Digit>, +hi: Nat, +low: Nat) -> Re
     case True{} Con{_, _}:
       Fail{OutOfRange{[]}}
     case False{} Con{d, t}:
-      u32.whole(Bool.and(Nat.is_ge(hi, Nat.add(k, low)), Nat.is_le(hi, Nat.add(10n, low))), Con{d, t}, Nat.sub(hi, Nat.add(k, low)))
+      u32.whole(Nat.is_ge(hi, Nat.add(k, low)), Con{d, t}, Nat.sub(hi, Nat.add(k, low)))
 
 def u32.trail(neg: Bool, +sig: List<&2, Digit>, +hi: Nat, +low: Nat) -> Result<&2, &2, Access, U32>:
   u32.sig(dlen(sig, 0n), neg, sig, hi, low)

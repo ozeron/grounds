@@ -1,4 +1,5 @@
 import Base
+import ../../decimal/decimal.bend as Decimal
 import ../json.bend as J
 import ../LAWS.bend as L
 
@@ -98,6 +99,20 @@ def fits_ok(b, v):
     case False{}:
       {==}
 
+law scale_ok:
+  for +n: Nat
+  for +m: Maybe<&2, Nat>
+  {L.mistyped(U32, J.u32.scale(n, m)) == False{} : Bool}
+
+def scale_ok(n, m):
+  match n m:
+    case _ None{}:
+      {==}
+    case 0n Some{v}:
+      {==}
+    case 1n+p Some{v}:
+      scale_ok(p, Decimal.to_u32.step(Decimal.D0{}, Some{v}))
+
 law whole_ok:
   for +ok: Bool
   for +sig: List<&2, J.Digit>
@@ -107,7 +122,7 @@ law whole_ok:
 def whole_ok(ok, sig, shift):
   match ok:
     case True{}:
-      fits_ok(Nat.is_le(J.times10(shift, J.dvalue(sig, 0n)), 4294967295n), J.times10(shift, J.dvalue(sig, 0n)))
+      scale_ok(shift, J.u32.count(sig, Some{0n}))
     case False{}:
       {==}
 
@@ -128,7 +143,7 @@ def sig_ok(neg, sig, k, hi, low):
     case True{} Con{_, _}:
       {==}
     case False{} Con{d, t}:
-      whole_ok(Bool.and(Nat.is_ge(hi, Nat.add(k, low)), Nat.is_le(hi, Nat.add(10n, low))), Con{d, t}, Nat.sub(hi, Nat.add(k, low)))
+      whole_ok(Nat.is_ge(hi, Nat.add(k, low)), Con{d, t}, Nat.sub(hi, Nat.add(k, low)))
 
 law lead_ok:
   for +neg: Bool
@@ -487,3 +502,138 @@ def shift(l, ds):
       J.u32.lead(False{}, J.drop_lead(Con{d, app(ds0, [])}, 0n), p2, 0n, 0n),
       shift.eq(d, ds, lo),
       Equal.sym(R(), J.u32.lead(False{}, J.drop_lead(Con{d, app(ds0, [])}, 0n), p2, 0n, 0n), J.u32.trail(False{}, J.strip_trailing(Con{d, app(ds0, [])}), Nat.add(p2, 0n), lo), lead_trail(False{}, l, app(ds0, []), p2, 0n, 0n))))
+
+law word_add0:
+  for +n: Nat
+  for +w: Word(n)
+  {Word.adc(n, w, Word.zero(n), False{}, False{}) == w : Word(n)}
+
+def word_add0(n, w):
+  match n:
+    case 0n:
+      match w:
+        case WNil{}:
+          {==}
+    case 1n+p:
+      match w:
+        case WCon{True{}, t}:
+          %Equal.sym(Word(p), Word.adc(p, t, Word.zero(p), False{}, False{}), t, word_add0(p, t)) : {WCon{True{}, _} == WCon{True{}, t} : Word(1n+p)}
+          {==}
+        case WCon{False{}, t}:
+          %Equal.sym(Word(p), Word.adc(p, t, Word.zero(p), False{}, False{}), t, word_add0(p, t)) : {WCon{False{}, _} == WCon{False{}, t} : Word(1n+p)}
+          {==}
+
+law copy_text_go:
+  for +s: String
+  for +acc: String
+  {J.copy_text(s, acc) == String.reverse.go(acc, s) : String}
+
+def copy_text_go(s, acc):
+  match s:
+    case SNil{}:
+      {==}
+    case SCon{c, t}:
+      match c:
+        case Chr{x}:
+          match x:
+            case U32{w}:
+              %Equal.sym(Word(32n), Word.adc(32n, w, Word.zero(32n), False{}, False{}), w, word_add0(32n, w)) : {J.copy_text(t, SCon{Chr{U32{_}}, acc}) == String.reverse.go(acc, SCon{Chr{U32{w}}, t}) : String}
+              copy_text_go(t, SCon{Chr{U32{w}}, acc})
+
+law copy_bool_id:
+  for +b: Bool
+  {J.copy_bool(b) == b : Bool}
+
+def copy_bool_id(b):
+  match b:
+    case True{}:
+      {==}
+    case False{}:
+      {==}
+
+# Typed reads rebuild a leaf to keep Strings cold. The rebuild is exact.
+law copy_digit_id:
+  for +d: J.Digit
+  {J.copy_digit(d) == d : J.Digit}
+
+def copy_digit_id(d):
+  match d:
+    case J.D0{}:
+      {==}
+    case J.D1{}:
+      {==}
+    case J.D2{}:
+      {==}
+    case J.D3{}:
+      {==}
+    case J.D4{}:
+      {==}
+    case J.D5{}:
+      {==}
+    case J.D6{}:
+      {==}
+    case J.D7{}:
+      {==}
+    case J.D8{}:
+      {==}
+    case J.D9{}:
+      {==}
+
+law copy_digits_go:
+  for +ds: List<&2, J.Digit>
+  for +acc: List<&2, J.Digit>
+  {J.copy_digits(ds, acc) == List.reverse.go(&2, J.Digit, acc, ds) : List<&2, J.Digit>}
+
+def copy_digits_go(ds, acc):
+  match ds:
+    case Nil{}:
+      {==}
+    case Con{d, t}:
+      %Equal.sym(J.Digit, J.copy_digit(d), d, copy_digit_id(d)) : {J.copy_digits(t, Con{_, acc}) == List.reverse.go(&2, J.Digit, acc, Con{d, t}) : List<&2, J.Digit>}
+      copy_digits_go(t, Con{d, acc})
+
+law copy_lead_id:
+  for +l: J.Lead
+  {J.copy_lead(l) == l : J.Lead}
+
+def copy_lead_id(l):
+  match l:
+    case J.L1{}:
+      {==}
+    case J.L2{}:
+      {==}
+    case J.L3{}:
+      {==}
+    case J.L4{}:
+      {==}
+    case J.L5{}:
+      {==}
+    case J.L6{}:
+      {==}
+    case J.L7{}:
+      {==}
+    case J.L8{}:
+      {==}
+    case J.L9{}:
+      {==}
+
+law copy_int_id:
+  for +i: J.Int
+  {J.copy_int(i) == i : J.Int}
+
+def copy_int_id(i):
+  match i:
+    case J.IZero{}:
+      {==}
+    case J.INon{l, ds}:
+      %Equal.sym(J.Lead, J.copy_lead(l), l, copy_lead_id(l)) : {J.INon{_, J.copy_digits(ds, [])} == J.INon{l, ds} : J.Int}
+      %Equal.sym(List<&2, J.Digit>, J.copy_digits(ds, []), ds, copy_digits_go(ds, [])) : {J.INon{l, _} == J.INon{l, ds} : J.Int}
+      {==}
+
+law copy_num_u32:
+  for +x: U32
+  {J.copy_leaf(J.num_u32(x)) == J.num_u32(x) : J.Json}
+
+def copy_num_u32(x):
+  %Equal.sym(J.Int, J.copy_int(J.decimal_int(Decimal.of_u32(x))), J.decimal_int(Decimal.of_u32(x)), copy_int_id(J.decimal_int(Decimal.of_u32(x)))) : {J.JNum{J.Number{False{}, _, J.FNone{}, J.ENone{}}} == J.num_u32(x) : J.Json}
+  {==}

@@ -30,6 +30,7 @@ bend test.bend
 
 step "laws (PROOF.bend)"
 bend PROOF.bend
+bend examples/user.bend
 
 step "JSONTestSuite, and fast.bend against the proven parser (suite.bend)"
 python3 scripts/gen_suite.py
@@ -40,6 +41,9 @@ native stress
 
 step "reads on numbers too big for test.bend (reads_check.bend)"
 native reads_check
+
+step "decimal constructors and old reader parity (number_check.bend)"
+native number_check
 
 step "CLI (main.bend)"
 rm -f grounds-json spec-grounds-json
