@@ -34,6 +34,65 @@ def main() -> IO(Unit):
 
 `examples/tls.bend` serves HTTPS when `HTTP_TLS_CERT` and `HTTP_TLS_KEY` are set. The handshake must finish within `request_ms`. The OpenSSL 3 server requires TLS 1.2 or newer, disables 0-RTT and accepts only an `http/1.1` ALPN offer. It loads and checks the certificate and key before opening the port.
 
+`with_tls(cfg, cert, key)` remains the legacy OpenSSL path. Explicitly choose
+Bend TLS 1.3 with `with_bend_tls(cfg, cert, key)`, using PEM **file paths**,
+or `with_bend_tls_chain(cfg, paths, key, suites)`. Chain paths are leaf first,
+one PEM certificate per file, at most sixteen. Suites are ordered preferences
+from `[4865,4867]` (AES-128-GCM/SHA-256 and ChaCha20-Poly1305/SHA-256).
+`Tls{cert,key}` retains its constructor; `BendTls{chain,key,suites}` is the new
+alternative in the existing `tls` field. Config's field count is unchanged.
+
+`from_env` accepts `HTTP_TLS_ENGINE=bend|openssl` with a credential. Without
+that variable it preserves the configured engine; a newly supplied pair on a
+plain default selects legacy OpenSSL. Both PEM paths must be supplied together.
+Invalid engine names, credentials or policies fail before opening the port.
+`tls_config.bend` reads PEM and calls `bend_tls_server.from_pem` once at listener
+startup. Its immutable process owner retains validated synthetic signing-key
+components and issues a fresh affine signing owner per handshake. It does not
+re-read or re-validate PEM on connections, share traffic keys, rotate keys or
+promise physical erasure. A new process/listener is needed for key replacement.
+
+`serve`, `serve_out` and `serve_out_context` dispatch either engine through
+the same HTTP parse/respond/stream loop. For a program that must contain no
+legacy TLS effects, call
+`serve_bend_out_context(~C, ~handler, context, cfg)` with a BendTls configuration.
+This entry uses the same listener/HTTP loop but binds its handshake template
+statically to Bend. A different config engine fails before listen.
+`examples/bend_tls.bend` uses this entry, `HTTP_COOKIE_KEY` and the usual HTTP
+environment variables. Its optional `HTTP_BEND_TLS_SUITE=aes|chacha` selects
+one suite for independent interop; unset permits both. Example invocation:
+
+```sh
+HTTP_TLS_CERT=/tmp/synthetic-leaf.pem HTTP_TLS_KEY=/tmp/synthetic-key.pem \
+HTTP_COOKIE_KEY=synthetic-example-key bend examples/bend_tls.bend
+```
+
+The frozen [TLS profile](../../TLS_PROFILE.md) and
+[runtime review](../../crypto/RUNTIME_REVIEW.md) restrict this path to synthetic
+keys. Handshake failures/timeouts close that connection. The transport adapter
+owns Bend `send`/`recv`, renews deadlines only at HTTP operation boundaries and
+uses non-consuming OS readiness during idle slices, preserving partial TLS
+records. No ciphertext or TLS state enters C/JS. Incomplete HTTP requests get
+408 when the transport is writable; timeout inside an incomplete TLS record
+closes the affine connection. Keep-alive, pipelining, body/head/request limits,
+streaming, health, proxy marking and graceful drain share the existing loop.
+SNI stays on the TLS owner; it is not injected into the request or app context.
+
+The existing raw-socket `Upgrade` session cannot own a Bend TLS connection.
+On this transport an attempted upgrade receives 501 before a 101 is sent.
+Plain/OpenSSL upgrades retain their API. WSS integration belongs to M4b.
+
+Cookie signing is an explicit **application** choice. Import
+`http/core/cookie_bend.bend`, hold `Cookie.SigningKey{runtime_secret}` in the Data
+context supplied to `serve_bend_out_context`, and call `sign_owned` /
+`verify_owned`. The example mints a Secure/HttpOnly/SameSite=Strict cookie,
+checks it with Bend HMAC and rejects tampering. The transport does not silently
+change a handler's signer. Existing `cookie_sign` remains OpenSSL-backed on
+native and unavailable on Bun; its defaults and format are unchanged. The
+key owner supplies immutable process-lifetime configuration, not rotation,
+expiry, encrypted storage or secure erasure. Apps remain responsible for those
+policies and for bounding cookie input before HMAC work.
+
 `Server.secure(req)` reads the server's `x-forwarded-proto` marker. On a direct connection the server replaces every incoming copy with `https` or `http`, so a client cannot claim to be secure by sending that header. `with_trust_proxy(cfg, True{})` accepts the incoming value on a plain connection. Use that switch only behind a proxy that removes client-supplied copies and sets its own value.
 
 `Mw.hsts(~next)` adds `Strict-Transport-Security: max-age=31536000` to responses. Use it on an HTTPS listener; browsers ignore the header over plain HTTP. `Server.redirect_https(host, req)` returns a 308 redirect to a caller-supplied canonical host, keeping the request target. Serve it on a separate HTTP listener, as in `examples/redirect.bend`.
@@ -129,12 +188,32 @@ keep-alive reuse, 32 concurrent requests and graceful shutdown. Existing checks:
 13. Builds both multipart fixtures through `tools/bend_native.sh` to release the frontend before C compilation, serves `examples/multipart.bend`, compares 200 generated requests with Python's email parser, checks part and header limits, and sends a binary part from the client builder.
 14. Runs the cold check on the existing examples and auth. CORS policy lookups and multipart parsing currently make some String and List constructors reference counted.
 
-`check_phases.json` declares thirteen ordered resource phases covering these
+`check_phases.json` declares 41 ordered resource phases covering these
 checks. Each fixture is stopped and waited for before its phase ends. The
 shared temporary directory retains generated outputs for later checks. Use
 `tools/build_guard.py --phases http/server/check_phases.json` around the Moon
-command to apply the same 1 GiB process-tree cap and a 120-second deadline to
+command to apply the same 4 GiB aggregate/process cap and a 120-second deadline to
 each declared phase; startup, transitions and final cleanup are bounded to ten
 seconds. Every mandatory phase must finish successfully. The optional Bun
 context phase records an explicit skip when Bun is absent. The manifest and
 announcement helper participate in Moon cache inputs.
+
+The M4a phases build the actual Bend HTTPS example with the M3b unavailable
+TLS/cookie effect overlay, retain import/symbol/library/loader audits and prove
+native/Bun abort controls. Curl, verified Python http.client/ssl and a Go 1.26.9
+net/http peer built in the test temporary directory exercise P-256/RSA × both
+suites on native and Bun. Positive cases include binary bodies across records,
+chunked requests/streamed responses, keep-alive, pipelining, legacy cookie
+compatibility and protocol/health handling. Negative/lifecycle phases cover
+wrong trust, plaintext, handshake/request/idle deadlines, disconnects, limits,
+cookie tampering and shutdown during an active request and stream.
+The curl peer must support TLS 1.3. The harness prefers Homebrew's curl on macOS
+because Apple's system curl can lack this feature; `GROUNDS_CURL` selects an
+explicit executable. Missing TLS support fails the test, with the peer's actual
+stderr retained; verification is never disabled or replaced by another client.
+Set `GROUNDS_M4A_ARTIFACTS` to an empty retained directory for JSON evidence,
+emitted source and synthetic PEM fixtures. These test definitions are not an
+acceptance claim: current results and pending gates are in STACK_PROGRESS.md.
+No external server implementation was used for this adapter design; it extends
+the existing Grounds HTTP loop and M3b API. Curl/Python/Go/OpenSSL are peers or
+synthetic fixture tools only.

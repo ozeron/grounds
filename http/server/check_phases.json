@@ -1,18 +1,169 @@
 {
   "version": 1,
   "phases": [
-    {"name": "http_server/context_native", "optional": false},
-    {"name": "http_server/context_bun", "optional": true},
-    {"name": "http_server/hello", "optional": false},
-    {"name": "http_server/middleware", "optional": false},
-    {"name": "http_server/stream", "optional": false},
-    {"name": "http_server/tls_proxy", "optional": false},
-    {"name": "http_server/auth", "optional": false},
-    {"name": "http_server/cors", "optional": false},
-    {"name": "http_server/websocket_units", "optional": false},
-    {"name": "http_server/websocket_frame_units", "optional": false},
-    {"name": "http_server/websocket_live", "optional": false},
-    {"name": "http_server/multipart", "optional": false},
-    {"name": "http_server/cold", "optional": false}
+    {
+      "name": "http_server/bend_tls_fixtures",
+      "optional": false
+    },
+    {
+      "name": "http_server/bend_tls_frontend_native",
+      "optional": false
+    },
+    {
+      "name": "http_server/bend_tls_compile_native",
+      "optional": false
+    },
+    {
+      "name": "http_server/bend_tls_frontend_bun",
+      "optional": false
+    },
+    {
+      "name": "http_server/bend_tls_go_peer",
+      "optional": false
+    },
+    {
+      "name": "http_server/bend_tls_legacy_probe_native",
+      "optional": false
+    },
+    {
+      "name": "http_server/bend_tls_legacy_probe_bun",
+      "optional": false
+    },
+    {
+      "name": "http_server/bend_tls_cookie_probe_native",
+      "optional": false
+    },
+    {
+      "name": "http_server/bend_tls_cookie_probe_bun",
+      "optional": false
+    },
+    {
+      "name": "http_server/bend_tls_no_delegation",
+      "optional": false
+    },
+    {
+      "name": "http_server/bend_tls_native_ecdsa_aes",
+      "optional": false
+    },
+    {
+      "name": "http_server/bend_tls_native_ecdsa_aes_negative",
+      "optional": false
+    },
+    {
+      "name": "http_server/bend_tls_native_ecdsa_chacha",
+      "optional": false
+    },
+    {
+      "name": "http_server/bend_tls_native_ecdsa_chacha_negative",
+      "optional": false
+    },
+    {
+      "name": "http_server/bend_tls_native_rsa_aes",
+      "optional": false
+    },
+    {
+      "name": "http_server/bend_tls_native_rsa_aes_negative",
+      "optional": false
+    },
+    {
+      "name": "http_server/bend_tls_native_rsa_chacha",
+      "optional": false
+    },
+    {
+      "name": "http_server/bend_tls_native_rsa_chacha_negative",
+      "optional": false
+    },
+    {
+      "name": "http_server/bend_tls_bun_ecdsa_aes",
+      "optional": false
+    },
+    {
+      "name": "http_server/bend_tls_bun_ecdsa_aes_negative",
+      "optional": false
+    },
+    {
+      "name": "http_server/bend_tls_bun_ecdsa_chacha",
+      "optional": false
+    },
+    {
+      "name": "http_server/bend_tls_bun_ecdsa_chacha_negative",
+      "optional": false
+    },
+    {
+      "name": "http_server/bend_tls_bun_rsa_aes",
+      "optional": false
+    },
+    {
+      "name": "http_server/bend_tls_bun_rsa_aes_negative",
+      "optional": false
+    },
+    {
+      "name": "http_server/bend_tls_bun_rsa_chacha",
+      "optional": false
+    },
+    {
+      "name": "http_server/bend_tls_bun_rsa_chacha_negative",
+      "optional": false
+    },
+    {
+      "name": "http_server/bend_tls_configuration_native",
+      "optional": false
+    },
+    {
+      "name": "http_server/bend_tls_configuration_bun",
+      "optional": false
+    },
+    {
+      "name": "http_server/context_native",
+      "optional": false
+    },
+    {
+      "name": "http_server/context_bun",
+      "optional": true
+    },
+    {
+      "name": "http_server/hello",
+      "optional": false
+    },
+    {
+      "name": "http_server/middleware",
+      "optional": false
+    },
+    {
+      "name": "http_server/stream",
+      "optional": false
+    },
+    {
+      "name": "http_server/tls_proxy",
+      "optional": false
+    },
+    {
+      "name": "http_server/auth",
+      "optional": false
+    },
+    {
+      "name": "http_server/cors",
+      "optional": false
+    },
+    {
+      "name": "http_server/websocket_units",
+      "optional": false
+    },
+    {
+      "name": "http_server/websocket_frame_units",
+      "optional": false
+    },
+    {
+      "name": "http_server/websocket_live",
+      "optional": false
+    },
+    {
+      "name": "http_server/multipart",
+      "optional": false
+    },
+    {
+      "name": "http_server/cold",
+      "optional": false
+    }
   ]
 }

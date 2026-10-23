@@ -4,6 +4,96 @@ Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and 
 
 The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
 
+- 2026-10-23 (M4a server implementation checkpoint; acceptance PENDING):
+  `with_bend_tls(cfg, cert_path, key_path)` / `BendTls{chain,key,suites}` and
+  `HTTP_TLS_ENGINE=bend|openssl` select explicit transports without changing
+  Config's field count or the legacy Tls constructor/default. A shared affine
+  transport runs the HTTP parse/respond/keep-alive/stream loop. The hard
+  `serve_bend_out_context` entry has no legacy TLS effect; the listener imports
+  PEM once and retains an explicit synthetic credential factory. Request fuel
+  now counts parsed requests rather than partial reads. Existing raw Sink and
+  Upgrade constructors remain; Bend upgrades fail 501 pending M4b. The example
+  selects cookie_bend.SigningKey in runtime handler context explicitly.
+
+  **This is not completed M4a acceptance.** Reports and exact emitted programs
+  are under `~/.codex/artifacts/grounds/2026-10-23/m4a/`; `STATUS.json` and
+  `source-receipt.json` describe the precise source/result boundary. The
+  conservative 45-minute scheduling window began 11:42:22 UTC and expired
+  12:27:22 UTC. Pressure/lock waits stayed bounded; no foreign worker was
+  signaled and no guard cap, timeout, corpus or existing assertion was raised
+  or removed. Source stays on bend-https; no push/PR or bounty work.
+
+  Native and Bun HTTPS executables successfully built with the M3b TLS/cookie
+  abort overlay (`server-02/build-{native,bun}.json`). The corrected permanent
+  effects/imports/calls/symbols/libraries/loader audit and all **four abort
+  controls pass** in `focused-02/no-delegation.json`. The shared audit needed a
+  false-positive repair: fully qualified pure constructors such as
+  wire_tls_record_Record are not legacy TLS effect IDs. Exact legacy effects
+  remain rejected; self-checks cover both constructor and effect identities.
+  The failed original audit remains in server-02/no-delegation.json.
+
+  On these retained no-delegation builds, native passes **72/72 live scenarios**:
+  four P-256/RSA-2048 × AES-128-GCM/ChaCha20-Poly1305 combinations, each with
+  six positive and twelve negative/lifecycle scenarios. **Curl, Python
+  http.client/ssl and a Go net/http peer** all verify the synthetic CA/localhost
+  normally in every native cell. Checks include 204,800-byte binary request/
+  echo across records, chunked input and streamed output, one-connection reuse,
+  pipelining, legacy-identical signed cookies and tamper rejection, secure
+  marking/health, wrong CA, plaintext, handshake/request/idle deadlines,
+  mid-request disconnect, oversize head/body, two multi-record requests at
+  max_requests=2, and SIGTERM during an active request and stream. Reports:
+  `focused-02/native_*.json`.
+
+  Bun passes **six positive scenarios** for P-256/AES, including all three
+  verified clients. Its negative phase passes the first six subcases, then
+  **FAILS expected 408** with RemoteDisconnected. Cause: the new JS OS readiness
+  effect returned boxed Bool constructors; Bend 2's generated branch expects
+  primitive booleans, so boxed False was truthy and consumed the TLS owner in a
+  timed-out receive. `http/server/effs/readable.js` now returns primitive
+  true/false. **The fix has not been live retested or re-emitted/audited**:
+  server-04 was pressure-stopped during the native frontend. Native source is
+  unchanged by this JS-only repair, but the final build receipt is incomplete.
+  Remaining Bun cells and both targets' configuration/PEM-once phases are
+  unexecuted. No PASS is inferred for them.
+
+  Forced server gates use 41 declared phases. Latest server-04 completes
+  **1/41**, is interrupted in phase 2, and leaves **39 unexecuted** by
+  `system-memory-pressure` (1,593.8 MiB peak), not the 4 GiB limit. Server-01 and
+  server-03 also stop for pressure; server-02 is an actual audit false-positive
+  `guard-error`. Focused-01 is an actual system-curl prerequisite failure:
+  exit 4, TLS 1.3 option unavailable. Homebrew installed keg-only curl 8.23.0;
+  GROUNDS_CURL can override the explicit peer executable. Homebrew also
+  upgraded libnghttp2 1.69.0→1.70.0, libssh2 1.11.1_1→1.11.1_7 and
+  ca-certificates 2026-09-25→2026-10-20, and added libnghttp3, libngtcp2 and
+  libpsl; PATH was not edited. `curl-peer-install.log` retains the actual install.
+  Focused-02 is an actual Bun HTTP-timeout failure, not a memory failure.
+  Fresh root-01 is **blocked before launch**, zero of **2,144 declared phases**
+  executed: `system-memory-pressure-before-launch`. Reports retain every
+  failed/partial attempt. The full core gate passes independently as below.
+
+  Commands (A=~/.codex/artifacts/grounds/2026-10-23/m4a; every build/check uses
+  `python3 tools/build_guard.py --memory-mib 4096 --process-memory-mib 4096
+  --timeout 120 --phases MANIFEST --report REPORT -- COMMAND`):
+  server attempts use MANIFEST=http/server/check_phases.json and
+  `GROUNDS_M4A_ARTIFACTS=$A/server-NN moon --concurrency 1 run
+  http_server:check --force`, reports `server-NN-wait-*.json` and logs
+  `server-NN.log`. Focused retained-build commands/manifests are frozen in
+  `$A/focused-{01,02}/check.sh` / phases.json; invocation is
+  `sh $A/focused-02/check.sh` with its matching manifest. Root command uses
+  MANIFEST=tools/check_phases.json, REPORT=$A/root-01.json and
+  `nice -n 10 moon --concurrency 1 run :check --force`.
+  Native builds release the frontend before bounded C compilation;
+  compiler-only BUN_OPTIONS=--smol / BUN_JSC_forceRAMSize=134217728 reduce
+  compiler pressure. Native/Bun evaluator settings stay unchanged.
+
+  Next: fresh forced http_server:check on final source, including Bun 408
+  regression, all remaining matrix cells/config cases and unchanged legacy/
+  cold phases; then fresh full root acceptance when the host allows it.
+  **All M4 boxes remain open. M4b client, WSS and browser work was not started.**
+  No external server reference was used for the adapter design; it extends the
+  existing Grounds loop/M3b API and frozen TLS_PROFILE. Independent tools act
+  only as peers/fixture oracles. Synthetic-key runtime restrictions remain.
+
 - 2026-10-23 (M4a cookie owner and migration regressions, Bend 2.0.38):
   `cookie_bend.SigningKey{secret}`, `sign_owned` and `verify_owned` give an
   application an explicit immutable runtime owner without changing legacy

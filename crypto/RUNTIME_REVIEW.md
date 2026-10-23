@@ -56,6 +56,16 @@ review without retroactively changing their historical evidence.
    Reuse requires a separately supplied/imported owner, never a hidden global
    nonce/key cache. Trusted callers must not unwrap/reconstruct constructors or
    copy their ordinary inner byte lists to bypass this discipline.
+   M4a's `http/server/tls_config.bend` adds an explicit process-lifetime
+   synthetic credential factory: `from_pem` validates once before listen, then
+   the immutable Prepared owner retains the validated private components and
+   issues fresh affine per-handshake signing owners. This is the deliberate
+   identity-key reuse boundary for a multi-connection server, not permission
+   to copy connection/traffic/ephemeral owners. Its Data fields can be shared
+   by the runtime, cannot be physically erased here and must never hold live
+   production secrets. The app similarly retains cookie_bend.SigningKey in
+   immutable runtime handler context; restart replaces these keys, and no
+   rotation or secret-storage mechanism is introduced.
 2. **Entropy.** Generate every connection/replacement share through
    `wire_random_bytes`. X25519 clamps its one 32-byte draw. P-256 rejects zero or
    >=n instead of reducing; each retry draws 32 new bytes. ECDSA uses RFC 6979
