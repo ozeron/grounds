@@ -311,7 +311,8 @@ def main():
     parser.add_argument("command", nargs=argparse.REMAINDER)
     args = parser.parse_args()
     binary = args.command[1:] if args.command[:1] == ["--"] else args.command
-    openssl = "/opt/homebrew/opt/openssl@3/bin/openssl"
+    openssl = os.environ.get("OPENSSL") or ("/opt/homebrew/opt/openssl@3/bin/openssl"
+        if Path("/opt/homebrew/opt/openssl@3/bin/openssl").is_file() else "openssl")
     selected = cases()
     if args.expected_batches is not None:
         assert args.expected_batches == (len(selected)+1)//2, "phase/corpus batch count drift"

@@ -104,7 +104,9 @@ def main():
     results = []
     with tempfile.TemporaryDirectory(prefix="grounds-tls-go-bend-") as td:
         directory = Path(td)
-        fixtures = fixture(directory, "/opt/homebrew/opt/openssl@3/bin/openssl")
+        openssl = os.environ.get("OPENSSL") or ("/opt/homebrew/opt/openssl@3/bin/openssl"
+            if Path("/opt/homebrew/opt/openssl@3/bin/openssl").is_file() else "openssl")
+        fixtures = fixture(directory, openssl)
         for case in rows:
             try:
                 observed = test(server_binary, client_binary, args.go_peer, directory, case)

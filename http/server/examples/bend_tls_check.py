@@ -217,8 +217,14 @@ def rejected(binary, directory, credential, suite, rows):
         rows.append(dict(name="disconnect-mid-request", rejected=True))
         assert_response(request(port, directory, "/", headers={"X-Long": "x" * 2048}), 431)
         rows.append(dict(name="oversize-head", status=431))
-        assert_response(request(port, directory, "/echo", body=b"x" * 100001, method="POST"), 413)
-        rows.append(dict(name="oversize-body", status=413))
+        # Admission rejects Content-Length before consuming the body. Sending
+        # all 100001 bytes races that response/close on Linux (SSLEOFError in
+        # sendall); a partial body proves rejection without depending on socket
+        # buffer capacity. Still require the complete HTTP 413 response.
+        with tls_socket(port, directory) as peer:
+            peer.sendall(b"POST /echo HTTP/1.1\r\nHost: localhost\r\nContent-Length: 100001\r\n\r\nx")
+            assert_response(response(peer, "POST"), 413)
+        rows.append(dict(name="oversize-body", status=413, declared_bytes=100001, sent_body_bytes=1))
         with tls_socket(port, directory) as peer:
             peer.sendall(b"POST /echo HTTP/1.1\r\nHost: localhost\r\nContent-Length: 9\r\n\r\nx")
             assert_response(response(peer), 408)

@@ -4,6 +4,31 @@ Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and 
 
 The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
 
+- 2026-10-23 (M4b prerequisite; Linux CI early-close harness fix):
+  `bend_tls_check.py` now sends Content-Length **100001** and one body byte,
+  then reads and requires the complete **413** response. The old full-body
+  write raced the correct early rejection/close in ubuntu-latest's
+  `bend_tls_native_ecdsa_chacha_negative` at `267bdcd` (SSLEOFError during
+  sendall). No server behavior, limit, deadline or assertion was weakened.
+  Nearby negative, legacy proxy/plain and middleware checks were inspected;
+  none sends a comparable large rejected body (the middleware's body is 17
+  bytes and admission there occurs after parsing). Linux CI cannot run locally;
+  this is a targeted harness-race repair, not a claimed Linux CI pass.
+
+  The remaining unconditional Homebrew OpenSSL paths in
+  `wire/bend_tls_peer_check.py` and `wire/bend_tls_server_check.py` now honor
+  `OPENSSL`, then use Homebrew only if installed, otherwise PATH `openssl`.
+  Other check-script Homebrew references already have PATH fallbacks.
+  Fresh server gate: **37/37 passed**, report
+  `~/.codex/artifacts/grounds/2026-10-23/m4b/ci-race/server-03.json`;
+  includes all native ECDSA/RSA AES/ChaCha and existing Bun ECDSA positive /
+  negative phases, legacy proxy/plain, WebSocket, cold and no-delegation checks.
+  Guard: unchanged 4096 MiB aggregate/process and 120 s per phase, native
+  Bend 2.0.38, OpenSSL 3 first in PATH. `server-01.json` stopped on system
+  pressure; `server-02.json` records an artifact-directory reuse refusal
+  (the compiler intentionally refuses to overwrite native outputs). Neither
+  is an acceptance result; `server-03/` is a fresh artifact directory.
+
 - 2026-10-23 (M4a round 4; **ACCEPTED**, synthetic keys, revised Bun credential scope):
   Implementation `8785369` keeps the separate `bend_server.bend` entry graph
   from `4fbcd66`. The user explicitly selected **P-256 ECDSA only on Bun**;
