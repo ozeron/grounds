@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "phases": [
+    {
+      "name": "http_core/check",
+      "optional": false
+    }
+  ]
+}

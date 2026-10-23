@@ -13,6 +13,7 @@ tasks:
       - "*.bend"
       - "*.py"
       - "*_vectors.json"
+      - "rsa_private_fixture.json"
       - "unicode32_nfkc_data.json"
       - "unicode32_prepare_data.json"
       - "*.bin"

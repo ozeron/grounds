@@ -2,6 +2,62 @@
   "version": 1,
   "phases": [
     {
+      "name": "wire/m2-types/key_share",
+      "optional": false
+    },
+    {
+      "name": "wire/m2-types/certificate_verify",
+      "optional": false
+    },
+    {
+      "name": "wire/m2-native/build/key_share",
+      "optional": false
+    },
+    {
+      "name": "wire/m2-native/build/certificate_verify",
+      "optional": false
+    },
+    {
+      "name": "wire/m2-native/build/certificate_verify_rsa",
+      "optional": false
+    },
+    {
+      "name": "wire/m2-native/check/key_share",
+      "optional": false
+    },
+    {
+      "name": "wire/m2-native/check/certificate_verify",
+      "optional": false
+    },
+    {
+      "name": "wire/m2-native/check/certificate_verify_rsa",
+      "optional": false
+    },
+    {
+      "name": "wire/m2-bun/build/key_share",
+      "optional": true
+    },
+    {
+      "name": "wire/m2-bun/build/certificate_verify",
+      "optional": true
+    },
+    {
+      "name": "wire/m2-bun/build/certificate_verify_rsa",
+      "optional": true
+    },
+    {
+      "name": "wire/m2-bun/check/key_share",
+      "optional": true
+    },
+    {
+      "name": "wire/m2-bun/check/certificate_verify",
+      "optional": true
+    },
+    {
+      "name": "wire/m2-bun/check/certificate_verify_rsa",
+      "optional": true
+    },
+    {
       "name": "wire/native-extensions",
       "optional": false
     },
@@ -51,6 +107,818 @@
     },
     {
       "name": "wire/native-tls",
+      "optional": false
+    },
+    {
+      "name": "wire/m3-types/client",
+      "optional": false
+    },
+    {
+      "name": "wire/m3-native/emit/tls_hello",
+      "optional": false
+    },
+    {
+      "name": "wire/m3-native/build/tls_hello",
+      "optional": false
+    },
+    {
+      "name": "wire/m3-native/emit/tls_handshake_codec",
+      "optional": false
+    },
+    {
+      "name": "wire/m3-native/build/tls_handshake_codec",
+      "optional": false
+    },
+    {
+      "name": "wire/m3-native/emit/tls_client_replay",
+      "optional": false
+    },
+    {
+      "name": "wire/m3-native/build/tls_client_replay",
+      "optional": false
+    },
+    {
+      "name": "wire/m3-native/emit/bend_tls_client",
+      "optional": false
+    },
+    {
+      "name": "wire/m3-native/build/bend_tls_client",
+      "optional": false
+    },
+    {
+      "name": "wire/m3-native/check/tls_hello",
+      "optional": false
+    },
+    {
+      "name": "wire/m3-native/check/tls_hello-stress",
+      "optional": false
+    },
+    {
+      "name": "wire/m3-native/check/tls_handshake_codec",
+      "optional": false
+    },
+    {
+      "name": "wire/m3-native/check/tls_handshake_codec-stress",
+      "optional": false
+    },
+    {
+      "name": "wire/m3-native/check/diagnostics",
+      "optional": false
+    },
+    {
+      "name": "wire/m3-native/check/replay",
+      "optional": false
+    },
+    {
+      "name": "wire/m3-native/interop/000",
+      "optional": false
+    },
+    {
+      "name": "wire/m3-native/interop/001",
+      "optional": false
+    },
+    {
+      "name": "wire/m3-native/interop/002",
+      "optional": false
+    },
+    {
+      "name": "wire/m3-native/interop/003",
+      "optional": false
+    },
+    {
+      "name": "wire/m3-native/interop/004",
+      "optional": false
+    },
+    {
+      "name": "wire/m3-native/interop/005",
+      "optional": false
+    },
+    {
+      "name": "wire/m3-native/interop/006",
+      "optional": false
+    },
+    {
+      "name": "wire/m3-native/interop/007",
+      "optional": false
+    },
+    {
+      "name": "wire/m3-native/interop/008",
+      "optional": false
+    },
+    {
+      "name": "wire/m3-native/interop/009",
+      "optional": false
+    },
+    {
+      "name": "wire/m3-native/interop/010",
+      "optional": false
+    },
+    {
+      "name": "wire/m3-native/interop/011",
+      "optional": false
+    },
+    {
+      "name": "wire/m3-native/interop/012",
+      "optional": false
+    },
+    {
+      "name": "wire/m3-native/interop/013",
+      "optional": false
+    },
+    {
+      "name": "wire/m3-native/interop/014",
+      "optional": false
+    },
+    {
+      "name": "wire/m3-native/interop/015",
+      "optional": false
+    },
+    {
+      "name": "wire/m3-native/interop/016",
+      "optional": false
+    },
+    {
+      "name": "wire/m3-native/interop/017",
+      "optional": false
+    },
+    {
+      "name": "wire/m3-native/interop/018",
+      "optional": false
+    },
+    {
+      "name": "wire/m3-native/interop/019",
+      "optional": false
+    },
+    {
+      "name": "wire/m3-native/interop/020",
+      "optional": false
+    },
+    {
+      "name": "wire/m3-native/interop/021",
+      "optional": false
+    },
+    {
+      "name": "wire/m3-native/interop/022",
+      "optional": false
+    },
+    {
+      "name": "wire/m3-native/interop/023",
+      "optional": false
+    },
+    {
+      "name": "wire/m3-native/interop/024",
+      "optional": false
+    },
+    {
+      "name": "wire/m3-native/interop/025",
+      "optional": false
+    },
+    {
+      "name": "wire/m3-native/interop/026",
+      "optional": false
+    },
+    {
+      "name": "wire/m3-native/interop/027",
+      "optional": false
+    },
+    {
+      "name": "wire/m3-bun/build/tls_hello",
+      "optional": true
+    },
+    {
+      "name": "wire/m3-bun/build/tls_handshake_codec",
+      "optional": true
+    },
+    {
+      "name": "wire/m3-bun/build/tls_client_replay",
+      "optional": true
+    },
+    {
+      "name": "wire/m3-bun/build/bend_tls_client",
+      "optional": true
+    },
+    {
+      "name": "wire/m3-bun/check/tls_hello",
+      "optional": true
+    },
+    {
+      "name": "wire/m3-bun/check/tls_hello-stress",
+      "optional": true
+    },
+    {
+      "name": "wire/m3-bun/check/tls_handshake_codec",
+      "optional": true
+    },
+    {
+      "name": "wire/m3-bun/check/tls_handshake_codec-stress",
+      "optional": true
+    },
+    {
+      "name": "wire/m3-bun/check/diagnostics",
+      "optional": true
+    },
+    {
+      "name": "wire/m3-bun/check/replay",
+      "optional": true
+    },
+    {
+      "name": "wire/m3-bun/interop/000",
+      "optional": true
+    },
+    {
+      "name": "wire/m3-bun/interop/001",
+      "optional": true
+    },
+    {
+      "name": "wire/m3-bun/interop/002",
+      "optional": true
+    },
+    {
+      "name": "wire/m3-bun/interop/003",
+      "optional": true
+    },
+    {
+      "name": "wire/m3-bun/interop/004",
+      "optional": true
+    },
+    {
+      "name": "wire/m3-bun/interop/005",
+      "optional": true
+    },
+    {
+      "name": "wire/m3-bun/interop/006",
+      "optional": true
+    },
+    {
+      "name": "wire/m3-bun/interop/007",
+      "optional": true
+    },
+    {
+      "name": "wire/m3-bun/interop/008",
+      "optional": true
+    },
+    {
+      "name": "wire/m3-bun/interop/009",
+      "optional": true
+    },
+    {
+      "name": "wire/m3-bun/interop/010",
+      "optional": true
+    },
+    {
+      "name": "wire/m3-bun/interop/011",
+      "optional": true
+    },
+    {
+      "name": "wire/m3-bun/interop/012",
+      "optional": true
+    },
+    {
+      "name": "wire/m3-bun/interop/013",
+      "optional": true
+    },
+    {
+      "name": "wire/m3-bun/interop/014",
+      "optional": true
+    },
+    {
+      "name": "wire/m3-bun/interop/015",
+      "optional": true
+    },
+    {
+      "name": "wire/m3-bun/interop/016",
+      "optional": true
+    },
+    {
+      "name": "wire/m3-bun/interop/017",
+      "optional": true
+    },
+    {
+      "name": "wire/m3-bun/interop/018",
+      "optional": true
+    },
+    {
+      "name": "wire/m3-bun/interop/019",
+      "optional": true
+    },
+    {
+      "name": "wire/m3-bun/interop/020",
+      "optional": true
+    },
+    {
+      "name": "wire/m3-bun/interop/021",
+      "optional": true
+    },
+    {
+      "name": "wire/m3-bun/interop/022",
+      "optional": true
+    },
+    {
+      "name": "wire/m3-bun/interop/023",
+      "optional": true
+    },
+    {
+      "name": "wire/m3-bun/interop/024",
+      "optional": true
+    },
+    {
+      "name": "wire/m3-bun/interop/025",
+      "optional": true
+    },
+    {
+      "name": "wire/m3-bun/interop/026",
+      "optional": true
+    },
+    {
+      "name": "wire/m3-bun/interop/027",
+      "optional": true
+    },
+    {
+      "name": "wire/m3-audit/no-openssl",
+      "optional": true
+    },
+    {
+      "name": "wire/m3b-types/server",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-peer/build/go",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-controls/emit/legacy-probe",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-controls/native/legacy-probe",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-controls/bun/legacy-probe",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-controls/check/legacy-probe",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-controls/emit/cookie-probe",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-controls/native/cookie-probe",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-controls/bun/cookie-probe",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-controls/check/cookie-probe",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/emit/negotiation",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/build/negotiation",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/check/negotiation",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/emit/server",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/build/server",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/build/negotiation",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/check/negotiation",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/build/server",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-audit/server-no-openssl",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/server/000",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/server/001",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/server/002",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/server/003",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/server/004",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/server/005",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/server/006",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/server/007",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/server/008",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/server/009",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/server/010",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/server/011",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/server/012",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/server/013",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/server/014",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/server/015",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/server/016",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/server/017",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/server/018",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/server/019",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/server/020",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/server/021",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/server/022",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/server/023",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/server/024",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/server/025",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/server/026",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/server/027",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/server/028",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/server/029",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/server/030",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/server/031",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/server/032",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/server/033",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/server/034",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/server/035",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/server/036",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/server/037",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/peers/000",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/peers/001",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/peers/002",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/peers/003",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/peers/004",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/peers/005",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/peers/006",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/peers/007",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/peers/008",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/peers/009",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/peers/010",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/peers/011",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/server/000",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/server/001",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/server/002",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/server/003",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/server/004",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/server/005",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/server/006",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/server/007",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/server/008",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/server/009",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/server/010",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/server/011",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/server/012",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/server/013",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/server/014",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/server/015",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/server/016",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/server/017",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/server/018",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/server/019",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/server/020",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/server/021",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/server/022",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/server/023",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/server/024",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/server/025",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/server/026",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/server/027",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/server/028",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/server/029",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/server/030",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/server/031",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/server/032",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/server/033",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/server/034",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/server/035",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/server/036",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/server/037",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/peers/000",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/peers/001",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/peers/002",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/peers/003",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/peers/004",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/peers/005",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/peers/006",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/peers/007",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/peers/008",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/peers/009",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/peers/010",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/peers/011",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-native/server/038",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/server/038",
       "optional": false
     }
   ]

@@ -23,6 +23,68 @@ class PhaseTests(unittest.TestCase):
             {'name': 'test/one', 'optional': optional}, {'name': 'test/two', 'optional': False}]}))
         return path
 
+    def test_root_groups_keep_package_order_and_require_every_package(self):
+        first = self.manifest()
+        second = self.directory / 'second.json'
+        second.write_text(json.dumps({'version': 1, 'phases': [
+            {'name': 'other/one', 'optional': False}]}))
+        root = self.directory / 'root.json'
+        root.write_text(json.dumps({'version': 2, 'manifests': [first.name, second.name]}))
+        report = {}
+        phases = Phases(root, 120, report)
+        try:
+            def event(kind, name, **extra):
+                phases.event(dict(event=kind, phase=name, **extra), time.monotonic())
+            # Moon may choose either package first, but cannot interleave them.
+            event('start', 'other/one')
+            with self.assertRaises(PhaseError):
+                event('start', 'test/one')
+            event('end', 'other/one', status=0)
+            with self.assertRaises(PhaseError):
+                phases.finish()
+            with self.assertRaises(PhaseError):
+                event('start', 'test/two')
+            event('start', 'test/one')
+            event('end', 'test/one', status=0)
+            event('start', 'test/two')
+            event('end', 'test/two', status=0)
+            phases.finish()
+            with self.assertRaises(PhaseError):
+                event('start', 'other/one')
+            self.assertEqual(len(report['phase_manifest_sources']), 2)
+        finally:
+            phases.close()
+
+    def test_root_rejects_duplicate_and_nested_manifests(self):
+        first = self.manifest()
+        root = self.directory / 'root.json'
+        for refs in ([first.name, first.name], ['root.json']):
+            root.write_text(json.dumps({'version': 2, 'manifests': refs}))
+            with self.assertRaises(PhaseError):
+                Phases(root, 120, {})
+
+    def test_root_wrapper_preserves_deadlines_and_package_failures(self):
+        package = self.directory / 'package.json'
+        package.write_text(json.dumps({'version': 1, 'phases': [
+            {'name': 'package/one', 'optional': False}]}))
+        root = self.directory / 'root.json'
+        root.write_text(json.dumps({'version': 2, 'manifests': [package.name]}))
+        wrapper = str(Path(__file__).with_name('check_package.py'))
+        for body, expected, reason in [('raise SystemExit(7)', 125, 'guard-error'),
+                                       ('import time; time.sleep(30)', 124, 'phase-timeout'),
+                                       ('pass', 0, 'child-exit')]:
+            with self.subTest(body=body):
+                code = f'import subprocess,sys; sys.exit(subprocess.call([sys.executable,{wrapper!r},"package/one","--",sys.executable,"-c",{body!r}]))'
+                command, path = Common.GuardTests.command(self, 'root-wrapper', code, 256, .5)
+                index = command.index('--')
+                command[index:index] = ['--phases', str(root)]
+                result = subprocess.run(command, capture_output=True, text=True, timeout=12)
+                report = json.loads(path.read_text())
+                self.assertEqual(result.returncode, expected, report)
+                self.assertEqual(report['reason'], reason, report)
+                if body.startswith('raise'):
+                    self.assertEqual(report['phases'][0]['exit_code'], 7)
+
     def run_phases(self, body, memory=256, timeout=1):
         command, path = Common.GuardTests.command(self, 'phase', body, memory, timeout)
         index = command.index('--')

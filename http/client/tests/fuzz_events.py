@@ -2,7 +2,7 @@
 
   python3 tests/fuzz_events.py BINARY N SEED
 
-Serves N event streams on 7401 and runs BINARY N, which is
+Serves N event streams on a run-local URL and runs BINARY N URL, which is
 tests/fuzz_events.bend built. Each stream is random lines of fields,
 comments and junk, with LF, CR and CRLF endings, sometimes a BOM, sent
 chunked or to the close in random pieces that split UTF-8 chars. The
@@ -11,10 +11,9 @@ which events the client must print, and which last id it must end with.
 """
 import random
 import socket
-import subprocess
 import sys
-import threading
 import time
+from fuzz_harness import run
 
 BIN = sys.argv[1]
 N = int(sys.argv[2]) if len(sys.argv) > 2 else 500
@@ -115,17 +114,9 @@ def send_pieces(conn, rng, b, chunked):
         conn.sendall(b"0\r\n\r\n")
 
 
-def serve(s, rng, want):
-    for _ in range(N):
-        conn, _ = s.accept()
-        conn.settimeout(10)
+def serve(connections, rng, want):
+    for conn in connections:
         try:
-            buf = b""
-            while b"\r\n\r\n" not in buf:
-                more = conn.recv(65536)
-                if not more:
-                    break
-                buf += more
             text = stream(rng)
             want.append((text, lines_of(text)))
             chunked = rng.random() < 0.5
@@ -139,21 +130,12 @@ def serve(s, rng, want):
                 pass
         except OSError:
             pass
-        conn.close()
 
 
 def main():
     rng = random.Random(SEED)
-    s = socket.socket()
-    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    s.bind(("127.0.0.1", 7401))
-    s.listen(16)
-    want = []
-    t = threading.Thread(target=serve, args=(s, rng, want), daemon=True)
-    t.start()
-    r = subprocess.run([BIN, str(N)], capture_output=True, text=True, timeout=600)
+    want, r = run(BIN, N, lambda connections, want: serve(connections, rng, want))
     out = r.stdout.split("\n")
-    t.join(10)
     got = [l for l in out if l]
     # split the client's lines into one group per stream, at each end or err
     groups, cur = [], []
@@ -164,14 +146,17 @@ def main():
             cur = []
     bad = [(text, w, g) for (text, w), g in zip(want, groups) if w != g]
     events = sum(len(w) - 1 for _, w in want)
-    print(f"fuzz_events: {N} streams, {events} events, {N - len(bad) - max(0, N - len(groups))} read as the reference does")
+    same = sum(w == g for (_, w), g in zip(want, groups))
+    print(f"fuzz_events: {N} streams, {events} events, {same} read as the reference does")
     if len(groups) != N:
         print(f"  the client ended {len(groups)} streams of {N}")
+    if len(want) != N:
+        print(f"  the server served {len(want)} of {N} streams")
     if r.returncode != 0:
         print(f"  the client exited {r.returncode}: {r.stderr.strip()[-300:]}")
     for text, w, g in bad[:5]:
         print("  sent", repr(text[:200]), "\n  want", w, "\n  got ", g)
-    sys.exit(1 if bad or len(groups) != N else 0)
+    sys.exit(1 if bad or cur or len(groups) != N or len(want) != N or r.returncode != 0 else 0)
 
 
 main()

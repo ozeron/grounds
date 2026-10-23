@@ -1,5 +1,11 @@
 # Bend cookie HMAC boundary
 
+M2 follow-up (2026-10-23):
+[the shared runtime review](../../crypto/RUNTIME_REVIEW.md) records generated
+HMAC/tag-comparison observations and explicit storage/timing dispositions.
+This Bend path remains limited to synthetic keys; physical erasure is a
+live-secret blocker. The cookie-format and historical evidence follow.
+
 The explicit `cookie_bend.sign` / `cookie_bend.verify` calls retain the existing cookie
 signature format and IO result shapes. Legacy `sign` / `verify` remain
 OpenSSL-backed on native and unavailable on JS. The new path calls the pure

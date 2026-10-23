@@ -1,6 +1,6 @@
 # grounds-crypto
 
-Pure Bend cryptographic primitives. This package implements SHA-1, SHA-256, HMAC-SHA1, HMAC-SHA256, HKDF-SHA-256, ChaCha20, Poly1305, ChaCha20-Poly1305 AEAD, AES-128 encryption, AES-128-GCM, X25519, P-256 ECDH, P-256/SHA-256 ECDSA and RSA-PSS/v1.5 SHA-256 digest verification. They are **experimental**: legacy cookie signing and live TLS still use OpenSSL while the Bend implementation is verified and its generated code is reviewed for timing behavior. The HTTP core now exposes explicit Bend cookie HMAC wrappers for synthetic-key verification on native and Bun. Plain SHA-1 is used only for the WebSocket handshake challenge; HMAC-SHA1 is for the legacy STUN MESSAGE-INTEGRITY attribute.
+Pure Bend cryptographic primitives. This package implements SHA-1, SHA-256, HMAC-SHA1, HMAC-SHA256, HKDF-SHA-256, ChaCha20, Poly1305, ChaCha20-Poly1305 AEAD, AES-128 encryption, AES-128-GCM, X25519, P-256 ECDH, P-256/SHA-256 ECDSA, RSA-PSS SHA-256 private signing, RSA-PSS/v1.5 SHA-256 digest verification and bounded server credential import. They are **experimental**: legacy cookie signing and live TLS still use OpenSSL. [RUNTIME_REVIEW.md](RUNTIME_REVIEW.md) restricts the Bend path to synthetic keys; live-secret timing and physical erasure remain blocked. The HTTP core exposes explicit Bend cookie HMAC wrappers for synthetic-key verification on native and Bun. Plain SHA-1 is used only for the WebSocket handshake challenge; HMAC-SHA1 is for legacy STUN MESSAGE-INTEGRITY.
 
 | Module | Public calls | Source |
 |---|---|---|
@@ -24,6 +24,10 @@ Pure Bend cryptographic primitives. This package implements SHA-1, SHA-256, HMAC
 | `rsa_encoding.bend` | `mgf1`, `pss_encode_digest`, `pss_verify_digest`, `v15_encode_digest`, `v15_verify_digest` | RFC 8017 SHA-256 encoding |
 | `rsa_integer.bend` | `public_operation(modulus, exponent, signature)` | Experimental Bend RSAVP1, 2048–4096-bit RSA public keys |
 | `rsa_signature256.bend` | `verify_pss_digest(modulus, exponent, digest, signature)`, `verify_v15_digest(modulus, exponent, digest, signature)` | Experimental full SHA-256 digest-signature verification; 774 focused cases pass on native and Bun |
+| `rsa_private.bend` | `validate(private)`, `sign_digest(private,digest,salt,blind)` | RFC 8017 CRT RSA-PSS/SHA-256 signing, base blinding and public fault check; affine key consumed; trusted prime generation required |
+| `pem.bend` | `decode(bytes)` | Bounded canonical PEM/Base64, distinct encrypted-key rejection |
+| `private_key.bend` | `sec1`, `pkcs1`, `pkcs8`, `pem` | Affine P-256/RSA private import through bounded DER; SEC1/PKCS#8 P-256 and PKCS#1/PKCS#8 RSA |
+| `credential.bend` | `from_key(leaf_der,key)`, `import_pem(leaf_der,private_pem)` | Imported key must match leaf SPKI; RSAE only for local RSA CertificateVerify; no trust decision |
 | `field256.bend` | Internal P-256 prime/order `add`, `sub`, `mul`, `square`, `invert`, `decode_canonical` | SP 800-186 section 3.2.1.3 arithmetic foundation |
 | `bytes.bend` | `length`, `valid`, `append`, `hex` | Tail-recursive byte-list helpers |
 | `der.bend` | `decode(bytes)`, `complete(tag, bytes)` | Bounded DER TLV framing for future certificate schemas; preserves exact consumed bytes |
@@ -31,6 +35,7 @@ Pure Bend cryptographic primitives. This package implements SHA-1, SHA-256, HMAC
 | `oid.bend` | `decode(bytes)` | Canonical primitive DER OID admission; retains encoded contents without narrowing arc values |
 | `x509_public_key.bend` | `decode(bytes)` | Complete RSA/PSS or uncompressed P-256 SPKI structural/public-parameter admission; retains algorithm restrictions |
 | `x509_certificate.bend` | `decode(bytes)` | Bounded certificate field framing; retains exact signed bytes and binds supported inner/outer algorithms |
+| `x509_chain.bend` / `x509_ca_path.bend` | `verify(tables,presented,anchors,identity,ServerAuth{},now)` | Composed server-certificate authentication: prepared issuer Names, exact-TBS signatures, explicit anchors, CA/path/KU/EKU, SAN-only DNS/IP and trusted UTC time; explicit failures and bounded search. 193 complete-chain cases per native/Bun target; fresh 1,673-phase crypto and 1,869-phase root gates pass on Bend 2.0.38. See [X509_CHAIN_REVIEW.md](X509_CHAIN_REVIEW.md) for rejected features and limits. |
 | `x509_validity.bend` | `decode_time(bytes)`, `decode(bytes)`, `valid_at(bytes, now)` | Strict civil UTC calendar/interval admission and inclusive validity bounds; caller supplies trusted time |
 | `x509_extensions.bend` | `decode(bytes)`, `optional(bytes)` | Exact extension envelopes, canonical OIDs/critical flags and collision-safe duplicate rejection; opaque payloads |
 | `x509_constraints.bend` | `basic(bytes)`, `usage(bytes)`, `path_allows(limit,count)`, `policy(basic,usage)` | Basic-constraints/key-usage payload admission and local consistency; arbitrary-size path limits retained |
@@ -83,8 +88,11 @@ encoding bound, not a permitted TLS key-size policy. PKCS#1 v1.5 uses the exact
 SHA-256 DER DigestInfo including NULL parameters, with encoded lengths 62–512
 bytes. MGF1 accepts valid seeds and output lengths through 512 bytes. Encoding
 returns `None{}` on invalid input; verification returns `False{}`. RSA
-private exponentiation, salt generation and private-key
-lifecycle are not implemented here. `rsa_integer.public_operation` separately
+private exponentiation and affine private-key ownership are supplied separately
+by `rsa_private`; callers must supply fresh salt/blinding entropy. See
+[RSA_PRIVATE_REVIEW.md](RSA_PRIVATE_REVIEW.md) and the synthetic-only runtime
+contract in [RUNTIME_REVIEW.md](RUNTIME_REVIEW.md).
+`rsa_integer.public_operation` separately
 admits canonical unsigned big-endian odd moduli of 2048–4096 bits, canonical
 odd exponents greater than one and below the modulus, and exactly `k` valid
 signature bytes representing an integer below the modulus. It returns `k`
@@ -1122,7 +1130,7 @@ the fresh root check stops in crypto at 386.4 MiB (26.907 s). Neither of those
 preparation-era gates completes. The accepted report manifest distinguishes the final sealed
 programs and 4 MiB Bun stress runs from earlier failed attempts.
 
-`check_phases.json` now enumerates 961 required/optional resource phases,
+`check_phases.json` now enumerates 1,569 required/optional resource phases,
 including the Name-comparison additions. The Bun P-256 checker runs all 609
 cases in 153 batches of at most four using `--batch-size 4`; its default remains
 16 for the native invocation. This partition replaces the earlier 39 sixteen-case
@@ -1130,6 +1138,13 @@ Bun batches after a batch exceeded the 120-second deadline. Ordered inputs,
 expected results and oracle/corpus generation are unchanged. `--report` writes
 complete-corpus counts, hash and source digests only after all cases pass.
 The ECDSA corpus still requires all 384 cases across its existing 100 phases.
+
+The Bun whole-certificate signature checker announces its existing 608 evaluator
+batches and the three CLI rejection checks (one final phase) separately. The
+4,825 ordered cases, oracle and eight-case/large-input batch boundaries are
+unchanged. This replaces one phase that exceeded 120 seconds on Bend 2.0.38;
+it does not extend a deadline. Successful reports include the complete corpus
+SHA-256 `8b96f6e3bd03b9e70973bec5c08b2da7717d670258e8ad8bdc152f345db2ede2`.
 
 Use `tools/build_guard.py --phases crypto/check_phases.json` around the Moon
 command for one aggregate 4 GiB process-tree guard, a 120-second deadline per

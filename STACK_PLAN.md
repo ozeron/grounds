@@ -119,19 +119,29 @@ partial coverage, report paths and remaining failures in STACK_PROGRESS.md.
 
 ### M0 — Reproducible current baseline
 
-- [ ] Inspect and finish or isolate the existing uncommitted RSA check-phase
+- [x] Inspect and finish or isolate the existing uncommitted RSA check-phase
   changes without discarding user work. Preserve the full corpus and explicit
   phase accounting; splitting phases must not conceal missing cases.
-- [ ] Obtain a complete fresh crypto gate on the selected supported compiler.
+- [x] Obtain a complete fresh crypto gate on the selected supported compiler.
   The isolated 2.0.34 354-phase pass predates current additions and cannot stand
   in for current-tree acceptance. Resolve primary 2.0.27 failures or qualify a
   compiler migration through actual consumers before changing the pin.
-- [ ] Resolve HTTP consumer compatibility while preserving meaningful equality
+- [x] Resolve HTTP consumer compatibility while preserving meaningful equality
   proofs; verify wire, HTTP and crypto together. Distinguish missing phases,
   compiler errors, resource cutoffs and protocol assertion failures.
-- [ ] Make the complete root gate executable under sequential declared phases,
+- [x] Make the complete root gate executable under sequential declared phases,
   existing memory limits and per-phase deadlines. Do not extend a whole-job
   deadline or accept a cached/partial run as complete acceptance.
+
+2026-10-23 M0 round 3: two fresh root runs pass all 1,765 declared phases on
+pinned Bend 2.0.38 under the unchanged sequential 4 GiB guard and 120-second
+per-phase cap, with zero skipped or unexecuted phases. HTTP differential
+fixtures now isolate their ports and request paths from unrelated local probes;
+both roots compare all 2,000 responses and all 1,000 SSE streams exactly.
+HTTP JSON and all 161 RTC phases pass in both roots. M0 exit criteria are met;
+see the dated evidence ledger and `2026-10-23/m0r3/` reports for the cause,
+regression evidence, exact commands and source bindings. M1 had not started at
+that M0 checkpoint.
 
 Exit: a reproducible supported toolchain and fresh baseline report identifying
 all passes and remaining blockers. A failed baseline is useful evidence, but M0
@@ -139,43 +149,65 @@ is not complete while required checks fail or remain unexecuted.
 
 ### M1 — Composed certificate authentication
 
-- [ ] Build OID-bound attribute equality on x509_name_text/x509_name_prepare;
+- [x] Build OID-bound attribute equality on x509_name_text/x509_name_prepare;
   compare RDNs as multiplicity-preserving multisets and Names in sequence order.
   Cover cross-encoding equality, order, duplicates and unsupported attributes.
-- [ ] Bind child issuer to parent subject and exact signed certificate bytes;
+- [x] Bind child issuer to parent subject and exact signed certificate bytes;
   compose signature verification, CA/basic constraints, path length and key usage.
-- [ ] Compose explicit trust anchors, bounded path processing, supported critical
+- [x] Compose explicit trust anchors, bounded path processing, supported critical
   extensions/name constraints and cycle/depth rejection. Unsupported critical
   semantics must reject explicitly rather than be treated as validated.
-- [ ] Compose TLS purpose, DNS/IP identity and trusted wall-clock validity into
+- [x] Compose TLS purpose, DNS/IP identity and trusted wall-clock validity into
   one auditable verification result with explicit failure reasons. Monotonic
   deadlines are not a substitute for certificate-validity wall-clock input.
-- [ ] Differential-test complete accepted/rejected chains using local synthetic
+- [x] Differential-test complete accepted/rejected chains using local synthetic
   fixtures, including wrong issuer, trust, time, hostname and signature cases.
 
 Exit: one caller-facing certificate authentication operation on native and Bun,
 with independent full-chain evidence; parser and Unicode counts alone cannot pass.
 
+2026-10-23 M1: `x509_chain.verify` meets this exit with 193 complete-chain cases
+per native/Bun target (55 accepted, 138 rejected), independent full-chain oracle
+evidence, and fresh 1,673/1,673 crypto and 1,869/1,869 root phase passes on
+pinned Bend 2.0.38. The existing Name comparison meets the first item unchanged.
+Name constraints reject explicitly at either criticality; supported semantics,
+stricter CA/anchor policy and finite search limits are documented in
+`crypto/X509_CHAIN_REVIEW.md`. See the dated ledger and `2026-10-23/m1/` reports.
+M2 and live TLS/HTTPS acceptance remain open; M2 was not started by this work.
+
 ### M2 — TLS profile and private-key/runtime readiness
 
 Selected target and protocol-to-source/evidence matrix: [TLS_PROFILE.md](TLS_PROFILE.md).
-The profile is a build decision; M2 stays open until implementation and review pass.
+The profile is binding. M2 closes below for synthetic-key component interoperability;
+live-secret use remains blocked by the runtime review.
 
-- [ ] Freeze a bounded TLS 1.3 interoperability profile: version, cipher suites,
+- [x] Freeze a bounded TLS 1.3 interoperability profile: version, cipher suites,
   groups, signature schemes, certificate forms, ALPN and unsupported extensions.
   Check current standards and errata before implementing; explicitly document
   omissions such as resumption/0-RTT rather than silently accepting them.
-- [ ] Map each selected handshake operation to existing Bend primitives; implement
+- [x] Map each selected handshake operation to existing Bend primitives; implement
   only missing operations required by that profile. Private RSA signing is a
   dependency only if the selected local signing profile requires it.
-- [ ] Complete private-key ownership, RNG consumption, nonce/counter limits,
+- [x] Complete private-key ownership, RNG consumption, nonce/counter limits,
   failure cleanup and key-update lifecycle for the selected path.
-- [ ] Review generated native/Bun code and runtime behavior for secret-dependent
+- [x] Review generated native/Bun code and runtime behavior for secret-dependent
   branches/memory access, duplication and erasure. Resolve findings before
   live-secret use; synthetic interoperability is not timing-safety evidence.
 
 Exit: profile-to-implementation matrix, independent vectors/differential tests,
 and an explicit disposition for each runtime/key-lifecycle finding.
+
+2026-10-23 M2: the frozen profile, complete operation-owner/evidence matrix,
+independent native/Bun vectors/differential cases and explicit runtime/lifecycle
+dispositions meet this exit **for synthetic keys only**. Fresh forced gates pass
+1,702/1,702 crypto, 27/27 wire and 1,912/1,912 root phases, with no skipped or
+unexecuted phases under unchanged 4 GiB / 120-second phase limits.
+[crypto/RUNTIME_REVIEW.md](crypto/RUNTIME_REVIEW.md) binds the reviewed generated
+C/JS and compiler hashes. Physical erasure is a live-secret blocker; ECDSA retry,
+private admission and native/JIT timing are accepted only for synthetic keys.
+This closes the disposition-based M2 exit, not the broader live-secret crypto
+checklist. M3/M4 and live HTTPS acceptance remain open; M3 has not started.
+See the dated acceptance ledger and `2026-10-23/m2/` reports.
 
 ### M3 — Live Bend TLS client and server
 

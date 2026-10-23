@@ -3,6 +3,9 @@ language: "bend"
 
 tasks:
   check:
-    command: "bend test.bend"
+    command: "python3 ../tools/check_package.py utf8/check -- bend test.bend"
     inputs:
+      - "check_phases.json"
+      - "/tools/check_phase.py"
+      - "/tools/check_package.py"
       - "*.bend"

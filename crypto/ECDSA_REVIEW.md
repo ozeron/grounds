@@ -1,5 +1,11 @@
 # P-256 ECDSA review
 
+M2 follow-up (2026-10-23, Bend 2.0.38):
+[RUNTIME_REVIEW.md](RUNTIME_REVIEW.md) records the generated-code evidence and
+current dispositions. RFC 6979 retry/range/nonzero branches are
+`accepted-for-synthetic-keys-only`; physical erasure remains a live-secret
+`blocker`. The original algorithm review and historical evidence follow.
+
 Reviewed 2026-10-02 against the pinned Bend 2.0.27/Bun 1.3.13 toolchain. The new
 modules use the current accepted P-256 and prime/order arithmetic. This is an
 experimental digest/signature boundary, not a complete TLS or certificate owner.

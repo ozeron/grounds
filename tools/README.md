@@ -1,5 +1,12 @@
 # Local build resource guard
 
+The crypto differential checks require the OpenSSL 3 CLI on `PATH`. macOS's
+`/usr/bin/openssl` is LibreSSL and does not supply `enc -chacha20`. Check
+`openssl version` before starting the gate. With Homebrew, select the installed
+oracle explicitly, for example `export PATH="$(brew --prefix openssl@3)/bin:$PATH"`.
+Record that path and version with the run. This CLI is a test oracle/fixture
+dependency; selecting it does not implement any Grounds protocol operation.
+
 Run compilation and package/repository checks through `build_guard.py` after
 the 2026-10-01 resource incident. The lock is shared across Grounds checkouts.
 The guard refuses a second guarded job or an existing same-user Bend process,
@@ -32,10 +39,11 @@ Linux does not currently have this additional system-pressure check; its report
 marks that metric unsupported while retaining process-group RSS monitoring.
 
 ```sh
-PYTHONDONTWRITEBYTECODE=1 nice -n 10 python3 tools/build_guard.py \
+PYTHONDONTWRITEBYTECODE=1 python3 tools/build_guard.py \
   --memory-mib 4096 --process-memory-mib 4096 --timeout 120 \
+  --phases tools/check_phases.json \
   --report /tmp/grounds-check-resource.json \
-  -- moon --concurrency 1 run :check
+  -- nice -n 10 moon --concurrency 1 run :check --force
 ```
 
 Recent isolated compiler diagnostics also use `BUN_OPTIONS=--smol`,
@@ -52,6 +60,15 @@ through [BUN_OPTIONS](https://bun.com/docs/bundler/executables#runtime-arguments
 Neither setting is a memory quota; the separate guard measures the owned
 process tree and stops it at the sampled cutoff. These settings are local to
 the invocation and do not alter the installed compiler or user configuration.
+
+RTC's `check.sh` applies `BUN_OPTIONS=--smol` (appended to existing options) and
+`BUN_JSC_forceRAMSize=134217728` to its native/JS fixture build commands. On
+Bend 2.0.38 the unchanged nomination-evidence fixture otherwise crosses 4 GiB
+in the frontend. Earlier collection fits its complete native build within the
+existing guard; this is a GC scheduling change, not a raised memory allowance.
+The settings do not escape the build command, disable JIT, or change generated
+native/Bun evaluator invocations. All RTC cases and phase declarations remain
+unchanged. The dated M0 round-2 ledger records measurements and full-gate results.
 
 This is a sampled cutoff, not a kernel-enforced allocation quota: a fast
 allocation can overshoot between samples. The guard includes descendants in
@@ -106,9 +123,18 @@ and announcement helper are Moon cache inputs. A full fresh run must finish the
 entire declared sequence; passing a subset does not satisfy the package gate.
 Crypto and RTC also declare their complete existing check sequences. Crypto's
 long Bun P-256/ECDSA oracles announce the existing batches individually without
-reducing their corpora. A combined root manifest is not yet implemented.
+reducing their corpora. Short package checks use `check_package.py` to announce
+their complete existing command as one required phase; its failure status is
+preserved. HTTP server, wire, crypto and RTC retain their finer phase boundaries.
 Migration alone does not complete a package gate: historical failed runs and
 the latest actual check results are in `STACK_PROGRESS.md`.
+
+`tools/check_phases.json` combines all thirteen package manifests for a fresh
+root gate. Its version-2 manifest allows Moon to choose the package order, but
+requires each package's entire declared sequence before another package starts.
+Overlapping packages, missing packages/phases, repeated phases and failures
+reject the run. Reports retain the contents and SHA-256 of every referenced
+manifest. Package manifests remain version 1 and keep their strict phase order.
 
 Evaluators use the current 4 GiB aggregate/process cap, a 120-second deadline
 and nice 10. Historical reports retain their older explicit budgets. Keep the
@@ -159,3 +185,15 @@ Run the splitter's storage, cross-unit direct/dynamic calls and atomic output
 publication regressions with `python3 tools/bend_native_parts_test.py` under
 the guard. Splitting addresses Clang's memory footprint; it does not resolve
 Bend frontend resource failures or certify generated-code timing safety.
+
+M2 adds private signing and credential phases to crypto and key-share/
+CertificateVerify phases to wire. Existing phase identities and order are
+preserved; native and default Bun each run every new differential case.
+RSA private checks are grouped into arithmetic, key validation, signing and
+rejection; credential import separates EC and RSA so the complete corpora fit
+the unchanged 120-second phase deadline. New crypto fixtures are explicit Moon
+inputs. `GROUNDS_M2_REPORT_DIR` optionally retains per-backend case reports;
+it changes report placement only. The dated M2 ledger records the exact phase
+counts, commands, generated-code hashes and guard reports. These gates accept
+synthetic-key component interoperability only; see
+[crypto/RUNTIME_REVIEW.md](../crypto/RUNTIME_REVIEW.md) for live-secret blockers.

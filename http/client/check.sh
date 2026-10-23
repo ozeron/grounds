@@ -7,6 +7,7 @@ tmp=$(mktemp -d)
 fpid=
 spid=
 trap 'set +e; [ -n "$fpid" ] && kill "$fpid" 2>/dev/null && wait "$fpid" 2>/dev/null; [ -n "$spid" ] && kill "$spid" 2>/dev/null && wait "$spid" 2>/dev/null; rm -rf "$tmp"' EXIT
+python3 tests/fuzz_harness_test.py
 bend test.bend
 bend PROOF.bend
 bend tests/live.bend -o "$tmp/live" > /dev/null

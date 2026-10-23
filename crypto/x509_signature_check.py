@@ -6,6 +6,7 @@ import hashlib
 import json
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import time
 
@@ -139,12 +140,17 @@ def cases():
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--report', type=Path)
+    parser.add_argument('--phase-prefix', help='Declare each existing evaluator batch as a guarded phase')
     parser.add_argument('binary', nargs=argparse.REMAINDER)
     options = parser.parse_args()
     binary = options.binary[1:] if options.binary[:1] == ['--'] else options.binary
     if not binary:
         parser.error('supply the whole verifier after --')
+    if options.phase_prefix:
+        sys.path.insert(0, str(ROOT.parent/'tools'))
+        from check_phase import announce
     rows = iter(cases()); counts = Counter(); start = time.monotonic()
+    batch_count = 0; corpus = hashlib.sha256()
     with tempfile.TemporaryDirectory(prefix='grounds-x509-signature-') as directory:
         first = 0; pending = next(rows, None)
         while pending is not None:
@@ -162,16 +168,28 @@ def main():
                 certificate = Path(directory)/f'{index}-certificate.der'
                 issuer.write_bytes(key); certificate.write_bytes(cert)
                 args.extend((str(issuer), str(certificate)))
+            phase = f'{options.phase_prefix}/batch-{batch_count:03d}'
+            if options.phase_prefix:
+                announce(['start', phase])
             result = subprocess.run(binary+['verify']+args, capture_output=True, text=True, timeout=90)
             assert result.returncode == 0, (first, result.returncode, result.stderr[-2000:])
             actual = result.stdout.splitlines(); expected = [row[3] for row in batch]
             assert actual == expected, (first, [r[0] for r in batch], actual, expected)
             counts.update(row[0] for row in batch); first += len(batch)
+            for tag, key, cert, expected in batch:
+                corpus.update((json.dumps([tag, key.hex(), cert.hex(), expected], separators=(',', ':'))+'\n').encode())
+            batch_count += 1
+            if options.phase_prefix:
+                announce(['end', phase, '0'])
             if pending is None:
                 pending = next(rows, None)
+        if options.phase_prefix:
+            announce(['start', options.phase_prefix+'/cli'])
         for args in ([], ['verify', 'one-path'], ['unknown-command']):
             result = subprocess.run(binary+args, capture_output=True, text=True, timeout=10)
             assert result.returncode == 2 and not result.stdout, (args, result.returncode, result.stdout)
+        if options.phase_prefix:
+            announce(['end', options.phase_prefix+'/cli', '0'])
     names = ['x509_signature.bend', 'x509_verify_cli.bend', 'x509_signature_check.py', 'x509_signature_vectors.json',
              'x509_algorithm.bend', 'x509_public_key.bend', 'x509_certificate.bend', 'sha256.bend',
              'rsa_signature256.bend', 'rsa_integer.bend', 'rsa_encoding.bend', 'ecdsa256.bend',
@@ -179,6 +197,7 @@ def main():
              'x509_algorithm_vectors.json', 'x509_algorithm_check.py', 'x509_public_key_check.py',
              'x509_certificate_check.py', 'rsa_signature256_check.py', 'ecdsa_check.py', 'p256_check.py']
     report = {'binary': binary, 'total': sum(counts.values()), 'cases': dict(counts),
+              'batches': batch_count, 'corpus_sha256': corpus.hexdigest(),
               'CLI_failures': 3, 'elapsed_seconds': round(time.monotonic()-start, 3),
               'whole_Bend_signature_verification': True, 'certificate_trust_validation': False,
               'input_sha256': {name: hashlib.sha256((ROOT/name).read_bytes()).hexdigest() for name in names}}

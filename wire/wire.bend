@@ -97,36 +97,36 @@ def wire_resolve(host: String) -> IO(Result<&1, &1, U32 & String, String>):
 # The client socket then uses wire_tls_* until wire_tls_close
 def wire_tls_connect(sock: Socket, host: String, ms: U32) -> IO(Socket & Result<&1, &1, U32 & String, Unit>):
   import "./effs/wire.c"
-  import "./effs/wire.js"
+  import "./effs/tls_compat.js"
 
 def wire_tls_send_timeout(sock: Socket, data: List<&2, U32>, ms: U32) -> IO(Socket & Result<&1, &1, U32 & String, Unit>):
   import "./effs/wire.c"
-  import "./effs/wire.js"
+  import "./effs/tls_compat.js"
 
 # Some{bytes}; Some{[]} once the peer sends close_notify; None{} past ms. A
 # bare EOF fails ECONNRESET: a body read to the close could have been cut
 def wire_tls_recv_timeout(sock: Socket, max: U32, ms: U32) -> IO(Socket & Result<&1, &1, U32 & String, Maybe<&1, List<&2, U32>>>):
   import "./effs/wire.c"
-  import "./effs/wire.js"
+  import "./effs/tls_compat.js"
 
 # sends close_notify, frees the session and closes the socket
 def wire_tls_close(sock: Socket) -> IO(Unit):
   import "./effs/wire.c"
-  import "./effs/wire.js"
+  import "./effs/tls_compat.js"
 
 # the server side: the certificate chain and private key (PEM files) every
 # wire_tls_accept then uses, loaded and matched now. TLS 1.2 is the floor,
 # with no compression, renegotiation or 0-RTT; ALPN is http/1.1 only
 def wire_tls_listen_ctx(cert: String, key: String) -> IO(Result<&1, &1, U32 & String, Unit>):
   import "./effs/wire.c"
-  import "./effs/wire.js"
+  import "./effs/tls_compat.js"
 
 # the server's handshake on an accepted socket, within ms. After it, the
 # socket's bytes go through TLS, by the plain wire_send_timeout and
 # wire_recv_timeout too, until wire_close
 def wire_tls_accept(sock: Socket, ms: U32) -> IO(Socket & Result<&1, &1, U32 & String, Unit>):
   import "./effs/wire.c"
-  import "./effs/wire.js"
+  import "./effs/tls_compat.js"
 
 # closes a socket, ending its TLS session first if it has one
 def wire_close(sock: Socket) -> IO(Unit):

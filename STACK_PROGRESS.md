@@ -4,6 +4,65 @@ Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and 
 
 The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
 
+- 2026-10-23 (M3b focused acceptance complete; fresh root pressure-blocked):
+  corrected wire04 passes **230/230 phases**, zero skipped/unexecuted. Native
+  and Bun each pass **43+16 negotiation/retry**, **78 server scenarios**
+  (56 negative plus two cleanup), **24 Go/Bend peers**, and **56 unchanged M3a
+  client cases** (37 negative): **158 live scenarios per target**, including
+  93 ordinary negatives and 18 repeated cleanup attempts. Both roles run with
+  legacy TLS/cookie effects unavailable; trap controls and audits pass.
+  Root02/root03/root06 stop on shared-host memory pressure; root04/root05 are
+  blocked before execution by the shared guard lock. The authorized **45-minute
+  cumulative wait** expires at warning pressure despite requiring a continuous
+  60-second normal launch window. **Fresh root acceptance remains pending;
+  M3 is not closed and its boxes remain open.** Synthetic credentials only.
+
+- 2026-10-23 (M3a client complete for synthetic keys, Bend 2.0.38): the new
+  Bend TLS 1.3 client and bounded codecs pass **109/109 wire phases** and a fresh
+  **1,994/1,994 root phases**, zero skipped or unexecuted, under unchanged
+  4 GiB / 120-second phase limits. Native and Bun each pass **4,468 new/newly
+  integrated cases**, including **56/56 independent interop cases** (37 negative),
+  all eight suite/group/CV choices and the compiled no-OpenSSL audit. The server
+  round remains open and no complete M3 checkbox is ticked. Physical erasure
+  still blocks live secrets.
+
+- 2026-10-23 (M2 complete for synthetic keys, Bend 2.0.38): frozen TLS 1.3
+  profile, blinded CRT RSA-PSS signing, bounded credential import/leaf binding,
+  affine key shares and CertificateVerify helpers pass **871/871 new cases per
+  native/Bun target**. Fresh forced gates pass **1,702/1,702 crypto**,
+  **27/27 wire**, **1,912/1,912 root**, zero skipped or unexecuted phases under
+  unchanged 4 GiB / 120-second phase limits. Every runtime/lifecycle finding
+  has a disposition; physical erasure still blocks live secrets. M2's bounded
+  exit criteria are met for synthetic-key interoperability. M3 has not started.
+
+- 2026-10-23 (M1 complete, Bend 2.0.38): `x509_chain.verify` provides one
+  bounded server-certificate authentication result. Native and Bun each pass
+  **193/193 complete-chain cases** (55 accepted, 138 rejected), independently
+  checked against explicit full-chain oracle expectations. Fresh forced gates
+  pass **1,673/1,673 crypto** and **1,869/1,869 root** phases, zero skipped or
+  unexecuted, under unchanged 4 GiB / 120-second phase limits. M1 exit criteria
+  are met; unsupported name constraints reject explicitly. M2 was not started.
+
+- 2026-10-23 (M1 composed certificate authentication; focused checks complete):
+  New `x509_chain.verify` composes explicit trust, prepared issuer Names,
+  exact-TBS signatures, CA/path/KU/EKU, SAN identity and caller UTC time.
+  Frozen full-chain differential corpus passes **193/193 native and Bun**;
+  14 CA and 12 composition frontend declarations pass. Full crypto/root
+  gates are pending at this checkpoint; M1 boxes remain open until closeout.
+
+- 2026-10-23 (M0 round 3 complete, Bend 2.0.38): isolated HTTP/SSE
+  differential fixtures from unrelated local probes without reducing comparisons.
+  Two fresh root runs pass **1,765/1,765** phases each under the unchanged 4 GiB
+  guard and 120-second phase cap. M0 exit criteria are met; M1 was not started.
+  Cause, regressions, exact commands and complete reports lead the ledger.
+
+- 2026-10-23 (M0 round 2, Bend 2.0.38): RTC now passes all 161 declared
+  phases under the unchanged 4 GiB guard, including native/Bun nomination
+  evidence and full Chrome acceptance. Compiler-only GC settings resolve the
+  frontend cutoff without source or corpus changes. Fresh root fails at HTTP
+  client differential checks after 1,763/1,765 passed phases; an isolated client
+  pass does not replace root acceptance. M0 remains open; details lead the ledger.
+
 - 2026-10-08 (Hello framing and P-256 batch changes prepared for commit):
   The focused `2026-10-05/hello-4g-v2/` queue completed frontend, native/Bun
   builds, ordinary checks and stress checks with exit 0 under the 4 GiB guards.
@@ -19,12 +78,1118 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 | Layer | Current state | Next proof of progress |
 |---|---|---|
 | `wire` | Byte TCP and IPv4 UDP effects, explicit local-IP binding and OS bound-address/ephemeral-port discovery; OpenSSL TLS effects. UDP handles all octets, zero datagrams, timeout and oversize errors, with same-port/two-IP isolation and failed-bind descriptor checks. Actual SIGTERM/SIGINT stop parked native/Bun loops and release the listener; Bun uses an OS-only C11 atomic signal bridge because its synchronous runtime cannot dispatch JS signal callbacks. Bounded bulk host RNG bytes now pass native/Bun guard/error tests and supply signaling credentials. Public-pattern byte/RNG and retained UDP measurements are recorded; Bend Base supplies monotonic `IO.now`. | Verify IPv6/cancellation and packed storage/long-session allocation, retaining measured baselines; complete crypto/runtime review before secure transport. |
-| `crypto` | Bend SHA-1 for WebSocket challenge, HMAC-SHA1 for legacy STUN integrity, SHA-256, HMAC-SHA256, HKDF-SHA-256, ChaCha20, Poly1305, ChaCha20-Poly1305 AEAD, AES-128 encryption, AES-128-GCM and X25519; P-256 prime/order arithmetic, uncompressed-point ECDH, experimental P-256/SHA-256 raw/DER ECDSA, SHA-256 RSA PSS/v1.5 encoding, variable-size public modular exponentiation/RSAVP1 and full digest-signature verification (725 arithmetic and 774 signature cases pass on native and Bun; in-place limb shift reduces array creation), bounded DER, SHA-256 certificate AlgorithmIdentifier admission, RSA/P-256 SPKI public-key decoding, certificate field framing preserving exact signed bytes, mathematical issuer-signature verification (4,825 native/Bun cases) and strict civil-time/validity checks (31,545 cases per target using scoped official Bend 2.0.34), canonical OID/extension envelope admission (67,731 native/baseline-JIT Bun cases), BC/KU payload consistency and EKU/TLS-purpose permission (14,565 independent EKU cases on pinned/modern native/Bun; 28,044 whole-policy cases per modern target; selected DNS/IP SAN and empty-subject critical-SAN binding add 1,841 standalone cases per modern target), plus DNS/IP identity matching and actual SAN-field queries (5,900 core cases per pinned/modern native/Bun target; 2,447 further framing/certificate cases per modern target), plus typed Name/RDN/attribute schema and actual issuer/subject queries (11,195 independent cases per modern native/Bun target), now composed into extension/TLS-purpose admission with nonempty issuer and CA/CRL-subject requirements (28,319 whole-policy cases per modern target), plus composed Unicode 3.2 stored-value preparation (97,731 exact and folded cases per pinned/modern native/Bun target, with folded full-input stress), and exact Unicode 3.2 NFKC with authenticated packed tables (84,960 official sequence checks, 1,050 differential cases and 1,122,304 scalar checks per pinned/modern native/Bun target, with full-byte-bound expansion/ordering stress), plus TLS HKDF labels and distinct affine ChaCha/AES-GCM traffic owners with 64-bit nonces/key updates and AES sending usage limits. Poly1305 products now stay below 2^26; Legacy cookie signing and live TLS retain OpenSSL; explicit Bend HTTP cookie signing/verification passes synthetic-key native/Bun checks. | Strict UTF8/Printable/IA5/Universal/BMP transcoding passes 9,321 cases per pinned native/Bun target; composed supported-attribute stored preparation passes 18,996 per target. OID-bound Name/RDN comparison now passes all 33,037 independent cases on native/Bun; compose exact-DER issuer binding and resolve the standalone folding module's pinned Bun large-list limit and Teletex interpretation and known extension/critical policies, constraints/trust/hostname, trusted-clock composition and TLS schemes; finish current ECDSA/package/compiler compatibility verification and runtime/erasure review, implement private RSA owners, then cookie and full handshake integration. |
-| `tls` | Bend protected TLS 1.3 ChaCha20-Poly1305 and AES-128-GCM records and traffic/key lifecycle pass synthetic native/Bun differential tests; AES also reproduces RFC 8448 encrypted records. Bend streaming transcript ownership, retry rewriting and snapshot/size/invalid-input checks now pass native/Bun and complete wire package acceptance. Typed no-PSK SHA-256 handshake/application derivation and one-use Finished keys now pass 798 independent outputs per native/Bun target and the fresh nine-phase wire gate. Bounded handshake-record reassembly passes 939 independent scenarios per native/Bun target and the fresh eleven-phase wire gate. Live TLS client/server still use OpenSSL C effects; JS TLS effects return `ENOSYS`. | Complete mandatory TLS algorithms, handshake/transcripts, certificates/signatures/trust/hostname checks and real client/server interop; DTLS 1.2 for RTC. |
+| `crypto` | Bend SHA-1 for WebSocket challenge, HMAC-SHA1 for legacy STUN integrity, SHA-256, HMAC-SHA256, HKDF-SHA-256, ChaCha20, Poly1305, ChaCha20-Poly1305 AEAD, AES-128 encryption, AES-128-GCM and X25519; P-256 prime/order arithmetic, uncompressed-point ECDH, experimental P-256/SHA-256 raw/DER ECDSA, SHA-256 RSA PSS/v1.5 encoding, variable-size public modular exponentiation/RSAVP1 and full digest-signature verification (725 arithmetic and 774 signature cases pass on native and Bun; in-place limb shift reduces array creation), bounded DER, SHA-256 certificate AlgorithmIdentifier admission, RSA/P-256 SPKI public-key decoding, certificate field framing preserving exact signed bytes, mathematical issuer-signature verification (4,825 native/Bun cases) and strict civil-time/validity checks (31,545 cases per target using scoped official Bend 2.0.34), canonical OID/extension envelope admission (67,731 native/baseline-JIT Bun cases), BC/KU payload consistency and EKU/TLS-purpose permission (14,565 independent EKU cases on pinned/modern native/Bun; 28,044 whole-policy cases per modern target; selected DNS/IP SAN and empty-subject critical-SAN binding add 1,841 standalone cases per modern target), plus DNS/IP identity matching and actual SAN-field queries (5,900 core cases per pinned/modern native/Bun target; 2,447 further framing/certificate cases per modern target), plus typed Name/RDN/attribute schema and actual issuer/subject queries (11,195 independent cases per modern native/Bun target), now composed into extension/TLS-purpose admission with nonempty issuer and CA/CRL-subject requirements (28,319 whole-policy cases per modern target), plus composed Unicode 3.2 stored-value preparation (97,731 exact and folded cases per pinned/modern native/Bun target, with folded full-input stress), and exact Unicode 3.2 NFKC with authenticated packed tables (84,960 official sequence checks, 1,050 differential cases and 1,122,304 scalar checks per pinned/modern native/Bun target, with full-byte-bound expansion/ordering stress), plus TLS HKDF labels and distinct affine ChaCha/AES-GCM traffic owners with 64-bit nonces/key updates and AES sending usage limits. Poly1305 products now stay below 2^26; Legacy cookie signing and live TLS retain OpenSSL; explicit Bend HTTP cookie signing/verification passes synthetic-key native/Bun checks. Composed explicit-anchor server-certificate authentication now passes 193 complete-chain cases per native/Bun target and fresh 1,673-phase crypto / 1,869-phase root gates on Bend 2.0.38; M1 is complete. M2 adds blinded private RSA signing, bounded PEM/private import and leaf-SPKI binding; 871 new crypto/TLS-helper cases per target and fresh 1,702-phase crypto / 1,912-phase root gates pass. Every runtime finding has a disposition; this accepts synthetic keys only. | M3 synthetic-key client/server interoperability passes on native and Bun; fresh root acceptance is pending. Resolve live-secret erasure/backend timing blockers before using live credentials. Preserve the unsupported Name/Teletex and rejected name-constraint profile. |
+| `tls` | Bend protected TLS 1.3 ChaCha20-Poly1305 and AES-128-GCM records and traffic/key lifecycle pass synthetic native/Bun differential tests; AES also reproduces RFC 8448 encrypted records. Bend streaming transcript ownership, retry rewriting and snapshot/size/invalid-input checks now pass native/Bun and complete wire package acceptance. Typed no-PSK SHA-256 handshake/application derivation and one-use Finished keys now pass 798 independent outputs per native/Bun target and the fresh nine-phase wire gate. Bounded handshake-record reassembly passes 939 independent scenarios per native/Bun target and the fresh eleven-phase wire gate. M2 adds fresh affine X25519/P-256 key shares and role/scheme/SPKI-bound CertificateVerify helpers, with 147 independent cases per target and the fresh 27-phase wire gate. The M3a client and M3b server compose live Bend handshakes over byte TCP on native and Bun. Legacy TLS APIs retain OpenSSL C effects / JS `ENOSYS` stubs. | Both-role independent interop passes with unavailable legacy TLS/cookie effects and emitted-program/import/symbol audits. Fresh root acceptance is pending; M4 and DTLS remain deferred. |
 | `http` | Bend HTTP/1.1 client/server, routing, JSON, cookies, auth, CORS, multipart, SSE, and server WebSocket handshake/framing/session. Native echo interops with a third-party Python client and Bun's WebSocket API. The HTTP server accepts immutable runtime handler context. The bounded signaling fixture now binds a Bend HMAC-SHA256 cookie to an exact purpose/session/issuing deadline before upgrade/UDP allocation. Its pure admission policy passes native/Bun tests; Bun live signing, denials, restart/reconnect and actual expiry/UDP cleanup pass. Fresh HTTP server package acceptance passes all thirteen resource phases under 1 GiB with no skips. Earlier unsigned-cookie native/Chrome interop remains historical evidence. | Native signed-cookie signaling/ICE now passes the full headless-shell browser scenario and independent packet checks. Complete RTC/root gates and full Chrome startup acceptance; resolve key lifecycle/runtime review and integrate Bend TLS for browser HTTPS/WSS. |
 | `rtc` | Bend STUN parsing, IPv4 XOR-MAPPED-ADDRESS, SHA-1/SHA-256/dual integrity, FINGERPRINT, authenticated incoming/outgoing ICE Binding exchanges, retained-socket retransmissions and explicit error/integrity outcomes. IPv4 candidate/pair priorities, bounded checklist formation, stable transport references and guarded state transitions, role-driven priority reordering, a paced shared-socket transaction engine with response-only interruption, protected incoming replies and server-side role decisions, FIFO triggered queues, ordinary round-robin/foundation scheduling and generation/sent-role attempt ownership. A bounded session now binds signaled credentials, registered receiving/sending bases, observed peer-reflexive candidates, deferred incoming work, retained attempts and endpoint integrity policies. Authenticated non-symmetric responses fail only their original current pair; interrupted old listeners retire independently. The live owner fixture explicitly binds unicast IPv4 bases and queries actual local ports before candidate formation. An additive valid-list owner resolves authenticated mappings, learns locally peer-reflexive candidates from retained signed-request priority, allocates IP-keyed foundations, reranks by role and keeps late paths separate from replacement flights. A nomination-evidence owner associates current successful checks with their valid paths and retains qualified incoming intent through materialization, exact triggered flights and response-only listeners; already-Succeeded counterparts resolve their actual generating record. A generation lifecycle owner now applies regular controlling/controlled nomination, selects completed stream paths, removes nominated component checks while retaining response listeners, continues authenticated Binding service, and defers failure through PAC. An outer transport owner derives selected physical consent routes, serves authenticated consent-only Binding requests, shares actual-send pacing and recent transaction identity admission, gates logical application routes, and preserves sealed consent loss. Full/full credential restart rebuilds ICE state while retaining only selected old consent/server contexts until replacement selection. Bounded SDP/signaling now binds connection-owned credentials and the actual retained UDP base; real Chrome verifies direct selected pairs, fresh consent, restart and cleanup on native and Bun. Separate unauthenticated discovery remains available. | Complete crypto/runtime foundations and secure signaling, then gathering, IPv6/TURN, DTLS/SCTP and SRTP/media. |
 
 ## Evidence ledger
+
+- 2026-10-23 (M3b server implementation and guarded acceptance):
+
+  On `bend-https` from **`41219ae`**, add `tls_server_handshake.bend`,
+  `tls_server_flight.bend` and `bend_tls_server.bend`. The new server composes
+  the existing M3a codecs, transcript, schedule, record and traffic owners and
+  M2 credential/signature helpers over OS byte TCP/RNG only. The shared receive
+  loop gains server-role NST rejection; the client public API is preserved.
+  No HTTP adapter/M4, push/PR or `bounty/` changes. **Synthetic credentials
+  only**: the M2 physical-erasure blocker and synthetic-only timing findings
+  remain; this work cannot authorize live keys.
+
+  API: `from_pem(chain,key,policy,deadline)` imports one leaf-first PEM block
+  per chain entry and the private PEM through `credential.import_pem`;
+  `accept(socket,Config{credential,intermediates,policy,deadline})` returns an
+  affine `Connection{transport,sni}` after verifying client Finished.
+  `send`, `recv`, `key_update`, `deadline`, `close` mirror the client. Failure
+  closes the socket with no successor. SNI is validated/exposed, but credentials
+  are supplied before accept; no dynamic SNI callback. No client certificates
+  or tickets are requested/sent. ALPN selects offered http/1.1 only; absent
+  ALPN sends no selection, incompatible/disabled offered ALPN fails 120.
+
+  Local server/peer implementation commit: **`d25792c`**. A separate bounded
+  commit **`aef8054`** adds the permanent unavailable-effects builds, positive
+  controls, audits and initial 119-phase wire manifest expansion. The correction
+  **`5a88545`** adds the final two phases. Fresh root acceptance remains pending.
+
+  HRR prefers the first policy-supported group, uses the message_hash rewrite,
+  a fresh stateful 32-byte exact-echo cookie, one requested share and strict CH2
+  invariants. PSK identities/binders/modes/order are parsed but never selected;
+  valid early_data offers are ignored and the full certificate flight is sent.
+  Actual early application records stay outside the frozen profile and fail;
+  no resumption/0-RTT acceptance is claimed. Both compatibility CCS windows,
+  epoch boundaries, Finished admission, KU directions/responses, close_notify,
+  EOF/truncation and absolute deadlines are enforced. No asynchronous
+  cancellation API. Deadline expiry closes without promising an alert write.
+
+  RSA signing correction found by independent interop: a full-width random
+  blinding candidate can exceed n. The flight now rejection-samples against
+  the public modulus before its single private signing attempt, with fresh
+  full-width draws and a 32-attempt cap; no modular reduction bias. A signing,
+  inverse or fault-check failure still consumes the owner and aborts. ECDSA
+  retains M2 RFC6979 signing. Failed initial reports are retained below.
+
+  Permanent wire acceptance appends **121 nonoptional phases**, preserving all
+  existing 109 declarations/cases in order: **230 wire phases** total. The
+  compression-alert regression adds two phases after the initial 119-phase expansion. Builds,
+  controls, audits, negotiation and at most two live cases per phase keep the
+  unchanged **4096 MiB aggregate/process and 120-second phase limits**. No cap,
+  timeout, assertion or corpus was weakened. Go 1.26.9 is an independent peer
+  built in temporary storage; no Go TLS code enters the Grounds implementation.
+
+  Commands and evidence (all under
+  `~/.codex/artifacts/grounds/2026-10-23/m3b/`):
+
+  ```sh
+  PYTHONDONTWRITEBYTECODE=1 python3 ~/.codex/artifacts/grounds/2026-10-23/m3b/run.py wire-02
+  PYTHONDONTWRITEBYTECODE=1 python3 ~/.codex/artifacts/grounds/2026-10-23/m3b/run.py wire-03
+  PYTHONDONTWRITEBYTECODE=1 python3 ~/.codex/artifacts/grounds/2026-10-23/m3b/run.py wire-04
+  PYTHONDONTWRITEBYTECODE=1 python3 ~/.codex/artifacts/grounds/2026-10-23/m3b/run.py root-02
+  PYTHONDONTWRITEBYTECODE=1 python3 ~/.codex/artifacts/grounds/2026-10-23/m3b/run.py root-03
+  PYTHONDONTWRITEBYTECODE=1 python3 ~/.codex/artifacts/grounds/2026-10-23/m3b/pressure_window.py
+  ```
+
+  `run.py` records the exact command/environment and pre-run HEAD/branch/status
+  plus per-file hashes (excluding `bounty/`), then invokes:
+
+  ```sh
+  python3 tools/build_guard.py --memory-mib 4096 --process-memory-mib 4096 \
+    --timeout 120 --report "$A/wire-N.json" --phases wire/check_phases.json \
+    -- nice -n 10 moon --concurrency 1 run wire:check --force
+  ```
+
+  Here `$A` is the dated artifact directory and `wire-N` names the actual run.
+  Wire02 passes **228/228**, zero skipped/unexecuted, 410.586s, peak 2766.2 MiB.
+  Its native/Bun per-target corpus: 40 CH + 16 retry, 75 live server (53 negative
+  scenarios plus two retained-process cleanup scenarios), 24 Go/Bend peers, and
+  the unchanged 56 M3a client cases (37 negative). Eighteen repeated cleanup
+  failures per target compare descriptor/TCP counts with the retained listener
+  baseline and rebind the listener afterward. Final wire/root results follow
+  after completion; wire02's start binding predates the later audit selfcheck
+  tightening and extensionless legacy test addition.
+
+  **Wire03 checkpoint: 228/228 passed**, zero skipped/unexecuted, 404.763s,
+  peak 2804.9 MiB. `wire-03.json`, `.log`, `-command.json`, `-binding.json`,
+  `wire-03-summary.json` and `wire-03-cases/` retain complete evidence.
+  Each target passes 41 CH +16 retry, 76 server (54 negative plus two cleanup),
+  24 Go/Bend and 56 unchanged client cases (37 negative): **156 live scenarios
+  per target**, including 91 ordinary negative scenarios and 18 repeated cleanup
+  attempts. Eight server affine probes pass. The extra extensionless TLS1.2
+  case omits even the extension-vector length, independently confirming 70.
+  Root acceptance remains pending at this implementation checkpoint.
+
+  `root-01` was deliberately interrupted through its own guard (signal 2,
+  exit 130; 467 completed phases, one running) after static inspection found
+  a legacy alert-priority gap. A valid TLS1.2 compression list containing null
+  plus another method reached the strict TLS1.3 compression rejection 47 before
+  the legacy no-supported_versions fallback. `legacy-compression-red.*` and
+  `compression-boundary-red-cases.json` observe peer alert 47 where 70 is required;
+  the paired real-TLS1.3 case correctly produces 47. `legacy_methods` now admits
+  well-framed legacy compression vectors containing null only for this version
+  refusal, including absent/empty extensions. Offers containing supported_versions
+  retain strict TLS1.3 rules. `compression-boundary-green.*` passes both peer
+  alerts on the fresh unavailable-effects Bun build. The full corpus grows to
+  43 CH +16 retry, 78 server (56 negative plus two cleanup), and 24 Go/Bend
+  cases per target. Two extra mandatory phases retain the 120-second cap.
+  **Wire04 passes 230/230 phases**, zero skipped/unexecuted,
+  405.474s, peak 2730.5 MiB. Per-target
+  counts above and `wire-04-summary.json` derive from every retained case report;
+  generated role programs/audits/controls are under `wire-04-cases/`.
+  A fresh root02 follows; interrupted root01 is not acceptance.
+
+  The legacy-version correction and paired regressions are local commit
+  **`5a88545`**; root02 starts from that source revision. Its exact root command
+  uses the same guard options with `--phases tools/check_phases.json` and
+  `moon --concurrency 1 run :check --force`. Root02 stopped with exit 137,
+  reason `system-memory-pressure`, after **737 passed phases and one running**
+  (`crypto/bun/check/unicode32_nfkc_check`), elapsed **942.637s**, aggregate peak
+  **1966.3 MiB**. This was a host-pressure cutoff (kernel level 2 / warning),
+  not a test assertion or 4 GiB cutoff. `root-02.json`, `.log`,
+  `root-02-pressure-diagnostics.json` and `pressure-observations.jsonl` preserve
+  the failure. Subsequent pressure reads returned normal (kernel level 1).
+  Fresh root03 starts from unchanged implementation `5a88545` with all limits,
+  pressure checks and 2,115 declared phases retained. No unrelated processes
+  were signaled. Root03 also stopped on `system-memory-pressure` (exit 137),
+  **264 passed phases and one running**, elapsed **431.425s**, peak
+  **2125.7 MiB**, at `crypto/bun/check/poly1305_check`. The post-cutoff kernel
+  pressure remained warning/2; `root-03-pressure-diagnostics.json` records two
+  unrelated ffmpeg processes with approximately 1.1 GiB resident each. This is
+  correlation, not a proven attribution. Neither was signaled. Complete
+  `root-03.{json,log}`, command/binding and observation receipts remain retained.
+  Root acceptance remains pending. The caller authorized a bounded 45-minute
+  lightweight pressure wait on this 16 GiB shared host: poll every 10 seconds,
+  require 60 continuous seconds at normal kernel level 1, then launch a fresh
+  forced root gate. `pressure_window.py` and `pressure-window-observations.jsonl`
+  retain this scheduling evidence; a pressure-cut run is never resumed or
+  counted as acceptance. All guard limits and phases remain unchanged.
+  After 540.6s waiting, the first continuous 60-second normal window launched
+  root04, which exited 125 before any phase (`another-guarded-job-is-running`,
+  elapsed/peak zero). The shared guard lock is preserved; the monitor waits for
+  both scheduling availability and another normal window without resetting its
+  cumulative 45-minute waiting budget. Root05 likewise exited 125 before any
+  phase on the shared lock after 720.8s cumulative waiting. The monitor then
+  adds a read-only nonblocking lock-availability probe before attempting launch,
+  without bypassing the guard's own lock. Root06 starts after **1431.7s cumulative
+  waiting** and **60.3 continuous normal seconds**, from unchanged implementation
+  `5a88545`. It stops after **39.415s**, peak **478.4 MiB**, exit137
+  `system-memory-pressure`, **55 passed phases and one running** at
+  `crypto/native/build/p256_cli`. Even a clean launch window does not guarantee
+  pressure stays normal on this shared host. The monitor returns to waiting,
+  retaining the remaining cumulative budget and starting only fresh attempts.
+  The authorized cumulative wait ends at **2700.0s** (2026-10-23
+  11:31:59 UTC), exit75, status `pressure-blocked`; final kernel pressure is
+  warning/2. `pressure-window-result.json` and its append-only observations
+  preserve the whole schedule. No root was resumed, no partial report counted,
+  no unrelated process signaled, and no guard or test limit changed.
+  The only complete acceptance is **wire04 230/230**; the expected fresh root
+  is **2115 declared phases**, but no complete root pass exists for M3b.
+  M3's exit remains open pending that required gate; all five M3 boxes remain
+  unchecked. M4 is untouched. Recovery: free host capacity, require another
+  continuous normal-pressure window, then run a newly named full forced root
+  through `run.py`; do not reuse any partial run.
+
+  `wire-04-summary.json`, `wire-04-negative-cases.json`,
+  `wire-04-matrix.html`, `attempt-inventory.json` and `implementation-result.json`
+  provide the case-derived matrix, exact negative/cleanup evidence, every guard
+  attempt and the structured return-to-caller outcome. No fresh root or full
+  M3 acceptance is claimed by these focused receipts.
+
+  Full algorithm matrix, **each row on native and Bun**:
+
+  | Peer and Bend role | Suites | Groups | Server CertificateVerify | Cases/target |
+  |---|---|---|---|---|
+  | OpenSSL3 s_server → Bend client | AES128-GCM, ChaCha20-Poly1305 / SHA256 | X25519, P-256 | P-256 ECDSA, RSAE-PSS / SHA256 | 8 |
+  | OpenSSL3 s_client → Bend server | Both | Both | Both | 8 |
+  | Go crypto/tls server → Bend client | Both | Both | Both | 8 |
+  | Go crypto/tls client → Bend server | Both | Both | Both | 8 |
+  | Bend client ↔ Bend server | Both | Both | Both | 8 |
+  | Python ssl client → Bend server | Negotiated AES128-GCM/SHA256 | Server X25519 policy | Both | 2 |
+
+  Independent clients use ordinary synthetic-CA and localhost verification,
+  with http/1.1 ALPN. Go's CipherSuites cannot force TLS1.3; Go-server ChaCha
+  rows use `GODEBUG=cpu.all=off` to change its standard hardware preference and
+  assert the actual suite/group/ALPN on both peers. OpenSSL server matrix has
+  P-256 HRR; new server cases separately observe exactly one HRR/two CH in
+  both directions. Python coverage is two credential cases, not a full product.
+  Curl/HTTP bonus was not added; M4 remains untouched.
+
+  Server rejections assert peer-visible alerts: no common suite/group/signature 40;
+  legacy/missing/old supported version 70; malformed/duplicate/vector/SNI/PSK 50;
+  missing required extensions 109; invalid P-256/X25519 shares, duplicate/unoffered
+  shares, retry changes/cookie and malformed KU 47; unsupported ALPN 120; altered
+  client Finished 51; modified encrypted record 20; CCS/message/epoch-boundary,
+  client NST/PHA 10. EOF/truncation 50 is peer-visible after write half-close;
+  deadline 80 is local because the same expired deadline precludes alert writes.
+  Lifecycle also covers actual 3-byte writes in both directions, coalescing,
+  40,000-byte echo, both KU directions/requested responses and close_notify.
+  A separate raw no-PSK schedule oracle proves a valid PSK+early_data offer is
+  not selected/accepted and reaches full certificate/Finished/application/close;
+  it does not claim certificate verification (the normal peers do that).
+
+  No-delegation proof: `bend_tls_no_delegation_build.py` copies a disposable
+  source overlay with identical Bend/OS byte/RNG inputs, removes legacy OpenSSL
+  TLS/cookie implementations and supplies abort/throw stubs. Both client/server
+  live suites execute these exact builds. Native deliberate TLS/cookie calls
+  terminate 86; Bun calls terminate 1 with `GROUNDS_FORBIDDEN_HOST_EFFECT` markers.
+  `bend_tls_no_openssl_check.py` audits emitted C/JS effect IDs/registrations,
+  host calls/imports, native undefined symbols/libraries and loader literals,
+  including qualified cookie IDs. Invalid loader/host-CA paths remain additional
+  evidence; loader fallback means poisoning those variables alone is insufficient.
+  Permanent reports: `*-cases/{client,server}-disabled-{c,js}-build.json`,
+  `no-openssl.json`, `server-no-openssl.json`, and both `*-probe-controls.json`.
+  Emitted role C/JS and native executables are retained with hashes.
+
+  Failure history remains inspectable: `red-server.*` records the missing-server
+  baseline; initial native/Bun compiler diagnostics retain each affine/pattern
+  correction. `initial-server-cases.*` found RSA candidate rejection;
+  `new-server-full-bun.*` retained a false proxy failure while the server correctly
+  emitted 10: the injector reparsed its appended KU and advanced its own epoch.
+  It now scans only the original plaintext span. The server-requested KU smoke
+  harness now waits for the request before sending data. `wire-01.*` stopped
+  after 115 passed phases at the cookie-probe build (`CID(verify)` lacked its real
+  declaration); the probe now imports `cookie_sign.bend`, and both controls pass.
+  No failed/partial run is counted as complete acceptance.
+
+  References used: normative RFC9846 and Verified erratum 9040, existing RFC8448
+  fixtures, and Go `handshake_server_tls13.go` for HRR invariants and certificate/
+  Finished/epoch ordering. Exact source snapshots, URLs, SHA256 and uses are in
+  `sources/references.json`. Go/OpenSSL/Python are peers or design references,
+  never linked/called as Grounds protocol/crypto implementations.
+
+- 2026-10-23 (M3a client implementation and guarded acceptance):
+
+  On `bend-https` from **`03437d9`**, add bounded handshake codecs,
+  `wire/tls_client.bend` and `wire/bend_tls_client.bend`. The client composes
+  existing Bend record, traffic, transcript, schedule, reassembly, key-share,
+  CertificateVerify and `x509_chain.verify` owners. C/JS supply byte TCP and
+  OS RNG only. No server role, HTTP integration, push/PR or `bounty/` changes.
+  The full M3 checklist stays open because its exit includes both roles.
+  **Synthetic credentials only**: physical secret erasure remains a blocker;
+  no constant-time, live-secret or production-readiness acceptance is claimed.
+  Local implementation commits are **`35fd81b`** (bounded handshake codecs)
+  and **`41706bf`** (authenticated client, byte-TCP driver and tests), followed
+  by the manifests/documentation/acceptance-ledger commit.
+
+  API: `connect(socket, Config{tables,anchors,identity,alpn,now,deadline})`,
+  `send`, `recv`, `key_update`, `deadline`, `close`. Every input owner is consumed;
+  failures close the socket and return no successor. UTC `now: IO(Nat)` uses
+  seconds since 0001-01-01; absolute `deadline` uses `IO.now()` milliseconds.
+  Config has explicit DER anchors and SAN DNS/raw-IP identity. DNS supplies SNI,
+  raw IP does not. Authentication and transmission of client Finished precede
+  delivery of any connection/application bytes. Full contracts are in
+  `wire/README.md`; the frozen profile and operation/evidence matrices are in
+  `TLS_PROFILE.md`.
+
+  New/newly integrated cases **per native/Bun target**:
+
+  | Corpus | Passed cases |
+  |---|---:|
+  | Previously focused Hello framing + stress | 2,986 + 7 |
+  | Handshake codec / contexts / serialization + stress | 1,392 + 9 |
+  | RFC8448 partial state-machine replay / ordering | 8 |
+  | Sending-limit reservation and DNS/IP/SNI diagnostics | 10 |
+  | Independent server interop / negative cases | 56 |
+  | Total per target | **4,468** |
+
+  Seven additional frontend probes admit three consuming declarations and
+  reject four owner copies/reuses. Exact RFC8448 §3 CH/SH produces published
+  traffic secrets, keys, IVs and transcript hash. Exact EE fails110 at unoffered
+  record_size_limit; a separately labelled branch removing only that extension
+  reaches the published RSA1024 certificate and fails42. No policy bypass or
+  full-CV/Finished replay claim. The replay source/corpus hashes are retained.
+
+  The OpenSSL **3.6.3** `s_server -tls1_3` matrix passes all eight combinations
+  of AES128-GCM/ChaCha20-Poly1305, X25519/P-256 and ECDSA-P256/RSAE-PSS-SHA256
+  CertificateVerify, on **native and Bun**. Every successful case negotiates
+  http/1.1. P-256 forces one HRR and a fresh replacement share. Further positive
+  cases cover requested updates in both directions, main CR/empty client
+  Certificate, IP SAN, 3-byte TCP fragmentation, coalescing, close_notify,
+  discarded tickets, a 40,000-byte send as 16,384/16,384/7,232-byte records,
+  ignored legacy record version and legal compatibility CCS.
+
+  All **37 negative cases per target** pass with the expected local alert and
+  matching peer-observed alert where EOF/deadline permits a write: wrong SAN42,
+  untrusted48, expired45; altered CV/Finished51, tag20; unsupported suite/group/
+  CV/version47; duplicate50, unsolicited110; malformed SH/extension lengths50;
+  second HRR/order/early app/PHA10; truncation/EOF50, deadline80; malformed KU47,
+  KU record boundaries10; main CR/certificate contexts47; invalid/late CCS and
+  empty handshake10; unsupported ALPN120. Complete per-case commands, peer
+  observations, mutations, fixtures and verdicts live in `interop-*-*.json`.
+
+  Every live client runs with `BEND_LIBSSL` and `GROUNDS_TLS_CA` set to nonexistent
+  paths. The actual compiled C/native/JS audit passes: required qualified byte
+  TCP/RNG effects present, no TLS/host-crypto effects or imports, no forbidden
+  native undefined symbols/linked libraries/loader literals. Audit self-checks
+  reject injected legacy registrations, crypto imports and library loads while
+  distinguishing the pure `Crypto` constructor. The same legacy JS stubs are
+  moved to `wire/effs/tls_compat.js`; retained compatibility APIs are unchanged.
+  Audited generated C/JS/native artifacts are retained alongside audit reports.
+
+  Fresh gates run sequentially at **4096 MiB aggregate/process, 120 seconds per
+  declared phase**, with no case removal or changed limits:
+
+  | Report | Passed/declared phases | Seconds | Peak bytes |
+  |---|---:|---:|---:|
+  | `wire-04` | 109/109 | 240.441 | 1,993,506,816 |
+  | `root-01` (failed, retained) | 1,977 passed; 1 failed; 16 unexecuted | 3,033.857 | 3,586,999,328 |
+  | `root-02` | 1,994/1,994 | 3,328.862 | 4,074,390,560 |
+
+  The 27 original wire phases remain byte-for-byte equal as declarations and
+  in order; 82 phases add all new modules, native/Bun builds/checks, 28 interop
+  batches per target and the compiled audit. The final declared root sequence
+  totals **1,994**: crypto **1,702**, wire **109**, HTTP server **13**, RTC **161**
+  and other packages **9**. Every declared phase passed; none was skipped or
+  left unexecuted. Crypto implementation was not changed, so no separate crypto
+  package run was required; fresh root repeats its entire package gate.
+  `closeout-evidence-audit.json` checks the final behavioral source hashes,
+  preserved manifests, all per-case alerts, both algorithm matrices and retained
+  generated audit artifacts. `implementation-result.json` records local commits
+  and the structured return-to-caller receipt.
+
+  ```sh
+  python3 /Users/ozeron/.codex/artifacts/grounds/2026-10-23/m3a/run.py wire-04
+  python3 /Users/ozeron/.codex/artifacts/grounds/2026-10-23/m3a/run.py root-01
+  python3 /Users/ozeron/.codex/artifacts/grounds/2026-10-23/m3a/run.py root-02
+  ```
+
+  The runner records exact expanded argv, environment, branch/HEAD and input
+  SHA-256 bindings. It invokes `tools/build_guard.py --memory-mib 4096
+  --process-memory-mib 4096 --timeout 120 --phases <manifest> -- nice -n 10
+  moon --concurrency 1 run <wire:check|:check> --force`. Reports, case receipts,
+  generated audit artifacts, logs and bindings live under
+  **`/Users/ozeron/.codex/artifacts/grounds/2026-10-23/m3a/`**. No unreported
+  heavy phase was omitted.
+
+  Earlier failed attempts are retained: `wire-01` compared a stale emitted codec
+  with an oracle changed during that run (38 phases passed); it is not accepted.
+  `wire-02` passed all 41 then-current cases on each target but its audit checker
+  mishandled qualified effect names and a pure constructor (94 phases passed).
+  `wire-03` passed all 45 native cases, then Bun exposed eager/non-tail fixture
+  allocation of a large unused payload (75 phases passed). An explicit branch
+  and tail builder fix that harness failure; focused normal/40k Bun cases pass.
+  `wire-04` reruns the final frozen sources and all 56 cases on each target.
+  `root-01` passed all crypto, wire, HTTP-server and browser phases, then the unchanged
+  RTC Bun `ice_shared_check` exited1. The guard reports `Phase command failed`
+  and stopped Moon before its buffered traceback reached the log; the precise
+  failure cause is unknown. A direct unchanged guarded rebuild/check passes all
+  15 shared-socket scenarios (`diagnostic-rtc-shared-bun-01`, peak209.0 MiB).
+  This isolated pass is not root acceptance. `root-02` passed the entire root
+  gate with the same sources, cases, manifest and limits, including all 15
+  shared-socket scenarios. No RTC source or test was changed; the original
+  failure remains unexplained and neither run is silently replaced.
+  Frontend syntax/proof attempts and the Astra-low consultation after repeated
+  computed-result/IO-handler errors are preserved in `client-build-*` evidence.
+  Harness-only Python SSL sanity is labelled as such, never counted as Bend
+  acceptance. Final source/phase/case/hash and local-commit receipts accompany
+  the implementation result.
+
+  References used: normative RFC9846 (including its extension table and alert
+  distinctions), RFC8448 §3, and Go's `handshake_client_tls13.go` as a design
+  comparison for HRR/authentication/application-secret boundaries. Exact source
+  bytes, URLs and hashes are in `m3a/sources/references.json`; none is linked or
+  called as a Grounds implementation.
+
+
+- 2026-10-23 (M2 acceptance closeout; synthetic-key exit met):
+
+  On `bend-https`, implementation commits **`9e04114`** (crypto private signing/
+  import/runtime review) and **`2c058cc`** (TLS profile/key-share/CertificateVerify
+  helpers) are followed by a documentation-only acceptance commit. No push or
+  PR, no M3 implementation, and no `bounty/` change. The full `STACK_PLAN.md`
+  crypto/live-TLS checklists remain open; only the four bounded M2 boxes close.
+
+  **Live-secret use is blocked.** `crypto/RUNTIME_REVIEW.md` inventories every
+  finding and binds all 16 generated C/JS files plus Bend 2.0.38 executable hash.
+  RSA exponent-bit selection and fixed-width borrow are **fixed**; base blinding/
+  fault checks, masked arithmetic, table-free AES, full-scan tag/Finished checks
+  and logical retirement are **mitigated**. ECDSA RFC 6979 retry/range branches,
+  private admission and optimizing native/Bun runtime behavior are
+  **accepted-for-synthetic-keys-only**. Physical erasure of heap/GC/stack/register
+  copies is a **blocker** for live secrets. Affine ownership prevents ordinary
+  typed reuse, not physical wiping or arbitrary copies. No constant-time proof
+  or timing-sample/dudect acceptance is claimed.
+
+  Fresh gates ran strictly sequentially with **4096 MiB aggregate/process**,
+  **120 seconds per declared phase**, normal pressure and no skipped/unexecuted
+  phases. Toolchain: Bend **2.0.38**, Moon **2.5.5**, Bun **1.3.14**, Apple Clang
+  **21**, Python **3.13.12**, OpenSSL **3.6.3**; binary identities are in
+  `m2/versions.json`. Default generated Bun checks retain their normal JIT.
+
+  | Fresh report | Passed/declared phases | Seconds | Peak bytes |
+  |---|---:|---:|---:|
+  | `crypto-01` | 1,702/1,702 | 1,380.595 | 1,982,038,016 |
+  | `wire-01` | 27/27 | 126.355 | 1,717,141,504 |
+  | `root-01` | 1,912/1,912 | 3,123.091 | 2,964,324,352 |
+
+  Root target counts: crypto **1,702**, wire **27**, HTTP server **13**, RTC
+  **161**, plus **one each** for HTTP core, wire, client, router and JSON,
+  IO, JSON, Redis and UTF-8: **1,912 total**. Every original **1,869** phase is
+  preserved; crypto adds 29 and wire adds 14 without dropping cases or changing
+  original optionality/order. Root compares **2,000/2,000 HTTP responses** and
+  **1,000/1,000 SSE streams** (1,837 events). Native/Bun Chrome WS/ICE consent
+  and credential-restart checks pass, with independent packet authentication;
+  DTLS/data/media remain absent. The package results are in `root-01.log`.
+
+  Reproduction commands (artifact runner records the complete argv, selected
+  manifest, environment and input SHA binding for each):
+
+  ```sh
+  PYTHONDONTWRITEBYTECODE=1 python3 /Users/ozeron/.codex/artifacts/grounds/2026-10-23/m2/run.py crypto-01
+  PYTHONDONTWRITEBYTECODE=1 python3 /Users/ozeron/.codex/artifacts/grounds/2026-10-23/m2/run.py wire-01
+  PYTHONDONTWRITEBYTECODE=1 python3 /Users/ozeron/.codex/artifacts/grounds/2026-10-23/m2/run.py root-01
+  ```
+
+  Each expands to `python3 tools/build_guard.py --memory-mib 4096
+  --process-memory-mib 4096 --timeout 120 --report <name>.json --phases
+  <package-or-root-manifest> -- nice -n 10 moon --concurrency 1 run
+  <crypto:check|wire:check|:check> --force` with bytecode disabled. Exact commands,
+  reports and bindings: `m2/{crypto,wire,root}-01-command.json`, `.json`,
+  `-binding.json`, `.log`, and `-cases/`, all under
+  **`/Users/ozeron/.codex/artifacts/grounds/2026-10-23/m2/`**.
+
+  Crypto and wire, then root, repeat **871/871 new cases per native/Bun target**:
+  RSA **145**, PEM **436**, private import **123**, credential binding **20**,
+  key share **50**, CertificateVerify **91**, RSA-CV **6**. Every released RSA
+  signature passes the existing Bend verifier and independent RFC 8017/Python
+  arithmetic plus OpenSSL. The separate cryptography **50.0.2** frozen-import
+  oracle passes **123/123** (20 public-key matches, 103 rejections). Existing
+  70 ChaCha/72 AES lifecycle scenarios per target retain usage/exhaustion,
+  KeyUpdate and error-retirement coverage. No preimplementation behavioral red
+  is claimed for newly introduced APIs; worker receipts preserve actual evidence.
+
+  `closeout-evidence-audit.json` verifies complete manifests, unchanged behavioral
+  source since each gate, all new backend case reports, runtime source/generated
+  hashes, original phase preservation and six unchanged pre-existing cache files.
+  Only documentation changes follow the gate bindings. `implementation-result.json`
+  is the structured implementation handoff and records all canonical commits.
+  The earlier focused ledger entries retain standards, fixture, compiler-failure
+  and Astra-low consultation details. M2's matrix/vectors/disposition exit is met
+  for synthetic keys; M3/M4 and live-secret acceptance remain open.
+
+- 2026-10-23 (M2 profile and TLS helper implementation checkpoint):
+
+  Crypto implementation is local commit **`9e04114`**. Frozen TLS_PROFILE.md
+  selects TLS 1.3 only, AES-128-GCM/SHA-256 and ChaCha20-Poly1305/SHA-256,
+  X25519/P-256, P-256 ECDSA and RSA-PSS-RSAE CertificateVerify, HTTP/1.1 ALPN
+  and DNS SNI. PSS-PSS and PKCS#1/SHA-256 are certificate-only; resumption,
+  PSK, 0-RTT, client certificates and post-handshake authentication are omitted
+  with explicit protocol dispositions. The operation matrix names every
+  existing owner and missing M3/M4 integration; no live handshake is added.
+
+  Fresh official-source review confirms **RFC 9846 (July 2026) obsoletes
+  RFC 8446**; the repository citation is correct and bis is published.
+  All 16 Verified RFC 8446 errata and RFC 9846 Verified erratum **9040**
+  (verified October 12) have profile dispositions. Official text/search bytes,
+  hashes and the inventory are in `m2/sources/`; reported entries are not
+  silently treated as Verified.
+
+  New `wire/tls_key_share.generate/from_random/shared/retire` supplies affine
+  ECDHE owners. X25519 takes one fresh 32-byte OS RNG draw; P-256 takes 32
+  bytes per rejection-sampled attempt, rejects 0 or >=n, and stops after 16
+  attempts with no fallback. Existing all-zero X25519 and P-256 curve checks
+  remain in force. `tls_certificate_verify.content/digest/sign_ecdsa/sign_rsa`
+  constructs both roles' exact 64-space/context/NUL/transcript-hash input;
+  `verify(scheme,key,role,hash,signature)` binds the negotiated scheme to the
+  authenticated SPKI and rejects PSS-only RSAE confusion.
+
+  Native and Bun each pass **147/147** new helper cases: key share **50**,
+  CertificateVerify **91**, RSA-CV **6**. Five valid ownership declarations
+  compile; six copy/reuse attempts reject. RFC 8448 sections 3/5 establish
+  exact pre-CV transcript/content and independent verification of published
+  signatures; those published 1024-bit RSA keys remain outside production
+  admission. Separate admitted 2048-bit cases verify RSA signing with Bend,
+  Python RFC 8017 arithmetic and OpenSSL. Evidence and exact guarded commands:
+  `m2/helpers/implementation-result.json`, `m2/helpers/{keyshare,cv,cv-rsa}-
+  {native,bun}.json`, and paired `m2/helpers-*-{command,binding}.json`, `.json`
+  guards and `.log` files. Compiler failures remain retained.
+
+  Wire adds **14** phases to the original 13; crypto adds **29** to 1,673.
+  `m2/phase-preservation.json` asserts all original phases and optionality
+  remain in order. New report fallbacks distinguish backends, and crypto's
+  private fixture is an explicit Moon cache input. Generated-runtime files,
+  exact hashes/compiler executable and inspected function bodies/locators
+  are in `m2/runtime/{manifest,reviewed-functions}.json` and `notes.txt`.
+  These are static generated-code observations, not constant-time or physical
+  erasure certification. Fresh forced crypto, wire and root gates remain
+  pending; M2 boxes are deliberately still open at this checkpoint.
+
+- 2026-10-23 (M2 crypto implementation checkpoint; full acceptance pending):
+
+  On `bend-https`, added `rsa_private.validate/sign_digest`, `pem.decode`,
+  `private_key.sec1/pkcs1/pkcs8/pem`, and
+  `credential.from_key/import_pem`. RSA uses private CRT with base blinding,
+  checked per-factor inverse and full public recovery before releasing a
+  signature. Private exponent-bit selection and subtraction borrow are masked/
+  fixed-width at source and in the inspected emitted C/JS. Import admits only
+  the frozen P-256/two-prime RSA forms; encrypted PEM rejects distinctly and
+  the imported public key must equal the leaf's admitted SPKI.
+
+  Focused native **724/724** and Bun **724/724** new crypto cases pass:
+  RSA **145** (arithmetic 63, keys 45, signing 9, rejection 28), PEM **436**,
+  private import **123** (EC 76/RSA 47), credential binding **20** (six matched,
+  eleven rejected, three encrypted). Every released RSA signature is checked
+  by the existing Bend verifier, independent Python RFC 8017 arithmetic and
+  OpenSSL. Synthetic modulus sizes include exact 2049 bits as well as
+  2048/3072/4096 and e=3; full-width product/recovery regressions are retained.
+  The 13 RSA and eight credential frontend declarations pass; private-key
+  ownership has two valid probes and four rejected copies/reuses.
+  The frozen private-import oracle is independently rechecked with cryptography
+  **50.0.2**: **123/123** verdicts, 20 matching public keys/103 loader rejections.
+
+  Artifacts: `/Users/ozeron/.codex/artifacts/grounds/2026-10-23/m2/`.
+  `rsa/final_checks.py` records exact commands; `rsa-final-*.json/.log`,
+  paired `-command.json`/`-binding.json` and `rsa/{native,bun}-*.json` retain
+  resource and case evidence. `credentials/run.py`, its command/guard/log
+  reports, `credentials/*-cases.json` and `credentials/result.json` retain the
+  complete import/ownership/oracle evidence. All heavy calls are sequential,
+  nice 10, **4096 MiB aggregate/process**, **120 s** unchanged; the final RSA
+  proof phase takes **13.000 s**. Failed compiler attempts are retained. Two
+  required Astra-low consultations addressed PEM recursive-driver admission
+  and private-import binder ordering before retry; their receipts are in
+  `credentials/{pem,private}-astra-consult.json`. The failed version-metadata
+  call used unsupported `bend --version`; `rsa-final-toolchain-02` fixes it to
+  `bend version` without changing code or repeating passed cases.
+
+  `crypto/RUNTIME_REVIEW.md` inventories every timing, storage, retirement and
+  lifecycle finding with an explicit disposition and exact generated hashes.
+  Live-secret use remains **blocked**: affine consumption is logical retirement,
+  not physical erasure; ECDSA retry/private admission and native/JIT behavior
+  are restricted to synthetic keys. Existing 70 ChaCha/72 AES lifecycle cases
+  already cover counters, usage, updates and failure retirement unchanged.
+  Crypto manifests preserve every original phase and add 29; root acceptance
+  remains pending here. No M3 or live-handshake claim is made.
+
+- 2026-10-23 (M1 acceptance closeout; fresh crypto and root gates pass):
+
+  Implementation commit **`46770d494ec28d6ef18817ae321755ae611da392`** on
+  `bend-https`; the following closeout changes documentation only. All five
+  M1 checklist items and the native/Bun composed-operation exit are met.
+  Existing OID-bound Name/RDN comparison is reused unchanged; no parser or
+  Unicode-only evidence substitutes for complete-chain authentication.
+  M2 has not started; live TLS/HTTPS and private-key/runtime review stay open.
+
+  Artifacts: `/Users/ozeron/.codex/artifacts/grounds/2026-10-23/m1/`.
+  The frozen public-fixture SHA-256 is
+  `0bdb577cd81020669bf34e8a14636cf6c1718cbf40986a45a8ca6ed6d30a4414`.
+  **193/193 native and 193/193 Bun** cases pass in each fresh gate, each
+  **55 accepted / 138 rejected**, with 49 declared batches per target.
+  Reports: `crypto-01-cases/native-{0..48}.json`, `bun-{0..48}.json`, and
+  the corresponding `root-01-cases/` files. Each gate also asserts all
+  **193** independent OpenSSL primary expectations, retaining **38 explicit
+  profile/verdict differences** and **three** successful complete alternate
+  paths; these are not claimed as 193 identical Bend/OpenSSL verdicts.
+  Focused evidence and the 14 CA / 12 composition frontend declarations
+  remain recorded in the implementation checkpoint below.
+
+  Exact fresh-gate commands (runner pins Bend **2.0.38**, Moon **2.5.5**,
+  Bun **1.3.14**, Python **3.13.12**, OpenSSL **3.6.3** and records PATH):
+
+  ```sh
+  A=/Users/ozeron/.codex/artifacts/grounds/2026-10-23/m1
+  PYTHONDONTWRITEBYTECODE=1 python3 "$A/run.py" crypto-01
+  PYTHONDONTWRITEBYTECODE=1 python3 "$A/run.py" root-01
+  PYTHONDONTWRITEBYTECODE=1 python3 "$A/closeout_audit.py"
+  ```
+
+  The two runner invocations execute, sequentially and without cache reuse:
+
+  ```sh
+  PYTHONDONTWRITEBYTECODE=1 python3 tools/build_guard.py --memory-mib 4096 --process-memory-mib 4096 --timeout 120 --phases crypto/check_phases.json --report "$A/crypto-01.json" -- nice -n 10 moon --concurrency 1 run crypto:check --force
+  PYTHONDONTWRITEBYTECODE=1 python3 tools/build_guard.py --memory-mib 4096 --process-memory-mib 4096 --timeout 120 --phases tools/check_phases.json --report "$A/root-01.json" -- nice -n 10 moon --concurrency 1 run :check --force
+  ```
+
+  **Crypto:** exit **0**, **1,673/1,673 passed**, zero skipped/unexecuted,
+  **1,283.942 s**, aggregate peak **870,744,064 bytes (830.4 MiB)**.
+  **Root:** exit **0**, **1,869/1,869 passed**, zero skipped/unexecuted,
+  **2,983.637 s**, aggregate peak **3,402,302,448 bytes (3,244.7 MiB)**.
+  Reports: `crypto-01.json` and `root-01.json`, paired `.log`, `-command.json`
+  and `-binding.json`. Both guards retain **4,096 MiB aggregate/process**,
+  **120 s per declared phase**, normal system pressure and sequential nice 10;
+  limits were not raised. Root includes crypto 1,673, wire 13, HTTP server 13,
+  RTC 161 and nine remaining single-phase packages. HTTP client independently
+  compares all **2,000 responses** and **1,000 SSE streams**; native/Bun Chrome
+  signaling/ICE and packet regressions pass, without a DTLS/data/media claim.
+
+  `closeout-evidence-audit.json` verifies all declared phase identities/statuses,
+  exact fixture labels/results and batch hashes, oracle counts/differences,
+  source bindings and resource limits. All **823** gate-bound files are
+  byte-identical to both invocation bindings before this documentation closeout.
+  `phase-preservation.json` preserves all **1,569** previous crypto phases in
+  order and optionality; **104 additions** give 1,673, with no cases dropped.
+  `scope-preservation.json` and both gate bindings preserve all six pre-existing
+  untracked cache files. No bounty path was changed or staged; no push/PR.
+
+  Scope remains the selected bounded server-auth profile: SAN-only DNS/IP,
+  inclusive caller UTC validity, explicit anchors and exact-TBS issuer proofs.
+  Name constraints reject at either criticality; unsupported critical semantics
+  reject. Limits remain 16 peers, 16 anchors, eight certificates/path including
+  leaf/anchor, 512 candidate examinations and 65,535 DER bytes/certificate.
+  No CN fallback, IDNA conversion, fetching, revocation or general policy
+  processing; stricter certificate-anchor CA/KU/time/EKU rules remain explicit.
+  See `crypto/X509_CHAIN_REVIEW.md` for API/failures, supported features and
+  open issues. Next milestone is M2 under its separate checklist, untouched here.
+
+- 2026-10-23 (M1 implementation checkpoint; composed certificate authentication):
+
+  Branch `bend-https`, base `a3c145e`; no M2 work. The existing
+  `x509_name_match` already supplies M1 item 1: OID-bound prepared equality,
+  multiplicity-preserving RDN multisets and ordered Name sequences. Its
+  implementation and 33,037-case native/Bun checks remain unchanged.
+
+  Added `x509_chain.verify(tables, presented, anchors, identity, ServerAuth{}, now)`
+  returning `(tables, Verification)`, rebuilding `x509_ca_path` from the lost
+  draft's ledger contract using equivalent bottom-up pathLen accounting.
+  It checks prepared issuer/subject Names, the parent's admitted SPKI against
+  exact child TBS bytes, v3 CA/keyCertSign, non-self-issued CA counts, explicit
+  anchors, inclusive validity on every selected certificate including anchors,
+  server EKU and leaf digitalSignature, SAN-only DNS/IPv4/IPv6 identity, and
+  processed critical semantics. Name constraints reject explicitly at either
+  criticality; other unsupported critical extensions/forms also reject.
+  Limits: 16 peers, 16 anchors, eight certificates/path including leaf/anchor,
+  512 candidate examinations across backtracking and 65,535 DER bytes/cert.
+  Exact-DER duplicates within a list and cycles reject. Anchors are tried in
+  caller order before peer intermediates; failed branches can backtrack.
+  A peer root grants no trust; an explicitly supplied anchor need not be
+  presented by the peer. The reusable affine Unicode asset state is explicit.
+  Clock epoch, all failures and the stricter CA/anchor profile are documented
+  in `crypto/X509_CHAIN_REVIEW.md` and the README table.
+
+  `x509_chain_fixture.py` generated LOCAL SYNTHETIC public fixtures with
+  isolated Python cryptography **50.0.2**; no private keys were written.
+  Normal checks use stdlib Python and OpenSSL **3.6.3** as an oracle only.
+  The frozen corpus is **193 cases/target**, **55 success / 138 rejection**:
+  all three selected signature schemes, cross-encoded issuer Names, DNS/IP,
+  valid-signature wrong-issuer Names, signature and exact-TBS bit changes,
+  untrusted roots, separately supplied anchors, exact time boundaries,
+  CA=false/missing-BC/v1/v2, pathLen/rollover, KU/EKU, critical/SAN/Name/NC,
+  alternate issuers, duplicates/cycles, depth 8/9, global search/input limits,
+  truncated/malformed/trailing DER. Fourteen CA and twelve composition closed
+  declarations pass the frontend; no kernel `--verdict` claim. Tests were
+  developed with the new operation after auditing existing component tests;
+  no pre-implementation full-chain red test is claimed. Compiler/syntax
+  failures are retained separately from behavioral regression evidence.
+
+  Independent OpenSSL primary verdicts are all asserted. Its **38** recorded
+  differences from the selected Bend profile are explicit: inclusive notAfter,
+  CN fallback, TLS 1.3 digitalSignature, mandatory CA KU, unsupported Name/SAN/NC
+  semantics, duplicate/trailing input and resource limits, plus three ambiguous
+  cross-certificate presentations where it does not find the good branch.
+  For those three, OpenSSL also verifies the complete successful alternate
+  chain. The RFC and Python datetime provide the inclusive boundary oracle.
+  No OpenSSL/Python authorization or cryptography is called by Grounds code.
+
+  Standards read from fresh official snapshots: RFC 5280 sections 4.2,
+  6.1.3/6.1.4(k)-(o), 7.1; RFC 6818, 9549 and 9525; current updates
+  8398/8399, 9598, 9608, 9618, 9925 and 10007. All six Verified RFC 5280
+  errata (5802/5938/6414/7661/3579/7658) were inspected. Unsupported email,
+  policy, unsigned algorithms and revocation remain outside the admitted
+  profile; reported/held errata were not promoted to requirements. No external
+  implementation code was ported. Python HTTPS initially failed local CA
+  verification; curl fetched the official snapshots with certificate checking
+  enabled. `sources/sha256.json` binds the retained texts and errata extracts.
+
+  Artifacts: `/Users/ozeron/.codex/artifacts/grounds/2026-10-23/m1/`.
+  `pinned-provenance.json` rehashes all M0r3 tool executables unchanged:
+  Bend **2.0.38**, Moon **2.5.5**, Bun **1.3.14**, Python **3.13.12** and
+  OpenSSL **3.6.3**. `run.py` records argv/environment, whole-tree source
+  bindings (excluding bounty), logs and guard reports. Every heavy command is
+  sequential, nice 10, 4,096 MiB aggregate/process, 120 s, with system-pressure
+  checks and the original guard lock. `codegen-source-parity.json` confirms
+  retained C/JS match the final implementation source. Initial 160- and
+  187-case development runs and their failed/successful attempts are retained;
+  no reduced corpus replaces the final 193 cases. Two low-effort Astra
+  read-only consultations followed repeated Bend syntax/recursion failures.
+  A premature concurrent oracle invocation was refused by the guard lock
+  (exit 125, `oracle-final.*`); it launched no oracle work and the later
+  sequential full oracle passes. Limits were never raised.
+
+  Exact focused commands (artifact runner wraps each in `tools/build_guard.py`):
+
+  ```sh
+  A=/Users/ozeron/.codex/artifacts/grounds/2026-10-23/m1
+  PYTHONDONTWRITEBYTECODE=1 python3 "$A/run.py" ca-path-closed bend crypto/x509_ca_path_test.bend
+  PYTHONDONTWRITEBYTECODE=1 python3 "$A/run.py" chain-closed bend crypto/x509_chain_test.bend
+  PYTHONDONTWRITEBYTECODE=1 python3 "$A/run.py" chain-c-final env BUN_JSC_useJIT=false bend crypto/x509_chain_cli.bend -o "$A/chain-final.c"
+  PYTHONDONTWRITEBYTECODE=1 python3 "$A/run.py" chain-native-final tools/bend_native.sh "$A/chain-final.c" "$A/chain-final"
+  PYTHONDONTWRITEBYTECODE=1 python3 "$A/run.py" chain-js-final env BUN_JSC_useJIT=false bend crypto/x509_chain_cli.bend -o "$A/chain-final.js"
+  PYTHONDONTWRITEBYTECODE=1 python3 "$A/run.py" oracle-frozen python3 crypto/x509_chain_check.py --oracle-only --report "$A/oracle-frozen-cases.json"
+  PYTHONDONTWRITEBYTECODE=1 python3 "$A/run.py" native-frozen python3 crypto/x509_chain_check.py --report "$A/native-frozen-cases.json" -- "$A/chain-final"
+  PYTHONDONTWRITEBYTECODE=1 python3 "$A/run.py" bun-frozen python3 crypto/x509_chain_check.py --report "$A/bun-frozen-cases.json" -- bun "$A/chain-final.js"
+  ```
+
+  **Focused results:** native **193/193**, exit 0, **3.300 s**; Bun **193/193**,
+  exit 0, **52.356 s**; whole independent oracle **193/193**, exit 0, **1.025 s**,
+  plus three successful complete alternate-path checks. Reports are
+  `native-frozen-cases.json`, `bun-frozen-cases.json`, `oracle-frozen-cases.json`
+  and their paired resource `.json`/`.log`/`-command.json`/`-binding.json` files.
+  `phase-preservation.json` proves all **1,569** old crypto phases retain order
+  and optionality. **104** declared additions give **1,673 crypto phases**:
+  three frontend phases, one oracle phase, two builds and 49 four-case-or-less
+  batches per target. No existing cases or phases were removed.
+
+  Full forced crypto acceptance and optional fresh root acceptance remain
+  pending at this implementation checkpoint. Next: `python3 "$A/run.py"
+  crypto-01` (fresh `PYTHONDONTWRITEBYTECODE=1 moon run crypto:check --force`
+  under the unchanged phase guard), then audit M1 and record final gate results.
+  M1 remains open here; M2 and live TLS/HTTPS have not started. Bounty and all
+  six pre-existing untracked Python cache files remain untouched.
+
+- 2026-10-23 (M0 round 3; HTTP differential probe isolation):
+
+  Branch `bend-https`, starting revision `8bea069`; implementation commit
+  `4dca7343d715ff87bb1d2309720bade1dbf96fc3`. Artifacts are under
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-23/m0r3/` outside the repo.
+  `pinned-provenance.json` verifies that Bend **2.0.38**, Moon **2.5.5**, Bun
+  **1.3.14**, Python **3.13.12** and OpenSSL **3.6.3** executable hashes match
+  round 2. Each guarded invocation retains argv, environment, source binding,
+  complete output and resource report in `*-command.json`, `*-binding.json`,
+  `.log` and `.json` files. No dependency, push/PR or M1 work was added;
+  `bounty/` and the six pre-existing untracked Python cache files were untouched.
+
+  **Cause: unrelated local HTTP probes consumed differential corpus entries.**
+  The unchanged response test reproduces **818/2,000** matches in **33.101 s**
+  (`fuzz-baseline.*`). An instrumented copy reproduces **1,799/2,000** in
+  **50.513 s** (`fuzz-diagnostic-02.*`), retaining all expected/actual lines
+  in `fuzz-diagnostic.results.json`. Requests **1,782/1,783** are foreign
+  `GET /` requests with `User-Agent: Go-http-client/1.1`, using Host
+  `127.0.0.1:7400` and `localhost:7400`; only **1,998** requests are Bend's.
+  The old fixed-port server advanced its shared RNG and expected-result list
+  for every accepted connection. Foreign requests therefore shifted the
+  expected/actual alignment and exhausted its 2,000-connection loop before
+  Bend's final requests. The foreign process was not attributed beyond its
+  captured HTTP headers. `alignment-audit.json` proves that, after excluding
+  only those two captured foreign requests for diagnosis, **all 1,998 served
+  Bend responses match in order**, followed by exactly **two client timeouts**.
+  This diagnostic accounting does not count as acceptance: the fixed gate
+  still requires all 2,000 genuine Bend requests and results. The `fake.py` flaky handler's `ValueError` on `/`
+  is a related probe symptom; its live/more/events expected outputs still pass.
+  The evidence identifies a harness ownership bug, not a partial-read/write,
+  chunk-framing, pool or client retry defect. `diagnosis.json` records the
+  request evidence; product client/server implementations remain unchanged.
+
+  **Fix:** HTTP and SSE differential servers bind OS-assigned loopback ports
+  and pass unique run URLs to their Bend clients. Only a complete matching GET
+  advances the corpus/RNG; empty connections and unrelated requests consume no
+  cases. Both checks now require all server cases, all client results and a
+  successful client exit. SSE also rejects an unterminated output group.
+  The shared helper reports server exceptions and closes its owned listener.
+  No mismatch retry, corpus reduction or reference/parser relaxation was added.
+  The child deadline is stricter (110 s instead of the old 600 s); the outer
+  120 s phase cap, 4,096 MiB aggregate/process limits, pressure checks, lock,
+  sequential scheduling and 1,765-phase root manifest remain unchanged.
+
+  `fuzz_harness_test.py` adds three socket/process regressions: an empty
+  connection plus both Go-style probes cannot consume three real cases;
+  simultaneous fixtures have distinct bound ports/routes; both drivers reject
+  client output without served cases. These run in the existing package phase.
+  `harness-regression.*` passes all three. A full-scale deterministic injection
+  (`fuzz-probe-regression.*`, `probe-client.py/.json`) rejects the empty
+  connection and both probe requests, then compares **2,000/2,000** actual Bend
+  responses in **12.964 s**, aggregate peak **319.672 MiB**.
+  `preservation-audit.json` proves every reference, corpus generator and
+  fragmentation sender function unchanged, together with product code and
+  guard/manifests. As before, case generation and fragmentation share the
+  seeded RNG, so early-close scheduling can vary later generated cases; each
+  actual case is compared, with no fixed-corpus identity claim across runs.
+  Shell syntax and `git diff --check` pass.
+
+  An intermediate implementation run (`http-client-01.*`) hit the phase cap
+  after an accidentally removed `socket` import caused a server `NameError` at
+  `socket.SHUT_WR`; this was an implementation error, not the original cause.
+  `helper-diagnostic.log` records the exception; that owned diagnostic was
+  stopped with SIGINT (exit 130) after identification. The first diagnostic
+  launch was refused by the shared guard lock (`fuzz-diagnostic.json`); no
+  concurrent guarded jobs proceeded. The failed patch/helper copies are retained.
+  The required low-effort Astra consultation confirmed the original cause and
+  missing imports, and requested immediate worker-error diagnostics; both
+  findings were applied (`astra-consultation.txt`).
+
+  Focused acceptance after correction: HTTP client **PASS, 1/1 phase**, exit 0,
+  **45.505 s**, aggregate peak **1,336.375 MiB** (`http-client-02.*`), including
+  **2,000/2,000 responses**, **1,000/1,000 streams (1,837 events)**, unchanged
+  live/more/events comparisons, proofs and all five cold checks. HTTP JSON
+  **PASS, 1/1**, exit 0, **5.386 s**, aggregate peak **843.922 MiB**
+  (`http-json-01.*`).
+
+  Commands (from `/Users/ozeron/code/grounds`; the runner sets the pinned
+  round-2 PATH and `PYTHONDONTWRITEBYTECODE=1 BEND_NO_TELEMETRY=1`):
+
+  ```sh
+  A=/Users/ozeron/.codex/artifacts/grounds/2026-10-23/m0r3
+  python3 "$A/run.py" http-client-02
+  python3 "$A/run.py" http-json-01
+  python3 "$A/run.py" fuzz-probe-regression python3 http/client/tests/fuzz.py "$A/probe-client.py" 2000 1
+  python3 "$A/run.py" root-01
+  python3 "$A/run.py" root-02
+  ```
+
+  Both root runs use this guarded invocation (`root-02.json` replaces
+  `root-01.json` for the second report):
+
+  ```sh
+  python3 tools/build_guard.py --memory-mib 4096 --process-memory-mib 4096 \
+    --timeout 120 --phases tools/check_phases.json --report "$A/root-01.json" \
+    -- nice -n 10 moon --concurrency 1 run :check --force
+  ```
+
+  **Fresh root acceptance:** both runs pass **1,765/1,765 declared phases**,
+  exit 0, with **zero skipped or unexecuted phases**. Run 1 (`root-01.*`) takes
+  **2,884.860 s**, aggregate peak **3,300.157 MiB**, largest process
+  **3,029.938 MiB**. Run 2 (`root-02.*`) takes **2,893.332 s**, aggregate peak
+  **3,634.658 MiB**, largest process **3,333.472 MiB**. Pressure remains normal;
+  the longest phases take **64.670 s** and **67.453 s**, respectively. Both
+  runs retain the unchanged 4,096 MiB aggregate/process limits and 120-second
+  per-phase cap. Each root compares **2,000/2,000 HTTP responses** and
+  **1,000/1,000 SSE streams (1,837 events)**, and passes HTTP JSON, the full
+  native/Bun Chrome scenarios and independent packet checks. Moon chooses
+  different valid package orders: HTTP client follows RTC in run 1 and precedes
+  RTC in run 2.
+
+  Package accounting is identical in both roots: crypto **1,569/1,569**;
+  RTC **161/161**; wire **13/13**; HTTP server **13/13**; HTTP core, wire,
+  client, router and JSON, plus IO, JSON, Redis and UTF8, **1/1 each**.
+  `root-source-parity.json` confirms both runs bind implementation commit
+  `4dca7343d715ff87bb1d2309720bade1dbf96fc3` and the same **808 tracked source
+  hashes**. `summary.json` retains all successful and failed attempts with
+  per-package accounting; complete logs and source bindings accompany both
+  raw guard reports. Subsequent changes are ledger/checklist documentation only.
+
+  **M0 exit criteria are met:** the pinned supported toolchain has two fresh,
+  complete guarded root passes, with no remaining baseline blocker. The final
+  M0 checklist box is now checked. M1 and all broader stack acceptance gates
+  remain unchanged; no M1 work was started.
+
+- 2026-10-23 (M0 round 2; follows the 2026-10-22 baseline):
+
+  Branch `bend-https`, starting revision
+  `f10f40ae1353a386063d81f456e04512b9f789b8` (see the exact full revision in
+  each `*-binding.json`). All artifacts below are relative to
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-23/m0r2/` outside the repo.
+  `pinned-provenance.json` rechecks Bend **2.0.38**, Moon **2.5.5**, Bun
+  **1.3.14**, Python **3.13.12**, OpenSSL **3.6.3**, executable hashes and PATH.
+  The tracked starting tree was clean; the six pre-existing untracked Python
+  cache files are excluded from every commit. No `bounty/` file was accessed
+  or staged, no dependency was added, and no push/PR or M1 work was performed.
+
+  Commands (from `/Users/ozeron/code/grounds`, canonical
+  `/private/mnt/DATA/code/grounds`):
+
+  ```sh
+  A=/Users/ozeron/.codex/artifacts/grounds/2026-10-23/m0r2
+  export PATH="/opt/homebrew/opt/openssl@3/bin:/Users/ozeron/.local/share/mise/installs/github-bendlang-bend/2.0.38/bin:/Users/ozeron/.local/share/mise/installs/aqua-moonrepo-moon/2.5.5/moon_cli-aarch64-apple-darwin:$PATH"
+  export PYTHONDONTWRITEBYTECODE=1 BEND_NO_TELEMETRY=1
+  python3 tools/build_guard.py --memory-mib 4096 --process-memory-mib 4096 \
+    --timeout 120 --report "$A/nomination-reproduce-01.json" -- nice -n 10 \
+    sh tools/bend_native.sh rtc/examples/ice_nomination_evidence.bend "$A/nomination-original"
+  python3 tools/build_guard.py --memory-mib 4096 --process-memory-mib 4096 \
+    --timeout 120 --report "$A/nomination-gc-01.json" -- nice -n 10 \
+    env BUN_OPTIONS=--smol BUN_JSC_forceRAMSize=134217728 \
+    sh tools/bend_native.sh rtc/examples/ice_nomination_evidence.bend "$A/nomination-gc"
+  python3 tools/build_guard.py --memory-mib 4096 --process-memory-mib 4096 \
+    --timeout 120 --phases rtc/check_phases.json --report "$A/rtc-01.json" \
+    -- nice -n 10 moon --concurrency 1 run rtc:check --force
+  ```
+
+  `run.py` retains exact argv, cwd, invocation-local environment and tracked
+  source hashes in `*-command.json` and `*-binding.json` for its focused and
+  package runs; complete output is in matching `.log` files. The reproduction
+  and first factoring experiment preceded this runner; their guard reports
+  retain exact argv/cwd and both failed source patches are preserved separately.
+
+  The original single phase reproduces **exit 137**, per-process cutoff,
+  **4,118.282 MiB** aggregate / **4,117.016 MiB** largest process in
+  **7.695 s**, with normal pressure (`nomination-reproduce-01.*`). Three
+  source experiments also reached the cap: factoring synthetic generation
+  destructuring (`nomination-factored-01.*`, 4,096.988 MiB), using existing
+  shared formatting imports (`nomination-imports-01.*`, 4,116.348 MiB), and
+  separating JSON/state dispatch (`nomination-dispatch-01.*`, 4,106.426 MiB).
+  These were frontend resource cutoffs, not assertion failures; cutoff peaks
+  cannot measure each program's full demand. Astra at low reasoning effort
+  was consulted after each pair of failures. All experimental Bend changes
+  were reverted; `unsuccessful-generation-factoring.patch` and
+  `unsuccessful-import-dispatch.patch` retain them outside the repo.
+
+  The unchanged original source completes its full native build with
+  `BUN_OPTIONS=--smol BUN_JSC_forceRAMSize=134217728`: **exit 0**, **39.932 s**,
+  **2,312.906 MiB** aggregate / **2,310.891 MiB** largest process
+  (`nomination-gc-01.*`). Its unchanged evaluator passes all **46 cases**
+  (`nomination-evaluator-01.*`). `rtc/check.sh` now scopes those compiler GC
+  settings to its existing 61 native/JS build commands, appending `--smol`
+  to existing Bun options. They do not leak to generated-program evaluator
+  commands or disable JIT. This establishes a build-time collection-policy
+  remedy; it does not claim the compiler's underlying allocation issue is fixed.
+
+  Fresh RTC acceptance: **PASS, 161/161 phases**, exit 0, no skipped or
+  unexecuted phases, **1,494.902 s**, **2,340.095 MiB** aggregate peak /
+  **2,281.219 MiB** largest process (`rtc-01.json/.log`). Native nomination
+  build/check pass in **40.402/0.569 s**; Bun build/check in **7.899/2.635 s**.
+  Each target passes the complete 46-case nomination evaluator. Both full
+  Chrome live scenarios and independent packet validation pass for actual
+  authenticated WebSocket signaling, nomination, consent and credential restart;
+  DTLS/data/media remain absent and deferred. Pressure stayed normal throughout.
+
+  `preservation-audit.json` proves unchanged build arguments after removing
+  the `compile` wrapper, all 68 native/Bun evaluator command lines unchanged,
+  and identical hashes for every other tracked RTC file plus the guard and root
+  manifest. No assertion or case generator changed, no new phase or skip was
+  added, and the RTC/root manifests remain **161/1,765 phases**. Shell syntax
+  and `git diff --check` pass. All runs retain the 4,096 MiB aggregate/process
+  caps, 120 s phase deadline, shared lock, pressure checks and sequential work.
+
+  Local implementation commit **`747965b`** contains the compiler settings and
+  standalone RTC evidence. The fresh forced root run starts from that clean
+  tracked revision, bound in `root-01-binding.json`, with the exact invocation:
+
+  ```sh
+  python3 tools/build_guard.py --memory-mib 4096 --process-memory-mib 4096 \
+    --timeout 120 --phases tools/check_phases.json --report "$A/root-01.json" \
+    -- nice -n 10 moon --concurrency 1 run :check --force
+  ```
+
+  **Root FAIL: 1,763/1,765 passed phases**, one failed, one unexecuted,
+  **2,925.056 s**, aggregate peak **3,881.126 MiB**, largest process
+  **3,686.675 MiB**, normal pressure (`root-01.json/.log`). All eleven packages
+  before HTTP client pass completely: crypto **1,569/1,569**, wire **13/13**,
+  HTTP server **13/13**, RTC **161/161**, and HTTP core/wire/router, io, json,
+  redis and utf8 **1/1 each**. No phase was skipped. RTC again includes both
+  complete Chrome live scenarios and packet validation; its maximum phase peak
+  is **2,324.001 MiB**. Native nomination build/check pass in **42.686/0.593 s**,
+  Bun build/check in **6.733/2.711 s**, with all 46 evaluator cases on each target.
+
+  **Remaining blocker classification: intermittent HTTP client differential
+  check failure; underlying cause unresolved.** `http_client/check` exits **1**
+  after **58.673 s**: its 2,000-response fuzz run matches only **449/2,000**
+  independent reference results. The log retains the first five byte-level
+  expected/actual mismatches. It also records `ValueError: not enough values
+  to unpack (expected 3, got 2)` in `tests/fake.py`'s `flaky` thread after the
+  live/more/events output checks passed; a causal relationship to the response
+  mismatches is not established. This is **not a memory/pressure cutoff,
+  timeout, missing phase or compiler error**. The raw outer report says
+  `reason: guard-error`, `error: Phase command failed`, exit **125** because a
+  required phase reported nonzero; the embedded phase retains its actual exit
+  **1**. The guard then cleaned up its owned job. HTTP JSON was not reached.
+
+  One bounded isolated diagnostic, with unchanged HTTP source, seed default
+  **1**, toolchain and guard, passes the complete package:
+
+  ```sh
+  python3 tools/build_guard.py --memory-mib 4096 --process-memory-mib 4096 \
+    --timeout 120 --phases http/client/check_phases.json \
+    --report "$A/http-client-01.json" \
+    -- nice -n 10 moon --concurrency 1 run http_client:check --force
+  python3 tools/build_guard.py --memory-mib 4096 --process-memory-mib 4096 \
+    --timeout 120 --phases http/json/check_phases.json \
+    --report "$A/http-json-01.json" \
+    -- nice -n 10 moon --concurrency 1 run http_json:check --force
+  ```
+
+  HTTP client: **PASS, 1/1**, **41.622 s**, **1,348.375 MiB** aggregate peak;
+  all **2,000/2,000 responses**, **1,000/1,000 streams (1,837 events)**,
+  live/more/events output comparisons and all five cold-constructor checks
+  pass (`http-client-01.*`). No traceback occurs in this diagnostic. This
+  establishes intermittency, not a repaired parser/harness or a root pass.
+  Fragment sending and case generation share the seeded RNG in the existing
+  harness, so connection timing can change later generated cases; no corpus or
+  parser was changed to obtain this diagnostic pass. The exact cause of the
+  root response mismatches remains unproved. HTTP JSON also passes its complete
+  standalone **1/1** phase (`http-json-01.*`); it remains **unexecuted in root**.
+
+  `summary.json`/`summarize.py` derive all counts from the raw reports, keeping
+  standalone results separate from the failed root result. No speculative HTTP
+  change or identical full-root retry was made to select away this failure.
+  M0's final box and exit remain **open**: the RTC resource blocker is resolved,
+  but a complete root pass is still required. M1 was not started. Historical
+  round-1 evidence below is preserved unchanged.
+
+- 2026-10-22 (M0 fresh pinned-toolchain baseline; verification continued into
+  2026-10-23 local time):
+
+  Branch `bend-https`, starting revision `63aacf21e79cde205a9f3122a8359cc1c81de707`.
+  The initial tracked tree was clean: there was no uncommitted RSA work to
+  discard or isolate. Existing RSA phases and the full arithmetic/signature
+  corpora were preserved. Local implementation commits are `397fa13` (complete
+  root phase accounting) and `f8054a9` (Bun certificate-signature batch phases).
+  The root run began on clean committed revision
+  `f8054a9d0425904e7c1738f4ae16f86aeaff57e6`; `root-binding-01.json` binds its
+  source hashes. No Bend protocol source or equality proof changed.
+
+  Artifacts in this entry are relative to
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-22/m0/`, outside the repo.
+  `mise install` completed; a final repeat confirms all tools installed
+  (`mise-install-02.log`). Bend reports **2.0.38** using `bend version`;
+  `bend --version` is unsupported by this CLI. Pinned Moon is **2.5.5**, Bun
+  **1.3.14**, Python **3.13.12**, and the test oracle is Homebrew OpenSSL
+  **3.6.3**. `pinned-provenance.json` records executable paths, hashes, versions
+  and actual PATH prefixes. No compiler pin was changed.
+
+  Exact pinned package commands were run sequentially by `baseline.py`:
+
+  ```sh
+  A=/Users/ozeron/.codex/artifacts/grounds/2026-10-22/m0
+  export PATH="/opt/homebrew/opt/openssl@3/bin:/Users/ozeron/.local/share/mise/installs/github-bendlang-bend/2.0.38/bin:/Users/ozeron/.local/share/mise/installs/aqua-moonrepo-moon/2.5.5/moon_cli-aarch64-apple-darwin:$PATH"
+  export PYTHONDONTWRITEBYTECODE=1 BEND_NO_TELEMETRY=1
+  gate() {
+    python3 tools/build_guard.py --memory-mib 4096 --process-memory-mib 4096 \
+      --timeout 120 --phases "$2/check_phases.json" --report "$A/$3.json" \
+      -- nice -n 10 moon --concurrency 1 run "$1:check" --force
+  }
+  gate crypto crypto crypto-02
+  gate wire wire wire-02
+  gate http_core http/core http_core-02
+  gate http_wire http/wire http_wire-02
+  gate http_server http/server http_server-02
+  gate http_client http/client http_client-02
+  gate http_router http/router http_router-02
+  gate http_json http/json http_json-02
+  python3 tools/build_guard.py --memory-mib 4096 --process-memory-mib 4096 \
+    --timeout 120 --phases tools/check_phases.json --report "$A/root-01.json" \
+    -- nice -n 10 moon --concurrency 1 run :check --force
+  ```
+
+  Run from `/Users/ozeron/code/grounds` (canonical
+  `/private/mnt/DATA/code/grounds`). Every pinned invocation has its exact argv,
+  cwd and environment overrides in `<run>-command.json`, and complete output in
+  `<run>.log`. The crypto-02 command used the then-current 961-phase manifest
+  and failed as recorded below; complete crypto acceptance comes from the later
+  forced root run with the final 1,569-phase manifest. The root command was
+  launched by `PYTHONDONTWRITEBYTECODE=1 python3 "$A/verify.py" root`.
+
+  | Package | Fresh result / phases | Report and scope |
+  |---|---|---|
+  | crypto | PASS, 1,569/1,569 | `root-01.json`; complete native/Bun Moon task passed |
+  | wire | PASS, 13/13 | `wire-02.json`; also 13/13 in root |
+  | http/core | PASS, 1/1 | `http_core-02.json`; also 1/1 in root |
+  | http/wire | PASS, 1/1 | `http_wire-02.json`; also 1/1 in root |
+  | http/server | PASS, 13/13 | `http_server-02.json`; also 13/13 in root |
+  | http/client | PASS, 1/1 | `http_client-02.json`; not reached in root |
+  | http/router | PASS, 1/1 | `http_router-02.json`; also 1/1 in root |
+  | http/json | PASS, 1/1 | `http_json-02.json`; not reached in root |
+  | io | PASS, 1/1 | `root-01.json` |
+  | json | PASS, 1/1 | `root-01.json`; includes 706/706 native integration cases |
+  | redis | PASS, 1/1 | `root-01.json` |
+  | utf8 | PASS, 1/1 | `root-01.json` |
+  | rtc | INCOMPLETE, 55/161 passed | `root-01.json`; one cutoff phase, 105 unexecuted |
+  | root | FAIL, exit 137 | 1,657/1,765 passed; one cutoff phase, 107 unexecuted |
+
+  `baseline-summary.json` derives these counts from the unchanged raw reports.
+  No phase was skipped in any passing package report or the observed root
+  prefix, and no textual prerequisite skip was observed. Root elapsed time was
+  **1,700.887 s**; aggregate sampled peak **4,109.255 MiB**, largest individual
+  process **4,035.816 MiB** (`bend`). The guard retained the 4,096 MiB aggregate
+  and per-process limits, 120 s per declared phase, ten-second transition bound,
+  shared sequential lock and live OS pressure checks. Pressure remained normal;
+  there was no pressure refusal or bypass. No cached Moon task was accepted.
+
+  Failures, fixes and remaining limitations:
+
+  - **External oracle prerequisite, resolved:** `crypto-01.json/.log` failed
+    after 93 passed phases (exit 125), and `wire-01.json/.log` after three
+    (exit 1), because macOS LibreSSL 3.3.6 lacks `openssl enc -chacha20`.
+    Select installed OpenSSL 3 explicitly on PATH; the requirement is now
+    documented in `tools/README.md`. This was not a Bend assertion failure.
+    Initial HTTP `*-01` passes used Homebrew Moon 2.6.1 and are superseded by
+    pinned `*-02` passes; `provenance.json` retains that earlier environment.
+  - **Phase-manifest gap, resolved:** the root gate previously had no combined
+    manifest and short packages did not announce phases. All thirteen packages
+    are now required, allowing Moon's package order while rejecting missing,
+    repeated, interleaved or failed phases. Existing fine phases remain intact;
+    short packages wrap their entire original command. The final root manifest
+    declares 1,765 phases (`manifest-audit-02.json`). Sixteen guard tests and
+    eleven phase tests pass under the guard, including three added root tests
+    (`tools_guard-01.*`, `tools_phases-01.*`; red/green root-test evidence in
+    `root-phases-red.log` and `root-phases-green.log`).
+  - **Resource cutoff, resolved for crypto:** `crypto-02.json/.log` timed out
+    at Bun `x509_signature_check` (exit 124, 957 passed phases, one interrupted,
+    three unexecuted; total 1,631.671 s). Its existing 608 evaluator batches now
+    announce individual phases, followed by the same three CLI rejection
+    checks. All **4,825 cases**, batch boundaries, oracle and case generator are
+    unchanged, proven by `x509-signature-phase-audit.json` and the pre-change
+    audit. Ordered corpus SHA-256 is
+    `8b96f6e3bd03b9e70973bec5c08b2da7717d670258e8ad8bdc152f345db2ede2`.
+    Focused real Bun verification passes all 610 build/check phases
+    (`x509_signature-01.*`, `x509-signature-focused-corpus-01.json`), followed
+    by the full 1,569-phase crypto pass inside root. No case was removed and
+    no deadline was raised.
+  - **Resource cutoff, remaining root blocker:** `root-01.json/.log` stops in
+    `rtc/native/build/ice_nomination_evidence`, while Bend emits C for
+    `rtc/examples/ice_nomination_evidence.bend`; Clang and its evaluator had
+    not started. Aggregate sampled usage crosses 4 GiB before the individual
+    process limit. The raw interrupted phase remains `running` in the report;
+    this is not a pass. The guard cleaned up its owned job; no guarded build or
+    Bend process remained afterward. This is neither a pressure refusal nor a
+    demonstrated compiler/protocol assertion error. Proposed next action:
+    isolate/profile this frontend under the same guard, reduce its compiler
+    workload or memory use while preserving the complete nomination evaluator,
+    then rerun RTC and the forced root gate. No speculative RTC rewrite or
+    identical heavy retry was made for this M0 baseline.
+
+  No 2.0.38 constructor migration or real protocol assertion failure was
+  observed in executed checks. No external implementation source was consulted;
+  OpenSSL remained the existing test oracle/peer. The historical CA-path draft
+  `x509_ca_path.bend` under `~/.codex/artifacts/grounds/2026-10-04/` is absent;
+  **M1 must rebuild it**. M1 work was not started. M0's first three items are
+  satisfied by fresh package evidence, but its root item and exit remain open
+  because RTC and the complete root gate did not finish. HTTPS/M1-M4 and RTC
+  expansion remain incomplete; `bounty/` was untouched, with no push or PR.
 
 - 2026-10-05 (full-stack thread blocked audit after preserved CA preparation):
   The preceding goal turn makes concrete draft/oracle/source-review progress;

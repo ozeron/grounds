@@ -291,7 +291,7 @@ def main():
     parser.add_argument("--timeout", type=float, default=120)
     parser.add_argument("--report", type=Path, required=True)
     parser.add_argument('--phases', type=Path,
-                        help='Ordered phase manifest; timeout applies to each phase (at most 120s)')
+                        help='Package or root phase manifest; timeout applies to each phase (at most 120s)')
     parser.add_argument("--lock", type=Path, default=(
         Path.home() / ".cache" / "grounds-build.guard.lock"
     ))
