@@ -4,6 +4,12 @@ Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and 
 
 The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
 
+- 2026-10-23 (M0 round 3 complete, Bend 2.0.38): isolated HTTP/SSE
+  differential fixtures from unrelated local probes without reducing comparisons.
+  Two fresh root runs pass **1,765/1,765** phases each under the unchanged 4 GiB
+  guard and 120-second phase cap. M0 exit criteria are met; M1 was not started.
+  Cause, regressions, exact commands and complete reports lead the ledger.
+
 - 2026-10-23 (M0 round 2, Bend 2.0.38): RTC now passes all 161 declared
   phases under the unchanged 4 GiB guard, including native/Bun nomination
   evidence and full Chrome acceptance. Compiler-only GC settings resolve the
@@ -32,6 +38,131 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 | `rtc` | Bend STUN parsing, IPv4 XOR-MAPPED-ADDRESS, SHA-1/SHA-256/dual integrity, FINGERPRINT, authenticated incoming/outgoing ICE Binding exchanges, retained-socket retransmissions and explicit error/integrity outcomes. IPv4 candidate/pair priorities, bounded checklist formation, stable transport references and guarded state transitions, role-driven priority reordering, a paced shared-socket transaction engine with response-only interruption, protected incoming replies and server-side role decisions, FIFO triggered queues, ordinary round-robin/foundation scheduling and generation/sent-role attempt ownership. A bounded session now binds signaled credentials, registered receiving/sending bases, observed peer-reflexive candidates, deferred incoming work, retained attempts and endpoint integrity policies. Authenticated non-symmetric responses fail only their original current pair; interrupted old listeners retire independently. The live owner fixture explicitly binds unicast IPv4 bases and queries actual local ports before candidate formation. An additive valid-list owner resolves authenticated mappings, learns locally peer-reflexive candidates from retained signed-request priority, allocates IP-keyed foundations, reranks by role and keeps late paths separate from replacement flights. A nomination-evidence owner associates current successful checks with their valid paths and retains qualified incoming intent through materialization, exact triggered flights and response-only listeners; already-Succeeded counterparts resolve their actual generating record. A generation lifecycle owner now applies regular controlling/controlled nomination, selects completed stream paths, removes nominated component checks while retaining response listeners, continues authenticated Binding service, and defers failure through PAC. An outer transport owner derives selected physical consent routes, serves authenticated consent-only Binding requests, shares actual-send pacing and recent transaction identity admission, gates logical application routes, and preserves sealed consent loss. Full/full credential restart rebuilds ICE state while retaining only selected old consent/server contexts until replacement selection. Bounded SDP/signaling now binds connection-owned credentials and the actual retained UDP base; real Chrome verifies direct selected pairs, fresh consent, restart and cleanup on native and Bun. Separate unauthenticated discovery remains available. | Complete crypto/runtime foundations and secure signaling, then gathering, IPv6/TURN, DTLS/SCTP and SRTP/media. |
 
 ## Evidence ledger
+
+- 2026-10-23 (M0 round 3; HTTP differential probe isolation):
+
+  Branch `bend-https`, starting revision `8bea069`; implementation commit
+  `4dca7343d715ff87bb1d2309720bade1dbf96fc3`. Artifacts are under
+  `/Users/ozeron/.codex/artifacts/grounds/2026-10-23/m0r3/` outside the repo.
+  `pinned-provenance.json` verifies that Bend **2.0.38**, Moon **2.5.5**, Bun
+  **1.3.14**, Python **3.13.12** and OpenSSL **3.6.3** executable hashes match
+  round 2. Each guarded invocation retains argv, environment, source binding,
+  complete output and resource report in `*-command.json`, `*-binding.json`,
+  `.log` and `.json` files. No dependency, push/PR or M1 work was added;
+  `bounty/` and the six pre-existing untracked Python cache files were untouched.
+
+  **Cause: unrelated local HTTP probes consumed differential corpus entries.**
+  The unchanged response test reproduces **818/2,000** matches in **33.101 s**
+  (`fuzz-baseline.*`). An instrumented copy reproduces **1,799/2,000** in
+  **50.513 s** (`fuzz-diagnostic-02.*`), retaining all expected/actual lines
+  in `fuzz-diagnostic.results.json`. Requests **1,782/1,783** are foreign
+  `GET /` requests with `User-Agent: Go-http-client/1.1`, using Host
+  `127.0.0.1:7400` and `localhost:7400`; only **1,998** requests are Bend's.
+  The old fixed-port server advanced its shared RNG and expected-result list
+  for every accepted connection. Foreign requests therefore shifted the
+  expected/actual alignment and exhausted its 2,000-connection loop before
+  Bend's final requests. The foreign process was not attributed beyond its
+  captured HTTP headers. `alignment-audit.json` proves that, after excluding
+  only those two captured foreign requests for diagnosis, **all 1,998 served
+  Bend responses match in order**, followed by exactly **two client timeouts**.
+  This diagnostic accounting does not count as acceptance: the fixed gate
+  still requires all 2,000 genuine Bend requests and results. The `fake.py` flaky handler's `ValueError` on `/`
+  is a related probe symptom; its live/more/events expected outputs still pass.
+  The evidence identifies a harness ownership bug, not a partial-read/write,
+  chunk-framing, pool or client retry defect. `diagnosis.json` records the
+  request evidence; product client/server implementations remain unchanged.
+
+  **Fix:** HTTP and SSE differential servers bind OS-assigned loopback ports
+  and pass unique run URLs to their Bend clients. Only a complete matching GET
+  advances the corpus/RNG; empty connections and unrelated requests consume no
+  cases. Both checks now require all server cases, all client results and a
+  successful client exit. SSE also rejects an unterminated output group.
+  The shared helper reports server exceptions and closes its owned listener.
+  No mismatch retry, corpus reduction or reference/parser relaxation was added.
+  The child deadline is stricter (110 s instead of the old 600 s); the outer
+  120 s phase cap, 4,096 MiB aggregate/process limits, pressure checks, lock,
+  sequential scheduling and 1,765-phase root manifest remain unchanged.
+
+  `fuzz_harness_test.py` adds three socket/process regressions: an empty
+  connection plus both Go-style probes cannot consume three real cases;
+  simultaneous fixtures have distinct bound ports/routes; both drivers reject
+  client output without served cases. These run in the existing package phase.
+  `harness-regression.*` passes all three. A full-scale deterministic injection
+  (`fuzz-probe-regression.*`, `probe-client.py/.json`) rejects the empty
+  connection and both probe requests, then compares **2,000/2,000** actual Bend
+  responses in **12.964 s**, aggregate peak **319.672 MiB**.
+  `preservation-audit.json` proves every reference, corpus generator and
+  fragmentation sender function unchanged, together with product code and
+  guard/manifests. As before, case generation and fragmentation share the
+  seeded RNG, so early-close scheduling can vary later generated cases; each
+  actual case is compared, with no fixed-corpus identity claim across runs.
+  Shell syntax and `git diff --check` pass.
+
+  An intermediate implementation run (`http-client-01.*`) hit the phase cap
+  after an accidentally removed `socket` import caused a server `NameError` at
+  `socket.SHUT_WR`; this was an implementation error, not the original cause.
+  `helper-diagnostic.log` records the exception; that owned diagnostic was
+  stopped with SIGINT (exit 130) after identification. The first diagnostic
+  launch was refused by the shared guard lock (`fuzz-diagnostic.json`); no
+  concurrent guarded jobs proceeded. The failed patch/helper copies are retained.
+  The required low-effort Astra consultation confirmed the original cause and
+  missing imports, and requested immediate worker-error diagnostics; both
+  findings were applied (`astra-consultation.txt`).
+
+  Focused acceptance after correction: HTTP client **PASS, 1/1 phase**, exit 0,
+  **45.505 s**, aggregate peak **1,336.375 MiB** (`http-client-02.*`), including
+  **2,000/2,000 responses**, **1,000/1,000 streams (1,837 events)**, unchanged
+  live/more/events comparisons, proofs and all five cold checks. HTTP JSON
+  **PASS, 1/1**, exit 0, **5.386 s**, aggregate peak **843.922 MiB**
+  (`http-json-01.*`).
+
+  Commands (from `/Users/ozeron/code/grounds`; the runner sets the pinned
+  round-2 PATH and `PYTHONDONTWRITEBYTECODE=1 BEND_NO_TELEMETRY=1`):
+
+  ```sh
+  A=/Users/ozeron/.codex/artifacts/grounds/2026-10-23/m0r3
+  python3 "$A/run.py" http-client-02
+  python3 "$A/run.py" http-json-01
+  python3 "$A/run.py" fuzz-probe-regression python3 http/client/tests/fuzz.py "$A/probe-client.py" 2000 1
+  python3 "$A/run.py" root-01
+  python3 "$A/run.py" root-02
+  ```
+
+  Both root runs use this guarded invocation (`root-02.json` replaces
+  `root-01.json` for the second report):
+
+  ```sh
+  python3 tools/build_guard.py --memory-mib 4096 --process-memory-mib 4096 \
+    --timeout 120 --phases tools/check_phases.json --report "$A/root-01.json" \
+    -- nice -n 10 moon --concurrency 1 run :check --force
+  ```
+
+  **Fresh root acceptance:** both runs pass **1,765/1,765 declared phases**,
+  exit 0, with **zero skipped or unexecuted phases**. Run 1 (`root-01.*`) takes
+  **2,884.860 s**, aggregate peak **3,300.157 MiB**, largest process
+  **3,029.938 MiB**. Run 2 (`root-02.*`) takes **2,893.332 s**, aggregate peak
+  **3,634.658 MiB**, largest process **3,333.472 MiB**. Pressure remains normal;
+  the longest phases take **64.670 s** and **67.453 s**, respectively. Both
+  runs retain the unchanged 4,096 MiB aggregate/process limits and 120-second
+  per-phase cap. Each root compares **2,000/2,000 HTTP responses** and
+  **1,000/1,000 SSE streams (1,837 events)**, and passes HTTP JSON, the full
+  native/Bun Chrome scenarios and independent packet checks. Moon chooses
+  different valid package orders: HTTP client follows RTC in run 1 and precedes
+  RTC in run 2.
+
+  Package accounting is identical in both roots: crypto **1,569/1,569**;
+  RTC **161/161**; wire **13/13**; HTTP server **13/13**; HTTP core, wire,
+  client, router and JSON, plus IO, JSON, Redis and UTF8, **1/1 each**.
+  `root-source-parity.json` confirms both runs bind implementation commit
+  `4dca7343d715ff87bb1d2309720bade1dbf96fc3` and the same **808 tracked source
+  hashes**. `summary.json` retains all successful and failed attempts with
+  per-package accounting; complete logs and source bindings accompany both
+  raw guard reports. Subsequent changes are ledger/checklist documentation only.
+
+  **M0 exit criteria are met:** the pinned supported toolchain has two fresh,
+  complete guarded root passes, with no remaining baseline blocker. The final
+  M0 checklist box is now checked. M1 and all broader stack acceptance gates
+  remain unchanged; no M1 work was started.
 
 - 2026-10-23 (M0 round 2; follows the 2026-10-22 baseline):
 

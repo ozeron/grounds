@@ -129,16 +129,18 @@ partial coverage, report paths and remaining failures in STACK_PROGRESS.md.
 - [x] Resolve HTTP consumer compatibility while preserving meaningful equality
   proofs; verify wire, HTTP and crypto together. Distinguish missing phases,
   compiler errors, resource cutoffs and protocol assertion failures.
-- [ ] Make the complete root gate executable under sequential declared phases,
+- [x] Make the complete root gate executable under sequential declared phases,
   existing memory limits and per-phase deadlines. Do not extend a whole-job
   deadline or accept a cached/partial run as complete acceptance.
 
-2026-10-23 M0 round 2: RTC passes all 161 phases on pinned Bend 2.0.38 with
-compiler-only GC settings and the unchanged 4 GiB guard. The fresh root run
-passes 1,763/1,765 phases, then fails HTTP client's response differential check;
-HTTP JSON is not reached. Isolated HTTP client and HTTP JSON checks pass, but
-do not replace a complete root pass. The final box and M0 exit remain open;
-see the dated evidence ledger for exact commands and failure classification.
+2026-10-23 M0 round 3: two fresh root runs pass all 1,765 declared phases on
+pinned Bend 2.0.38 under the unchanged sequential 4 GiB guard and 120-second
+per-phase cap, with zero skipped or unexecuted phases. HTTP differential
+fixtures now isolate their ports and request paths from unrelated local probes;
+both roots compare all 2,000 responses and all 1,000 SSE streams exactly.
+HTTP JSON and all 161 RTC phases pass in both roots. M0 exit criteria are met;
+see the dated evidence ledger and `2026-10-23/m0r3/` reports for the cause,
+regression evidence, exact commands and source bindings. M1 has not started.
 
 Exit: a reproducible supported toolchain and fresh baseline report identifying
 all passes and remaining blockers. A failed baseline is useful evidence, but M0
