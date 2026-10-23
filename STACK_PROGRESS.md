@@ -4,6 +4,92 @@ Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and 
 
 The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
 
+- 2026-10-23 (M4b native HTTP client; deliverable 1 accepted locally):
+  `http/client/bend_client.bend`, `bend_pool.bend` and `bend_transport.bend`
+  form a separate opt-in entry graph. Legacy client/pool/url/check and legacy
+  server sources are byte-identical to `5c9bac4` (receipt:
+  `~/.codex/artifacts/grounds/2026-10-23/m4b/legacy-source-preservation.json`).
+  Seven native legacy client graphs exclude Bend TLS/crypto and existing cold
+  checks pass unchanged. OpenSSL remains the legacy default; no environment
+  switch pulls Bend TLS into a legacy program.
+
+  Client policy requires explicit PEM anchors and authenticated Unicode assets,
+  plus a trusted civil UTC/monotonic clock sample; each handshake advances that
+  sample by elapsed monotonic seconds. Identity and SNI come from each URL:
+  DNS SANs for names, IP SANs and no SNI for IPv4 literals. ALPN is http/1.1.
+  Verification reasons survive as the existing `Err.Tls{why}`; no ambient CA,
+  verification bypass, host TLS helper or silent fallback. The affine TLS owner
+  travels through framing, pools and callbacks. Ordinary calls retain one
+  absolute deadline across retries/redirects; streaming/SSE keep the existing
+  per-read policy. Authenticated close_notify can end a close-delimited body;
+  bare EOF and partial records fail. Stale pooled reconnect does not suppress
+  authentication/protocol errors. JSON's existing decimal dependency is copied
+  into the isolated build overlay; no HTTP package was migrated to decimal.
+
+  Fresh full client gate: **15/15 passed**, **231.721 s**, **1674.4 MiB** peak,
+  report `~/.codex/artifacts/grounds/2026-10-23/m4b/client-03.json` and sibling
+  log. `client-03/ordinary.json`: **11/11**, covering one-shot, pool keep-alive,
+  stale sockets, JSON, forms, content-verified 256 KiB streamed downloads
+  (one-shot/pool), HTTPS host-changing redirects with private-header removal,
+  SSE and events_retry (including pool reconnection/Last-Event-ID).
+  `negative.json`: **9/9**, wrong CA, hostname mismatch, expiry, redirected
+  hostname mismatch, deadline, bare EOF, authenticated close, tampered and
+  truncated record. `bend.json`: **8/8**, Bend HTTPS peer on AES/ChaCha,
+  one-shot/pool/forms/stream; `openssl.json` and `go.json`: **1/1** each,
+  OpenSSL s_server and independent Go HTTPS keep-alive. **30 live scenarios**
+  total. Existing baseline still compares **2000 responses / 1000 SSE streams**
+  and passes unit/proof/cold checks. There is no WebSocket client in this API.
+  The unchanged legacy fixture also logs a `fake.py:flaky` thread ValueError
+  for a request lacking its expected `/n/KEY` shape; the legacy phase exits 0
+  and exact corpus comparisons pass. This is retained diagnostic output, not
+  a claim of clean stderr or a new Bend TLS scenario.
+
+  `client-03/client-audit.json` and `server-audit.json` pass emitted C effects /
+  imports, native symbols/libraries/loader literals and two proven exit-86
+  legacy TLS/cookie abort controls. Each passes `c_defined_names` to
+  `native_imports`. Builds use unchanged Bend and OS byte/RNG effect sources;
+  `client-build.json` records **352** source hashes and emitted C hash.
+  All interop uses these audited executables with host TLS/cookie effects
+  replaced by aborts. No Python/Go/OpenSSL operation enters the Bend path.
+
+  Fresh HTTP core: **1/1**, **18.569 s**, **440.5 MiB**, `m4b/core-01.json`,
+  including **2693 cookie cases per native/Bun target**, units/proofs/cold.
+  Fresh wire: **230/230**, **419.670 s**, **3053.4 MiB**, `m4b/wire-01.json`,
+  all existing native/Bun TLS roles, peers, negatives and cleanup; explicitly
+  `OPENSSL=openssl` with OpenSSL 3 first in PATH exercises portable discovery.
+  Source parity receipt `m4b/gate-source-parity.json` finds zero drift against
+  all three retained client/HTTP-server/WSS-server build source maps.
+  Subsequent formatting removes only one trailing blank line in each of two
+  client modules; `m4b/format-only.json` binds before/after hashes and verifies
+  byte equality after stripping trailing whitespace. No behavior changed.
+  All gates use Bend **2.0.38**, OpenSSL 3 first in PATH,
+  `PYTHONDONTWRITEBYTECODE=1`, sequential moon --force, unchanged **4096 MiB**
+  aggregate/process and **120 s** per declared phase. New client phases are
+  declared in `http/client/check_phases.json` and included by the root manifest.
+
+  Failed attempts remain: `client-01.json` omitted JSON's existing decimal
+  overlay dependency; `client-02.json` passed ordinary/negative/audits/baseline
+  but exposed the harness's incorrect expected form length (11 instead of the
+  canonical 9 bytes). Both causes were corrected before the fresh complete
+  `client-03` run. Earlier frontend syntax/clock diagnostics and standalone live
+  reports remain in `m4b/`; none substitutes for the full package gate.
+
+  M4's client-selection and HTTP/WSS-traffic boxes are now checked. **M4 remains
+  open**: no real Chrome run, browser fixture/audit, comparative native
+  handshake/request-rate baseline or fresh root acceptance in this round.
+  Those are deliverables 3-5, following the user's permitted 1-2 split.
+  Profile remains TLS 1.3, SHA-256, AES-128-GCM/ChaCha20-Poly1305,
+  X25519/P-256 and P-256 ECDSA/RSA-PSS RSAE certificate verification.
+  Synthetic keys only; physical erasure remains blocked by `crypto/ERASURE.md`,
+  ECDSA nonce-retry timing remains dispositioned, and live-secret use is not
+  approved. New Bun client/WSS is unsupported and ungated; existing Bun
+  regressions pass (Bun HTTPS credentials stay P-256-only). No IPv6 URL literal
+  support, ambient roots, resumption or 0-RTT; refresh the trusted clock sample
+  when wall-clock corrections matter. Unicode tables are reconstructed for
+  each new client connection. OpenSSL stays default unless Bend is explicitly
+  selected. RTC/DTLS expansion remains deferred; M5 public-internet support is
+  next after M4. No push, PR or bounty changes.
+
 - 2026-10-23 (M4b native WSS; deliverable 2 accepted locally):
   `bend_server.TransportUpgrade` transfers the affine transport plus buffered
   plaintext after a validated 101. `websocket_transport.bend` retains that owner

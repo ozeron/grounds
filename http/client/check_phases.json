@@ -4,6 +4,62 @@
     {
       "name": "http_client/check",
       "optional": false
+    },
+    {
+      "name": "http_client/bend_legacy_graphs",
+      "optional": false
+    },
+    {
+      "name": "http_client/bend_fixtures",
+      "optional": false
+    },
+    {
+      "name": "http_client/bend_frontend_native",
+      "optional": false
+    },
+    {
+      "name": "http_client/bend_compile_native",
+      "optional": false
+    },
+    {
+      "name": "http_client/bend_server_frontend",
+      "optional": false
+    },
+    {
+      "name": "http_client/bend_server_compile",
+      "optional": false
+    },
+    {
+      "name": "http_client/bend_go_peer",
+      "optional": false
+    },
+    {
+      "name": "http_client/bend_abort_controls",
+      "optional": false
+    },
+    {
+      "name": "http_client/bend_no_delegation",
+      "optional": false
+    },
+    {
+      "name": "http_client/bend_live_ordinary",
+      "optional": false
+    },
+    {
+      "name": "http_client/bend_live_negative",
+      "optional": false
+    },
+    {
+      "name": "http_client/bend_live_bend",
+      "optional": false
+    },
+    {
+      "name": "http_client/bend_live_openssl",
+      "optional": false
+    },
+    {
+      "name": "http_client/bend_live_go",
+      "optional": false
     }
   ]
 }

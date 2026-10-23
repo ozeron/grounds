@@ -231,11 +231,11 @@ interop and negative-case reports, plus inspectable no-delegation evidence.
 
 - [x] Add explicit Bend transport selection to HTTP server without breaking
   existing APIs; keep legacy compatibility paths clearly distinguishable (M4a).
-- [ ] Add explicit Bend transport selection to HTTP client without breaking
+- [x] Add explicit Bend transport selection to HTTP client without breaking
   existing APIs; keep legacy compatibility paths clearly distinguishable (M4b).
 - [x] Integrate Bend cookie signing/verification and runtime key ownership into
   the new server path; preserve authentication and cookie behavior with regression tests (M4a).
-- [ ] Verify real HTTP request/response and WebSocket traffic through Bend TLS,
+- [x] Verify real HTTP request/response and WebSocket traffic through Bend TLS,
   including streaming, reconnect, denied origins/authentication and cleanup.
 - [ ] Run real-browser HTTPS/WSS with locally trusted synthetic certificate
   fixtures and normal verification enabled; do not bypass certificate checks.

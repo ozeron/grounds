@@ -22,7 +22,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix="grounds-http-no-host-tls-") as td:
         destination = Path(td)
         inputs = overlay(destination)
-        directories = ["http/server", "http/wire"] + (["http/client", "json"] if args.program == "client" else [])
+        directories = ["http/server", "http/wire"] + (["http/client", "json", "decimal"] if args.program == "client" else [])
         for directory in directories:
             for source in sorted((ROOT / directory).rglob("*")):
                 if source.is_file() and source.suffix in {".bend", ".c", ".js"}:

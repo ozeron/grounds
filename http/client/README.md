@@ -127,3 +127,51 @@ checks probe isolation and rejects output without served cases as part of the
 package gate.
 
 `tests/soak.py` is a longer run, by hand: rounds of every kind of request through a pool, while it watches the memory and sockets of the client and of the server.
+
+## Opt-in Bend TLS (native, synthetic keys)
+
+Import `bend_client.bend` as `C` and `bend_pool.bend` as `Pool`. These are separate
+entry modules with their own Config/request/reply types. The legacy `client.bend`
+and `pool.bend` APIs and cold graphs stay unchanged; OpenSSL remains their default.
+No environment variable switches a legacy program to Bend TLS.
+
+Construct admission inputs with `bend_transport.from_pem(normalization_bytes,
+profile_bytes, anchor_pems, Clock{civil_seconds, monotonic_ms})`. `anchor_pems`
+contains 1..16 explicit PEM certificates, one certificate per byte list. The
+Unicode bytes are the pinned `crypto/unicode32_nfkc.bin` and
+`crypto/unicode32_prepare.bin`; Bend authenticates them before chain verification.
+Read files with OS byte IO, never a host TLS/crypto helper. `Clock` pairs a trusted
+wall-clock sample (UTC seconds since 0001-01-01) with the corresponding `IO.now()`
+millisecond sample. Each handshake advances that sample by elapsed monotonic
+seconds. Resample when wall-clock corrections matter for a long-lived process.
+
+`from_pem` returns the existing legacy `R(Policy)` / `Err`. Pass a successful
+policy to `C.default(policy)`, then use the usual builders, Config setters,
+send/send_ok/send_json, stream, events/events_retry and pool calls. The convenience
+calls are `C.fetch(cfg,url)` and `C.fetch_json(A,cfg,url,decoder)` because trust
+inputs are required. `tests/bend_tls.bend` is a complete runnable example.
+
+TLS 1.3 uses the frozen [profile](../../TLS_PROFILE.md), always offers ALPN
+`http/1.1`, derives SNI and SAN verification identity from each destination URL,
+and maps verification/protocol errors to the **same** legacy `Err` type
+(`Tls{why}`, preserving `certificate:` + `x509_chain.show(reason)`). IPv4 literals
+use IP SANs without SNI. The existing URL parser supports DNS and IPv4, not IPv6
+URL literals. No ambient roots, verification bypass or TLS fallback is provided.
+An HTTPS-to-HTTPS redirect opens/reuses only that destination's origin and
+re-verifies every new connection; private headers are stripped as before.
+
+The affine TLS owner travels through HTTP framing and the pool. Ordinary calls
+retain one absolute deadline through DNS, connect, handshake, writes, reads,
+redirects and retries. Streaming/SSE retain the existing per-read deadline policy.
+Authenticated close_notify can terminate a close-delimited body; bare EOF and
+partial records fail as truncation. Pooled safe requests can reconnect once after
+a stale connection. Rebuilding affine Unicode tables on new connections adds
+startup cost; this path has no session resumption. There is no WebSocket client
+in this package. Server WSS is checked with independent Python and Go peers.
+
+`moon run http_client:check --force` also runs the native M4b live corpus,
+legacy graph audit and emitted C/native symbol/library/loader audit with host TLS
+and cookie effects replaced by proven abort controls. Set
+`GROUNDS_M4B_CLIENT_ARTIFACTS` to a **new** directory to retain exact outputs and
+JSON reports. New Bun client/WSS work is unsupported and ungated; existing Bun
+regressions continue. Live credentials remain blocked by `crypto/ERASURE.md`.
