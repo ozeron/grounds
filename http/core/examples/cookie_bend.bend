@@ -13,11 +13,11 @@ def operation(kind: Bool, key: String, value: String) -> IO(Unit):
   match kind:
     case True{}:
       do IO<Unit>:
-        signed : String <- IO.try(String, Ck.sign(key, value))
+        signed : String <- IO.try(String, Ck.sign_owned(Ck.SigningKey{key}, value))
         IO.print("ok:" ++ B.hex(U.encode(signed)))
     case False{}:
       do IO<Unit>:
-        result : Maybe<&2, String> <- IO.try(Maybe<&2, String>, Ck.verify(key, value))
+        result : Maybe<&2, String> <- IO.try(Maybe<&2, String>, Ck.verify_owned(Ck.SigningKey{key}, value))
         verified(result)
 
 # Test-only framing: operation U8, then key/value as U32BE byte length + UTF-8.

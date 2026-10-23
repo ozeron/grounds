@@ -4,6 +4,24 @@ Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and 
 
 The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
 
+- 2026-10-23 (M4a cookie owner and migration regressions, Bend 2.0.38):
+  `cookie_bend.SigningKey{secret}`, `sign_owned` and `verify_owned` give an
+  application an explicit immutable runtime owner without changing legacy
+  `cookie_sign` defaults or the signed value format. Forced `http_core:check`
+  passes **1/1 guarded phase**, zero skipped/unexecuted: native and Bun each
+  pass **2,693 cookie cases** (2,675 unchanged plus 18 actual legacy-effect
+  format/verify/tamper cases), **838 Base64** and **8,320 method** cases.
+  All 93 original unit definitions, eight public laws, 17 contract and 100
+  proof declarations pass; existing cold assertions pass. Command:
+  `PYTHONDONTWRITEBYTECODE=1 python3 tools/build_guard.py --memory-mib 4096
+  --process-memory-mib 4096 --timeout 120 --phases http/core/check_phases.json
+  --report ~/.codex/artifacts/grounds/2026-10-23/m4a/core-01-wait-01.json --
+  moon --concurrency 1 run http_core:check --force` (436.5 MiB peak, 31.96 s
+  Moon task). Full output: `m4a/core-01.log`. The shared runtime review's
+  synthetic-key/physical-erasure restriction remains. HTTPS server integration,
+  live interop and fresh root acceptance are still being verified; M4 boxes
+  remain open.
+
 - 2026-10-23 (M3b focused acceptance complete; fresh root pressure-blocked):
   corrected wire04 passes **230/230 phases**, zero skipped/unexecuted. Native
   and Bun each pass **43+16 negotiation/retry**, **78 server scenarios**

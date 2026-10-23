@@ -39,11 +39,12 @@ bend examples/cookie_sign.bend -o "$tmp/cookie_sign" > /dev/null
 python3 examples/cookie_sign_check.py "$tmp/cookie_sign"
 
 step "Bend cookie HMAC (native and Bun; synthetic keys)"
+sh ../../tools/bend_native.sh examples/cookie_legacy.bend "$tmp/cookie_legacy" > /dev/null
 sh ../../tools/bend_native.sh examples/cookie_bend.bend "$tmp/cookie_bend" > /dev/null
-python3 examples/cookie_bend_check.py -- "$tmp/cookie_bend"
+python3 examples/cookie_bend_check.py --legacy "$tmp/cookie_legacy" -- "$tmp/cookie_bend"
 if command -v bun > /dev/null 2>&1; then
   bend examples/cookie_bend.bend -o "$tmp/cookie_bend.js" > /dev/null
-  python3 examples/cookie_bend_check.py -- bun "$tmp/cookie_bend.js"
+  python3 examples/cookie_bend_check.py --legacy "$tmp/cookie_legacy" -- bun "$tmp/cookie_bend.js"
 else
   echo "SKIP Bun cookie HMAC: bun not installed"
 fi
