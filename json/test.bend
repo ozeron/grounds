@@ -400,3 +400,22 @@ def both_second() -> {J.both(String, U32, Duo, Done{"x"}, Fail{J.OutOfRange{[]}}
 
 def map_ok() -> {J.map(U32, U32, Done{2}, x => (x + 1 : U32)) == Done{3} : A(U32)}:
   {==}
+
+# Container path reads retain every nested member, including duplicate fields.
+def array_at_members() -> {J.array_at(J.JObj{[J.Field{"user", J.JObj{[J.Field{"tags", J.JArr{[J.JStr{"a"}, J.JStr{"b"}]}}]}}]}, [J.Name{"user"}, J.Name{"tags"}]) == Done{[J.JStr{"a"}, J.JStr{"b"}]} : Result<&2, &2, J.Access, List<&2, J.Json>>}:
+  {==}
+
+def object_at_members() -> {J.object_at(J.JObj{[J.Field{"data", J.JObj{[J.Field{"x", J.JArr{[J.JObj{[J.Field{"name", J.JStr{"pet"}}]}]}}, J.Field{"x", J.JBool{True{}}}]}}]}, [J.Name{"data"}]) == Done{[J.Field{"x", J.JArr{[J.JObj{[J.Field{"name", J.JStr{"pet"}}]}]}}, J.Field{"x", J.JBool{True{}}}]} : Result<&2, &2, J.Access, List<&2, J.Field>>}:
+  {==}
+
+def array_at_root() -> {J.array_at(J.JArr{[J.JStr{"a"}, J.JArr{[J.JNull{}]}]}, []) == Done{[J.JStr{"a"}, J.JArr{[J.JNull{}]}]} : Result<&2, &2, J.Access, List<&2, J.Json>>}:
+  {==}
+
+def array_at_wrong_kind() -> {J.array_at(J.JObj{[J.Field{"tags", J.JBool{False{}}}]}, [J.Name{"tags"}]) == Fail{J.Expected{[J.Name{"tags"}], J.KArray{}, J.KBool{}}} : Result<&2, &2, J.Access, List<&2, J.Json>>}:
+  {==}
+
+def object_at_wrong_kind() -> {J.object_at(J.JObj{[J.Field{"data", J.JArr{[]}}]}, [J.Name{"data"}]) == Fail{J.Expected{[J.Name{"data"}], J.KObject{}, J.KArray{}}} : Result<&2, &2, J.Access, List<&2, J.Field>>}:
+  {==}
+
+def object_at_duplicate_key() -> {J.object_at(J.JObj{[J.Field{"data", J.JObj{[]}}, J.Field{"data", J.JObj{[J.Field{"x", J.JNull{}}]}}]}, [J.Name{"data"}]) == Done{[J.Field{"x", J.JNull{}}]} : Result<&2, &2, J.Access, List<&2, J.Field>>}:
+  {==}

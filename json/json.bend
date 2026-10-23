@@ -1847,6 +1847,86 @@ def map_list(~A: Data, ~B: Data, ~f: A -> B, xs: List<&2, A>) -> List<&2, B>:
     case Con{h, t}:
       Con{f(h), map_list(~A, ~B, ~f, t)}
 
+# Separate source cursors keep borrowed tails out of newly allocated Json nodes.
+# Fuel bounds the recursion structurally; exhaustion fails instead of truncating.
+type CopyMode is Data:
+  CopyValue{}
+  CopyArray{}
+  CopyObject{}
+
+def copy_json.arr(h: Result<&2, &2, Access, Json>, t: Result<&2, &2, Access, Json>) -> Result<&2, &2, Access, Json>:
+  match h t:
+    case Fail{e} _:
+      Fail{e}
+    case Done{_} Fail{e}:
+      Fail{e}
+    case Done{v} Done{JArr{xs}}:
+      Done{JArr{Con{v, xs}}}
+    case _ _:
+      Fail{OutOfRange{[]}}
+
+def copy_json.obj(k: String, v: Result<&2, &2, Access, Json>, t: Result<&2, &2, Access, Json>) -> Result<&2, &2, Access, Json>:
+  match v t:
+    case Fail{e} _:
+      Fail{e}
+    case Done{_} Fail{e}:
+      Fail{e}
+    case Done{x} Done{JObj{fs}}:
+      Done{JObj{Con{Field{k, x}, fs}}}
+    case _ _:
+      Fail{OutOfRange{[]}}
+
+def copy_json.go(+fuel: Nat, mode: CopyMode, j: Json, xs: List<&2, Json>, fs: List<&2, Field>) -> Result<&2, &2, Access, Json>:
+  match fuel mode j xs fs:
+    case 0n _ _ _ _:
+      Fail{OutOfRange{[]}}
+    case 1n+k CopyValue{} JArr{ys} _ _:
+      copy_json.go(k, CopyArray{}, JNull{}, ys, [])
+    case 1n+k CopyValue{} JObj{ys} _ _:
+      copy_json.go(k, CopyObject{}, JNull{}, [], ys)
+    case 1n+k CopyValue{} scalar _ _:
+      Done{copy_leaf(scalar)}
+    case 1n+k CopyArray{} _ Nil{} _:
+      Done{JArr{[]}}
+    case 1n+k CopyArray{} _ Con{h, t} _:
+      copy_json.arr(copy_json.go(k, CopyValue{}, h, [], []), copy_json.go(k, CopyArray{}, JNull{}, t, []))
+    case 1n+k CopyObject{} _ _ Nil{}:
+      Done{JObj{[]}}
+    case 1n+k CopyObject{} _ _ Con{Field{key, v}, t}:
+      copy_json.obj(copy_text(key, ""), copy_json.go(k, CopyValue{}, v, [], []), copy_json.go(k, CopyObject{}, JNull{}, [], t))
+
+def copy_json(j: Json) -> Result<&2, &2, Access, Json>:
+  copy_json.go(4294967295n, CopyValue{}, j, [], [])
+
+def copy_json.array(r: Result<&2, &2, Access, Json>) -> Result<&2, &2, Access, List<&2, Json>>:
+  match r:
+    case Done{j}:
+      array(j)
+    case Fail{e}:
+      Fail{e}
+
+def copy_json.object(r: Result<&2, &2, Access, Json>) -> Result<&2, &2, Access, List<&2, Field>>:
+  match r:
+    case Done{j}:
+      object(j)
+    case Fail{e}:
+      Fail{e}
+
+# Reject the wrong kind before copying any of its children.
+def array_copy(j: Json) -> Result<&2, &2, Access, List<&2, Json>>:
+  match j:
+    case JArr{xs}:
+      copy_json.array(copy_json.go(4294967294n, CopyArray{}, JNull{}, xs, []))
+    case other:
+      Fail{Expected{[], KArray{}, kind(other)}}
+
+def object_copy(j: Json) -> Result<&2, &2, Access, List<&2, Field>>:
+  match j:
+    case JObj{fs}:
+      copy_json.object(copy_json.go(4294967294n, CopyObject{}, JNull{}, [], fs))
+    case other:
+      Fail{Expected{[], KObject{}, kind(other)}}
+
 def join_fields(xs: List<&2, List<&2, Field>>) -> List<&2, Field>:
   match xs:
     case Nil{}:
@@ -1946,12 +2026,6 @@ def f32_at(j: Json, path: List<&2, Step>) -> Result<&2, &2, Access, F32>:
 def number_at(j: Json, path: List<&2, Step>) -> Result<&2, &2, Access, Number>:
   read_at(Number, j, path, number)
 
-def array_at(j: Json, path: List<&2, Step>) -> Result<&2, &2, Access, List<&2, Json>>:
-  read_at(List<&2, Json>, j, path, array)
-
-def object_at(j: Json, path: List<&2, Step>) -> Result<&2, &2, Access, List<&2, Field>>:
-  read_at(List<&2, Field>, j, path, object)
-
 # Decoding
 # ========
 
@@ -2028,6 +2102,25 @@ def both6(-A: Data, -B: Data, -C: Data, -D: Data, -E: Data, -F: Data, -Z: Data, 
     case Done{_} Done{_} Done{_} Done{_} Done{_} Fail{e}:
       Fail{e}
 
+def both7(-A: Data, -B: Data, -C: Data, -D: Data, -E: Data, -F: Data, -G: Data, -Z: Data, r1: Result<&2, &2, Access, A>, r2: Result<&2, &2, Access, B>, r3: Result<&2, &2, Access, C>, r4: Result<&2, &2, Access, D>, r5: Result<&2, &2, Access, E>, r6: Result<&2, &2, Access, F>, r7: Result<&2, &2, Access, G>, f: A -> B -> C -> D -> E -> F -> G -> Z) -> Result<&2, &2, Access, Z>:
+  match r1 r2 r3 r4 r5 r6 r7:
+    case Done{a} Done{b} Done{c} Done{d} Done{e} Done{v} Done{g}:
+      Done{f(a, b, c, d, e, v, g)}
+    case Fail{e} _ _ _ _ _ _:
+      Fail{e}
+    case Done{_} Fail{e} _ _ _ _ _:
+      Fail{e}
+    case Done{_} Done{_} Fail{e} _ _ _ _:
+      Fail{e}
+    case Done{_} Done{_} Done{_} Fail{e} _ _ _:
+      Fail{e}
+    case Done{_} Done{_} Done{_} Done{_} Fail{e} _ _:
+      Fail{e}
+    case Done{_} Done{_} Done{_} Done{_} Done{_} Fail{e} _:
+      Fail{e}
+    case Done{_} Done{_} Done{_} Done{_} Done{_} Done{_} Fail{e}:
+      Fail{e}
+
 # Tail-recursive path concatenation avoids suspending while retaining source.
 def prefix(path: List<&2, Step>, e: Access) -> Access:
   match e:
@@ -2038,6 +2131,24 @@ def prefix(path: List<&2, Step>, e: Access) -> Access:
     case OutOfRange{p}:
       OutOfRange{List.reverse.go(&2, Step, List.reverse(&2, Step, path), p)}
 
+
+# Run a reusable decoder on a sub-document and prefix all relative errors.
+# Like list_at, the decoder must rebuild the data it returns.
+def decode_at.fin(-A: Data, r: Result<&2, &2, Access, A>, path: List<&2, Step>) -> Result<&2, &2, Access, A>:
+  match r:
+    case Done{x}:
+      Done{x}
+    case Fail{e}:
+      Fail{prefix(path, e)}
+
+def decode_at(~A: Data, ~dec: Json -> Result<&2, &2, Access, A>, j: Json, path: List<&2, Step>) -> Result<&2, &2, Access, A>:
+  walk_with(~A, ~(v => done => decode_at.fin(A, dec(v), List.reverse(&2, Step, done))), ~(st => done => Fail{Missing{List.reverse(&2, Step, done)}}), 4294967295n, path, 0n, 0n, j, [], [], [])
+
+def array_at(j: Json, path: List<&2, Step>) -> Result<&2, &2, Access, List<&2, Json>>:
+  decode_at(~List<&2, Json>, ~array_copy, j, path)
+
+def object_at(j: Json, path: List<&2, Step>) -> Result<&2, &2, Access, List<&2, Field>>:
+  decode_at(~List<&2, Field>, ~object_copy, j, path)
 
 # Only an absent final object key is optional; missing parents and indices fail.
 def optional_missing(-A: Data, steps: List<&2, Step>, done: List<&2, Step>) -> Result<&2, &2, Access, Maybe<&2, A>>:
@@ -2130,6 +2241,9 @@ def list_at(~A: Data, ~item: Json -> Result<&2, &2, Access, A>, j: Json, path: L
 # Encoders return field chunks so an absent optional contributes no fields.
 def obj(fields: List<&2, List<&2, Field>>) -> Json:
   JObj{join_fields(fields)}
+
+def field_obj(-A: Data, k: String, v: A, enc: A -> Json) -> List<&2, Field>:
+  [Field{k, enc(v)}]
 
 def field_str(k: String, s: String) -> List<&2, Field>:
   [Field{k, JStr{s}}]

@@ -23,7 +23,7 @@ step "no reference-counted types in grounds-json or the proven path (scripts/col
 # tests run binaries clang builds from this same C
 bend main.bend -o "$tmp/main.c" > /dev/null
 bend spec_cli.bend -o "$tmp/spec_cli.c" > /dev/null
-python3 scripts/cold.py "$tmp/main.c" "$tmp/spec_cli.c" examples/access.bend examples/user.bend examples/users.bend examples/user_laws.bend
+python3 scripts/cold.py "$tmp/main.c" "$tmp/spec_cli.c" examples/access.bend examples/user.bend examples/users.bend examples/user_laws.bend examples/containers.bend
 
 step "unit tests (test.bend)"
 bend test.bend
@@ -33,6 +33,7 @@ step "laws (PROOF.bend)"
 bend PROOF.bend
 bend examples/user.bend
 bend examples/users.bend
+bend examples/containers.bend
 bend examples/user_laws.bend --check-only
 
 step "JSONTestSuite, and fast.bend against the proven parser (suite.bend)"
