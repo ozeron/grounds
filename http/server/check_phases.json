@@ -98,6 +98,30 @@
       "optional": false
     },
     {
+      "name": "http_server/bend_wss_frontend_native",
+      "optional": false
+    },
+    {
+      "name": "http_server/bend_wss_compile_native",
+      "optional": false
+    },
+    {
+      "name": "http_server/bend_wss_go_peer",
+      "optional": false
+    },
+    {
+      "name": "http_server/bend_wss_no_delegation",
+      "optional": false
+    },
+    {
+      "name": "http_server/bend_wss_native_aes",
+      "optional": false
+    },
+    {
+      "name": "http_server/bend_wss_native_chacha",
+      "optional": false
+    },
+    {
       "name": "http_server/context_native",
       "optional": false
     },

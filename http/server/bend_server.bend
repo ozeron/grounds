@@ -172,6 +172,7 @@ type Out is Type:
   Whole{res: Res.Response}
   Stream{status: S.Status, headers: List<&2, H.Header>, body: Sink -> IO(Sink)}
   Upgrade{accept: String, session: Socket -> B.Bytes -> IO(Unit)}
+  TransportUpgrade{accept: String, session: Tr.Connection -> B.Bytes -> IO(Unit)}
 
 def RP() -> Type:
   Tr.Read()
@@ -392,7 +393,7 @@ def streamed(close, rest, body, ms, m, next):
   streamed.go(r, close, rest, body, s, ms, next)
 
 # Existing upgrade sessions own a raw Socket. A Bend TLS owner cannot be
-# stripped to a socket; reject before 101 until M4b supplies WSS sessions.
+# stripped to a socket. TransportUpgrade retains the complete TLS owner.
 def upgrade.transport(s: Tr.Connection, rest: B.Bytes, session: Socket -> B.Bytes -> IO(Unit)) -> IO(Unit):
   match s:
     case Tr.Raw{socket}: session(socket,rest)
@@ -403,14 +404,14 @@ def upgrade.bend_closed(m: RU()) -> IO(Unit):
   Tr.close(s)
 
 def upgraded(r: Result<&1, &1, U32 & String, Unit>, s: Tr.Connection,
-             rest: B.Bytes, session: Socket -> B.Bytes -> IO(Unit)) -> IO(Unit):
+             rest: B.Bytes, session: Tr.Connection -> B.Bytes -> IO(Unit)) -> IO(Unit):
   match r:
     case Done{_}:
-      upgrade.transport(s,rest,session)
+      session(s,rest)
     case Fail{_}:
       Tr.close(s)
 
-def upgrade_sent(rest: B.Bytes, session: Socket -> B.Bytes -> IO(Unit), m: RU()) -> IO(Unit):
+def upgrade_sent(rest: B.Bytes, session: Tr.Connection -> B.Bytes -> IO(Unit), m: RU()) -> IO(Unit):
   (s, r) = m
   upgraded(r, s, rest, session)
 
@@ -418,7 +419,7 @@ def upgrade_closed(m: RU()) -> IO(Unit):
   (s, _) = m
   Tr.close(s)
 
-def upgrade.checked(ok: Bool, accept: String, session: Socket -> B.Bytes -> IO(Unit),
+def upgrade.checked(ok: Bool, accept: String, session: Tr.Connection -> B.Bytes -> IO(Unit),
                     s: Tr.Connection, +ms: U32, rest: B.Bytes) -> IO(Unit):
   match ok:
     case True{}:
@@ -428,7 +429,7 @@ def upgrade.checked(ok: Bool, accept: String, session: Socket -> B.Bytes -> IO(U
       IO.bind(RU(), Unit, Tr.send(s, B.to_list(H1.write(refuse(S.bad_request()), True{})), ms),
         m => upgrade_closed(m))
 
-def upgrade.run(+accept: String, session: Socket -> B.Bytes -> IO(Unit),
+def upgrade.run(+accept: String, session: Tr.Connection -> B.Bytes -> IO(Unit),
                 upgrade_close: Bool, raw: B.Bytes, +max_head: U32,
                 s: Tr.Connection, +ms: U32, rest: B.Bytes) -> IO(Unit):
   upgrade.checked(Bool.and(Bool.and(H1.request_is_11(raw, max_head), Bool.not(upgrade_close)),
@@ -444,8 +445,11 @@ def respond(out: Out, +close: Bool, upgrade_close: Bool, s: Tr.Connection, +ms: 
       IO.bind(RU(), Unit, Tr.send(s, B.to_list(H1.write_head(c, hs, close)), ms), m => streamed(close, rest, body, ms, m, next))
     case Upgrade{accept, session}:
       match s:
-        case Tr.Raw{socket}: upgrade.run(accept,session,upgrade_close,raw,max_head,Tr.Raw{socket},ms,rest)
+        case Tr.Raw{socket}: upgrade.run(accept,s => buffered => upgrade.transport(s,buffered,session),upgrade_close,raw,max_head,Tr.Raw{socket},ms,rest)
         case other: IO.bind(RU(),Unit,Tr.send(other,B.to_list(H1.write(refuse(S.not_implemented()),True{})),ms),upgrade.bend_closed)
+
+    case TransportUpgrade{accept, session}:
+      upgrade.run(accept,session,upgrade_close,raw,max_head,s,ms,rest)
 
 def got.go(done: Bool, acc: B.Bytes, bs: List<&2, U32>, +dl: Nat, s: Tr.Connection, next: B.Bytes -> Nat -> Tr.Connection -> IO(Unit)) -> IO(Unit):
   match done:

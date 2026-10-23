@@ -4,6 +4,35 @@ Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and 
 
 The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
 
+- 2026-10-23 (M4b native WSS; deliverable 2 accepted locally):
+  `bend_server.TransportUpgrade` transfers the affine transport plus buffered
+  plaintext after a validated 101. `websocket_transport.bend` retains that owner
+  through bounded text/binary/fragment/control frames, ping/pong, close handshake
+  and TLS close_notify. The raw Socket Upgrade API remains separate; legacy
+  `server.bend` and its cold graph are unchanged. The example requires an exact
+  Origin, Bearer and a valid `cookie_bend` signed cookie before upgrade.
+  There is no WebSocket client in `http/client`; independent Python and Go
+  clients verify the server. New WSS work is native only, with no new Bun gate.
+
+  Fresh **43/43** server phases passed, **321.991 s**, **1711.6 MiB** peak:
+  `~/.codex/artifacts/grounds/2026-10-23/m4b/server-01.json` (full log alongside).
+  `server-01/m4b/aes.json` and `chacha.json` each pass **12/12** scenarios:
+  buffered upgrade+frame, text/UTF-8, binary up to 64 KiB, fragmented messages
+  with interleaved ping, pong, close handshake and authenticated TLS closure,
+  denied Origin, missing auth/cookie and tampered cookie, independent Go WSS,
+  reconnect/abandoned fragments and owned-process reaping. Each retained server
+  returns to **9 total / 1 TCP descriptors** after twelve reconnect/abandon cycles.
+  The exact native WSS program passes emitted C/effects/imports, symbol/library/
+  loader checks and two exit-86 abort controls (`server-01/m4b/audit.json`).
+  `c_defined_names` is passed to `native_imports`, preserving Linux runtime-name
+  handling. Source maps and output hashes are in `server-01/m4b/build.json`.
+  All 37 pre-existing server phases, including Bun HTTPS, cold and proxy/plain
+  regressions, still pass. The guard remains 4096 MiB aggregate/process and
+  120 s per declared phase; new phases are in the server manifest.
+
+  Client, browser, performance and final root/M4 acceptance remain tracked
+  separately; this WSS gate does not tick the full M4 milestone.
+
 - 2026-10-23 (M4b prerequisite; Linux CI early-close harness fix):
   `bend_tls_check.py` now sends Content-Length **100001** and one body byte,
   then reads and requires the complete **413** response. The old full-body

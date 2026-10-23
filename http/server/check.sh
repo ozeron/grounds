@@ -121,6 +121,27 @@ begin bend_tls_configuration_bun
 python3 examples/bend_tls_check.py --target bun --configuration --fixtures "$artifacts/fixtures" --report "$artifacts/configuration-bun.json" -- bun "$artifacts/bend_tls.js"
 end
 
+# M4b WSS is native-only; existing Bun M4a checks above remain unchanged.
+m4b=${GROUNDS_M4B_SERVER_ARTIFACTS:-$artifacts/m4b}
+mkdir -p "$m4b"
+begin bend_wss_frontend_native
+BUN_OPTIONS="$bend_bun_options --smol" BUN_JSC_forceRAMSize=134217728 python3 examples/bend_tls_build.py --program wss "$m4b/server.c" "$m4b/build.json"
+end
+begin bend_wss_compile_native
+native "$m4b/server.c" "$m4b/server"
+end
+begin bend_wss_go_peer
+mise exec go@1.26.9 -- go build -o "$tmp/wss-go" examples/bend_m4b_peer.go
+end
+begin bend_wss_no_delegation
+python3 examples/bend_native_audit.py --role server --native "$m4b/server" --c "$m4b/server.c" --probe-dir "$tmp/probes" --report "$m4b/audit.json"
+end
+for suite in aes chacha; do
+  begin "bend_wss_native_$suite"
+  python3 examples/bend_wss_check.py --binary "$m4b/server" --fixtures "$artifacts/fixtures" --go "$tmp/wss-go" --suite "$suite" --report "$m4b/$suite.json"
+  end
+done
+
 begin context_native
 native examples/context.bend "$tmp/context" > /dev/null
 python3 examples/context_check.py "$tmp/context"

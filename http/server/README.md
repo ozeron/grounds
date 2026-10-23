@@ -96,8 +96,15 @@ streaming, health, proxy marking and graceful drain share the existing loop.
 SNI stays on the TLS owner; it is not injected into the request or app context.
 
 The existing raw-socket `Upgrade` session cannot own a Bend TLS connection.
-On this transport an attempted upgrade receives 501 before a 101 is sent.
-Plain/OpenSSL upgrades retain their API. WSS integration belongs to M4b.
+On this transport that variant receives 501 before a 101 is sent.
+Use `TransportUpgrade{accept, session}` and `websocket_transport.bend` for WSS:
+the session receives the complete `transport.Connection` and buffered plaintext,
+and owns it through frame parsing, replies, close handshake and TLS close_notify.
+`Conn.session(~handler, timeout_ms, connection, buffered)` has the same bounded
+text/binary/fragment/control-frame semantics as `websocket_conn.bend`.
+`examples/bend_wss.bend` demonstrates an exact Origin allowlist, Bearer and
+`cookie_bend` signed-cookie admission before 101. New WSS acceptance is native
+only; existing plain/OpenSSL and Bun M4a checks retain their APIs and scope.
 
 Cookie signing is an explicit **application** choice. Import
 `http/core/cookie_bend.bend`, hold `Cookie.SigningKey{runtime_secret}` in the Data

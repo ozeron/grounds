@@ -22,6 +22,7 @@ tasks:
       - "/wire/bend_tls_no_delegation_build.py"
       - "/wire/bend_tls_no_openssl_check.py"
       - "/wire/bend_tls_client_check.py"
+      - "/wire/bend_tls_server_check.py"
       - "/crypto/gcm_check.py"
       - "/http/core/*.bend"
       - "/http/core/effs/*"
