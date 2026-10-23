@@ -22,13 +22,16 @@ jobs:
         ports:
           - 6379:6379
     steps:
+      # moon compares a pull request with its base branch: it needs the history
+      # and a local `main`, which a shallow PR checkout of the merge commit lacks
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - if: github.event_name == 'pull_request'
+        run: git branch -f main origin/main
       # a service can't pass --requirepass, and bitnami/redis is gone from Docker Hub
       - run: docker run -d --name redis-auth -p 6380:6379 redis:7-alpine redis-server --requirepass s3cret
       - uses: jdx/mise-action@v2
-      - uses: actions/setup-go@v5
-        with:
-          go-version: stable
       - run: sudo apt-get update && sudo apt-get install -y hyperfine clang llvm apache2-utils ripgrep
       - run: moon run :check
       - run: QUICK=1 bench/run.sh

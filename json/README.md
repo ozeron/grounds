@@ -60,32 +60,19 @@ Paths (level B) read a nested value in one call, and their errors carry the full
 | `J.both(A, B, C, r1, r2, f)` | two reads joined by `f`; the first error wins |
 | `J.map(A, B, r, f)` | `f` on a read's value |
 
-A typed encoder and decoder form a pair (`examples/user.bend`):
+Typed codecs (levels D and E) compose up to seven fields with `both3`–`both7`, read optional fields with `string_opt_at` / `u32_opt_at` / `bool_opt_at` (also F32 and exact numbers), apply defaults with `default`, decode nested records with `decode_at(~A, ~dec, j, path)`, and decode collections with `list_at(~A, ~item, j, path)`. A list item's errors include its full path, such as `$.users[3].age`. Missing final optional keys and null give None; missing parents and wrong kinds still fail.
 
-```python
-type User is Data:
-  User{name: String, age: U32}
+Build objects from field chunks with `obj([field_str(...), field_u32(...), field_bool(...), field_opt(...), field_obj(...), field_list(...)])`. An absent optional contributes no fields. List encoders and decoders take compile-time `~` callbacks because Bend closures cannot be reused.
 
-def User.to_json(u: User) -> J.Json:
-  match u:
-    case User{n, a}:
-      J.JObj{[J.Field{"name", J.JStr{n}}, J.Field{"age", J.num_u32(a)}]}
+[The nested User recipe](examples/user.bend) defines `Pet{name}`, `Address{city, zip}` and `User{name, age, admin, email, tags, address, pets}` with separate encoders and decoders. [Its laws](examples/user_laws.bend) prove Pet and Address in four lines each; User's 10-line value proof composes their laws through the general record/list lifting laws. User's text proof is three lines. The runtime recipe imports no proofs.
 
-def User.from_json(+j: J.Json) -> Result<&2, &2, J.Access, User>:
-  J.both(String, U32, User, J.string_at(j, [J.Name{"name"}]), J.u32_at(j, [J.Name{"age"}]), n => a => User{n, a})
+`array_at` and `object_at` now return all members in order, including nested values and duplicate fields; their old empty-container result was a bug. Copies keep types cold when a decoder reads the document again. The copier has a structural budget of 4,294,967,295 and fails as `OutOfRange` at the selected container on exhaustion; its identity/member proofs require a `CopyFits` witness. Unrestricted cold copying and unconditional raw-container laws remain unresolved. Scalar reads retain their behavior.
 
-law user_round_trip:
-  for +u: User
-  {User.from_json(User.to_json(u)) == Done{u} : Result<&2, &2, J.Access, User>}
-```
-
-The example proves this law for every `User`, using the shared leaf-copy and U32 proofs. It also proves `user_text_round_trip`: the existing parsed-result adapter satisfies `user(parse(encode(User.to_json(u)))) == Done{u}`. `num_u32` builds digits through `decimal.of_u32`; it uses no opaque text conversion. The check sweeps 20,000 U32 values against the old text constructor and compares numeric reads with the previous reader.
-
-Read one document many times only with the typed `_at` reads: `at`, `array_at` and `object_at` return part of it, which shares it. Call reads from a def, not from `main` itself: a read there owns its argument, which heats a type the decoder reads twice.
+Use typed scalar reads inside decoder callbacks to rebuild returned data. `scripts/cold.py` checks nested record/list decoding and repeated reads with container consumers. [docs/API.md](docs/API.md) gives signatures, the complete recipe, ownership requirements and exact proof hypotheses.
 
 ## Behavior to know
 
-- Numbers keep their exact digits, so big and precise numbers round-trip exactly. Convert with `as_u32` or `as_f32`.
+- Numbers keep their exact digits, so big and precise numbers round-trip exactly. Convert with `u32` or `f32`.
 - Objects keep every member in order, duplicates included. `get` returns the last one.
 - A lone surrogate like `"\uDEAD"` is an error.
 - Where JSONTestSuite leaves the answer to the parser (its `i_` cases), numbers of any size, deep nesting and a leading BOM parse; lone surrogate escapes and non-UTF-8 input fail. `scripts/gen_suite.py` holds the rules.
