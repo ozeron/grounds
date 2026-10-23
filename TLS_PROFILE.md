@@ -165,10 +165,10 @@ ECDSA retains M2 deterministic signing. Neither changes the live-secret boundary
 
 | Server evidence | Native and Bun coverage |
 |---|---|
-| Negotiation / retry | 41 encoded CH cases and 16 HRR-invariant cases; eight affine frontend probes. Missing/unsupported version 70, no common suite/group/signature 40, malformed/duplicate framing 50, missing extensions 109, invalid shares/CH2/cookie 47, incompatible ALPN 120. |
+| Negotiation / retry | 43 encoded CH cases and 16 HRR-invariant cases; eight affine frontend probes. Missing/unsupported version 70, no common suite/group/signature 40, malformed/duplicate framing 50, missing extensions 109, invalid shares/CH2/cookie 47, incompatible ALPN 120. |
 | Independent authentication | OpenSSL3 s_client and Go crypto/tls client: every 2 suites × 2 groups × 2 server CV schemes, explicit synthetic CA/hostname verification and http/1.1. Python ssl: both server credential types with normal CA/hostname verification. HRR observed in both group directions. |
 | Second server peer / self-peer | Go crypto/tls server against M3a client and Bend-to-Bend: all eight combinations each. Go server ChaCha rows disable AES hardware preference using GODEBUG=cpu.all=off; actual suite/group/ALPN are asserted. |
-| Negative / lifecycle | 76 live server scenarios per target, including altered client Finished 51, bad record tag 20, forbidden message/CCS/boundary 10, malformed KU 47, peer alerts, actual 3-byte TCP writes/coalescing, 40,000-byte echo, both KU directions, close, EOF/truncation 50, deadline 80 and repeated failure/deadline descriptor/socket cleanup. Deadline expiry closes without promising an alert write. |
+| Negative / lifecycle | 78 live server scenarios per target, including altered client Finished 51, bad record tag 20, forbidden message/CCS/boundary 10, malformed KU 47, peer alerts, actual 3-byte TCP writes/coalescing, 40,000-byte echo, both KU directions, close, EOF/truncation 50, deadline 80 and repeated failure/deadline descriptor/socket cleanup. Deadline expiry closes without promising an alert write. |
 | No delegation | Both role executables use unchanged Bend/OS byte/RNG sources with legacy TLS/cookie effects removed and replaced by abort/throw stubs. All independent interop runs use these builds; deliberate native/Bun probes hit each trap. Generated C/JS and native symbol/library/loader audit is a permanent phase. |
 
 ## Key lifecycle and runtime boundary

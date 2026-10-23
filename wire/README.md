@@ -365,9 +365,9 @@ RFC 8448 transcript/content and independently verify published signatures;
 the trace's 1024-bit key is outside the selected 2048–4096-bit RSA verifier.
 Admitted synthetic keys separately test both signing algorithms/roles, domain
 separation, malformed inputs and scheme/SPKI restrictions. Exact counts and
-commands live in STACK_PROGRESS.md and the dated M2 reports. The M3 owner must
-still choose transcript snapshots, negotiate schemes, draw RSA entropy from
-the host effect and enforce handshake/record ordering and fatal cleanup.
+commands live in STACK_PROGRESS.md and the dated M2 reports. The M3 connection
+owners below choose transcript snapshots, negotiate schemes, draw RSA entropy
+from the host effect and enforce handshake/record ordering and fatal cleanup.
 
 ### Bend TLS 1.3 client (M3a, synthetic keys)
 
@@ -481,8 +481,8 @@ close_notify, truncation and deadlines use the shared transport owner. Fatal
 alert writes are best effort within the original deadline; expiration cannot
 promise a peer-visible alert. There is no asynchronous cancellation API.
 
-Permanent checks include 41 negotiation and 16 HRR-invariant cases per target,
-eight affine frontend probes, 76 live server scenarios per target, and 24
+Permanent checks include 43 negotiation and 16 HRR-invariant cases per target,
+eight affine frontend probes, 78 live server scenarios per target, and 24
 Go/Bend peer scenarios per target. OpenSSL s_client, Go crypto/tls client,
 Go crypto/tls server, and Bend-to-Bend each cover all eight suite × group ×
 server-signature choices on native and Bun. Python ssl verifies the synthetic

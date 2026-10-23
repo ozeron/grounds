@@ -912,6 +912,14 @@
     {
       "name": "wire/m3b-bun/peers/011",
       "optional": false
+    },
+    {
+      "name": "wire/m3b-native/server/038",
+      "optional": false
+    },
+    {
+      "name": "wire/m3b-bun/server/038",
+      "optional": false
     }
   ]
 }

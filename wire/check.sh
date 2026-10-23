@@ -573,118 +573,118 @@ cp "$tmp/bend_tls_server.c" "$tmp/bend_tls_server.js" "$tmp/bend_tls_server" "$m
 python3 bend_tls_no_openssl_check.py --role server --native "$tmp/bend_tls_server" --c "$tmp/bend_tls_server.c" --js "$tmp/bend_tls_server.js" --report "$m3_reports/server-no-openssl.json"
 announce end wire/m3b-audit/server-no-openssl 0
 announce start wire/m3b-native/server/000
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 0 --report "$m3_reports/server-native-000.json" -- "$tmp/bend_tls_server"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 0 --report "$m3_reports/server-native-000.json" -- "$tmp/bend_tls_server"
 announce end wire/m3b-native/server/000 0
 announce start wire/m3b-native/server/001
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 1 --report "$m3_reports/server-native-001.json" -- "$tmp/bend_tls_server"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 1 --report "$m3_reports/server-native-001.json" -- "$tmp/bend_tls_server"
 announce end wire/m3b-native/server/001 0
 announce start wire/m3b-native/server/002
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 2 --report "$m3_reports/server-native-002.json" -- "$tmp/bend_tls_server"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 2 --report "$m3_reports/server-native-002.json" -- "$tmp/bend_tls_server"
 announce end wire/m3b-native/server/002 0
 announce start wire/m3b-native/server/003
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 3 --report "$m3_reports/server-native-003.json" -- "$tmp/bend_tls_server"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 3 --report "$m3_reports/server-native-003.json" -- "$tmp/bend_tls_server"
 announce end wire/m3b-native/server/003 0
 announce start wire/m3b-native/server/004
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 4 --report "$m3_reports/server-native-004.json" -- "$tmp/bend_tls_server"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 4 --report "$m3_reports/server-native-004.json" -- "$tmp/bend_tls_server"
 announce end wire/m3b-native/server/004 0
 announce start wire/m3b-native/server/005
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 5 --report "$m3_reports/server-native-005.json" -- "$tmp/bend_tls_server"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 5 --report "$m3_reports/server-native-005.json" -- "$tmp/bend_tls_server"
 announce end wire/m3b-native/server/005 0
 announce start wire/m3b-native/server/006
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 6 --report "$m3_reports/server-native-006.json" -- "$tmp/bend_tls_server"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 6 --report "$m3_reports/server-native-006.json" -- "$tmp/bend_tls_server"
 announce end wire/m3b-native/server/006 0
 announce start wire/m3b-native/server/007
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 7 --report "$m3_reports/server-native-007.json" -- "$tmp/bend_tls_server"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 7 --report "$m3_reports/server-native-007.json" -- "$tmp/bend_tls_server"
 announce end wire/m3b-native/server/007 0
 announce start wire/m3b-native/server/008
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 8 --report "$m3_reports/server-native-008.json" -- "$tmp/bend_tls_server"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 8 --report "$m3_reports/server-native-008.json" -- "$tmp/bend_tls_server"
 announce end wire/m3b-native/server/008 0
 announce start wire/m3b-native/server/009
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 9 --report "$m3_reports/server-native-009.json" -- "$tmp/bend_tls_server"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 9 --report "$m3_reports/server-native-009.json" -- "$tmp/bend_tls_server"
 announce end wire/m3b-native/server/009 0
 announce start wire/m3b-native/server/010
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 10 --report "$m3_reports/server-native-010.json" -- "$tmp/bend_tls_server"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 10 --report "$m3_reports/server-native-010.json" -- "$tmp/bend_tls_server"
 announce end wire/m3b-native/server/010 0
 announce start wire/m3b-native/server/011
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 11 --report "$m3_reports/server-native-011.json" -- "$tmp/bend_tls_server"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 11 --report "$m3_reports/server-native-011.json" -- "$tmp/bend_tls_server"
 announce end wire/m3b-native/server/011 0
 announce start wire/m3b-native/server/012
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 12 --report "$m3_reports/server-native-012.json" -- "$tmp/bend_tls_server"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 12 --report "$m3_reports/server-native-012.json" -- "$tmp/bend_tls_server"
 announce end wire/m3b-native/server/012 0
 announce start wire/m3b-native/server/013
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 13 --report "$m3_reports/server-native-013.json" -- "$tmp/bend_tls_server"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 13 --report "$m3_reports/server-native-013.json" -- "$tmp/bend_tls_server"
 announce end wire/m3b-native/server/013 0
 announce start wire/m3b-native/server/014
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 14 --report "$m3_reports/server-native-014.json" -- "$tmp/bend_tls_server"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 14 --report "$m3_reports/server-native-014.json" -- "$tmp/bend_tls_server"
 announce end wire/m3b-native/server/014 0
 announce start wire/m3b-native/server/015
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 15 --report "$m3_reports/server-native-015.json" -- "$tmp/bend_tls_server"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 15 --report "$m3_reports/server-native-015.json" -- "$tmp/bend_tls_server"
 announce end wire/m3b-native/server/015 0
 announce start wire/m3b-native/server/016
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 16 --report "$m3_reports/server-native-016.json" -- "$tmp/bend_tls_server"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 16 --report "$m3_reports/server-native-016.json" -- "$tmp/bend_tls_server"
 announce end wire/m3b-native/server/016 0
 announce start wire/m3b-native/server/017
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 17 --report "$m3_reports/server-native-017.json" -- "$tmp/bend_tls_server"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 17 --report "$m3_reports/server-native-017.json" -- "$tmp/bend_tls_server"
 announce end wire/m3b-native/server/017 0
 announce start wire/m3b-native/server/018
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 18 --report "$m3_reports/server-native-018.json" -- "$tmp/bend_tls_server"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 18 --report "$m3_reports/server-native-018.json" -- "$tmp/bend_tls_server"
 announce end wire/m3b-native/server/018 0
 announce start wire/m3b-native/server/019
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 19 --report "$m3_reports/server-native-019.json" -- "$tmp/bend_tls_server"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 19 --report "$m3_reports/server-native-019.json" -- "$tmp/bend_tls_server"
 announce end wire/m3b-native/server/019 0
 announce start wire/m3b-native/server/020
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 20 --report "$m3_reports/server-native-020.json" -- "$tmp/bend_tls_server"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 20 --report "$m3_reports/server-native-020.json" -- "$tmp/bend_tls_server"
 announce end wire/m3b-native/server/020 0
 announce start wire/m3b-native/server/021
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 21 --report "$m3_reports/server-native-021.json" -- "$tmp/bend_tls_server"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 21 --report "$m3_reports/server-native-021.json" -- "$tmp/bend_tls_server"
 announce end wire/m3b-native/server/021 0
 announce start wire/m3b-native/server/022
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 22 --report "$m3_reports/server-native-022.json" -- "$tmp/bend_tls_server"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 22 --report "$m3_reports/server-native-022.json" -- "$tmp/bend_tls_server"
 announce end wire/m3b-native/server/022 0
 announce start wire/m3b-native/server/023
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 23 --report "$m3_reports/server-native-023.json" -- "$tmp/bend_tls_server"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 23 --report "$m3_reports/server-native-023.json" -- "$tmp/bend_tls_server"
 announce end wire/m3b-native/server/023 0
 announce start wire/m3b-native/server/024
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 24 --report "$m3_reports/server-native-024.json" -- "$tmp/bend_tls_server"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 24 --report "$m3_reports/server-native-024.json" -- "$tmp/bend_tls_server"
 announce end wire/m3b-native/server/024 0
 announce start wire/m3b-native/server/025
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 25 --report "$m3_reports/server-native-025.json" -- "$tmp/bend_tls_server"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 25 --report "$m3_reports/server-native-025.json" -- "$tmp/bend_tls_server"
 announce end wire/m3b-native/server/025 0
 announce start wire/m3b-native/server/026
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 26 --report "$m3_reports/server-native-026.json" -- "$tmp/bend_tls_server"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 26 --report "$m3_reports/server-native-026.json" -- "$tmp/bend_tls_server"
 announce end wire/m3b-native/server/026 0
 announce start wire/m3b-native/server/027
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 27 --report "$m3_reports/server-native-027.json" -- "$tmp/bend_tls_server"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 27 --report "$m3_reports/server-native-027.json" -- "$tmp/bend_tls_server"
 announce end wire/m3b-native/server/027 0
 announce start wire/m3b-native/server/028
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 28 --report "$m3_reports/server-native-028.json" -- "$tmp/bend_tls_server"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 28 --report "$m3_reports/server-native-028.json" -- "$tmp/bend_tls_server"
 announce end wire/m3b-native/server/028 0
 announce start wire/m3b-native/server/029
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 29 --report "$m3_reports/server-native-029.json" -- "$tmp/bend_tls_server"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 29 --report "$m3_reports/server-native-029.json" -- "$tmp/bend_tls_server"
 announce end wire/m3b-native/server/029 0
 announce start wire/m3b-native/server/030
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 30 --report "$m3_reports/server-native-030.json" -- "$tmp/bend_tls_server"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 30 --report "$m3_reports/server-native-030.json" -- "$tmp/bend_tls_server"
 announce end wire/m3b-native/server/030 0
 announce start wire/m3b-native/server/031
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 31 --report "$m3_reports/server-native-031.json" -- "$tmp/bend_tls_server"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 31 --report "$m3_reports/server-native-031.json" -- "$tmp/bend_tls_server"
 announce end wire/m3b-native/server/031 0
 announce start wire/m3b-native/server/032
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 32 --report "$m3_reports/server-native-032.json" -- "$tmp/bend_tls_server"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 32 --report "$m3_reports/server-native-032.json" -- "$tmp/bend_tls_server"
 announce end wire/m3b-native/server/032 0
 announce start wire/m3b-native/server/033
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 33 --report "$m3_reports/server-native-033.json" -- "$tmp/bend_tls_server"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 33 --report "$m3_reports/server-native-033.json" -- "$tmp/bend_tls_server"
 announce end wire/m3b-native/server/033 0
 announce start wire/m3b-native/server/034
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 34 --report "$m3_reports/server-native-034.json" -- "$tmp/bend_tls_server"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 34 --report "$m3_reports/server-native-034.json" -- "$tmp/bend_tls_server"
 announce end wire/m3b-native/server/034 0
 announce start wire/m3b-native/server/035
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 35 --report "$m3_reports/server-native-035.json" -- "$tmp/bend_tls_server"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 35 --report "$m3_reports/server-native-035.json" -- "$tmp/bend_tls_server"
 announce end wire/m3b-native/server/035 0
 announce start wire/m3b-native/server/036
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 36 --report "$m3_reports/server-native-036.json" -- "$tmp/bend_tls_server"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 36 --report "$m3_reports/server-native-036.json" -- "$tmp/bend_tls_server"
 announce end wire/m3b-native/server/036 0
 announce start wire/m3b-native/server/037
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 37 --report "$m3_reports/server-native-037.json" -- "$tmp/bend_tls_server"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 37 --report "$m3_reports/server-native-037.json" -- "$tmp/bend_tls_server"
 announce end wire/m3b-native/server/037 0
 announce start wire/m3b-native/peers/000
 python3 bend_tls_peer_check.py --expected-batches 12 --batch-index 0 --server "$tmp/bend_tls_server" --client "$tmp/bend_tls_client" --go-peer "$tmp/tls_go_peer" --report "$m3_reports/peers-native-000.json"
@@ -723,118 +723,118 @@ announce start wire/m3b-native/peers/011
 python3 bend_tls_peer_check.py --expected-batches 12 --batch-index 11 --server "$tmp/bend_tls_server" --client "$tmp/bend_tls_client" --go-peer "$tmp/tls_go_peer" --report "$m3_reports/peers-native-011.json"
 announce end wire/m3b-native/peers/011 0
 announce start wire/m3b-bun/server/000
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 0 --report "$m3_reports/server-bun-000.json" -- bun "$tmp/bend_tls_server.js"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 0 --report "$m3_reports/server-bun-000.json" -- bun "$tmp/bend_tls_server.js"
 announce end wire/m3b-bun/server/000 0
 announce start wire/m3b-bun/server/001
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 1 --report "$m3_reports/server-bun-001.json" -- bun "$tmp/bend_tls_server.js"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 1 --report "$m3_reports/server-bun-001.json" -- bun "$tmp/bend_tls_server.js"
 announce end wire/m3b-bun/server/001 0
 announce start wire/m3b-bun/server/002
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 2 --report "$m3_reports/server-bun-002.json" -- bun "$tmp/bend_tls_server.js"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 2 --report "$m3_reports/server-bun-002.json" -- bun "$tmp/bend_tls_server.js"
 announce end wire/m3b-bun/server/002 0
 announce start wire/m3b-bun/server/003
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 3 --report "$m3_reports/server-bun-003.json" -- bun "$tmp/bend_tls_server.js"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 3 --report "$m3_reports/server-bun-003.json" -- bun "$tmp/bend_tls_server.js"
 announce end wire/m3b-bun/server/003 0
 announce start wire/m3b-bun/server/004
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 4 --report "$m3_reports/server-bun-004.json" -- bun "$tmp/bend_tls_server.js"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 4 --report "$m3_reports/server-bun-004.json" -- bun "$tmp/bend_tls_server.js"
 announce end wire/m3b-bun/server/004 0
 announce start wire/m3b-bun/server/005
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 5 --report "$m3_reports/server-bun-005.json" -- bun "$tmp/bend_tls_server.js"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 5 --report "$m3_reports/server-bun-005.json" -- bun "$tmp/bend_tls_server.js"
 announce end wire/m3b-bun/server/005 0
 announce start wire/m3b-bun/server/006
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 6 --report "$m3_reports/server-bun-006.json" -- bun "$tmp/bend_tls_server.js"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 6 --report "$m3_reports/server-bun-006.json" -- bun "$tmp/bend_tls_server.js"
 announce end wire/m3b-bun/server/006 0
 announce start wire/m3b-bun/server/007
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 7 --report "$m3_reports/server-bun-007.json" -- bun "$tmp/bend_tls_server.js"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 7 --report "$m3_reports/server-bun-007.json" -- bun "$tmp/bend_tls_server.js"
 announce end wire/m3b-bun/server/007 0
 announce start wire/m3b-bun/server/008
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 8 --report "$m3_reports/server-bun-008.json" -- bun "$tmp/bend_tls_server.js"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 8 --report "$m3_reports/server-bun-008.json" -- bun "$tmp/bend_tls_server.js"
 announce end wire/m3b-bun/server/008 0
 announce start wire/m3b-bun/server/009
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 9 --report "$m3_reports/server-bun-009.json" -- bun "$tmp/bend_tls_server.js"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 9 --report "$m3_reports/server-bun-009.json" -- bun "$tmp/bend_tls_server.js"
 announce end wire/m3b-bun/server/009 0
 announce start wire/m3b-bun/server/010
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 10 --report "$m3_reports/server-bun-010.json" -- bun "$tmp/bend_tls_server.js"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 10 --report "$m3_reports/server-bun-010.json" -- bun "$tmp/bend_tls_server.js"
 announce end wire/m3b-bun/server/010 0
 announce start wire/m3b-bun/server/011
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 11 --report "$m3_reports/server-bun-011.json" -- bun "$tmp/bend_tls_server.js"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 11 --report "$m3_reports/server-bun-011.json" -- bun "$tmp/bend_tls_server.js"
 announce end wire/m3b-bun/server/011 0
 announce start wire/m3b-bun/server/012
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 12 --report "$m3_reports/server-bun-012.json" -- bun "$tmp/bend_tls_server.js"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 12 --report "$m3_reports/server-bun-012.json" -- bun "$tmp/bend_tls_server.js"
 announce end wire/m3b-bun/server/012 0
 announce start wire/m3b-bun/server/013
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 13 --report "$m3_reports/server-bun-013.json" -- bun "$tmp/bend_tls_server.js"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 13 --report "$m3_reports/server-bun-013.json" -- bun "$tmp/bend_tls_server.js"
 announce end wire/m3b-bun/server/013 0
 announce start wire/m3b-bun/server/014
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 14 --report "$m3_reports/server-bun-014.json" -- bun "$tmp/bend_tls_server.js"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 14 --report "$m3_reports/server-bun-014.json" -- bun "$tmp/bend_tls_server.js"
 announce end wire/m3b-bun/server/014 0
 announce start wire/m3b-bun/server/015
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 15 --report "$m3_reports/server-bun-015.json" -- bun "$tmp/bend_tls_server.js"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 15 --report "$m3_reports/server-bun-015.json" -- bun "$tmp/bend_tls_server.js"
 announce end wire/m3b-bun/server/015 0
 announce start wire/m3b-bun/server/016
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 16 --report "$m3_reports/server-bun-016.json" -- bun "$tmp/bend_tls_server.js"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 16 --report "$m3_reports/server-bun-016.json" -- bun "$tmp/bend_tls_server.js"
 announce end wire/m3b-bun/server/016 0
 announce start wire/m3b-bun/server/017
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 17 --report "$m3_reports/server-bun-017.json" -- bun "$tmp/bend_tls_server.js"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 17 --report "$m3_reports/server-bun-017.json" -- bun "$tmp/bend_tls_server.js"
 announce end wire/m3b-bun/server/017 0
 announce start wire/m3b-bun/server/018
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 18 --report "$m3_reports/server-bun-018.json" -- bun "$tmp/bend_tls_server.js"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 18 --report "$m3_reports/server-bun-018.json" -- bun "$tmp/bend_tls_server.js"
 announce end wire/m3b-bun/server/018 0
 announce start wire/m3b-bun/server/019
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 19 --report "$m3_reports/server-bun-019.json" -- bun "$tmp/bend_tls_server.js"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 19 --report "$m3_reports/server-bun-019.json" -- bun "$tmp/bend_tls_server.js"
 announce end wire/m3b-bun/server/019 0
 announce start wire/m3b-bun/server/020
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 20 --report "$m3_reports/server-bun-020.json" -- bun "$tmp/bend_tls_server.js"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 20 --report "$m3_reports/server-bun-020.json" -- bun "$tmp/bend_tls_server.js"
 announce end wire/m3b-bun/server/020 0
 announce start wire/m3b-bun/server/021
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 21 --report "$m3_reports/server-bun-021.json" -- bun "$tmp/bend_tls_server.js"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 21 --report "$m3_reports/server-bun-021.json" -- bun "$tmp/bend_tls_server.js"
 announce end wire/m3b-bun/server/021 0
 announce start wire/m3b-bun/server/022
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 22 --report "$m3_reports/server-bun-022.json" -- bun "$tmp/bend_tls_server.js"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 22 --report "$m3_reports/server-bun-022.json" -- bun "$tmp/bend_tls_server.js"
 announce end wire/m3b-bun/server/022 0
 announce start wire/m3b-bun/server/023
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 23 --report "$m3_reports/server-bun-023.json" -- bun "$tmp/bend_tls_server.js"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 23 --report "$m3_reports/server-bun-023.json" -- bun "$tmp/bend_tls_server.js"
 announce end wire/m3b-bun/server/023 0
 announce start wire/m3b-bun/server/024
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 24 --report "$m3_reports/server-bun-024.json" -- bun "$tmp/bend_tls_server.js"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 24 --report "$m3_reports/server-bun-024.json" -- bun "$tmp/bend_tls_server.js"
 announce end wire/m3b-bun/server/024 0
 announce start wire/m3b-bun/server/025
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 25 --report "$m3_reports/server-bun-025.json" -- bun "$tmp/bend_tls_server.js"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 25 --report "$m3_reports/server-bun-025.json" -- bun "$tmp/bend_tls_server.js"
 announce end wire/m3b-bun/server/025 0
 announce start wire/m3b-bun/server/026
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 26 --report "$m3_reports/server-bun-026.json" -- bun "$tmp/bend_tls_server.js"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 26 --report "$m3_reports/server-bun-026.json" -- bun "$tmp/bend_tls_server.js"
 announce end wire/m3b-bun/server/026 0
 announce start wire/m3b-bun/server/027
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 27 --report "$m3_reports/server-bun-027.json" -- bun "$tmp/bend_tls_server.js"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 27 --report "$m3_reports/server-bun-027.json" -- bun "$tmp/bend_tls_server.js"
 announce end wire/m3b-bun/server/027 0
 announce start wire/m3b-bun/server/028
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 28 --report "$m3_reports/server-bun-028.json" -- bun "$tmp/bend_tls_server.js"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 28 --report "$m3_reports/server-bun-028.json" -- bun "$tmp/bend_tls_server.js"
 announce end wire/m3b-bun/server/028 0
 announce start wire/m3b-bun/server/029
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 29 --report "$m3_reports/server-bun-029.json" -- bun "$tmp/bend_tls_server.js"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 29 --report "$m3_reports/server-bun-029.json" -- bun "$tmp/bend_tls_server.js"
 announce end wire/m3b-bun/server/029 0
 announce start wire/m3b-bun/server/030
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 30 --report "$m3_reports/server-bun-030.json" -- bun "$tmp/bend_tls_server.js"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 30 --report "$m3_reports/server-bun-030.json" -- bun "$tmp/bend_tls_server.js"
 announce end wire/m3b-bun/server/030 0
 announce start wire/m3b-bun/server/031
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 31 --report "$m3_reports/server-bun-031.json" -- bun "$tmp/bend_tls_server.js"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 31 --report "$m3_reports/server-bun-031.json" -- bun "$tmp/bend_tls_server.js"
 announce end wire/m3b-bun/server/031 0
 announce start wire/m3b-bun/server/032
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 32 --report "$m3_reports/server-bun-032.json" -- bun "$tmp/bend_tls_server.js"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 32 --report "$m3_reports/server-bun-032.json" -- bun "$tmp/bend_tls_server.js"
 announce end wire/m3b-bun/server/032 0
 announce start wire/m3b-bun/server/033
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 33 --report "$m3_reports/server-bun-033.json" -- bun "$tmp/bend_tls_server.js"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 33 --report "$m3_reports/server-bun-033.json" -- bun "$tmp/bend_tls_server.js"
 announce end wire/m3b-bun/server/033 0
 announce start wire/m3b-bun/server/034
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 34 --report "$m3_reports/server-bun-034.json" -- bun "$tmp/bend_tls_server.js"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 34 --report "$m3_reports/server-bun-034.json" -- bun "$tmp/bend_tls_server.js"
 announce end wire/m3b-bun/server/034 0
 announce start wire/m3b-bun/server/035
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 35 --report "$m3_reports/server-bun-035.json" -- bun "$tmp/bend_tls_server.js"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 35 --report "$m3_reports/server-bun-035.json" -- bun "$tmp/bend_tls_server.js"
 announce end wire/m3b-bun/server/035 0
 announce start wire/m3b-bun/server/036
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 36 --report "$m3_reports/server-bun-036.json" -- bun "$tmp/bend_tls_server.js"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 36 --report "$m3_reports/server-bun-036.json" -- bun "$tmp/bend_tls_server.js"
 announce end wire/m3b-bun/server/036 0
 announce start wire/m3b-bun/server/037
-python3 bend_tls_server_check.py --expected-batches 38 --batch-index 37 --report "$m3_reports/server-bun-037.json" -- bun "$tmp/bend_tls_server.js"
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 37 --report "$m3_reports/server-bun-037.json" -- bun "$tmp/bend_tls_server.js"
 announce end wire/m3b-bun/server/037 0
 announce start wire/m3b-bun/peers/000
 python3 bend_tls_peer_check.py --expected-batches 12 --batch-index 0 --server "$tmp/bend_tls_server.js" --client "$tmp/bend_tls_client.js" --runtime bun --go-peer "$tmp/tls_go_peer" --report "$m3_reports/peers-bun-000.json"
@@ -872,3 +872,9 @@ announce end wire/m3b-bun/peers/010 0
 announce start wire/m3b-bun/peers/011
 python3 bend_tls_peer_check.py --expected-batches 12 --batch-index 11 --server "$tmp/bend_tls_server.js" --client "$tmp/bend_tls_client.js" --runtime bun --go-peer "$tmp/tls_go_peer" --report "$m3_reports/peers-bun-011.json"
 announce end wire/m3b-bun/peers/011 0
+announce start wire/m3b-native/server/038
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 38 --report "$m3_reports/server-native-038.json" -- "$tmp/bend_tls_server"
+announce end wire/m3b-native/server/038 0
+announce start wire/m3b-bun/server/038
+python3 bend_tls_server_check.py --expected-batches 39 --batch-index 38 --report "$m3_reports/server-bun-038.json" -- bun "$tmp/bend_tls_server.js"
+announce end wire/m3b-bun/server/038 0

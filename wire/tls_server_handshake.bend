@@ -276,10 +276,16 @@ def legacy_extensions(value: Maybe<&2,List<&2,E.Extension>>) -> Bool:
     case Some{extensions}: Bool.not(present(Client.find(43,extensions)))
     case None{}: False{}
 
+def legacy_methods(value: Maybe<&2,E.Parts>) -> Bool:
+  match value:
+    case Some{E.Parts{methods,Nil{}}}: C.member(0,methods)
+    case Some{E.Parts{methods,extensions}}: Bool.and(C.member(0,methods),legacy_extensions(E.parse(extensions)))
+    case _: False{}
+
 def legacy_compression(value: Maybe<&2,E.Parts>) -> Bool:
   match value:
-    case Some{E.Parts{_,[1,0]}}: True{}
-    case Some{E.Parts{_,Con{1,Con{0,extensions}}}}: legacy_extensions(E.parse(extensions))
+    case Some{E.Parts{_,Con{+size,rest}}}:
+      Bool.and(U32.is_gt(size,0),legacy_methods(E.take(U32.to_nat(size),rest,[])))
     case _: False{}
 
 def legacy_suites(bytes: List<&2,U32>) -> Bool:
@@ -308,6 +314,7 @@ def legacy(bytes: List<&2,U32>) -> Bool:
 def negotiate_parsed(policy: Policy, +scheme: U32, bytes: List<&2,U32>, value: Result<&2,&2,U32,C.Message>) -> Result<&2,&2,U32,Choice>:
   match value:
     case Fail{50}: Fail{Bool.pick(U32,legacy(bytes),70,50)}
+    case Fail{47}: Fail{Bool.pick(U32,legacy(bytes),70,47)}
     case Fail{code}: Fail{code}
     case Done{C.ClientHello{hello}}: negotiate_hello(policy,scheme,hello)
     case _: Fail{10}

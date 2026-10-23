@@ -10,7 +10,7 @@ from tls_hello_check import client
 from tls_extensions_check import entry, vector
 
 
-def hello(overrides=None, *, extra=b"", suites=b"\x13\x01", share=None):
+def hello(overrides=None, *, extra=b"", suites=b"\x13\x01", share=None, compression=b"\x00"):
     fields = {43: b"\x02\x03\x04", 10: vector(b"\x00\x1d\x00\x17"),
               13: vector(b"\x04\x03\x08\x04"),
               51: vector(b"\x00\x1d" + vector(bytes([9]) + bytes(31))),
@@ -23,7 +23,8 @@ def hello(overrides=None, *, extra=b"", suites=b"\x13\x01", share=None):
             fields.pop(kind, None)
         else:
             fields[kind] = value
-    return client(suites=suites, extensions=b"".join(entry(k, v) for k, v in fields.items()) + extra)
+    return client(suites=suites, extensions=b"".join(entry(k, v) for k, v in fields.items()) + extra,
+                  compression=compression)
 
 
 def cases():
@@ -44,6 +45,8 @@ def cases():
         ("missing-version", hello({43: None}), 70),
         ("legacy-empty-extensions", client(extensions=b""), 70),
         ("legacy-without-extensions", legacy, 70),
+        ("legacy-compression-methods", client(extensions=b"",compression=b"\x00\x01"), 70),
+        ("tls13-compression-methods", hello(compression=b"\x00\x01"), 47),
         ("legacy-short-extensions", client(extensions=entry(21,b"")), 70),
         ("old-version", hello({43: b"\x02\x03\x03"}), 70),
         ("bad-version-length", hello({43: b"\x04\x03\x04"}), 50),
