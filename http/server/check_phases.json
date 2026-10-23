@@ -122,6 +122,26 @@
       "optional": false
     },
     {
+      "name": "http_server/bend_browser_frontend_native",
+      "optional": false
+    },
+    {
+      "name": "http_server/bend_browser_compile_native",
+      "optional": false
+    },
+    {
+      "name": "http_server/bend_browser_no_delegation",
+      "optional": false
+    },
+    {
+      "name": "http_server/bend_browser_native_aes",
+      "optional": false
+    },
+    {
+      "name": "http_server/bend_browser_native_chacha",
+      "optional": false
+    },
+    {
       "name": "http_server/context_native",
       "optional": false
     },

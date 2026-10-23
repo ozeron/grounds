@@ -212,7 +212,7 @@ keep-alive reuse, 32 concurrent requests and graceful shutdown. Existing checks:
 13. Builds both multipart fixtures through `tools/bend_native.sh` to release the frontend before C compilation, serves `examples/multipart.bend`, compares 200 generated requests with Python's email parser, checks part and header limits, and sends a binary part from the client builder.
 14. Runs the cold check on the existing examples and auth. CORS policy lookups and multipart parsing currently make some String and List constructors reference counted.
 
-`check_phases.json` declares 37 ordered resource phases covering these
+`check_phases.json` declares 48 ordered resource phases covering these
 checks. Each fixture is stopped and waited for before its phase ends. The
 shared temporary directory retains generated outputs for later checks. Use
 `tools/build_guard.py --phases http/server/check_phases.json` around the Moon
@@ -244,3 +244,38 @@ acceptance claim: current results and pending gates are in STACK_PROGRESS.md.
 No external server implementation was used for this adapter design; it extends
 the existing Grounds HTTP loop and M3b API. Curl/Python/Go/OpenSSL are peers or
 synthetic fixture tools only.
+
+
+The required native browser phases build `examples/bend_browser.bend` with the
+same unavailable-host-TLS/cookie overlay, audit that exact executable with
+`bend_native_audit.py`, and drive Google Chrome using the standard-library CDP
+client in `examples/bend_browser_check.py`. Set `GROUNDS_CHROME` to select Chrome;
+macOS Google Chrome and PATH `google-chrome`/`chromium` are discovered otherwise.
+Chrome is a test peer only. No browser driver package is installed.
+
+Each cipher suite gets a fresh Chrome profile containing only the synthetic
+P-256 CA in `Default/ServerCertificate`. This is Chrome's profile-local user
+certificate database (SQLite plus `CertificateMetadata.trust.trust_type=3`),
+created before launch and removed after the owned browser exits. The system
+keychain is never modified. Certificate verification stays enabled: the driver
+requires `ERR_CERT_AUTHORITY_INVALID` with an unrelated trusted CA and
+`ERR_CERT_COMMON_NAME_INVALID` for a mismatched hostname before accepting the
+localhost/IP-SAN page. Chrome's secure state, TLS 1.3 and selected cipher are
+asserted through CDP. No certificate-ignore or web-security-disable flags are
+used. A changed Chrome certificate schema fails these controls.
+
+Browser scenarios cover page loading, fetch and XHR GET/POST, `cookie_bend`
+Secure/HttpOnly/SameSite=Strict cookies and their verified round trip, WSS text
+and binary echo and clean close, and a different browser Origin refused with
+403. This browser fixture authenticates WSS with the signed cookie; browser
+WebSocket APIs cannot supply the separate fixture's Authorization header.
+The existing Python/Go WSS fixture retains its bearer/cookie/Origin tests.
+Reports include the Chrome version and complete launch flags, source/binary
+hashes, certificate errors, negotiated security details and every scenario.
+The five browser phases are mandatory, each under the unchanged 120 s/4 GiB
+guard. Missing Chrome fails acceptance. Retained reports live under
+`GROUNDS_M4B_SERVER_ARTIFACTS` (or the M4a artifact directory's `m4b/`).
+
+The separate [native performance baseline](PERFORMANCE.md) compares both
+transport engines with synthetic P-256 credentials. It has no flaky performance
+threshold and is not a phase in the correctness gate.

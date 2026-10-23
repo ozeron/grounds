@@ -142,6 +142,23 @@ for suite in aes chacha; do
   end
 done
 
+# Real Chrome is required for native M4 acceptance. Trust stays inside a freshly
+# created profile, with untrusted-CA and hostname-mismatch refusal controls.
+begin bend_browser_frontend_native
+BUN_OPTIONS="$bend_bun_options --smol" BUN_JSC_forceRAMSize=134217728 python3 examples/bend_tls_build.py --program browser "$m4b/browser.c" "$m4b/browser-build.json"
+end
+begin bend_browser_compile_native
+native "$m4b/browser.c" "$m4b/browser"
+end
+begin bend_browser_no_delegation
+python3 examples/bend_native_audit.py --role server --native "$m4b/browser" --c "$m4b/browser.c" --probe-dir "$tmp/probes" --report "$m4b/browser-audit.json"
+end
+for suite in aes chacha; do
+  begin "bend_browser_native_$suite"
+  python3 examples/bend_browser_check.py --binary "$m4b/browser" --fixtures "$artifacts/fixtures" --suite "$suite" --report "$m4b/browser-$suite.json"
+  end
+done
+
 begin context_native
 native examples/context.bend "$tmp/context" > /dev/null
 python3 examples/context_check.py "$tmp/context"

@@ -50,7 +50,7 @@ def context(directory, wrong=False):
 
 @contextmanager
 def server(binary, directory, credential, suite, **settings):
-    port = free_port()
+    port = int(settings["PORT"]) if "PORT" in settings else free_port()
     env = dict(os.environ, **POISON, PORT=str(port), HTTP_TLS_ENGINE="bend",
                HTTP_TLS_CERT=str(directory / (credential + ".pem")),
                HTTP_TLS_KEY=str(directory / (credential + ".key")),

@@ -4,6 +4,32 @@ Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and 
 
 The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
 
+- 2026-10-23 (M4b round 2 browser implementation):
+  Added a synthetic-key native browser fixture using `bend_server`,
+  `websocket_transport` and `cookie_bend`, plus a dependency-free Python CDP
+  driver. Chrome **155.0.8059.85** verifies a P-256 CA/leaf through a disposable
+  profile-local `Default/ServerCertificate` trust database; no system trust
+  modifications, certificate bypasses or new Bun requirements. The unrelated
+  CA and wrong-hostname controls require Chrome's exact certificate errors.
+  HTTPS localhost/IP page loading, fetch/XHR GET+POST, signed-cookie set/round
+  trip/attributes, WSS connect/text/binary/clean close and denied-Origin 403
+  passed **18/18 per cipher** in standalone guarded runs. Reports under
+  `~/.codex/artifacts/grounds/2026-10-23/m4b/round2/`:
+  `browser-aes-02.json`, `browser-chacha-01.json`; enclosing guards
+  `browser-live-02.json` (**1426.4 MiB**) and
+  `browser-live-chacha-01.json` (**1419.7 MiB**). Both finish far below 120 s.
+  `browser-audit.json` passes emitted C/import/symbol/library/loader checks
+  with `c_defined_names` supplied to `native_imports`, and both exit-86 host
+  TLS/cookie abort controls. The tested binary hash is bound in each report.
+  Five new browser phases are mandatory in the HTTP server manifest (48 total).
+  The first frontend attempt used a nonexistent text helper; the corrected
+  fixture uses the existing `Res.html`. The first live run passed all traffic
+  but asserted the wrong CDP event for a 403; Chrome reports the exact 403 in
+  `Network.webSocketFrameError`, now matched to the actual denied Origin's
+  request ID. Failed reports remain; no checks or deadlines were weakened.
+  Comparative performance and fresh package/root acceptance are still pending
+  at this implementation commit; M4 completion is not yet claimed.
+
 - 2026-10-23 (M4b native HTTP client; deliverable 1 accepted locally):
   `http/client/bend_client.bend`, `bend_pool.bend` and `bend_transport.bend`
   form a separate opt-in entry graph. Legacy client/pool/url/check and legacy

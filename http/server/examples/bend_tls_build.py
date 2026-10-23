@@ -16,7 +16,7 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("output", type=Path)
     p.add_argument("report", type=Path)
-    p.add_argument("--program", choices=["http", "wss", "client"], default="http")
+    p.add_argument("--program", choices=["http", "wss", "browser", "client"], default="http")
     args = p.parse_args()
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="grounds-http-no-host-tls-") as td:
@@ -33,6 +33,7 @@ def main():
                     inputs[str(relative)] = hashlib.sha256(source.read_bytes()).hexdigest()
         program = {"http": "http/server/examples/bend_tls.bend",
                    "wss": "http/server/examples/bend_wss.bend",
+                   "browser": "http/server/examples/bend_browser.bend",
                    "client": "http/client/tests/bend_tls.bend"}[args.program]
         result = subprocess.run(["bend", str(destination / program),
                                  "-o", str(args.output.resolve())], capture_output=True, text=True)
