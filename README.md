@@ -2,12 +2,13 @@
 
 # grounds
 
-A monorepo of [Bend 2](https://github.com/bendlang/bend) packages: JSON, UTF-8, TCP/UDP, HTTP/1.1, Redis, cryptographic primitives, and early RTC protocols. json, http and redis prove their guarantees in `LAWS.bend`; each package has its own README.
+A monorepo of [Bend 2](https://github.com/bendlang/bend) packages: JSON, UTF-8, TCP/UDP, HTTP/1.1, Redis, cryptographic primitives, and early RTC protocols. json, decimal, http and redis prove their guarantees in `LAWS.bend`; each package has its own README.
 
 | Package | Does |
 |---|---|
 | [`json`](json/) | JSON parse, print, path reads; proven to round-trip |
 | [`utf8`](utf8/) | strict UTF-8 decoding |
+| [`decimal`](decimal/) | U32 to and from base-10 digits and text; proven to round-trip |
 | [`io`](io/) | whole-file reads |
 | [`wire`](wire/) | TCP and UDP on raw bytes |
 | [`crypto`](crypto/) | pure Bend SHA-1, SHA-256, HMAC-SHA1/SHA256, HKDF-SHA-256, ChaCha20-Poly1305 AEAD and X25519; experimental, not yet used by TLS or cookies |

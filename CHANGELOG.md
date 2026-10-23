@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+Added:
+- `decimal`: U32 to and from base-10 digits and text (`show_u32`, `read_u32`, `of_u32`, `to_u32`, `parse`, `show`), with laws that every U32 reads back.
+
 ## 0.2.0
 
 Needs Bend 2.0.38 (`mise.toml` pins it); 0.1.0 needs 2.0.27. Bend 2.0.38 halves most compile peaks.

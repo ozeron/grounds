@@ -1,0 +1,10 @@
+# grounds-decimal: unsigned integers in base 10, proven to read back
+language: "bend"
+
+tasks:
+  check:
+    command: "./check.sh"
+    inputs:
+      - "/json/scripts/cold.py"
+      - "*.bend"
+      - "proof/*.bend"

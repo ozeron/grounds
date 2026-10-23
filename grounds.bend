@@ -1,5 +1,6 @@
 import Base
 import ./utf8/utf8.bend as U
+import ./decimal/decimal.bend as Dec
 import ./io/io.bend as Io
 import ./wire/wire.bend as W
 import ./json/json.bend as J
