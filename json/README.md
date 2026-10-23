@@ -60,13 +60,15 @@ Paths (level B) read a nested value in one call, and their errors carry the full
 | `J.both(A, B, C, r1, r2, f)` | two reads joined by `f`; the first error wins |
 | `J.map(A, B, r, f)` | `f` on a read's value |
 
-Typed codecs (levels D and E) compose up to six fields with `both3`–`both6`, read optional fields with `string_opt_at` / `u32_opt_at` / `bool_opt_at` (also F32 and exact numbers), apply defaults with `default`, and decode collections with `list_at(~A, ~item, j, path)`. A list item's errors include its full path, such as `$.users[3].age`. Missing final optional keys and null give None; missing parents and wrong kinds still fail.
+Typed codecs (levels D and E) compose up to seven fields with `both3`–`both7`, read optional fields with `string_opt_at` / `u32_opt_at` / `bool_opt_at` (also F32 and exact numbers), apply defaults with `default`, decode nested records with `decode_at(~A, ~dec, j, path)`, and decode collections with `list_at(~A, ~item, j, path)`. A list item's errors include its full path, such as `$.users[3].age`. Missing final optional keys and null give None; missing parents and wrong kinds still fail.
 
-Build objects from field chunks with `obj([field_str(...), field_u32(...), field_bool(...), field_opt(...), field_list(...)])`. An absent optional contributes no fields. List encoders and decoders take compile-time `~` callbacks because Bend closures cannot be reused.
+Build objects from field chunks with `obj([field_str(...), field_u32(...), field_bool(...), field_opt(...), field_obj(...), field_list(...)])`. An absent optional contributes no fields. List encoders and decoders take compile-time `~` callbacks because Bend closures cannot be reused.
 
-[The light User recipe](examples/user.bend) defines `User{name, age, admin, email: Maybe<String>, tags: List<String>}` with an encoder, decoder and runnable main; it imports no proofs. [Its separate laws](examples/user_laws.bend) prove the value round trip, text round trip and lists of Users. Shared scalar, optional, list and product laws live in [proof/typed.bend](proof/typed.bend). The five-field value proof is 10 lines; the text proof is three.
+[The nested User recipe](examples/user.bend) defines `Pet{name}`, `Address{city, zip}` and `User{name, age, admin, email, tags, address, pets}` with separate encoders and decoders. [Its laws](examples/user_laws.bend) prove Pet and Address in four lines each; User's 10-line value proof composes their laws through the general record/list lifting laws. User's text proof is three lines. The runtime recipe imports no proofs.
 
-Use typed scalar reads inside literal template callbacks to keep repeated document reads cold; [examples/users.bend](examples/users.bend) shows a list of user objects. `scripts/cold.py` checks both recipes. The legacy `array_at` and `object_at` use shallow scalar-leaf copies, so use `list_at` for decoded collections. [docs/API.md](docs/API.md) gives signatures, the full recipe, ownership requirements and proof hypotheses.
+`array_at` and `object_at` now return all members in order, including nested values and duplicate fields; their old empty-container result was a bug. Copies keep types cold when a decoder reads the document again. The copier has a structural budget of 4,294,967,295 and fails as `OutOfRange` at the selected container on exhaustion; its identity/member proofs require a `CopyFits` witness. Unrestricted cold copying and unconditional raw-container laws remain unresolved. Scalar reads retain their behavior.
+
+Use typed scalar reads inside decoder callbacks to rebuild returned data. `scripts/cold.py` checks nested record/list decoding and repeated reads with container consumers. [docs/API.md](docs/API.md) gives signatures, the complete recipe, ownership requirements and exact proof hypotheses.
 
 ## Behavior to know
 

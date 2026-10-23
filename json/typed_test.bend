@@ -1,6 +1,7 @@
 import Base
 import ./json.bend as J
 import ./examples/users.bend as Users
+import ./examples/user.bend as Recipe
 import ./PROOF.bend as Proof
 import ./proof/typed.bend as T
 
@@ -157,3 +158,75 @@ def encoder_omits_none() -> {J.obj([J.field_opt(String, "email", None{}, s => J.
 
 def encoder_keeps_some() -> {J.obj([J.field_opt(String, "email", Some{"a@b"}, s => J.JStr{s})]) == J.JObj{[J.Field{"email", J.JStr{"a@b"}}]} : J.Json}:
   {==}
+
+# Nested decoder paths compose with outer records and list indices.
+def nested_city_missing() -> {J.decode_at(~Recipe.Address, ~(x => Recipe.Address.from_json(x)), J.JObj{[J.Field{"user", J.JObj{[J.Field{"address", J.JObj{[]}}]}}]}, [J.Name{"user"}, J.Name{"address"}]) == Fail{J.Missing{[J.Name{"user"}, J.Name{"address"}, J.Name{"city"}]}} : R(Recipe.Address)}:
+  {==}
+
+def nested_wrong_parent() -> {J.decode_at(~Recipe.Address, ~(x => Recipe.Address.from_json(x)), J.JBool{True{}}, [J.Name{"user"}]) == Fail{J.Expected{[], J.KObject{}, J.KBool{}}} : R(Recipe.Address)}:
+  {==}
+
+def nested_wrong_leaf() -> {J.decode_at(~Recipe.Address, ~(x => Recipe.Address.from_json(x)), J.JObj{[J.Field{"address", J.JBool{True{}}}]}, [J.Name{"address"}]) == Fail{J.Expected{[J.Name{"address"}], J.KObject{}, J.KBool{}}} : R(Recipe.Address)}:
+  {==}
+
+def nested_zip_kind() -> {J.decode_at(~U32, ~(x => J.u32_at(x, [J.Name{"zip"}])), J.JObj{[J.Field{"address", J.JObj{[J.Field{"zip", J.JBool{False{}}}]}}]}, [J.Name{"address"}]) == Fail{J.Expected{[J.Name{"address"}, J.Name{"zip"}], J.KNumber{}, J.KBool{}}} : R(U32)}:
+  {==}
+
+def nested_actual_range() -> {J.decode_at(~U32, ~(x => J.u32_at(x, [J.Name{"zip"}])), J.JObj{[J.Field{"address", J.JObj{[J.Field{"zip", J.JNum{J.Number{True{}, J.INon{J.L1{}, []}, J.FNone{}, J.ENone{}}}}]}}]}, [J.Name{"address"}]) == Fail{J.OutOfRange{[J.Name{"address"}, J.Name{"zip"}]}} : R(U32)}:
+  {==}
+
+def nested_root() -> {J.decode_at(~Recipe.Pet, ~Recipe.Pet.from_json, Recipe.Pet.to_json(Recipe.Pet{"Milo"}), []) == Done{Recipe.Pet{"Milo"}} : R(Recipe.Pet)}:
+  {==}
+
+def nested_duplicate() -> {J.decode_at(~Recipe.Pet, ~Recipe.Pet.from_json, J.JObj{[J.Field{"pet", Recipe.Pet.to_json(Recipe.Pet{"first"})}, J.Field{"pet", Recipe.Pet.to_json(Recipe.Pet{"last"})}]}, [J.Name{"pet"}]) == Done{Recipe.Pet{"last"}} : R(Recipe.Pet)}:
+  {==}
+
+def nested_list_error() -> {J.decode_at(~List<&2, Recipe.Pet>, ~(x => J.list_at(~Recipe.Pet, ~Recipe.Pet.from_json, x, [J.Name{"pets"}])), J.JObj{[J.Field{"user", J.JObj{[J.Field{"pets", J.JArr{[Recipe.Pet.to_json(Recipe.Pet{"Milo"}), J.JObj{[]}]}}]}}]}, [J.Name{"user"}]) == Fail{J.Missing{[J.Name{"user"}, J.Name{"pets"}, J.Index{1}, J.Name{"name"}]}} : R(List<&2, Recipe.Pet>)}:
+  {==}
+
+def nested_message() -> {J.message_access(J.Missing{[J.Name{"user"}, J.Name{"address"}, J.Name{"city"}]}) == "$.user.address.city: missing" : String}:
+  {==}
+
+def user_with_nested_values() -> {Recipe.User.from_json(Recipe.User.to_json(Recipe.User{"Alex", 31, True{}, Some{"a@b"}, ["quant", "coffee"], Recipe.Address{"Lisbon", 1000}, [Recipe.Pet{"Milo"}, Recipe.Pet{"Luna"}]})) == Done{Recipe.User{"Alex", 31, True{}, Some{"a@b"}, ["quant", "coffee"], Recipe.Address{"Lisbon", 1000}, [Recipe.Pet{"Milo"}, Recipe.Pet{"Luna"}]}} : R(Recipe.User)}:
+  {==}
+
+def copy_budget_zero() -> {J.copy_json.go(0n, J.CopyValue{}, J.JStr{"kept"}, [], []) == Fail{J.OutOfRange{[]}} : R(J.Json)}:
+  {==}
+
+def copy_budget_child() -> {J.copy_json.go(2n, J.CopyValue{}, J.JArr{[J.JBool{True{}}]}, [], []) == Fail{J.OutOfRange{[]}} : R(J.Json)}:
+  {==}
+
+def copy_budget_object() -> {J.copy_json.go(2n, J.CopyValue{}, J.JObj{[J.Field{"key", J.JNull{}}]}, [], []) == Fail{J.OutOfRange{[]}} : R(J.Json)}:
+  {==}
+
+def both7_error_1() -> {J.both7(U32, U32, U32, U32, U32, U32, U32, U32, Fail{J.Missing{[J.Index{1}]}}, Fail{J.Missing{[J.Index{2}]}}, Fail{J.Missing{[J.Index{3}]}}, Fail{J.Missing{[J.Index{4}]}}, Fail{J.Missing{[J.Index{5}]}}, Fail{J.Missing{[J.Index{6}]}}, Fail{J.Missing{[J.Index{7}]}}, a => b => c => d => e => f => g => g) == Fail{J.Missing{[J.Index{1}]}} : R(U32)}:
+  {==}
+
+def both7_error_2() -> {J.both7(U32, U32, U32, U32, U32, U32, U32, U32, Done{1}, Fail{J.Missing{[J.Index{2}]}}, Fail{J.Missing{[J.Index{3}]}}, Fail{J.Missing{[J.Index{4}]}}, Fail{J.Missing{[J.Index{5}]}}, Fail{J.Missing{[J.Index{6}]}}, Fail{J.Missing{[J.Index{7}]}}, a => b => c => d => e => f => g => g) == Fail{J.Missing{[J.Index{2}]}} : R(U32)}:
+  {==}
+
+def both7_error_3() -> {J.both7(U32, U32, U32, U32, U32, U32, U32, U32, Done{1}, Done{2}, Fail{J.Missing{[J.Index{3}]}}, Fail{J.Missing{[J.Index{4}]}}, Fail{J.Missing{[J.Index{5}]}}, Fail{J.Missing{[J.Index{6}]}}, Fail{J.Missing{[J.Index{7}]}}, a => b => c => d => e => f => g => g) == Fail{J.Missing{[J.Index{3}]}} : R(U32)}:
+  {==}
+
+def both7_error_4() -> {J.both7(U32, U32, U32, U32, U32, U32, U32, U32, Done{1}, Done{2}, Done{3}, Fail{J.Missing{[J.Index{4}]}}, Fail{J.Missing{[J.Index{5}]}}, Fail{J.Missing{[J.Index{6}]}}, Fail{J.Missing{[J.Index{7}]}}, a => b => c => d => e => f => g => g) == Fail{J.Missing{[J.Index{4}]}} : R(U32)}:
+  {==}
+
+def both7_error_5() -> {J.both7(U32, U32, U32, U32, U32, U32, U32, U32, Done{1}, Done{2}, Done{3}, Done{4}, Fail{J.Missing{[J.Index{5}]}}, Fail{J.Missing{[J.Index{6}]}}, Fail{J.Missing{[J.Index{7}]}}, a => b => c => d => e => f => g => g) == Fail{J.Missing{[J.Index{5}]}} : R(U32)}:
+  {==}
+
+def both7_error_6() -> {J.both7(U32, U32, U32, U32, U32, U32, U32, U32, Done{1}, Done{2}, Done{3}, Done{4}, Done{5}, Fail{J.Missing{[J.Index{6}]}}, Fail{J.Missing{[J.Index{7}]}}, a => b => c => d => e => f => g => g) == Fail{J.Missing{[J.Index{6}]}} : R(U32)}:
+  {==}
+
+def both7_error_7() -> {J.both7(U32, U32, U32, U32, U32, U32, U32, U32, Done{1}, Done{2}, Done{3}, Done{4}, Done{5}, Done{6}, Fail{J.Missing{[J.Index{7}]}}, a => b => c => d => e => f => g => g) == Fail{J.Missing{[J.Index{7}]}} : R(U32)}:
+  {==}
+
+def copy_budget_tail() -> {J.copy_json.go(3n, J.CopyValue{}, J.JArr{[J.JNull{}, J.JNull{}]}, [], []) == Fail{J.OutOfRange{[]}} : R(J.Json)}:
+  {==}
+
+def copy_budget_path() -> {J.decode_at(~J.Json, ~(x => J.copy_json.go(1n, J.CopyValue{}, x, [], [])), J.JObj{[J.Field{"data", J.JArr{[J.JNull{}]}}]}, [J.Name{"data"}]) == Fail{J.OutOfRange{[J.Name{"data"}]}} : R(J.Json)}:
+  {==}
+
+# A real structural witness exercises the general identity theorem; arbitrary
+# keys and strings prevent a closed example from substituting for the law.
+def copy_budget_law(+k: String, +s: String) -> {J.copy_json.go(5n, J.CopyValue{}, J.JObj{[J.Field{k, J.JArr{[J.JStr{s}]}}]}, [], []) == Done{J.JObj{[J.Field{k, J.JArr{[J.JStr{s}]}}]}} : R(J.Json)}:
+  T.copy_json.go_id(5n, J.CopyValue{}, J.JObj{[J.Field{k, J.JArr{[J.JStr{s}]}}]}, [], [], ((Unit{}, Unit{}), Unit{}))
