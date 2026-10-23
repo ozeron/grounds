@@ -4,6 +4,34 @@ Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and 
 
 The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
 
+- 2026-10-23 (M4b round 2 native performance baseline):
+  `http/server/PERFORMANCE.md` documents the reproducible diagnostic using an
+  identical eight-byte application handler for Bend/OpenSSL servers and both
+  production clients against the same Bend server process. Synthetic P-256
+  CA/leaf, TLS 1.3, X25519, each suite separately; each of eight rows has
+  **50 measured handshakes after five warmups** and **200 sequential keep-alive
+  requests after five warmups**. Full TLS opens include DNS/TCP; native client
+  opens include Unicode-table construction/certificate verification. No
+  thresholds, parallel-load claims or live-secret qualification.
+  Apple M4 / Mac16,10 / 10 CPUs / 16 GiB, Darwin 25.6.0, Bend 2.0.38,
+  Apple clang 21.0.0, OpenSSL CLI 3.6.3, Python 3.13.12 ssl/OpenSSL 3.0.18.
+  Native/legacy server AES p50/p95 **24.855/26.801 ms vs 0.433/0.476 ms**,
+  **4740 vs 12608 requests/s**; ChaCha **23.381/25.196 vs 0.461/0.516 ms**,
+  **7800 vs 12401 requests/s**. Native/legacy client AES **100/106 vs 23/25 ms**,
+  **3279 vs 5405 requests/s**; ChaCha **99/102 vs 22/26 ms**,
+  **7407 vs 9091 requests/s**. Client clocks have millisecond resolution.
+  Legacy client does not offer ALPN; native client and Python peers offer
+  http/1.1. Production one-slot pools provide client keep-alive; the Python
+  server-comparison peer also asserts stable socket identity.
+  `m4b/round2/perf/guard-04.json`: **11/11**, **102.769 s** total,
+  **1534.5 MiB** peak; each phase retains the 120 s/4096 MiB limits.
+  `perf/baseline.json` retains raw samples, commands and machine/source hashes;
+  both native program audits pass with legacy effects unavailable. Attempts
+  1-3 remain: corrected version-command metadata, rejected a generic server
+  entry graph retaining legacy abort registrations, and fixed an affine Bool
+  reuse in new benchmark fixtures. No production semantics or tests changed.
+  Fresh package/root acceptance is running separately; performance is not a gate.
+
 - 2026-10-23 (M4b round 2 browser implementation):
   Added a synthetic-key native browser fixture using `bend_server`,
   `websocket_transport` and `cookie_bend`, plus a dependency-free Python CDP
