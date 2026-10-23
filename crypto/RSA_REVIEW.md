@@ -4,8 +4,11 @@
 EMSA-PKCS1-v1_5 encoding/admission in Bend. It is a component of the required
 RSA signature path. `rsa_integer.bend` now supplies the public RSA primitive.
 `rsa_signature256.bend` supplies focused public digest-signature verification.
-Private signing, TLS certificate handling and live-secret approval remain
-incomplete.
+M2 private signing is supplied by [rsa_private.bend](rsa_private.bend) and
+[RSA_PRIVATE_REVIEW.md](RSA_PRIVATE_REVIEW.md); M1 certificate authentication is
+in [X509_CHAIN_REVIEW.md](X509_CHAIN_REVIEW.md). The generated-runtime findings
+and synthetic-only dispositions are in [RUNTIME_REVIEW.md](RUNTIME_REVIEW.md).
+Live-secret use remains blocked. The public-operation evidence below is retained.
 
 ## Interface and boundaries
 

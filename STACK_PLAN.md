@@ -178,23 +178,36 @@ M2 and live TLS/HTTPS acceptance remain open; M2 was not started by this work.
 ### M2 — TLS profile and private-key/runtime readiness
 
 Selected target and protocol-to-source/evidence matrix: [TLS_PROFILE.md](TLS_PROFILE.md).
-The profile is a build decision; M2 stays open until implementation and review pass.
+The profile is binding. M2 closes below for synthetic-key component interoperability;
+live-secret use remains blocked by the runtime review.
 
-- [ ] Freeze a bounded TLS 1.3 interoperability profile: version, cipher suites,
+- [x] Freeze a bounded TLS 1.3 interoperability profile: version, cipher suites,
   groups, signature schemes, certificate forms, ALPN and unsupported extensions.
   Check current standards and errata before implementing; explicitly document
   omissions such as resumption/0-RTT rather than silently accepting them.
-- [ ] Map each selected handshake operation to existing Bend primitives; implement
+- [x] Map each selected handshake operation to existing Bend primitives; implement
   only missing operations required by that profile. Private RSA signing is a
   dependency only if the selected local signing profile requires it.
-- [ ] Complete private-key ownership, RNG consumption, nonce/counter limits,
+- [x] Complete private-key ownership, RNG consumption, nonce/counter limits,
   failure cleanup and key-update lifecycle for the selected path.
-- [ ] Review generated native/Bun code and runtime behavior for secret-dependent
+- [x] Review generated native/Bun code and runtime behavior for secret-dependent
   branches/memory access, duplication and erasure. Resolve findings before
   live-secret use; synthetic interoperability is not timing-safety evidence.
 
 Exit: profile-to-implementation matrix, independent vectors/differential tests,
 and an explicit disposition for each runtime/key-lifecycle finding.
+
+2026-10-23 M2: the frozen profile, complete operation-owner/evidence matrix,
+independent native/Bun vectors/differential cases and explicit runtime/lifecycle
+dispositions meet this exit **for synthetic keys only**. Fresh forced gates pass
+1,702/1,702 crypto, 27/27 wire and 1,912/1,912 root phases, with no skipped or
+unexecuted phases under unchanged 4 GiB / 120-second phase limits.
+[crypto/RUNTIME_REVIEW.md](crypto/RUNTIME_REVIEW.md) binds the reviewed generated
+C/JS and compiler hashes. Physical erasure is a live-secret blocker; ECDSA retry,
+private admission and native/JIT timing are accepted only for synthetic keys.
+This closes the disposition-based M2 exit, not the broader live-secret crypto
+checklist. M3/M4 and live HTTPS acceptance remain open; M3 has not started.
+See the dated acceptance ledger and `2026-10-23/m2/` reports.
 
 ### M3 — Live Bend TLS client and server
 

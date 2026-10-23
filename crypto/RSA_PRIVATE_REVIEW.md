@@ -64,7 +64,8 @@ the pre-existing `rsa_signature256.verify_pss_digest` API.
 | Unblinded private input and CRT faults | mitigated | Fresh base blinding, per-factor inverse validation, exact final public-operation check, and existing Bend PSS verification in the test CLI. This is not a timing or fault-resistance proof. |
 | Private factor/exponent lengths, key/blinder comparisons and validation branches | accepted-for-synthetic-keys-only | `rsa_integer.bit_length`, `less`/`compare.go` (also blinder admission), range/congruence outcomes, factor/exponent byte widths and allocation shape remain observable. Base blinding does not hide key-validation leakage. |
 | Secret-indexed tables / arbitrary-precision host arithmetic | mitigated | The new arithmetic uses bounded base-2^15 `U32` arrays and public loop indices; private exponents use masks. Generated JS uses `Math.imul`, shifts and arrays, rather than host `BigInt` arithmetic on RSA integers. No secret-indexed lookup table was introduced. This is source/generated inspection, not a constant-time guarantee. |
-| Allocation, copying, runtime scheduling, JIT and physical erasure | accepted-for-synthetic-keys-only | Native heap objects/array clones and JS `.slice()`/GC retain copies; compiler/runtime/JIT behavior is not a live-secret guarantee. |
+| Allocation, runtime scheduling and JIT timing | accepted-for-synthetic-keys-only | Native allocation and JS GC/JIT behavior have no verified constant-time guarantee. |
+| Physical erasure | blocker | Native heap/stack/register copies and JS `.slice()`/GC copies cannot be comprehensively wiped. The shared RUNTIME_REVIEW.md disposition blocks live-secret use; affine consumption is logical retirement only. |
 | Untrusted or composite-factor key creation | accepted-for-synthetic-keys-only | Trusted prime-generation provenance is required; no primality checker or key generator is supplied. |
 
 `Private` ownership prevents implicit reuse of the affine wrapper. Its

@@ -4,13 +4,14 @@ Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and 
 
 The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
 
-- 2026-10-23 (M2 implementation; focused checks complete, full gates pending):
-  Added blinded CRT RSA-PSS signing, bounded private-key/PEM import and
-  leaf-SPKI binding. New crypto cases pass **724/724 per native/Bun target**;
-  key-share/CertificateVerify focused checks pass another **147/147 per target**.
-  The frozen profile and generated-runtime review permit synthetic keys only;
-  physical erasure remains a blocker for live secrets. M2 boxes remain open
-  until fresh package/root gates complete. M3 has not started.
+- 2026-10-23 (M2 complete for synthetic keys, Bend 2.0.38): frozen TLS 1.3
+  profile, blinded CRT RSA-PSS signing, bounded credential import/leaf binding,
+  affine key shares and CertificateVerify helpers pass **871/871 new cases per
+  native/Bun target**. Fresh forced gates pass **1,702/1,702 crypto**,
+  **27/27 wire**, **1,912/1,912 root**, zero skipped or unexecuted phases under
+  unchanged 4 GiB / 120-second phase limits. Every runtime/lifecycle finding
+  has a disposition; physical erasure still blocks live secrets. M2's bounded
+  exit criteria are met for synthetic-key interoperability. M3 has not started.
 
 - 2026-10-23 (M1 complete, Bend 2.0.38): `x509_chain.verify` provides one
   bounded server-certificate authentication result. Native and Bun each pass
@@ -55,12 +56,88 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 | Layer | Current state | Next proof of progress |
 |---|---|---|
 | `wire` | Byte TCP and IPv4 UDP effects, explicit local-IP binding and OS bound-address/ephemeral-port discovery; OpenSSL TLS effects. UDP handles all octets, zero datagrams, timeout and oversize errors, with same-port/two-IP isolation and failed-bind descriptor checks. Actual SIGTERM/SIGINT stop parked native/Bun loops and release the listener; Bun uses an OS-only C11 atomic signal bridge because its synchronous runtime cannot dispatch JS signal callbacks. Bounded bulk host RNG bytes now pass native/Bun guard/error tests and supply signaling credentials. Public-pattern byte/RNG and retained UDP measurements are recorded; Bend Base supplies monotonic `IO.now`. | Verify IPv6/cancellation and packed storage/long-session allocation, retaining measured baselines; complete crypto/runtime review before secure transport. |
-| `crypto` | Bend SHA-1 for WebSocket challenge, HMAC-SHA1 for legacy STUN integrity, SHA-256, HMAC-SHA256, HKDF-SHA-256, ChaCha20, Poly1305, ChaCha20-Poly1305 AEAD, AES-128 encryption, AES-128-GCM and X25519; P-256 prime/order arithmetic, uncompressed-point ECDH, experimental P-256/SHA-256 raw/DER ECDSA, SHA-256 RSA PSS/v1.5 encoding, variable-size public modular exponentiation/RSAVP1 and full digest-signature verification (725 arithmetic and 774 signature cases pass on native and Bun; in-place limb shift reduces array creation), bounded DER, SHA-256 certificate AlgorithmIdentifier admission, RSA/P-256 SPKI public-key decoding, certificate field framing preserving exact signed bytes, mathematical issuer-signature verification (4,825 native/Bun cases) and strict civil-time/validity checks (31,545 cases per target using scoped official Bend 2.0.34), canonical OID/extension envelope admission (67,731 native/baseline-JIT Bun cases), BC/KU payload consistency and EKU/TLS-purpose permission (14,565 independent EKU cases on pinned/modern native/Bun; 28,044 whole-policy cases per modern target; selected DNS/IP SAN and empty-subject critical-SAN binding add 1,841 standalone cases per modern target), plus DNS/IP identity matching and actual SAN-field queries (5,900 core cases per pinned/modern native/Bun target; 2,447 further framing/certificate cases per modern target), plus typed Name/RDN/attribute schema and actual issuer/subject queries (11,195 independent cases per modern native/Bun target), now composed into extension/TLS-purpose admission with nonempty issuer and CA/CRL-subject requirements (28,319 whole-policy cases per modern target), plus composed Unicode 3.2 stored-value preparation (97,731 exact and folded cases per pinned/modern native/Bun target, with folded full-input stress), and exact Unicode 3.2 NFKC with authenticated packed tables (84,960 official sequence checks, 1,050 differential cases and 1,122,304 scalar checks per pinned/modern native/Bun target, with full-byte-bound expansion/ordering stress), plus TLS HKDF labels and distinct affine ChaCha/AES-GCM traffic owners with 64-bit nonces/key updates and AES sending usage limits. Poly1305 products now stay below 2^26; Legacy cookie signing and live TLS retain OpenSSL; explicit Bend HTTP cookie signing/verification passes synthetic-key native/Bun checks. Composed explicit-anchor server-certificate authentication now passes 193 complete-chain cases per native/Bun target and fresh 1,673-phase crypto / 1,869-phase root gates on Bend 2.0.38; M1 is complete. | Complete M2 profile/key/runtime readiness, including selected private RSA signing and timing/erasure review, before live TLS/HTTPS integration. Preserve the documented unsupported Name/Teletex and rejected name-constraint profile; M2 was not started by M1. |
-| `tls` | Bend protected TLS 1.3 ChaCha20-Poly1305 and AES-128-GCM records and traffic/key lifecycle pass synthetic native/Bun differential tests; AES also reproduces RFC 8448 encrypted records. Bend streaming transcript ownership, retry rewriting and snapshot/size/invalid-input checks now pass native/Bun and complete wire package acceptance. Typed no-PSK SHA-256 handshake/application derivation and one-use Finished keys now pass 798 independent outputs per native/Bun target and the fresh nine-phase wire gate. Bounded handshake-record reassembly passes 939 independent scenarios per native/Bun target and the fresh eleven-phase wire gate. Live TLS client/server still use OpenSSL C effects; JS TLS effects return `ENOSYS`. | Complete mandatory TLS algorithms, handshake/transcripts, certificates/signatures/trust/hostname checks and real client/server interop; DTLS 1.2 for RTC. |
+| `crypto` | Bend SHA-1 for WebSocket challenge, HMAC-SHA1 for legacy STUN integrity, SHA-256, HMAC-SHA256, HKDF-SHA-256, ChaCha20, Poly1305, ChaCha20-Poly1305 AEAD, AES-128 encryption, AES-128-GCM and X25519; P-256 prime/order arithmetic, uncompressed-point ECDH, experimental P-256/SHA-256 raw/DER ECDSA, SHA-256 RSA PSS/v1.5 encoding, variable-size public modular exponentiation/RSAVP1 and full digest-signature verification (725 arithmetic and 774 signature cases pass on native and Bun; in-place limb shift reduces array creation), bounded DER, SHA-256 certificate AlgorithmIdentifier admission, RSA/P-256 SPKI public-key decoding, certificate field framing preserving exact signed bytes, mathematical issuer-signature verification (4,825 native/Bun cases) and strict civil-time/validity checks (31,545 cases per target using scoped official Bend 2.0.34), canonical OID/extension envelope admission (67,731 native/baseline-JIT Bun cases), BC/KU payload consistency and EKU/TLS-purpose permission (14,565 independent EKU cases on pinned/modern native/Bun; 28,044 whole-policy cases per modern target; selected DNS/IP SAN and empty-subject critical-SAN binding add 1,841 standalone cases per modern target), plus DNS/IP identity matching and actual SAN-field queries (5,900 core cases per pinned/modern native/Bun target; 2,447 further framing/certificate cases per modern target), plus typed Name/RDN/attribute schema and actual issuer/subject queries (11,195 independent cases per modern native/Bun target), now composed into extension/TLS-purpose admission with nonempty issuer and CA/CRL-subject requirements (28,319 whole-policy cases per modern target), plus composed Unicode 3.2 stored-value preparation (97,731 exact and folded cases per pinned/modern native/Bun target, with folded full-input stress), and exact Unicode 3.2 NFKC with authenticated packed tables (84,960 official sequence checks, 1,050 differential cases and 1,122,304 scalar checks per pinned/modern native/Bun target, with full-byte-bound expansion/ordering stress), plus TLS HKDF labels and distinct affine ChaCha/AES-GCM traffic owners with 64-bit nonces/key updates and AES sending usage limits. Poly1305 products now stay below 2^26; Legacy cookie signing and live TLS retain OpenSSL; explicit Bend HTTP cookie signing/verification passes synthetic-key native/Bun checks. Composed explicit-anchor server-certificate authentication now passes 193 complete-chain cases per native/Bun target and fresh 1,673-phase crypto / 1,869-phase root gates on Bend 2.0.38; M1 is complete. M2 adds blinded private RSA signing, bounded PEM/private import and leaf-SPKI binding; 871 new crypto/TLS-helper cases per target and fresh 1,702-phase crypto / 1,912-phase root gates pass. Every runtime finding has a disposition; this accepts synthetic keys only. | M3 synthetic-key TLS interoperability is the next planned milestone; it has not started. Resolve live-secret erasure/backend timing blockers before using live credentials. Preserve the unsupported Name/Teletex and rejected name-constraint profile. |
+| `tls` | Bend protected TLS 1.3 ChaCha20-Poly1305 and AES-128-GCM records and traffic/key lifecycle pass synthetic native/Bun differential tests; AES also reproduces RFC 8448 encrypted records. Bend streaming transcript ownership, retry rewriting and snapshot/size/invalid-input checks now pass native/Bun and complete wire package acceptance. Typed no-PSK SHA-256 handshake/application derivation and one-use Finished keys now pass 798 independent outputs per native/Bun target and the fresh nine-phase wire gate. Bounded handshake-record reassembly passes 939 independent scenarios per native/Bun target and the fresh eleven-phase wire gate. M2 adds fresh affine X25519/P-256 key shares and role/scheme/SPKI-bound CertificateVerify helpers, with 147 independent cases per target and the fresh 27-phase wire gate. Live TLS client/server still use OpenSSL C effects; JS TLS effects return `ENOSYS`. | M3 must compose negotiation/codecs/state, authentication, records, TCP and failure cleanup, then prove independent synthetic-key interop without crypto delegation. M3 has not started; DTLS remains deferred. |
 | `http` | Bend HTTP/1.1 client/server, routing, JSON, cookies, auth, CORS, multipart, SSE, and server WebSocket handshake/framing/session. Native echo interops with a third-party Python client and Bun's WebSocket API. The HTTP server accepts immutable runtime handler context. The bounded signaling fixture now binds a Bend HMAC-SHA256 cookie to an exact purpose/session/issuing deadline before upgrade/UDP allocation. Its pure admission policy passes native/Bun tests; Bun live signing, denials, restart/reconnect and actual expiry/UDP cleanup pass. Fresh HTTP server package acceptance passes all thirteen resource phases under 1 GiB with no skips. Earlier unsigned-cookie native/Chrome interop remains historical evidence. | Native signed-cookie signaling/ICE now passes the full headless-shell browser scenario and independent packet checks. Complete RTC/root gates and full Chrome startup acceptance; resolve key lifecycle/runtime review and integrate Bend TLS for browser HTTPS/WSS. |
 | `rtc` | Bend STUN parsing, IPv4 XOR-MAPPED-ADDRESS, SHA-1/SHA-256/dual integrity, FINGERPRINT, authenticated incoming/outgoing ICE Binding exchanges, retained-socket retransmissions and explicit error/integrity outcomes. IPv4 candidate/pair priorities, bounded checklist formation, stable transport references and guarded state transitions, role-driven priority reordering, a paced shared-socket transaction engine with response-only interruption, protected incoming replies and server-side role decisions, FIFO triggered queues, ordinary round-robin/foundation scheduling and generation/sent-role attempt ownership. A bounded session now binds signaled credentials, registered receiving/sending bases, observed peer-reflexive candidates, deferred incoming work, retained attempts and endpoint integrity policies. Authenticated non-symmetric responses fail only their original current pair; interrupted old listeners retire independently. The live owner fixture explicitly binds unicast IPv4 bases and queries actual local ports before candidate formation. An additive valid-list owner resolves authenticated mappings, learns locally peer-reflexive candidates from retained signed-request priority, allocates IP-keyed foundations, reranks by role and keeps late paths separate from replacement flights. A nomination-evidence owner associates current successful checks with their valid paths and retains qualified incoming intent through materialization, exact triggered flights and response-only listeners; already-Succeeded counterparts resolve their actual generating record. A generation lifecycle owner now applies regular controlling/controlled nomination, selects completed stream paths, removes nominated component checks while retaining response listeners, continues authenticated Binding service, and defers failure through PAC. An outer transport owner derives selected physical consent routes, serves authenticated consent-only Binding requests, shares actual-send pacing and recent transaction identity admission, gates logical application routes, and preserves sealed consent loss. Full/full credential restart rebuilds ICE state while retaining only selected old consent/server contexts until replacement selection. Bounded SDP/signaling now binds connection-owned credentials and the actual retained UDP base; real Chrome verifies direct selected pairs, fresh consent, restart and cleanup on native and Bun. Separate unauthenticated discovery remains available. | Complete crypto/runtime foundations and secure signaling, then gathering, IPv6/TURN, DTLS/SCTP and SRTP/media. |
 
 ## Evidence ledger
+
+- 2026-10-23 (M2 acceptance closeout; synthetic-key exit met):
+
+  On `bend-https`, implementation commits **`9e04114`** (crypto private signing/
+  import/runtime review) and **`2c058cc`** (TLS profile/key-share/CertificateVerify
+  helpers) are followed by a documentation-only acceptance commit. No push or
+  PR, no M3 implementation, and no `bounty/` change. The full `STACK_PLAN.md`
+  crypto/live-TLS checklists remain open; only the four bounded M2 boxes close.
+
+  **Live-secret use is blocked.** `crypto/RUNTIME_REVIEW.md` inventories every
+  finding and binds all 16 generated C/JS files plus Bend 2.0.38 executable hash.
+  RSA exponent-bit selection and fixed-width borrow are **fixed**; base blinding/
+  fault checks, masked arithmetic, table-free AES, full-scan tag/Finished checks
+  and logical retirement are **mitigated**. ECDSA RFC 6979 retry/range branches,
+  private admission and optimizing native/Bun runtime behavior are
+  **accepted-for-synthetic-keys-only**. Physical erasure of heap/GC/stack/register
+  copies is a **blocker** for live secrets. Affine ownership prevents ordinary
+  typed reuse, not physical wiping or arbitrary copies. No constant-time proof
+  or timing-sample/dudect acceptance is claimed.
+
+  Fresh gates ran strictly sequentially with **4096 MiB aggregate/process**,
+  **120 seconds per declared phase**, normal pressure and no skipped/unexecuted
+  phases. Toolchain: Bend **2.0.38**, Moon **2.5.5**, Bun **1.3.14**, Apple Clang
+  **21**, Python **3.13.12**, OpenSSL **3.6.3**; binary identities are in
+  `m2/versions.json`. Default generated Bun checks retain their normal JIT.
+
+  | Fresh report | Passed/declared phases | Seconds | Peak bytes |
+  |---|---:|---:|---:|
+  | `crypto-01` | 1,702/1,702 | 1,380.595 | 1,982,038,016 |
+  | `wire-01` | 27/27 | 126.355 | 1,717,141,504 |
+  | `root-01` | 1,912/1,912 | 3,123.091 | 2,964,324,352 |
+
+  Root target counts: crypto **1,702**, wire **27**, HTTP server **13**, RTC
+  **161**, plus **one each** for HTTP core, wire, client, router and JSON,
+  IO, JSON, Redis and UTF-8: **1,912 total**. Every original **1,869** phase is
+  preserved; crypto adds 29 and wire adds 14 without dropping cases or changing
+  original optionality/order. Root compares **2,000/2,000 HTTP responses** and
+  **1,000/1,000 SSE streams** (1,837 events). Native/Bun Chrome WS/ICE consent
+  and credential-restart checks pass, with independent packet authentication;
+  DTLS/data/media remain absent. The package results are in `root-01.log`.
+
+  Reproduction commands (artifact runner records the complete argv, selected
+  manifest, environment and input SHA binding for each):
+
+  ```sh
+  PYTHONDONTWRITEBYTECODE=1 python3 /Users/ozeron/.codex/artifacts/grounds/2026-10-23/m2/run.py crypto-01
+  PYTHONDONTWRITEBYTECODE=1 python3 /Users/ozeron/.codex/artifacts/grounds/2026-10-23/m2/run.py wire-01
+  PYTHONDONTWRITEBYTECODE=1 python3 /Users/ozeron/.codex/artifacts/grounds/2026-10-23/m2/run.py root-01
+  ```
+
+  Each expands to `python3 tools/build_guard.py --memory-mib 4096
+  --process-memory-mib 4096 --timeout 120 --report <name>.json --phases
+  <package-or-root-manifest> -- nice -n 10 moon --concurrency 1 run
+  <crypto:check|wire:check|:check> --force` with bytecode disabled. Exact commands,
+  reports and bindings: `m2/{crypto,wire,root}-01-command.json`, `.json`,
+  `-binding.json`, `.log`, and `-cases/`, all under
+  **`/Users/ozeron/.codex/artifacts/grounds/2026-10-23/m2/`**.
+
+  Crypto and wire, then root, repeat **871/871 new cases per native/Bun target**:
+  RSA **145**, PEM **436**, private import **123**, credential binding **20**,
+  key share **50**, CertificateVerify **91**, RSA-CV **6**. Every released RSA
+  signature passes the existing Bend verifier and independent RFC 8017/Python
+  arithmetic plus OpenSSL. The separate cryptography **50.0.2** frozen-import
+  oracle passes **123/123** (20 public-key matches, 103 rejections). Existing
+  70 ChaCha/72 AES lifecycle scenarios per target retain usage/exhaustion,
+  KeyUpdate and error-retirement coverage. No preimplementation behavioral red
+  is claimed for newly introduced APIs; worker receipts preserve actual evidence.
+
+  `closeout-evidence-audit.json` verifies complete manifests, unchanged behavioral
+  source since each gate, all new backend case reports, runtime source/generated
+  hashes, original phase preservation and six unchanged pre-existing cache files.
+  Only documentation changes follow the gate bindings. `implementation-result.json`
+  is the structured implementation handoff and records all canonical commits.
+  The earlier focused ledger entries retain standards, fixture, compiler-failure
+  and Astra-low consultation details. M2's matrix/vectors/disposition exit is met
+  for synthetic keys; M3/M4 and live-secret acceptance remain open.
 
 - 2026-10-23 (M2 profile and TLS helper implementation checkpoint):
 

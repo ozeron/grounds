@@ -88,8 +88,11 @@ encoding bound, not a permitted TLS key-size policy. PKCS#1 v1.5 uses the exact
 SHA-256 DER DigestInfo including NULL parameters, with encoded lengths 62–512
 bytes. MGF1 accepts valid seeds and output lengths through 512 bytes. Encoding
 returns `None{}` on invalid input; verification returns `False{}`. RSA
-private exponentiation, salt generation and private-key
-lifecycle are not implemented here. `rsa_integer.public_operation` separately
+private exponentiation and affine private-key ownership are supplied separately
+by `rsa_private`; callers must supply fresh salt/blinding entropy. See
+[RSA_PRIVATE_REVIEW.md](RSA_PRIVATE_REVIEW.md) and the synthetic-only runtime
+contract in [RUNTIME_REVIEW.md](RUNTIME_REVIEW.md).
+`rsa_integer.public_operation` separately
 admits canonical unsigned big-endian odd moduli of 2048–4096 bits, canonical
 odd exponents greater than one and below the modulus, and exactly `k` valid
 signature bytes representing an integer below the modulus. It returns `k`

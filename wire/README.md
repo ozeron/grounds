@@ -270,7 +270,9 @@ and one `FinishedKey` for each peer. `application(next, server_finished_hash)`
 consumes the next-stage owner and derives the two application traffic secrets.
 `finished(key, transcript_hash)` or `verify_finished(key, transcript_hash, tag)`
 consumes that peer's Finished key. The verifier accumulates every admitted tag
-byte before its equality decision; generated-code timing remains unreviewed.
+byte before its equality decision; M2's
+[generated-code review](../crypto/RUNTIME_REVIEW.md) records the inspected
+accumulator and the remaining native/Bun timing limits.
 
 The key-agreement owner must validate the peer point/shared result. The handshake
 owner must supply the correct transcript snapshots, validate certificates and
@@ -279,7 +281,8 @@ application data on authentication. This schedule alone does none of those.
 Its all-zero component-input oracle case verifies KDF mathematics, not admission
 of an invalid peer key. Synthetic diagnostics expose intermediate secrets only
 for tests; they are not a connection interface. Logical owner consumption is not
-physical erasure, and the runtime/key-lifecycle review remains open.
+physical erasure. M2's runtime/key-lifecycle dispositions permit synthetic-key
+component interoperability; live-secret use remains blocked.
 
 The independent checker compares 798 outputs from 182 commands on each target:
 published 1-RTT/retry traces, 64 seeded random schedules, invalid widths/non-octets,
