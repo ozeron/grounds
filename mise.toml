@@ -1,6 +1,8 @@
 [tools]
 "github:bendlang/bend" = "2.0.38"
 "aqua:moonrepo/moon" = "2.5.5"
+# the independent crypto/tls peer (wire/tls_go_peer_build.py) and the json bench
+go = "1.26.9"
 
 [env]
 # stops bend's daily version check and its "run bend update" line;
