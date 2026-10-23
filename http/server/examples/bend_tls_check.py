@@ -231,6 +231,15 @@ def rejected(binary, directory, credential, suite, rows):
         rows.append(dict(name="idle-timeout", seconds=elapsed))
         assert_response(request(port, directory), 200, b"secure\n")
         rows.append(dict(name="listener-survives-failures", status=200))
+        # Repeated RSA signing on Bun must fit the same handshake deadline
+        # after the failure sequence, including allocation/GC between accepts.
+        durations = []
+        for _ in range(32):
+            start = time.monotonic()
+            assert_response(request(port, directory), 200, b"secure\n")
+            durations.append(time.monotonic() - start)
+        rows.append(dict(name="repeated-handshakes-within-deadline", requests=32,
+                         max_seconds=max(durations)))
 
     with server(binary, directory, credential, suite, HTTP_MAX_REQUESTS=2) as (port, process):
         conn = http.client.HTTPSConnection("localhost", port, context=context(directory), timeout=12)
