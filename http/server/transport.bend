@@ -5,6 +5,12 @@ import ../../wire/bend_tls_client.bend as T
 import ../../crypto/traffic.bend as Traffic
 import ../../wire/tls_handshake_stream.bend as HS
 
+# Backend identity only; credential admission remains in Bend. Not configurable
+# through the environment: JS/Bun cannot opt into native RSA latency support.
+def http_native_target() -> IO(U32):
+  import "./effs/target.c"
+  import "./effs/target.js"
+
 # One owner throughout HTTP parsing, keep-alive and streamed writes. Closed is
 # the successor of a fatal TLS operation (TLS has already closed its socket).
 type Connection is Type:

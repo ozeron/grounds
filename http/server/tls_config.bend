@@ -24,10 +24,12 @@ def retained(leaf: List<&2,U32>, rest: List<&2,List<&2,U32>>, policy: N.Policy, 
     case K.P256{scalar,public}: Prepared{leaf,EC{scalar,public},rest,policy}
     case K.Rsa{R.Private{n,e,d,p,q,dp,dq,qi}}: Prepared{leaf,RSA{n,e,d,p,q,dp,dq,qi},rest,policy}
 
-def imported(value: Result<&2,&1,PEM.Error,TLS.Config>) -> IO(Prepared):
-  match value:
-    case Fail{_}: IO.die(Prepared,1,"http: invalid Bend TLS credential or policy")
-    case Done{TLS.Config{C.Credential{leaf,key},rest,policy,_}}: IO.pure(Prepared,retained(leaf,rest,policy,key))
+def imported(native: U32, value: Result<&2,&1,PEM.Error,TLS.Config>) -> IO(Prepared):
+  match native value:
+    case _ Fail{_}: IO.die(Prepared,1,"http: invalid Bend TLS credential or policy")
+    case 0 Done{TLS.Config{C.Credential{_,K.Rsa{_}},_,_,_}}:
+      IO.die(Prepared,1,"http: RSA certificates on Bun are unsupported for latency reasons; use P-256 ECDSA")
+    case _ Done{TLS.Config{C.Credential{leaf,key},rest,policy,_}}: IO.pure(Prepared,retained(leaf,rest,policy,key))
 
 def read_chain(paths: List<&2,String>) -> IO(List<&2,List<&2,U32>>):
   match paths:
@@ -42,7 +44,8 @@ def load(paths: List<&2,String>, key: String, suites: List<&2,U32>) -> IO(Prepar
   do IO<Prepared>:
     chain : List<&2,List<&2,U32>> <- read_chain(paths)
     bytes : List<&2,U32> <- Io.read_bytes(key)
-    imported(TLS.from_pem(chain,bytes,N.Policy{suites,[29,23],True{}},0n))
+    native : U32 <- Tr.http_native_target()
+    imported(native,TLS.from_pem(chain,bytes,N.Policy{suites,[29,23],True{}},0n))
 
 def issue(key: Key) -> K.Private:
   match key:

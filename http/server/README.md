@@ -58,6 +58,17 @@ it rejects an OpenSSL selection before listen. The legacy module never imports
 this transport graph. The separate loops preserve the legacy cold-constructor
 guarantee; changes to shared HTTP behavior require validation of both modules.
 
+The Bend HTTPS server supports **P-256 ECDSA certificates on native and Bun**,
+and **RSA certificates on native only**, with either supported suite. On Bun,
+an RSA credential fails before listen with `RSA certificates on Bun are
+unsupported for latency reasons`. Round-3 repeated-handshake maxima were
+969.9 ms (AES) / 730.7 ms (ChaCha) on Bun RSA versus about 46 ms native, too
+close to the unchanged 1000 ms handshake deadline for reliable admission.
+The cancelled optimization is preserved, unapplied, at
+`~/.codex/artifacts/grounds/2026-10-23/m4a/round4/cancelled-rsa-wip.patch`
+for possible later work. This restriction applies to the HTTP Bend server;
+RSA crypto correctness suites continue on both targets.
+
 `tls_config.bend` loads and validates PEM once at listener startup. Its immutable
 process owner issues a fresh affine signing owner per handshake. It does not
 re-read PEM on connections, share traffic keys, rotate keys or promise physical
@@ -194,7 +205,7 @@ keep-alive reuse, 32 concurrent requests and graceful shutdown. Existing checks:
 13. Builds both multipart fixtures through `tools/bend_native.sh` to release the frontend before C compilation, serves `examples/multipart.bend`, compares 200 generated requests with Python's email parser, checks part and header limits, and sends a binary part from the client builder.
 14. Runs the cold check on the existing examples and auth. CORS policy lookups and multipart parsing currently make some String and List constructors reference counted.
 
-`check_phases.json` declares 41 ordered resource phases covering these
+`check_phases.json` declares 37 ordered resource phases covering these
 checks. Each fixture is stopped and waited for before its phase ends. The
 shared temporary directory retains generated outputs for later checks. Use
 `tools/build_guard.py --phases http/server/check_phases.json` around the Moon
@@ -208,7 +219,10 @@ The M4a phases build the actual Bend HTTPS example with the M3b unavailable
 TLS/cookie effect overlay, retain import/symbol/library/loader audits and prove
 native/Bun abort controls. Curl, verified Python http.client/ssl and a Go 1.26.9
 net/http peer built in the test temporary directory exercise P-256/RSA × both
-suites on native and Bun. Positive cases include binary bodies across records,
+suites on native and P-256 × both suites on Bun. Bun RSA live positive and
+negative phases are excluded; RSA crypto unit/differential suites still run on
+both targets. The Bun configuration phase verifies RSA rejection before listen.
+Positive cases include binary bodies across records,
 chunked requests/streamed responses, keep-alive, pipelining, legacy cookie
 compatibility and protocol/health handling. Negative/lifecycle phases cover
 wrong trust, plaintext, handshake/request/idle deadlines, disconnects, limits,

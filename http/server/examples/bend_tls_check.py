@@ -231,7 +231,7 @@ def rejected(binary, directory, credential, suite, rows):
         rows.append(dict(name="idle-timeout", seconds=elapsed))
         assert_response(request(port, directory), 200, b"secure\n")
         rows.append(dict(name="listener-survives-failures", status=200))
-        # Repeated RSA signing on Bun must fit the same handshake deadline
+        # Every supported credential/target must fit the same handshake deadline
         # after the failure sequence, including allocation/GC between accepts.
         durations = []
         for _ in range(32):
@@ -280,7 +280,7 @@ def rejected(binary, directory, credential, suite, rows):
         rows.append(dict(name="graceful-stop-active-stream", drained=True))
 
 
-def configuration_cases(binary, directory, rows):
+def configuration_cases(binary, directory, target, rows):
     base = dict(os.environ, **POISON, PORT=str(free_port()), HTTP_TLS_ENGINE="bend",
                 HTTP_TLS_CERT=str(directory / "ecdsa.pem"),
                 HTTP_TLS_KEY=str(directory / "ecdsa.key"), HTTP_COOKIE_KEY=KEY)
@@ -297,6 +297,18 @@ def configuration_cases(binary, directory, rows):
         with socket.socket() as probe:
             assert probe.connect_ex(("127.0.0.1", int(base["PORT"]))) != 0, name
         rows.append(dict(name=name, exit=result.returncode, rejected=True, entrypoint="bend_server.serve_bend_out_context"))
+    if target == "bun":
+        result = subprocess.run(binary, env=dict(base,
+            HTTP_TLS_CERT=str(directory / "rsa.pem"),
+            HTTP_TLS_KEY=str(directory / "rsa.key")), capture_output=True, timeout=15)
+        assert result.returncode != 0, (result.stdout, result.stderr)
+        message = b"RSA certificates on Bun are unsupported for latency reasons"
+        assert message in result.stderr, result.stderr
+        with socket.socket() as probe:
+            assert probe.connect_ex(("127.0.0.1", int(base["PORT"]))) != 0
+        rows.append(dict(name="bun-rsa-unsupported-before-listen", exit=result.returncode,
+                         rejected=True, reason=message.decode(),
+                         entrypoint="bend_server.serve_bend_out_context"))
     loaded = directory / "loaded-runtime"
     loaded.mkdir(exist_ok=True)
     for name in ("ecdsa.pem", "ecdsa.key", "ca.pem"):
@@ -319,13 +331,14 @@ def main():
     p.add_argument("--suite", choices=["aes", "chacha"])
     p.add_argument("--negative", action="store_true")
     p.add_argument("--configuration", action="store_true")
+    p.add_argument("--target", choices=["native", "bun"], default="native")
     p.add_argument("--go", type=Path)
     p.add_argument("--legacy", type=Path)
     p.add_argument("--report", type=Path, required=True)
     p.add_argument("binary", nargs=argparse.REMAINDER)
     args = p.parse_args()
     rows = []
-    report = dict(credential=args.credential, suite=args.suite, binary=args.binary,
+    report = dict(target=args.target, credential=args.credential, suite=args.suite, binary=args.binary,
                   synthetic_keys_only=True, certificate_verification=True, results=rows,
                   tested_artifact_sha256={str(Path(arg).resolve()): hashlib.sha256(Path(arg).read_bytes()).hexdigest()
                     for arg in args.binary if Path(arg).is_file()})
@@ -339,7 +352,7 @@ def main():
             binary = args.binary[1:] if args.binary[:1] == ["--"] else args.binary
             assert binary
             if args.configuration:
-                configuration_cases(binary, args.fixtures, rows)
+                configuration_cases(binary, args.fixtures, args.target, rows)
             elif args.negative:
                 assert args.credential and args.suite
                 rejected(binary, args.fixtures, args.credential, args.suite, rows)

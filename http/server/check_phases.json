@@ -90,22 +90,6 @@
       "optional": false
     },
     {
-      "name": "http_server/bend_tls_bun_rsa_aes",
-      "optional": false
-    },
-    {
-      "name": "http_server/bend_tls_bun_rsa_aes_negative",
-      "optional": false
-    },
-    {
-      "name": "http_server/bend_tls_bun_rsa_chacha",
-      "optional": false
-    },
-    {
-      "name": "http_server/bend_tls_bun_rsa_chacha_negative",
-      "optional": false
-    },
-    {
       "name": "http_server/bend_tls_configuration_native",
       "optional": false
     },

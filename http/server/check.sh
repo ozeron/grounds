@@ -102,35 +102,23 @@ begin bend_tls_native_rsa_chacha_negative
 python3 examples/bend_tls_check.py --fixtures "$artifacts/fixtures" --credential rsa --suite chacha --negative --report "$artifacts/bend_tls_native_rsa_chacha_negative.json" -- "$artifacts/bend_tls"
 end
 begin bend_tls_bun_ecdsa_aes
-python3 examples/bend_tls_check.py --fixtures "$artifacts/fixtures" --credential ecdsa --suite aes --go "$tmp/bend_tls_go" --legacy "$tmp/cookie_legacy" --report "$artifacts/bend_tls_bun_ecdsa_aes.json" -- bun "$artifacts/bend_tls.js"
+python3 examples/bend_tls_check.py --target bun --fixtures "$artifacts/fixtures" --credential ecdsa --suite aes --go "$tmp/bend_tls_go" --legacy "$tmp/cookie_legacy" --report "$artifacts/bend_tls_bun_ecdsa_aes.json" -- bun "$artifacts/bend_tls.js"
 end
 begin bend_tls_bun_ecdsa_aes_negative
-python3 examples/bend_tls_check.py --fixtures "$artifacts/fixtures" --credential ecdsa --suite aes --negative --report "$artifacts/bend_tls_bun_ecdsa_aes_negative.json" -- bun "$artifacts/bend_tls.js"
+python3 examples/bend_tls_check.py --target bun --fixtures "$artifacts/fixtures" --credential ecdsa --suite aes --negative --report "$artifacts/bend_tls_bun_ecdsa_aes_negative.json" -- bun "$artifacts/bend_tls.js"
 end
 begin bend_tls_bun_ecdsa_chacha
-python3 examples/bend_tls_check.py --fixtures "$artifacts/fixtures" --credential ecdsa --suite chacha --go "$tmp/bend_tls_go" --legacy "$tmp/cookie_legacy" --report "$artifacts/bend_tls_bun_ecdsa_chacha.json" -- bun "$artifacts/bend_tls.js"
+python3 examples/bend_tls_check.py --target bun --fixtures "$artifacts/fixtures" --credential ecdsa --suite chacha --go "$tmp/bend_tls_go" --legacy "$tmp/cookie_legacy" --report "$artifacts/bend_tls_bun_ecdsa_chacha.json" -- bun "$artifacts/bend_tls.js"
 end
 begin bend_tls_bun_ecdsa_chacha_negative
-python3 examples/bend_tls_check.py --fixtures "$artifacts/fixtures" --credential ecdsa --suite chacha --negative --report "$artifacts/bend_tls_bun_ecdsa_chacha_negative.json" -- bun "$artifacts/bend_tls.js"
-end
-begin bend_tls_bun_rsa_aes
-python3 examples/bend_tls_check.py --fixtures "$artifacts/fixtures" --credential rsa --suite aes --go "$tmp/bend_tls_go" --legacy "$tmp/cookie_legacy" --report "$artifacts/bend_tls_bun_rsa_aes.json" -- bun "$artifacts/bend_tls.js"
-end
-begin bend_tls_bun_rsa_aes_negative
-python3 examples/bend_tls_check.py --fixtures "$artifacts/fixtures" --credential rsa --suite aes --negative --report "$artifacts/bend_tls_bun_rsa_aes_negative.json" -- bun "$artifacts/bend_tls.js"
-end
-begin bend_tls_bun_rsa_chacha
-python3 examples/bend_tls_check.py --fixtures "$artifacts/fixtures" --credential rsa --suite chacha --go "$tmp/bend_tls_go" --legacy "$tmp/cookie_legacy" --report "$artifacts/bend_tls_bun_rsa_chacha.json" -- bun "$artifacts/bend_tls.js"
-end
-begin bend_tls_bun_rsa_chacha_negative
-python3 examples/bend_tls_check.py --fixtures "$artifacts/fixtures" --credential rsa --suite chacha --negative --report "$artifacts/bend_tls_bun_rsa_chacha_negative.json" -- bun "$artifacts/bend_tls.js"
+python3 examples/bend_tls_check.py --target bun --fixtures "$artifacts/fixtures" --credential ecdsa --suite chacha --negative --report "$artifacts/bend_tls_bun_ecdsa_chacha_negative.json" -- bun "$artifacts/bend_tls.js"
 end
 
 begin bend_tls_configuration_native
 python3 examples/bend_tls_check.py --configuration --fixtures "$artifacts/fixtures" --report "$artifacts/configuration-native.json" -- "$artifacts/bend_tls"
 end
 begin bend_tls_configuration_bun
-python3 examples/bend_tls_check.py --configuration --fixtures "$artifacts/fixtures" --report "$artifacts/configuration-bun.json" -- bun "$artifacts/bend_tls.js"
+python3 examples/bend_tls_check.py --target bun --configuration --fixtures "$artifacts/fixtures" --report "$artifacts/configuration-bun.json" -- bun "$artifacts/bend_tls.js"
 end
 
 begin context_native

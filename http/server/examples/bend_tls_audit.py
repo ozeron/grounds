@@ -24,7 +24,7 @@ def main():
     # Positive controls: the graph classifier must detect the actual Bend graph.
     for path, target in [(args.c, "c"), (args.js, "js")]:
         assert any(FORBIDDEN.search(value) for value in graph_ids(path.read_text(), target)), target
-    required = {"wire_random_bytes", "wire_recv_timeout", "wire_send_timeout", "wire_accept_timeout", "TCP.listen", "http_readable"}
+    required = {"wire_random_bytes", "wire_recv_timeout", "wire_send_timeout", "wire_accept_timeout", "TCP.listen", "http_readable", "http_native_target"}
     results = dict(c=c_effects(args.c.read_text(), required),
                    js=js_effects(args.js.read_text(), required), native=native_imports(args.native))
     problems = []
@@ -49,6 +49,8 @@ def main():
     report = dict(passed=not problems, problems=problems, artifacts=artifacts,
                   results=results, abort_controls=controls,
                   entrypoint="http/server/bend_server.bend:serve_bend_out_context",
+                  server_credentials=dict(native=["ecdsa-p256", "rsa"], bun=["ecdsa-p256"]),
+                  bun_rsa="unsupported for latency reasons; rejected before listen",
                   scope="Exact HTTP example emitted effects/imports/calls/symbols/libraries/loader literals; synthetic keys only")
     args.report.write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(dict(passed=not problems, problems=problems, abort_controls=len(controls))))
