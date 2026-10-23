@@ -245,6 +245,34 @@ Exit: an independently verified HTTP/HTTPS/WSS path whose protocol and crypto
 logic run in Bend on native and Bun. This completes the HTTP migration milestone,
 not the full nineteen-gate RTC/media contract unless the user revises its scope.
 
+### M5 — Public-internet HTTPS client
+
+Added 2026-10-23 at the user's request, after M4. Goal: the Bend TLS client
+verifies and talks to ordinary public HTTPS servers, not only synthetic fixtures.
+This revises the frozen TLS_PROFILE.md; record the new profile version there.
+
+- [ ] Implement SHA-384 and SHA-512 (and HMAC/HKDF over SHA-384) in Bend with
+  published vectors and native/Bun differential tests.
+- [ ] Implement P-384 ECDSA verification (and P-384 key share if measured
+  interop needs it) with point validation and invalid-input cases.
+- [ ] Accept certificate signatures ecdsa-with-SHA384, sha384/sha512WithRSA and
+  RSA-PSS with SHA-384/512 in X.509 chain verification.
+- [ ] Add TLS_AES_256_GCM_SHA384 (AES-256 key schedule and GCM) to client and
+  server, keeping the existing suites and their preference order.
+- [ ] Load trust anchors from a PEM bundle (system bundle or explicit file),
+  raising anchor/candidate limits within the guard's memory budget; keep anchors
+  explicit inputs, never an implicit trust-all.
+- [ ] Interop: a recorded corpus of public chains (Let's Encrypt RSA and ECDSA,
+  plus other major CAs) verified offline on both targets; an opt-in, non-gating
+  live check against a few public hosts. Negative cases: wrong host, expired,
+  untrusted root, unsupported algorithm fails closed.
+- [ ] Still out of scope: OCSP/CRL revocation, Ed25519, post-quantum hybrid key
+  shares, key/certificate generation. Record them as limitations.
+
+Exit: the Bend HTTP client fetches over HTTPS from servers presenting common
+public chains with normal verification on native and Bun, and the root gate passes
+fresh. Live-secret use stays blocked by `crypto/ERASURE.md`.
+
 ## Execution order and continuation
 
 1. Establish M0 acceptance and preserve the current dirty work.
@@ -253,7 +281,9 @@ not the full nineteen-gate RTC/media contract unless the user revises its scope.
 3. Implement M3 as one live client/server TLS path, then integrate M4 HTTPS/WSS.
 4. Complete the active HTTPS goal after M0-M4 evidence is accepted. Report RTC
    as deferred, not complete; existing RTC regressions remain protected.
-5. If the original full-stack goal is retained, complete gathering/IPv6/TURN,
+5. Then M5 (public-internet HTTPS client). Secret-erasure runtime work
+   (`crypto/ERASURE.md`) may proceed in parallel in the Bend project.
+6. If the original full-stack goal is retained, complete gathering/IPv6/TURN,
    DTLS/SCTP data channels, then SRTP/RTP/RTCP/codecs and direct/relay media
    acceptance. Audit all nineteen original gates before full-goal completion.
 
