@@ -71,30 +71,32 @@ J.bool_at, J.f32_at, J.number_at, J.array_at, J.object_at
 
 This is the main win in Bend. Bend can't `match` on a function's result without a helper def, so chaining level A calls takes one small def per step. A path call does the whole lookup in one expression.
 
-## Level E: your own decoders
+## Level E: your own encoders and decoders
 
-No combinators. Write one def per type, built from level B:
+Write one `to_json`/`from_json` pair and one round-trip law per type. `J.both` joins typed path reads in one expression; the first error wins.
 
 ```python
 type User is Data:
   User{name: String, age: U32}
 
-def User.from.go(name: Result<&2, &2, J.Access, String>, age: Result<&2, &2, J.Access, U32>) -> Result<&2, &2, J.Access, User>:
-  match name age:
-    case Done{n} Done{a}:
-      Done{User{n, a}}
-    case Fail{e} _:
-      Fail{e}
-    case _ Fail{e}:
-      Fail{e}
+def User.to_json(u: User) -> J.Json:
+  match u:
+    case User{n, a}:
+      J.JObj{[J.Field{"name", J.JStr{n}}, J.Field{"age", J.num_u32(a)}]}
 
 def User.from_json(+j: J.Json) -> Result<&2, &2, J.Access, User>:
-  User.from.go(J.string_at(j, [J.Name{"name"}]), J.u32_at(j, [J.Name{"age"}]))
+  J.both(String, U32, User, J.string_at(j, [J.Name{"name"}]), J.u32_at(j, [J.Name{"age"}]), n => a => User{n, a})
+
+law user_round_trip:
+  for +u: User
+  {User.from_json(User.to_json(u)) == Done{u} : Result<&2, &2, J.Access, User>}
 ```
 
-The `.go` helper is the price of Bend's match rule. The README would show this pattern as the recommended decoder recipe.
+The example proves this law for every `User`, using the shared leaf-copy and U32 proofs. It also proves `user_text_round_trip`: the existing parsed-result adapter satisfies `user(parse(encode(User.to_json(u)))) == Done{u}`. `num_u32` builds digits through `decimal.of_u32`; it uses no opaque text conversion. The check sweeps 20,000 U32 values against the old text constructor and compares numeric reads with the previous reader.
 
-Done: `J.both(A, B, C, r1, r2, f)` takes a constructor, so a two-field decoder is one expression. Past two fields, nest it or add `both3`.
+The complete proof lives in `examples/user.bend` and is checked by `json:check`. Import `proof/access.bend` for the exact leaf-copy lemmas (`copy_bool_id`, `word_add0`, `copy_text_go`, `copy_int_id`, `copy_num_u32`) and `proof/u32.bend` for `u32_round_trip`. As in the example, import `PROOF.bend` to close the library's public laws. The per-type proof only rewrites the copied fields and applies the U32 law; it does not repeat numeric or text arithmetic.
+
+For more fields, nest `J.both` or use `J.map` on an intermediate result. Keep typed reads in a def so the program's Strings stay cold.
 
 ## Names
 

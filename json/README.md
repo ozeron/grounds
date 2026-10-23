@@ -5,6 +5,7 @@ The `json` package of [grounds](../README.md): a JSON parser and printer for [Be
 Proven for every value `j` (`LAWS.bend`, checked by `bend PROOF.bend`):
 
 - `parse(encode(j)) == Done{j}`
+- `u32(num_u32(x)) == Done{x}` for every U32 `x` (`u32_round_trip`)
 - `reformat(encode(j)) == Ok{encode(j)}`: the one-pass loop `grounds-json` runs reads printed JSON back unchanged
 - `parse(pretty(j, "  ")) == Done{j}`: indented output reads back too (`proof/layout.bend`, for any indent of spaces and tabs)
 
@@ -59,12 +60,26 @@ Paths (level B) read a nested value in one call, and their errors carry the full
 | `J.both(A, B, C, r1, r2, f)` | two reads joined by `f`; the first error wins |
 | `J.map(A, B, r, f)` | `f` on a read's value |
 
-A decoder is one expression (`examples/user.bend`):
+A typed encoder and decoder form a pair (`examples/user.bend`):
 
 ```python
+type User is Data:
+  User{name: String, age: U32}
+
+def User.to_json(u: User) -> J.Json:
+  match u:
+    case User{n, a}:
+      J.JObj{[J.Field{"name", J.JStr{n}}, J.Field{"age", J.num_u32(a)}]}
+
 def User.from_json(+j: J.Json) -> Result<&2, &2, J.Access, User>:
   J.both(String, U32, User, J.string_at(j, [J.Name{"name"}]), J.u32_at(j, [J.Name{"age"}]), n => a => User{n, a})
+
+law user_round_trip:
+  for +u: User
+  {User.from_json(User.to_json(u)) == Done{u} : Result<&2, &2, J.Access, User>}
 ```
+
+The example proves this law for every `User`, using the shared leaf-copy and U32 proofs. It also proves `user_text_round_trip`: the existing parsed-result adapter satisfies `user(parse(encode(User.to_json(u)))) == Done{u}`. `num_u32` builds digits through `decimal.of_u32`; it uses no opaque text conversion. The check sweeps 20,000 U32 values against the old text constructor and compares numeric reads with the previous reader.
 
 Read one document many times only with the typed `_at` reads: `at`, `array_at` and `object_at` return part of it, which shares it. Call reads from a def, not from `main` itself: a read there owns its argument, which heats a type the decoder reads twice.
 
