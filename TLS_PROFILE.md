@@ -1,7 +1,7 @@
 # Bend HTTPS implementation profile
 
-Binding M2 build decision: 2026-10-23. This finite profile governs M3; it is
-not live TLS acceptance. STACK_PLAN.md remains the acceptance contract.
+Binding M2 build decision and M3b composition: 2026-10-23. This finite profile
+governs synthetic-key TLS acceptance. STACK_PLAN.md remains the acceptance contract.
 Only synthetic credentials may be used: see crypto/RUNTIME_REVIEW.md.
 
 ## Standards baseline
@@ -51,7 +51,7 @@ All 16 Verified RFC 8446 entries were checked against this profile:
 | Local credentials | P-256 SEC1/PKCS#8; two-prime RSA PKCS#1/PKCS#8 with rsaEncryption identity. No encrypted PEM, multiprime RSA, compressed points, explicit EC parameters or other curves. RSA n: 2048–4096 bits, p/q: 1024–2048 bits, canonical odd e: 3..2^32−1. Trusted prime generation is a prerequisite, not supplied by import. |
 | Peer certificates | M1 explicit-anchor x509_chain.verify, supported P-256/RSA/PSS-only issuers, SAN-only DNS/IP and caller UTC time. A PSS-only leaf cannot authenticate RSAE CertificateVerify. Existing M1 rejections remain in force. |
 | ALPN | http/1.1 only; never advertise h2/h3. Offered ALPN with no common protocol fails no_application_protocol; absent ALPN permits the HTTP/1.1 default. Reject unsolicited/wrong server selections. |
-| SNI | Client sends one DNS HostName for a DNS identity; server reads it for credential selection. Reject empty/duplicate host_name, NUL and IP literals. Verify DNS/IP identity independently. |
+| SNI | Client sends one DNS HostName for a DNS identity; server validates and exposes it on the accepted connection. The current caller supplies its credential before accept; dynamic selection callbacks are deferred. Reject empty/duplicate host_name, NUL and IP literals. Verify DNS/IP identity independently. |
 
 AES-256/SHA-384, X448, EdDSA and FFDHE are outside the profile. Unknown
 well-formed offers follow context-specific RFC extensibility rules; never
@@ -76,7 +76,7 @@ tests, not permission to advertise client authentication.
 
 “Existing” means a component exists, not a composed socket handshake. Tests
 below apply to native and Bun; exact results are recorded in STACK_PROGRESS.
-M3a supplies the client composition below; server-role and M4 obligations remain open.
+M3a/M3b supply both socket roles below; HTTP integration remains M4.
 
 | Operation | Status / Bend owner | Evidence / remaining obligation |
 |---|---|---|
@@ -97,12 +97,12 @@ M3a supplies the client composition below; server-role and M4 obligations remain
 | Handshake reassembly | Existing: wire/tls_handshake_stream.bend | 939 independent cases/target, fragmented/coalesced RFC flights, 1 MiB bound, consumed errors. |
 | Extension framing | Existing: wire/tls_extensions.bend | 1,756 ordinary + 10 stress cases/target. Context, required fields and body semantics remain M3. |
 | Hello field framing | Existing: wire/tls_hello.bend parse/is_retry | tls_hello_check.py: 2,986 ordinary + seven stress cases/target, now integrated into the native/Bun wire and root manifests. |
-| Hello negotiation/HRR | Client: wire/tls_client.bend; server missing | Both suites/groups/CV schemes offered; initial X25519, fresh P-256 HRR replacement, cookie-only retry, second HRR rejection, required versions/shares and offered-choice checks. |
-| EE/Certificate/CV/Finished codecs/order | Client: wire/tls_handshake_codec.bend + tls_client.bend; server missing | Bounded codecs, context/unsolicited/duplicate extension alerts, main CR empty Certificate, x509_chain.verify then CV/Finished, exact transcript bytes. |
-| Application epochs/KeyUpdate ordering | Client: wire/bend_tls_client.bend + existing traffic/schedule/record owners; server missing | Authentication gates connection delivery; old-key KU before rekey; update_requested response; reserve old-key record before sending cap; enforce epoch record boundaries. |
-| TCP/alerts/close/deadlines/cancellation | Client: wire/bend_tls_client.bend; server and asynchronous cancellation missing | Exact bounded record reads, fragmented/coalesced input, partial writes, fatal cleanup/alerts, warning close_notify, EOF/truncation and absolute monotonic deadlines. |
-| Unsupported post-handshake disposal | Client: wire/tls_handshake_codec.bend + bend_tls_client.bend; server missing | Authenticated NST parsed/discarded; no resumption/0-RTT; unsolicited PHA rejected10. |
-| No-delegation live evidence | Client: bend_tls_no_openssl_check.py + independent interop; server missing | Emitted C/JS effect and import audit, native symbols/libraries/loader literals; each live client runs with invalid BEND_LIBSSL/GROUNDS_TLS_CA paths. Legacy JS TLS registrations isolated from byte TCP. |
+| Hello negotiation/HRR | Client: wire/tls_client.bend; server: tls_server_handshake.bend + bend_tls_server.bend | Both suites/groups/CV schemes; client fresh P-256 replacement/cookie-only retry; server policy preferences, stateful exact-echo random cookie, immutable CH2 checks, message_hash rewrite, one retry. Legacy offers without supported_versions reject70. |
+| EE/Certificate/CV/Finished codecs/order | wire/tls_handshake_codec.bend + tls_client.bend + tls_server_flight.bend | Bounded codecs and exact transcripts; client x509_chain.verify then CV/Finished; server credential.import_pem and context-bound ECDSA/RSA-PSS CV then client Finished verification. No server CR/tickets. |
+| Application epochs/KeyUpdate ordering | wire/bend_tls_client.bend + bend_tls_server.bend + traffic/schedule/record owners | Authentication gates both connection owners; old-key KU before rekey; update_requested response; reserve old-key record before sending cap; enforce epoch record boundaries. |
+| TCP/alerts/close/deadlines/cancellation | Both connection APIs; asynchronous cancellation remains missing | Exact bounded record reads, actual 3-byte TCP writes/coalescing, partial writes, fatal cleanup/alerts, warning close_notify, EOF/truncation, absolute monotonic deadlines and retained-process descriptor checks. |
+| Unsupported post-handshake disposal | wire/tls_handshake_codec.bend + role-aware bend_tls_client.bend receive loop | Client parses/discards authenticated NST; server sends none and rejects client NST10. No resumption/0-RTT/client auth; unsolicited PHA rejected10. |
+| No-delegation live evidence | bend_tls_no_delegation_build.py + bend_tls_no_openssl_check.py + complete interop corpus | Both roles built with legacy TLS and cookie effects replaced by aborts; native/Bun positive controls prove traps. Emitted C/JS effects/imports/calls, native symbols/libraries/loader literals audited. Invalid loader/host-CA paths are additional evidence only. |
 | HTTP/HTTPS/WSS/browser | Missing (M4): explicit Bend adapter | Preserve HTTP/cookie/Origin/auth behavior and normal browser certificate verification. |
 
 ## Client connection behavior built in M3a
@@ -135,6 +135,41 @@ for the public API and dated STACK_PROGRESS.md reports for final gate counts.
 | Connection lifecycle | Main CR empty Certificate, DNS/IP, tickets, fragmented/coalesced records, both KeyUpdate directions, requested response and close_notify. |
 | Rejection behavior | Wrong identity/trust/time; altered CV/Finished/tag; unsupported choices/schemes; malformed/context/duplicate/unsolicited messages; double HRR/order; truncation/EOF/deadline; early application/PHA; invalid KU and KU record boundaries. Matching local and peer-visible alerts where transport/deadline permits writing. |
 | Owner / host boundary | Frontend copy/reuse rejection, cap-reservation/SNI diagnostics, emitted program/import/symbol audit and invalid compatibility-library/host-CA paths. |
+
+## Server connection behavior built in M3b
+
+`wire/bend_tls_server.bend` provides `from_pem`, `accept`, `send`, `recv`,
+`key_update`, `deadline` and `close`. The PEM helper consumes leaf-first
+certificate blocks and an unencrypted private key through M2 credential import.
+The affine config owns this credential, DER intermediates, ordered suite/group
+preferences, ALPN policy and an absolute monotonic deadline. A fresh owner is
+required for each accept. SNI is validated and returned to the caller; the
+credential is supplied before the handshake. Application ownership is delivered
+only after verifying client Finished. No client certificate is requested.
+
+Flow: CH → optional HRR/CH2 → SH → EE → Certificate → server CV → server
+Finished → client Finished. HRR uses message_hash and a connection-local random
+32-byte cookie with exact echo checking. This is stateful, not a stateless MAC.
+CH2 keeps immutable fields/extensions, supplies exactly one requested share and
+removes early_data; permitted padding and PSK age/binder/removal changes are
+checked. PSK/modes/early_data framing is checked but no PSK or early data is
+accepted. The server always authenticates with a certificate and sends no NST.
+Absent ALPN sends no ALPN; an offered list without enabled http/1.1 fails 120.
+CCS is accepted only after CH1 and before client Finished. Both roles retain
+bounded work/record/message/chain limits and never renew deadlines implicitly.
+
+RSA CV rejection-samples fresh full-width blinding candidates against the
+public modulus before its one private signing attempt (maximum 32 draws), then
+draws a fresh 32-byte salt. No reduction bias or private-operation rescue/retry.
+ECDSA retains M2 deterministic signing. Neither changes the live-secret boundary.
+
+| Server evidence | Native and Bun coverage |
+|---|---|
+| Negotiation / retry | 41 encoded CH cases and 16 HRR-invariant cases; eight affine frontend probes. Missing/unsupported version 70, no common suite/group/signature 40, malformed/duplicate framing 50, missing extensions 109, invalid shares/CH2/cookie 47, incompatible ALPN 120. |
+| Independent authentication | OpenSSL3 s_client and Go crypto/tls client: every 2 suites × 2 groups × 2 server CV schemes, explicit synthetic CA/hostname verification and http/1.1. Python ssl: both server credential types with normal CA/hostname verification. HRR observed in both group directions. |
+| Second server peer / self-peer | Go crypto/tls server against M3a client and Bend-to-Bend: all eight combinations each. Go server ChaCha rows disable AES hardware preference using GODEBUG=cpu.all=off; actual suite/group/ALPN are asserted. |
+| Negative / lifecycle | 76 live server scenarios per target, including altered client Finished 51, bad record tag 20, forbidden message/CCS/boundary 10, malformed KU 47, peer alerts, actual 3-byte TCP writes/coalescing, 40,000-byte echo, both KU directions, close, EOF/truncation 50, deadline 80 and repeated failure/deadline descriptor/socket cleanup. Deadline expiry closes without promising an alert write. |
+| No delegation | Both role executables use unchanged Bend/OS byte/RNG sources with legacy TLS/cookie effects removed and replaced by abort/throw stubs. All independent interop runs use these builds; deliberate native/Bun probes hit each trap. Generated C/JS and native symbol/library/loader audit is a permanent phase. |
 
 ## Key lifecycle and runtime boundary
 

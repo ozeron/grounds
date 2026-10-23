@@ -4,6 +4,14 @@ Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and 
 
 The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
 
+- 2026-10-23 (M3b server implemented; root acceptance pending): the affine Bend
+  TLS 1.3 server, independent Go peers and unavailable-host-effect builds pass
+  the final **228/228 wire phases** on Bend 2.0.38, zero skipped/unexecuted.
+  Native and Bun each pass **41+16 negotiation/retry**, **76 server scenarios**
+  (54 negative plus two cleanup scenarios), **24 Go/Bend peers**, and the
+  unchanged **56 M3a client cases** (37 negative). Fresh root acceptance is
+  pending; M3 boxes remain open. Synthetic credentials only.
+
 - 2026-10-23 (M3a client complete for synthetic keys, Bend 2.0.38): the new
   Bend TLS 1.3 client and bounded codecs pass **109/109 wire phases** and a fresh
   **1,994/1,994 root phases**, zero skipped or unexecuted, under unchanged
@@ -71,6 +79,150 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 | `rtc` | Bend STUN parsing, IPv4 XOR-MAPPED-ADDRESS, SHA-1/SHA-256/dual integrity, FINGERPRINT, authenticated incoming/outgoing ICE Binding exchanges, retained-socket retransmissions and explicit error/integrity outcomes. IPv4 candidate/pair priorities, bounded checklist formation, stable transport references and guarded state transitions, role-driven priority reordering, a paced shared-socket transaction engine with response-only interruption, protected incoming replies and server-side role decisions, FIFO triggered queues, ordinary round-robin/foundation scheduling and generation/sent-role attempt ownership. A bounded session now binds signaled credentials, registered receiving/sending bases, observed peer-reflexive candidates, deferred incoming work, retained attempts and endpoint integrity policies. Authenticated non-symmetric responses fail only their original current pair; interrupted old listeners retire independently. The live owner fixture explicitly binds unicast IPv4 bases and queries actual local ports before candidate formation. An additive valid-list owner resolves authenticated mappings, learns locally peer-reflexive candidates from retained signed-request priority, allocates IP-keyed foundations, reranks by role and keeps late paths separate from replacement flights. A nomination-evidence owner associates current successful checks with their valid paths and retains qualified incoming intent through materialization, exact triggered flights and response-only listeners; already-Succeeded counterparts resolve their actual generating record. A generation lifecycle owner now applies regular controlling/controlled nomination, selects completed stream paths, removes nominated component checks while retaining response listeners, continues authenticated Binding service, and defers failure through PAC. An outer transport owner derives selected physical consent routes, serves authenticated consent-only Binding requests, shares actual-send pacing and recent transaction identity admission, gates logical application routes, and preserves sealed consent loss. Full/full credential restart rebuilds ICE state while retaining only selected old consent/server contexts until replacement selection. Bounded SDP/signaling now binds connection-owned credentials and the actual retained UDP base; real Chrome verifies direct selected pairs, fresh consent, restart and cleanup on native and Bun. Separate unauthenticated discovery remains available. | Complete crypto/runtime foundations and secure signaling, then gathering, IPv6/TURN, DTLS/SCTP and SRTP/media. |
 
 ## Evidence ledger
+
+- 2026-10-23 (M3b server implementation and guarded acceptance):
+
+  On `bend-https` from **`41219ae`**, add `tls_server_handshake.bend`,
+  `tls_server_flight.bend` and `bend_tls_server.bend`. The new server composes
+  the existing M3a codecs, transcript, schedule, record and traffic owners and
+  M2 credential/signature helpers over OS byte TCP/RNG only. The shared receive
+  loop gains server-role NST rejection; the client public API is preserved.
+  No HTTP adapter/M4, push/PR or `bounty/` changes. **Synthetic credentials
+  only**: the M2 physical-erasure blocker and synthetic-only timing findings
+  remain; this work cannot authorize live keys.
+
+  API: `from_pem(chain,key,policy,deadline)` imports one leaf-first PEM block
+  per chain entry and the private PEM through `credential.import_pem`;
+  `accept(socket,Config{credential,intermediates,policy,deadline})` returns an
+  affine `Connection{transport,sni}` after verifying client Finished.
+  `send`, `recv`, `key_update`, `deadline`, `close` mirror the client. Failure
+  closes the socket with no successor. SNI is validated/exposed, but credentials
+  are supplied before accept; no dynamic SNI callback. No client certificates
+  or tickets are requested/sent. ALPN selects offered http/1.1 only; absent
+  ALPN sends no selection, incompatible/disabled offered ALPN fails 120.
+
+  HRR prefers the first policy-supported group, uses the message_hash rewrite,
+  a fresh stateful 32-byte exact-echo cookie, one requested share and strict CH2
+  invariants. PSK identities/binders/modes/order are parsed but never selected;
+  valid early_data offers are ignored and the full certificate flight is sent.
+  Actual early application records stay outside the frozen profile and fail;
+  no resumption/0-RTT acceptance is claimed. Both compatibility CCS windows,
+  epoch boundaries, Finished admission, KU directions/responses, close_notify,
+  EOF/truncation and absolute deadlines are enforced. No asynchronous
+  cancellation API. Deadline expiry closes without promising an alert write.
+
+  RSA signing correction found by independent interop: a full-width random
+  blinding candidate can exceed n. The flight now rejection-samples against
+  the public modulus before its single private signing attempt, with fresh
+  full-width draws and a 32-attempt cap; no modular reduction bias. A signing,
+  inverse or fault-check failure still consumes the owner and aborts. ECDSA
+  retains M2 RFC6979 signing. Failed initial reports are retained below.
+
+  Permanent wire acceptance appends **119 nonoptional phases**, preserving all
+  existing 109 declarations/cases in order: **228 wire phases** total. Builds,
+  controls, audits, negotiation and at most two live cases per phase keep the
+  unchanged **4096 MiB aggregate/process and 120-second phase limits**. No cap,
+  timeout, assertion or corpus was weakened. Go 1.26.9 is an independent peer
+  built in temporary storage; no Go TLS code enters the Grounds implementation.
+
+  Commands and evidence (all under
+  `~/.codex/artifacts/grounds/2026-10-23/m3b/`):
+
+  ```sh
+  PYTHONDONTWRITEBYTECODE=1 python3 ~/.codex/artifacts/grounds/2026-10-23/m3b/run.py wire-02
+  PYTHONDONTWRITEBYTECODE=1 python3 ~/.codex/artifacts/grounds/2026-10-23/m3b/run.py wire-03
+  ```
+
+  `run.py` records the exact command/environment and pre-run HEAD/branch/status
+  plus per-file hashes (excluding `bounty/`), then invokes:
+
+  ```sh
+  python3 tools/build_guard.py --memory-mib 4096 --process-memory-mib 4096 \
+    --timeout 120 --report "$A/wire-N.json" --phases wire/check_phases.json \
+    -- nice -n 10 moon --concurrency 1 run wire:check --force
+  ```
+
+  Here `$A` is the dated artifact directory and `wire-N` names the actual run.
+  Wire02 passes **228/228**, zero skipped/unexecuted, 410.586s, peak 2766.2 MiB.
+  Its native/Bun per-target corpus: 40 CH + 16 retry, 75 live server (53 negative
+  scenarios plus two retained-process cleanup scenarios), 24 Go/Bend peers, and
+  the unchanged 56 M3a client cases (37 negative). Eighteen repeated cleanup
+  failures per target compare descriptor/TCP counts with the retained listener
+  baseline and rebind the listener afterward. Final wire/root results follow
+  after completion; wire02's start binding predates the later audit selfcheck
+  tightening and extensionless legacy test addition.
+
+  **Final wire03: 228/228 passed**, zero skipped/unexecuted, 404.763s,
+  peak 2804.9 MiB. `wire-03.json`, `.log`, `-command.json`, `-binding.json`,
+  `wire-03-summary.json` and `wire-03-cases/` retain complete evidence.
+  Each target passes 41 CH +16 retry, 76 server (54 negative plus two cleanup),
+  24 Go/Bend and 56 unchanged client cases (37 negative): **156 live scenarios
+  per target**, including 91 ordinary negative scenarios and 18 repeated cleanup
+  attempts. Eight server affine probes pass. The extra extensionless TLS1.2
+  case omits even the extension-vector length, independently confirming 70.
+  Root acceptance remains pending at this implementation checkpoint.
+
+  Full algorithm matrix, **each row on native and Bun**:
+
+  | Peer and Bend role | Suites | Groups | Server CertificateVerify | Cases/target |
+  |---|---|---|---|---|
+  | OpenSSL3 s_server → Bend client | AES128-GCM, ChaCha20-Poly1305 / SHA256 | X25519, P-256 | P-256 ECDSA, RSAE-PSS / SHA256 | 8 |
+  | OpenSSL3 s_client → Bend server | Both | Both | Both | 8 |
+  | Go crypto/tls server → Bend client | Both | Both | Both | 8 |
+  | Go crypto/tls client → Bend server | Both | Both | Both | 8 |
+  | Bend client ↔ Bend server | Both | Both | Both | 8 |
+  | Python ssl client → Bend server | Negotiated AES128-GCM/SHA256 | Server X25519 policy | Both | 2 |
+
+  Independent clients use ordinary synthetic-CA and localhost verification,
+  with http/1.1 ALPN. Go's CipherSuites cannot force TLS1.3; Go-server ChaCha
+  rows use `GODEBUG=cpu.all=off` to change its standard hardware preference and
+  assert the actual suite/group/ALPN on both peers. OpenSSL server matrix has
+  P-256 HRR; new server cases separately observe exactly one HRR/two CH in
+  both directions. Python coverage is two credential cases, not a full product.
+  Curl/HTTP bonus was not added; M4 remains untouched.
+
+  Server rejections assert peer-visible alerts: no common suite/group/signature 40;
+  legacy/missing/old supported version 70; malformed/duplicate/vector/SNI/PSK 50;
+  missing required extensions 109; invalid P-256/X25519 shares, duplicate/unoffered
+  shares, retry changes/cookie and malformed KU 47; unsupported ALPN 120; altered
+  client Finished 51; modified encrypted record 20; CCS/message/epoch-boundary,
+  client NST/PHA 10. EOF/truncation 50 is peer-visible after write half-close;
+  deadline 80 is local because the same expired deadline precludes alert writes.
+  Lifecycle also covers actual 3-byte writes in both directions, coalescing,
+  40,000-byte echo, both KU directions/requested responses and close_notify.
+  A separate raw no-PSK schedule oracle proves a valid PSK+early_data offer is
+  not selected/accepted and reaches full certificate/Finished/application/close;
+  it does not claim certificate verification (the normal peers do that).
+
+  No-delegation proof: `bend_tls_no_delegation_build.py` copies a disposable
+  source overlay with identical Bend/OS byte/RNG inputs, removes legacy OpenSSL
+  TLS/cookie implementations and supplies abort/throw stubs. Both client/server
+  live suites execute these exact builds. Native deliberate TLS/cookie calls
+  terminate 86; Bun calls terminate 1 with `GROUNDS_FORBIDDEN_HOST_EFFECT` markers.
+  `bend_tls_no_openssl_check.py` audits emitted C/JS effect IDs/registrations,
+  host calls/imports, native undefined symbols/libraries and loader literals,
+  including qualified cookie IDs. Invalid loader/host-CA paths remain additional
+  evidence; loader fallback means poisoning those variables alone is insufficient.
+  Permanent reports: `*-cases/{client,server}-disabled-{c,js}-build.json`,
+  `no-openssl.json`, `server-no-openssl.json`, and both `*-probe-controls.json`.
+  Emitted role C/JS and native executables are retained with hashes.
+
+  Failure history remains inspectable: `red-server.*` records the missing-server
+  baseline; initial native/Bun compiler diagnostics retain each affine/pattern
+  correction. `initial-server-cases.*` found RSA candidate rejection;
+  `new-server-full-bun.*` retained a false proxy failure while the server correctly
+  emitted 10: the injector reparsed its appended KU and advanced its own epoch.
+  It now scans only the original plaintext span. The server-requested KU smoke
+  harness now waits for the request before sending data. `wire-01.*` stopped
+  after 115 passed phases at the cookie-probe build (`CID(verify)` lacked its real
+  declaration); the probe now imports `cookie_sign.bend`, and both controls pass.
+  No failed/partial run is counted as complete acceptance.
+
+  References used: normative RFC9846 and Verified erratum 9040, existing RFC8448
+  fixtures, and Go `handshake_server_tls13.go` for HRR invariants and certificate/
+  Finished/epoch ordering. Exact source snapshots, URLs, SHA256 and uses are in
+  `sources/references.json`. Go/OpenSSL/Python are peers or design references,
+  never linked/called as Grounds protocol/crypto implementations.
 
 - 2026-10-23 (M3a client implementation and guarded acceptance):
 

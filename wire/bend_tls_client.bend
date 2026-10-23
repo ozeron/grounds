@@ -533,10 +533,15 @@ def peer_update_aligned(boundary: Boundary, suite: U32, group: U32, alpn: Bool, 
       rekey_read_pair(socket,write,deadline,suite,group,alpn,request,[],T.rekey_read(read))
     case Boundary{pipe,_} _: recv_failed(pipe,Error{10,"update-record-boundary",True{}})
 
-def post_message(pipe: Pipe, suite: U32, group: U32, alpn: Bool, value: Result<&2,&2,U32,C.Message>, rest: List<&2,List<&2,U32>>) -> IO(ReceiveWork):
+def post_ticket(server: Bool, pipe: Pipe, suite: U32, group: U32, alpn: Bool, rest: List<&2,List<&2,U32>>) -> IO(ReceiveWork):
+  match server:
+    case False{}: IO.pure(ReceiveWork,Post{pipe,suite,group,alpn,rest})
+    case True{}: recv_failed(pipe,Error{10,"client-sent-session-ticket",True{}})
+
+def post_message(server: Bool, pipe: Pipe, suite: U32, group: U32, alpn: Bool, value: Result<&2,&2,U32,C.Message>, rest: List<&2,List<&2,U32>>) -> IO(ReceiveWork):
   match value:
     case Fail{code}: recv_failed(pipe,Error{code,"post-handshake-codec",True{}})
-    case Done{C.NewSessionTicket{}}: IO.pure(ReceiveWork,Post{pipe,suite,group,alpn,rest})
+    case Done{C.NewSessionTicket{}}: post_ticket(server,pipe,suite,group,alpn,rest)
     case Done{C.KeyUpdate{request}}: peer_update_aligned(aligned(pipe),suite,group,alpn,request,rest)
     case _: recv_failed(pipe,Error{10,"post-handshake-message",True{}})
 
@@ -549,10 +554,10 @@ def receive_post(pipe: Pipe, suite: U32, group: U32, alpn: Bool) -> IO(ReceiveWo
   match pipe:
     case Pipe{socket,read,write,decoder,deadline}: receive_post_decoder(socket,read,write,deadline,suite,group,alpn,decoder)
 
-def post_messages(pipe: Pipe, suite: U32, group: U32, alpn: Bool, values: List<&2,List<&2,U32>>) -> IO(ReceiveWork):
+def post_messages(server: Bool, pipe: Pipe, suite: U32, group: U32, alpn: Bool, values: List<&2,List<&2,U32>>) -> IO(ReceiveWork):
   match values:
     case Nil{}: receive_post(pipe,suite,group,alpn)
-    case Con{message,rest}: post_message(pipe,suite,group,alpn,C.parse(message),rest)
+    case Con{message,rest}: post_message(server,pipe,suite,group,alpn,C.parse(message),rest)
 
 def post_batch(socket: Socket, read: Maybe<&1,T.ReadKey>, write: Maybe<&1,T.WriteKey>, deadline: Nat, suite: U32, group: U32, alpn: Bool, value: Result<&2,&1,HS.Error,HS.Batch>) -> IO(ReceiveWork):
   match value:
@@ -611,15 +616,19 @@ def receive_budget(work: ReceiveWork) -> IO(Result<&2,&1,Error,Received>):
         abort(pipe,Error{80,"receive-budget",True{}})
         IO.pure(Result<&2,&1,Error,Received>,Fail{Error{80,"receive-budget",True{}}})
 
-def receive_loop(fuel: Nat, work: ReceiveWork) -> IO(Result<&2,&1,Error,Received>):
+def receive_loop(fuel: Nat, +server: Bool, work: ReceiveWork) -> IO(Result<&2,&1,Error,Received>):
   match fuel work:
     case _ ReceivedResult{result}: IO.pure(Result<&2,&1,Error,Received>,result)
     case 0n work: receive_budget(work)
-    case 1n+p ReadMore{connection}: IO.bind(ReceiveWork,Result<&2,&1,Error,Received>,receive_work(connection),next => receive_loop(p,next))
-    case 1n+p Post{pipe,suite,group,alpn,values}: IO.bind(ReceiveWork,Result<&2,&1,Error,Received>,post_messages(pipe,suite,group,alpn,values),next => receive_loop(p,next))
+    case 1n+p ReadMore{connection}: IO.bind(ReceiveWork,Result<&2,&1,Error,Received>,receive_work(connection),next => receive_loop(p,server,next))
+    case 1n+p Post{pipe,suite,group,alpn,values}: IO.bind(ReceiveWork,Result<&2,&1,Error,Received>,post_messages(server,pipe,suite,group,alpn,values),next => receive_loop(p,server,next))
 
 def recv(connection: Connection) -> IO(Result<&2,&1,Error,Received>):
-  receive_loop(1048576n,ReadMore{connection})
+  receive_loop(1048576n,False{},ReadMore{connection})
+
+# Shared record lifecycle with server-role post-handshake admission.
+def recv_server(connection: Connection) -> IO(Result<&2,&1,Error,Received>):
+  receive_loop(1048576n,True{},ReadMore{connection})
 
 def close(connection: Connection) -> IO(Unit):
   match connection:
