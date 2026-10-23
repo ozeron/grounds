@@ -1,4 +1,5 @@
 import Base
+import ../../decimal/proof/nat.bend as M
 import ../resp.bend as R
 import ../../utf8/utf8.bend as U
 import ./nat.bend as N
@@ -98,6 +99,6 @@ def le_split(k, n, e):
     case 0n 1n+m:
       {==}
     case 1n+j 0n:
-      N.absurd({0n == Nat.add(1n+j, Nat.sub(0n, 1n+j)) : Nat}, e)
+      M.absurd({0n == Nat.add(1n+j, Nat.sub(0n, 1n+j)) : Nat}, e)
     case 1n+j 1n+m:
       Equal.cong(Nat, Nat, y => 1n+y, m, Nat.add(j, Nat.sub(m, j)), le_split(j, m, e))

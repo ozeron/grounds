@@ -1,4 +1,5 @@
 import Base
+import ../../decimal/decimal.bend as D
 import ../resp.bend as R
 import ./nat.bend as N
 import ./line.bend as L
@@ -13,14 +14,14 @@ law arg_read:
   for +stack: List<&2, R.Frame>
   for +max: Nat
   for +f: Nat
-  for +ef: {Nat.is_le(N.dlen(R.count(a, R.DNil{})), 10n) == True{} : Bool}
+  for +ef: {Nat.is_le(N.dlen(R.count(a, D.DNil{})), 10n) == True{} : Bool}
   for +em: {Nat.is_le(N.blen(a), max) == True{} : Bool}
   {R.parse.go(1n+1n+f, max, R.MItem{R.enc.arg(a, y), stack}) == R.parse.go(f, max, R.MValue{R.Bulk{R.buf.list(a)}, y, stack}) : R.Parsed}
 
 def arg_read(a, y, stack, max, f, ef, em):
-  %Equal.sym(R.Line, R.line.go(R.render0(R.count(a, R.DNil{}), R.crlf(R.cat(a, R.crlf(y)))), R.BNil{}), R.LOk{R.render0(R.count(a, R.DNil{}), R.BNil{}), R.cat(a, R.crlf(y))}, L.length_line(R.count(a, R.DNil{}), R.cat(a, R.crlf(y)))) : {R.item.line(36, _, stack, max, n => R.parse.go(1n+f, max, n)) == R.parse.go(f, max, R.MValue{R.Bulk{R.buf.list(a)}, y, stack}) : R.Parsed}
-  %Equal.sym(R.Num, R.num(R.render0(R.count(a, R.DNil{}), R.BNil{})), R.NOk{False{}, N.hor(0n, R.count(a, R.DNil{}))}, L.num_count(R.count(a, R.DNil{}), ef)) : {R.bulk.head(R.BBulk{}, _, R.cat(a, R.crlf(y)), stack, max, n => R.parse.go(1n+f, max, n)) == R.parse.go(f, max, R.MValue{R.Bulk{R.buf.list(a)}, y, stack}) : R.Parsed}
-  %Equal.sym(Nat, N.hor(0n, R.count(a, R.DNil{})), N.blen(a), N.arg_len(a)) : {R.bulk.fits(Nat.is_le(_, max), R.BBulk{}, _, R.cat(a, R.crlf(y)), stack, n => R.parse.go(1n+f, max, n)) == R.parse.go(f, max, R.MValue{R.Bulk{R.buf.list(a)}, y, stack}) : R.Parsed}
+  %Equal.sym(R.Line, R.line.go(R.render0(R.count(a, D.DNil{}), R.crlf(R.cat(a, R.crlf(y)))), R.BNil{}), R.LOk{R.render0(R.count(a, D.DNil{}), R.BNil{}), R.cat(a, R.crlf(y))}, L.length_line(R.count(a, D.DNil{}), R.cat(a, R.crlf(y)))) : {R.item.line(36, _, stack, max, n => R.parse.go(1n+f, max, n)) == R.parse.go(f, max, R.MValue{R.Bulk{R.buf.list(a)}, y, stack}) : R.Parsed}
+  %Equal.sym(R.Num, R.num(R.render0(R.count(a, D.DNil{}), R.BNil{})), R.NOk{False{}, N.hor(0n, R.count(a, D.DNil{}))}, L.num_count(R.count(a, D.DNil{}), ef)) : {R.bulk.head(R.BBulk{}, _, R.cat(a, R.crlf(y)), stack, max, n => R.parse.go(1n+f, max, n)) == R.parse.go(f, max, R.MValue{R.Bulk{R.buf.list(a)}, y, stack}) : R.Parsed}
+  %Equal.sym(Nat, N.hor(0n, R.count(a, D.DNil{})), N.blen(a), N.arg_len(a)) : {R.bulk.fits(Nat.is_le(_, max), R.BBulk{}, _, R.cat(a, R.crlf(y)), stack, n => R.parse.go(1n+f, max, n)) == R.parse.go(f, max, R.MValue{R.Bulk{R.buf.list(a)}, y, stack}) : R.Parsed}
   %Equal.sym(Bool, Nat.is_le(N.blen(a), max), True{}, em) : {R.bulk.fits(_, R.BBulk{}, N.blen(a), R.cat(a, R.crlf(y)), stack, n => R.parse.go(1n+f, max, n)) == R.parse.go(f, max, R.MValue{R.Bulk{R.buf.list(a)}, y, stack}) : R.Parsed}
   %Equal.sym(R.Took, R.take(N.blen(a), R.cat(a, R.crlf(y)), R.BNil{}), R.Took{a, R.crlf(y)}, L.take_arg(a, R.crlf(y))) : {R.bulk.took(R.BBulk{}, N.blen(a), _, stack, n => R.parse.go(f, max, n)) == R.parse.go(f, max, R.MValue{R.Bulk{R.buf.list(a)}, y, stack}) : R.Parsed}
   {==}
@@ -60,8 +61,8 @@ def args_read(t, a, acc, up, tail, max, g, e):
         R.parse.go(1n+Nat.add(0n, g), max, R.MValue{R.Bulk{R.buf.list(a)}, tail, Con{R.Frame{R.KArr{}, 1n+0n, acc}, up}}),
         R.parse.go(g, max, R.MValue{Arrd(acc, R.ACon{a, R.ANil{}}), tail, up}),
         arg_read(a, tail, Con{R.Frame{R.KArr{}, 1n+0n, acc}, up}, max, 1n+Nat.add(0n, g),
-          N.and_l(Nat.is_le(N.dlen(R.count(a, R.DNil{})), 10n), Nat.is_le(N.blen(a), max), N.and_l(S.fit(a, max), True{}, e)),
-          N.and_r(Nat.is_le(N.dlen(R.count(a, R.DNil{})), 10n), Nat.is_le(N.blen(a), max), N.and_l(S.fit(a, max), True{}, e))),
+          N.and_l(Nat.is_le(N.dlen(R.count(a, D.DNil{})), 10n), Nat.is_le(N.blen(a), max), N.and_l(S.fit(a, max), True{}, e)),
+          N.and_r(Nat.is_le(N.dlen(R.count(a, D.DNil{})), 10n), Nat.is_le(N.blen(a), max), N.and_l(S.fit(a, max), True{}, e))),
         {==})
     case R.ACon{b, u}:
       Equal.trans(R.Parsed,
@@ -69,8 +70,8 @@ def args_read(t, a, acc, up, tail, max, g, e):
         R.parse.go(1n+Nat.add(S.steps(R.ACon{b, u}), g), max, R.MValue{R.Bulk{R.buf.list(a)}, R.enc.args(R.ACon{b, u}, tail), Con{R.Frame{R.KArr{}, 1n+N.alen(R.ACon{b, u}), acc}, up}}),
         R.parse.go(g, max, R.MValue{Arrd(acc, R.ACon{a, R.ACon{b, u}}), tail, up}),
         arg_read(a, R.enc.args(R.ACon{b, u}, tail), Con{R.Frame{R.KArr{}, 1n+N.alen(R.ACon{b, u}), acc}, up}, max, 1n+Nat.add(S.steps(R.ACon{b, u}), g),
-          N.and_l(Nat.is_le(N.dlen(R.count(a, R.DNil{})), 10n), Nat.is_le(N.blen(a), max), N.and_l(S.fit(a, max), S.fits(R.ACon{b, u}, max), e)),
-          N.and_r(Nat.is_le(N.dlen(R.count(a, R.DNil{})), 10n), Nat.is_le(N.blen(a), max), N.and_l(S.fit(a, max), S.fits(R.ACon{b, u}, max), e))),
+          N.and_l(Nat.is_le(N.dlen(R.count(a, D.DNil{})), 10n), Nat.is_le(N.blen(a), max), N.and_l(S.fit(a, max), S.fits(R.ACon{b, u}, max), e)),
+          N.and_r(Nat.is_le(N.dlen(R.count(a, D.DNil{})), 10n), Nat.is_le(N.blen(a), max), N.and_l(S.fit(a, max), S.fits(R.ACon{b, u}, max), e))),
         args_read(u, b, Con{R.Bulk{R.buf.list(a)}, acc}, up, tail, max, g, N.and_r(S.fit(a, max), S.fits(R.ACon{b, u}, max), e)))
 
 # after the header: the array, empty or not

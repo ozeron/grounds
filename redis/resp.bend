@@ -1,4 +1,5 @@
 import Base
+import ../decimal/decimal.bend as D
 import ../utf8/utf8.bend as U
 
 # RESP, the Redis protocol (docs/resp.md): a command is an array of bulk
@@ -126,93 +127,51 @@ def counted(xs: List<&2, U32>) -> Counted:
 # Lengths, in decimal
 # -------------------
 
-type Dig is Data:
-  D0{}
-  D1{}
-  D2{}
-  D3{}
-  D4{}
-  D5{}
-  D6{}
-  D7{}
-  D8{}
-  D9{}
-
-# a count in decimal, least significant digit first; DNil is 0
-type Dec is Data:
-  DNil{}
-  DCon{d: Dig, t: Dec}
-
-def inc(d: Dec) -> Dec:
-  match d:
-    case DNil{}:
-      DCon{D1{}, DNil{}}
-    case DCon{D0{}, t}:
-      DCon{D1{}, t}
-    case DCon{D1{}, t}:
-      DCon{D2{}, t}
-    case DCon{D2{}, t}:
-      DCon{D3{}, t}
-    case DCon{D3{}, t}:
-      DCon{D4{}, t}
-    case DCon{D4{}, t}:
-      DCon{D5{}, t}
-    case DCon{D5{}, t}:
-      DCon{D6{}, t}
-    case DCon{D6{}, t}:
-      DCon{D7{}, t}
-    case DCon{D7{}, t}:
-      DCon{D8{}, t}
-    case DCon{D8{}, t}:
-      DCon{D9{}, t}
-    case DCon{D9{}, t}:
-      DCon{D0{}, inc(t)}
-
-def dig.byte(x: Dig) -> U32:
+def dig.byte(x: D.Dig) -> U32:
   match x:
-    case D0{}:
+    case D.D0{}:
       48
-    case D1{}:
+    case D.D1{}:
       49
-    case D2{}:
+    case D.D2{}:
       50
-    case D3{}:
+    case D.D3{}:
       51
-    case D4{}:
+    case D.D4{}:
       52
-    case D5{}:
+    case D.D5{}:
       53
-    case D6{}:
+    case D.D6{}:
       54
-    case D7{}:
+    case D.D7{}:
       55
-    case D8{}:
+    case D.D8{}:
       56
-    case D9{}:
+    case D.D9{}:
       57
 
 # the digits, most significant first, before tail
-def render(d: Dec, tail: Buf) -> Buf:
+def render(d: D.Dec, tail: Buf) -> Buf:
   match d:
-    case DNil{}:
+    case D.DNil{}:
       tail
-    case DCon{x, t}:
+    case D.DCon{x, t}:
       render(t, BCon{dig.byte(x), tail})
 
-def render0(d: Dec, tail: Buf) -> Buf:
+def render0(d: D.Dec, tail: Buf) -> Buf:
   match d:
-    case DNil{}:
+    case D.DNil{}:
       BCon{48, tail}
-    case DCon{x, t}:
+    case D.DCon{x, t}:
       render(t, BCon{dig.byte(x), tail})
 
 # the number of bytes, plus d
-def count(bs: Buf, d: Dec) -> Dec:
+def count(bs: Buf, d: D.Dec) -> D.Dec:
   match bs:
     case BNil{}:
       d
     case BCon{_, t}:
-      count(t, inc(d))
+      count(t, D.inc(d))
 
 # Commands
 # --------
@@ -223,19 +182,19 @@ type Args is Data:
   ANil{}
   ACon{head: Buf, tail: Args}
 
-def nargs(xs: Args, d: Dec) -> Dec:
+def nargs(xs: Args, d: D.Dec) -> D.Dec:
   match xs:
     case ANil{}:
       d
     case ACon{_, t}:
-      nargs(t, inc(d))
+      nargs(t, D.inc(d))
 
 def crlf(tail: Buf) -> Buf:
   BCon{13, BCon{10, tail}}
 
 # $len CR LF, the bytes, CR LF
 def enc.arg(+a: Buf, tail: Buf) -> Buf:
-  BCon{36, render0(count(a, DNil{}), crlf(cat(a, crlf(tail))))}
+  BCon{36, render0(count(a, D.DNil{}), crlf(cat(a, crlf(tail))))}
 
 def enc.args(xs: Args, tail: Buf) -> Buf:
   match xs:
@@ -246,7 +205,7 @@ def enc.args(xs: Args, tail: Buf) -> Buf:
 
 # a command before tail: *N CR LF, then each argument as a bulk string
 def encode.buf(+xs: Args, tail: Buf) -> Buf:
-  BCon{42, render0(nargs(xs, DNil{}), crlf(enc.args(xs, tail)))}
+  BCon{42, render0(nargs(xs, D.DNil{}), crlf(enc.args(xs, tail)))}
 
 def args.text(xs: List<&2, String>) -> Args:
   match xs:

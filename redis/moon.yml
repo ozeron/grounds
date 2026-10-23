@@ -1,6 +1,7 @@
 # grounds-redis: a Redis client (RESP2)
 language: "bend"
 dependsOn:
+  - "decimal"
   - "utf8"
   - "wire"
 
@@ -10,4 +11,7 @@ tasks:
     inputs:
       - "/json/scripts/cold.py"
       - "*.bend"
+      - "proof/*.bend"
+      - "/decimal/*.bend"
+      - "/decimal/proof/*.bend"
       - "examples/*.bend"

@@ -1,4 +1,5 @@
 import Base
+import ../../decimal/decimal.bend as D
 import ../resp.bend as R
 import ./nat.bend as N
 
@@ -6,7 +7,7 @@ import ./nat.bend as N
 
 # an argument's length fits: at most ten digits, and at most max bytes
 def fit(+a: R.Buf, +max: Nat) -> Bool:
-  Bool.and(Nat.is_le(N.dlen(R.count(a, R.DNil{})), 10n), Nat.is_le(N.blen(a), max))
+  Bool.and(Nat.is_le(N.dlen(R.count(a, D.DNil{})), 10n), Nat.is_le(N.blen(a), max))
 
 def fits(xs: R.Args, +max: Nat) -> Bool:
   match xs:
@@ -17,7 +18,7 @@ def fits(xs: R.Args, +max: Nat) -> Bool:
 
 # the count fits too
 def cfits(+xs: R.Args, +max: Nat) -> Bool:
-  Bool.and(Bool.and(Nat.is_le(N.dlen(R.nargs(xs, R.DNil{})), 10n), Nat.is_le(N.alen(xs), max)), fits(xs, max))
+  Bool.and(Bool.and(Nat.is_le(N.dlen(R.nargs(xs, D.DNil{})), 10n), Nat.is_le(N.alen(xs), max)), fits(xs, max))
 
 # the parser's steps for the arguments: three each
 def steps(xs: R.Args) -> Nat:

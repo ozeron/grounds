@@ -1,4 +1,6 @@
 import Base
+import ../decimal/proof/nat.bend as M
+import ../decimal/decimal.bend as D
 import ./LAWS.bend as Laws
 import ./resp.bend as R
 import ./proof/nat.bend as N
@@ -9,17 +11,17 @@ import ./proof/bridge.bend as B
 import ../utf8/utf8.bend as U
 
 def Laws.command_reads_back(xs, tail, max, f, e):
-  %Equal.sym(R.Line, R.line.go(R.render0(R.nargs(xs, R.DNil{}), R.crlf(R.enc.args(xs, tail))), R.BNil{}), R.LOk{R.render0(R.nargs(xs, R.DNil{}), R.BNil{}), R.enc.args(xs, tail)}, L.length_line(R.nargs(xs, R.DNil{}), R.enc.args(xs, tail))) : {R.item.line(42, _, [], max, n => R.parse.go(Nat.add(S.steps(xs), 1n+f), max, n)) == R.Parsed{R.Arr{S.bulks(xs)}, tail} : R.Parsed}
-  %Equal.sym(R.Num, R.num(R.render0(R.nargs(xs, R.DNil{}), R.BNil{})), R.NOk{False{}, N.hor(0n, R.nargs(xs, R.DNil{}))}, L.num_count(R.nargs(xs, R.DNil{}), N.and_l(Nat.is_le(N.dlen(R.nargs(xs, R.DNil{})), 10n), Nat.is_le(N.alen(xs), max), N.and_l(Bool.and(Nat.is_le(N.dlen(R.nargs(xs, R.DNil{})), 10n), Nat.is_le(N.alen(xs), max)), S.fits(xs, max), e)))) : {R.agg.head(R.KArr{}, False{}, _, R.enc.args(xs, tail), [], max, n => R.parse.go(Nat.add(S.steps(xs), 1n+f), max, n)) == R.Parsed{R.Arr{S.bulks(xs)}, tail} : R.Parsed}
-  %Equal.sym(Nat, N.hor(0n, R.nargs(xs, R.DNil{})), N.alen(xs), N.count_args(xs)) : {R.agg.head(R.KArr{}, False{}, R.NOk{False{}, _}, R.enc.args(xs, tail), [], max, n => R.parse.go(Nat.add(S.steps(xs), 1n+f), max, n)) == R.Parsed{R.Arr{S.bulks(xs)}, tail} : R.Parsed}
+  %Equal.sym(R.Line, R.line.go(R.render0(R.nargs(xs, D.DNil{}), R.crlf(R.enc.args(xs, tail))), R.BNil{}), R.LOk{R.render0(R.nargs(xs, D.DNil{}), R.BNil{}), R.enc.args(xs, tail)}, L.length_line(R.nargs(xs, D.DNil{}), R.enc.args(xs, tail))) : {R.item.line(42, _, [], max, n => R.parse.go(Nat.add(S.steps(xs), 1n+f), max, n)) == R.Parsed{R.Arr{S.bulks(xs)}, tail} : R.Parsed}
+  %Equal.sym(R.Num, R.num(R.render0(R.nargs(xs, D.DNil{}), R.BNil{})), R.NOk{False{}, N.hor(0n, R.nargs(xs, D.DNil{}))}, L.num_count(R.nargs(xs, D.DNil{}), N.and_l(Nat.is_le(N.dlen(R.nargs(xs, D.DNil{})), 10n), Nat.is_le(N.alen(xs), max), N.and_l(Bool.and(Nat.is_le(N.dlen(R.nargs(xs, D.DNil{})), 10n), Nat.is_le(N.alen(xs), max)), S.fits(xs, max), e)))) : {R.agg.head(R.KArr{}, False{}, _, R.enc.args(xs, tail), [], max, n => R.parse.go(Nat.add(S.steps(xs), 1n+f), max, n)) == R.Parsed{R.Arr{S.bulks(xs)}, tail} : R.Parsed}
+  %Equal.sym(Nat, N.hor(0n, R.nargs(xs, D.DNil{})), N.alen(xs), N.count_args(xs)) : {R.agg.head(R.KArr{}, False{}, R.NOk{False{}, _}, R.enc.args(xs, tail), [], max, n => R.parse.go(Nat.add(S.steps(xs), 1n+f), max, n)) == R.Parsed{R.Arr{S.bulks(xs)}, tail} : R.Parsed}
   C.head_read(xs, tail, max, f,
-    N.and_r(Nat.is_le(N.dlen(R.nargs(xs, R.DNil{})), 10n), Nat.is_le(N.alen(xs), max), N.and_l(Bool.and(Nat.is_le(N.dlen(R.nargs(xs, R.DNil{})), 10n), Nat.is_le(N.alen(xs), max)), S.fits(xs, max), e)),
-    N.and_r(Bool.and(Nat.is_le(N.dlen(R.nargs(xs, R.DNil{})), 10n), Nat.is_le(N.alen(xs), max)), S.fits(xs, max), e))
+    N.and_r(Nat.is_le(N.dlen(R.nargs(xs, D.DNil{})), 10n), Nat.is_le(N.alen(xs), max), N.and_l(Bool.and(Nat.is_le(N.dlen(R.nargs(xs, D.DNil{})), 10n), Nat.is_le(N.alen(xs), max)), S.fits(xs, max), e)),
+    N.and_r(Bool.and(Nat.is_le(N.dlen(R.nargs(xs, D.DNil{})), 10n), Nat.is_le(N.alen(xs), max)), S.fits(xs, max), e))
 
 def Laws.bulk_framed(a, tail, max, f, e):
   C.arg_read(a, tail, [], max, 1n+f,
-    N.and_l(Nat.is_le(N.dlen(R.count(a, R.DNil{})), 10n), Nat.is_le(N.blen(a), max), e),
-    N.and_r(Nat.is_le(N.dlen(R.count(a, R.DNil{})), 10n), Nat.is_le(N.blen(a), max), e))
+    N.and_l(Nat.is_le(N.dlen(R.count(a, D.DNil{})), 10n), Nat.is_le(N.blen(a), max), e),
+    N.and_r(Nat.is_le(N.dlen(R.count(a, D.DNil{})), 10n), Nat.is_le(N.blen(a), max), e))
 
 # take, short of bytes, reads them all and says how many are missing
 law take_short:
@@ -32,19 +34,19 @@ law take_short:
 def take_short(p, n, acc, e):
   match p n:
     case R.BNil{} 0n:
-      N.absurd({R.take(0n, R.BNil{}, acc) == R.Short{R.buf.rev(R.BNil{}, acc), Nat.sub(0n, 0n)} : R.Took}, e)
+      M.absurd({R.take(0n, R.BNil{}, acc) == R.Short{R.buf.rev(R.BNil{}, acc), Nat.sub(0n, 0n)} : R.Took}, e)
     case R.BNil{} 1n+m:
       {==}
     case R.BCon{b, t} 0n:
-      N.absurd({R.take(0n, R.BCon{b, t}, acc) == R.Short{R.buf.rev(R.BCon{b, t}, acc), Nat.sub(0n, N.blen(R.BCon{b, t}))} : R.Took}, e)
+      M.absurd({R.take(0n, R.BCon{b, t}, acc) == R.Short{R.buf.rev(R.BCon{b, t}, acc), Nat.sub(0n, N.blen(R.BCon{b, t}))} : R.Took}, e)
     case R.BCon{b, t} 1n+m:
       take_short(t, m, R.BCon{b, acc}, e)
 
 def Laws.bulk_cut(a, p, max, f, e, short):
-  %Equal.sym(R.Line, R.line.go(R.render0(R.count(a, R.DNil{}), R.crlf(p)), R.BNil{}), R.LOk{R.render0(R.count(a, R.DNil{}), R.BNil{}), p}, L.length_line(R.count(a, R.DNil{}), p)) : {Laws.is_more(R.item.line(36, _, [], max, n => R.parse.go(1n+f, max, n))) == True{} : Bool}
-  %Equal.sym(R.Num, R.num(R.render0(R.count(a, R.DNil{}), R.BNil{})), R.NOk{False{}, N.hor(0n, R.count(a, R.DNil{}))}, L.num_count(R.count(a, R.DNil{}), N.and_l(Nat.is_le(N.dlen(R.count(a, R.DNil{})), 10n), Nat.is_le(N.blen(a), max), e))) : {Laws.is_more(R.bulk.head(R.BBulk{}, _, p, [], max, n => R.parse.go(1n+f, max, n))) == True{} : Bool}
-  %Equal.sym(Nat, N.hor(0n, R.count(a, R.DNil{})), N.blen(a), N.arg_len(a)) : {Laws.is_more(R.bulk.fits(Nat.is_le(_, max), R.BBulk{}, _, p, [], n => R.parse.go(1n+f, max, n))) == True{} : Bool}
-  %Equal.sym(Bool, Nat.is_le(N.blen(a), max), True{}, N.and_r(Nat.is_le(N.dlen(R.count(a, R.DNil{})), 10n), Nat.is_le(N.blen(a), max), e)) : {Laws.is_more(R.bulk.fits(_, R.BBulk{}, N.blen(a), p, [], n => R.parse.go(1n+f, max, n))) == True{} : Bool}
+  %Equal.sym(R.Line, R.line.go(R.render0(R.count(a, D.DNil{}), R.crlf(p)), R.BNil{}), R.LOk{R.render0(R.count(a, D.DNil{}), R.BNil{}), p}, L.length_line(R.count(a, D.DNil{}), p)) : {Laws.is_more(R.item.line(36, _, [], max, n => R.parse.go(1n+f, max, n))) == True{} : Bool}
+  %Equal.sym(R.Num, R.num(R.render0(R.count(a, D.DNil{}), R.BNil{})), R.NOk{False{}, N.hor(0n, R.count(a, D.DNil{}))}, L.num_count(R.count(a, D.DNil{}), N.and_l(Nat.is_le(N.dlen(R.count(a, D.DNil{})), 10n), Nat.is_le(N.blen(a), max), e))) : {Laws.is_more(R.bulk.head(R.BBulk{}, _, p, [], max, n => R.parse.go(1n+f, max, n))) == True{} : Bool}
+  %Equal.sym(Nat, N.hor(0n, R.count(a, D.DNil{})), N.blen(a), N.arg_len(a)) : {Laws.is_more(R.bulk.fits(Nat.is_le(_, max), R.BBulk{}, _, p, [], n => R.parse.go(1n+f, max, n))) == True{} : Bool}
+  %Equal.sym(Bool, Nat.is_le(N.blen(a), max), True{}, N.and_r(Nat.is_le(N.dlen(R.count(a, D.DNil{})), 10n), Nat.is_le(N.blen(a), max), e)) : {Laws.is_more(R.bulk.fits(_, R.BBulk{}, N.blen(a), p, [], n => R.parse.go(1n+f, max, n))) == True{} : Bool}
   %Equal.sym(R.Took, R.take(N.blen(a), p, R.BNil{}), R.Short{R.buf.rev(p, R.BNil{}), Nat.sub(N.blen(a), N.blen(p))}, take_short(p, N.blen(a), R.BNil{}, short)) : {Laws.is_more(R.bulk.took(R.BBulk{}, N.blen(a), _, [], n => R.parse.go(f, max, n))) == True{} : Bool}
   {==}
 
@@ -65,15 +67,15 @@ def Laws.cut_length(d, max, f):
   %Equal.sym(R.Line, R.line.go(R.render(d, R.BNil{}), R.BNil{}), R.line.go(R.BNil{}, L.push(d, R.BNil{})), L.line_digits(d, R.BNil{}, R.BNil{})) : {Laws.is_more(R.item.line(36, _, [], max, n => R.parse.go(f, max, n))) == True{} : Bool}
   {==}
 
-def cut_cr.go(x: R.Dig, u: R.Dec, max: Nat, f: Nat) -> {Laws.is_more(R.parse.go(1n+f, max, R.MItem{R.BCon{36, R.render0(R.DCon{x, u}, R.BCon{13, R.BNil{}})}, []})) == True{} : Bool}:
-  %Equal.sym(R.Line, R.line.go(R.render(R.DCon{x, u}, R.BCon{13, R.BNil{}}), R.BNil{}), R.line.go(R.BCon{13, R.BNil{}}, L.push(R.DCon{x, u}, R.BNil{})), L.line_digits(R.DCon{x, u}, R.BCon{13, R.BNil{}}, R.BNil{})) : {Laws.is_more(R.item.line(36, _, [], max, n => R.parse.go(f, max, n))) == True{} : Bool}
+def cut_cr.go(x: D.Dig, u: D.Dec, max: Nat, f: Nat) -> {Laws.is_more(R.parse.go(1n+f, max, R.MItem{R.BCon{36, R.render0(D.DCon{x, u}, R.BCon{13, R.BNil{}})}, []})) == True{} : Bool}:
+  %Equal.sym(R.Line, R.line.go(R.render(D.DCon{x, u}, R.BCon{13, R.BNil{}}), R.BNil{}), R.line.go(R.BCon{13, R.BNil{}}, L.push(D.DCon{x, u}, R.BNil{})), L.line_digits(D.DCon{x, u}, R.BCon{13, R.BNil{}}, R.BNil{})) : {Laws.is_more(R.item.line(36, _, [], max, n => R.parse.go(f, max, n))) == True{} : Bool}
   {==}
 
 def Laws.cut_cr(d, max, f):
   match d:
-    case R.DNil{}:
+    case D.DNil{}:
       {==}
-    case R.DCon{x, u}:
+    case D.DCon{x, u}:
       cut_cr.go(x, u, max, f)
 
 # the length line and its bytes read, as in C.arg_read, up to the bulk step
@@ -83,22 +85,22 @@ law bulk_after:
   for +max: Nat
   for +f: Nat
   for +e: {S.fit(a, max) == True{} : Bool}
-  {R.parse.go(1n+1n+f, max, R.MItem{R.BCon{36, R.render0(R.count(a, R.DNil{}), R.crlf(R.cat(a, r)))}, []}) == R.bulk.took(R.BBulk{}, N.blen(a), R.Took{a, r}, [], n => R.parse.go(f, max, n)) : R.Parsed}
+  {R.parse.go(1n+1n+f, max, R.MItem{R.BCon{36, R.render0(R.count(a, D.DNil{}), R.crlf(R.cat(a, r)))}, []}) == R.bulk.took(R.BBulk{}, N.blen(a), R.Took{a, r}, [], n => R.parse.go(f, max, n)) : R.Parsed}
 
 def bulk_after(a, r, max, f, e):
-  %Equal.sym(R.Line, R.line.go(R.render0(R.count(a, R.DNil{}), R.crlf(R.cat(a, r))), R.BNil{}), R.LOk{R.render0(R.count(a, R.DNil{}), R.BNil{}), R.cat(a, r)}, L.length_line(R.count(a, R.DNil{}), R.cat(a, r))) : {R.item.line(36, _, [], max, n => R.parse.go(1n+f, max, n)) == R.bulk.took(R.BBulk{}, N.blen(a), R.Took{a, r}, [], n => R.parse.go(f, max, n)) : R.Parsed}
-  %Equal.sym(R.Num, R.num(R.render0(R.count(a, R.DNil{}), R.BNil{})), R.NOk{False{}, N.hor(0n, R.count(a, R.DNil{}))}, L.num_count(R.count(a, R.DNil{}), N.and_l(Nat.is_le(N.dlen(R.count(a, R.DNil{})), 10n), Nat.is_le(N.blen(a), max), e))) : {R.bulk.head(R.BBulk{}, _, R.cat(a, r), [], max, n => R.parse.go(1n+f, max, n)) == R.bulk.took(R.BBulk{}, N.blen(a), R.Took{a, r}, [], n => R.parse.go(f, max, n)) : R.Parsed}
-  %Equal.sym(Nat, N.hor(0n, R.count(a, R.DNil{})), N.blen(a), N.arg_len(a)) : {R.bulk.fits(Nat.is_le(_, max), R.BBulk{}, _, R.cat(a, r), [], n => R.parse.go(1n+f, max, n)) == R.bulk.took(R.BBulk{}, N.blen(a), R.Took{a, r}, [], n => R.parse.go(f, max, n)) : R.Parsed}
-  %Equal.sym(Bool, Nat.is_le(N.blen(a), max), True{}, N.and_r(Nat.is_le(N.dlen(R.count(a, R.DNil{})), 10n), Nat.is_le(N.blen(a), max), e)) : {R.bulk.fits(_, R.BBulk{}, N.blen(a), R.cat(a, r), [], n => R.parse.go(1n+f, max, n)) == R.bulk.took(R.BBulk{}, N.blen(a), R.Took{a, r}, [], n => R.parse.go(f, max, n)) : R.Parsed}
+  %Equal.sym(R.Line, R.line.go(R.render0(R.count(a, D.DNil{}), R.crlf(R.cat(a, r))), R.BNil{}), R.LOk{R.render0(R.count(a, D.DNil{}), R.BNil{}), R.cat(a, r)}, L.length_line(R.count(a, D.DNil{}), R.cat(a, r))) : {R.item.line(36, _, [], max, n => R.parse.go(1n+f, max, n)) == R.bulk.took(R.BBulk{}, N.blen(a), R.Took{a, r}, [], n => R.parse.go(f, max, n)) : R.Parsed}
+  %Equal.sym(R.Num, R.num(R.render0(R.count(a, D.DNil{}), R.BNil{})), R.NOk{False{}, N.hor(0n, R.count(a, D.DNil{}))}, L.num_count(R.count(a, D.DNil{}), N.and_l(Nat.is_le(N.dlen(R.count(a, D.DNil{})), 10n), Nat.is_le(N.blen(a), max), e))) : {R.bulk.head(R.BBulk{}, _, R.cat(a, r), [], max, n => R.parse.go(1n+f, max, n)) == R.bulk.took(R.BBulk{}, N.blen(a), R.Took{a, r}, [], n => R.parse.go(f, max, n)) : R.Parsed}
+  %Equal.sym(Nat, N.hor(0n, R.count(a, D.DNil{})), N.blen(a), N.arg_len(a)) : {R.bulk.fits(Nat.is_le(_, max), R.BBulk{}, _, R.cat(a, r), [], n => R.parse.go(1n+f, max, n)) == R.bulk.took(R.BBulk{}, N.blen(a), R.Took{a, r}, [], n => R.parse.go(f, max, n)) : R.Parsed}
+  %Equal.sym(Bool, Nat.is_le(N.blen(a), max), True{}, N.and_r(Nat.is_le(N.dlen(R.count(a, D.DNil{})), 10n), Nat.is_le(N.blen(a), max), e)) : {R.bulk.fits(_, R.BBulk{}, N.blen(a), R.cat(a, r), [], n => R.parse.go(1n+f, max, n)) == R.bulk.took(R.BBulk{}, N.blen(a), R.Took{a, r}, [], n => R.parse.go(f, max, n)) : R.Parsed}
   %Equal.sym(R.Took, R.take(N.blen(a), R.cat(a, r), R.BNil{}), R.Took{a, r}, L.take_arg(a, r)) : {R.bulk.took(R.BBulk{}, N.blen(a), _, [], n => R.parse.go(f, max, n)) == R.bulk.took(R.BBulk{}, N.blen(a), R.Took{a, r}, [], n => R.parse.go(f, max, n)) : R.Parsed}
   {==}
 
 def Laws.cut_end(a, max, f, e):
-  %Equal.sym(R.Parsed, R.parse.go(1n+1n+f, max, R.MItem{R.BCon{36, R.render0(R.count(a, R.DNil{}), R.crlf(R.cat(a, R.BNil{})))}, []}), R.bulk.took(R.BBulk{}, N.blen(a), R.Took{a, R.BNil{}}, [], n => R.parse.go(f, max, n)), bulk_after(a, R.BNil{}, max, f, e)) : {Laws.is_more(_) == True{} : Bool}
+  %Equal.sym(R.Parsed, R.parse.go(1n+1n+f, max, R.MItem{R.BCon{36, R.render0(R.count(a, D.DNil{}), R.crlf(R.cat(a, R.BNil{})))}, []}), R.bulk.took(R.BBulk{}, N.blen(a), R.Took{a, R.BNil{}}, [], n => R.parse.go(f, max, n)), bulk_after(a, R.BNil{}, max, f, e)) : {Laws.is_more(_) == True{} : Bool}
   {==}
 
 def Laws.cut_end_cr(a, max, f, e):
-  %Equal.sym(R.Parsed, R.parse.go(1n+1n+f, max, R.MItem{R.BCon{36, R.render0(R.count(a, R.DNil{}), R.crlf(R.cat(a, R.BCon{13, R.BNil{}})))}, []}), R.bulk.took(R.BBulk{}, N.blen(a), R.Took{a, R.BCon{13, R.BNil{}}}, [], n => R.parse.go(f, max, n)), bulk_after(a, R.BCon{13, R.BNil{}}, max, f, e)) : {Laws.is_more(_) == True{} : Bool}
+  %Equal.sym(R.Parsed, R.parse.go(1n+1n+f, max, R.MItem{R.BCon{36, R.render0(R.count(a, D.DNil{}), R.crlf(R.cat(a, R.BCon{13, R.BNil{}})))}, []}), R.bulk.took(R.BBulk{}, N.blen(a), R.Took{a, R.BCon{13, R.BNil{}}}, [], n => R.parse.go(f, max, n)), bulk_after(a, R.BCon{13, R.BNil{}}, max, f, e)) : {Laws.is_more(_) == True{} : Bool}
   {==}
 
 # The List and String API

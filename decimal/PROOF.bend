@@ -1,7 +1,6 @@
 import Base
 import ./LAWS.bend as Laws
 import ./decimal.bend as D
-import ./proof/nat.bend as N
 import ./proof/count.bend as Count
 import ./proof/text.bend as Text
 
@@ -30,30 +29,7 @@ def Laws.trim_value(d):
   Text.trim_value(d)
 
 def Laws.inc_value(d):
-  match d:
-    case D.DNil{}:
-      {==}
-    case D.DCon{D.D0{}, t}:
-      {==}
-    case D.DCon{D.D1{}, t}:
-      {==}
-    case D.DCon{D.D2{}, t}:
-      {==}
-    case D.DCon{D.D3{}, t}:
-      {==}
-    case D.DCon{D.D4{}, t}:
-      {==}
-    case D.DCon{D.D5{}, t}:
-      {==}
-    case D.DCon{D.D6{}, t}:
-      {==}
-    case D.DCon{D.D7{}, t}:
-      {==}
-    case D.DCon{D.D8{}, t}:
-      {==}
-    case D.DCon{D.D9{}, t}:
-      %Equal.sym(Nat, D.value(D.inc(t)), 1n+D.value(t), Laws.inc_value(t)) : {Nat.mul(10n, _) == 1n+Nat.add(9n, Nat.mul(10n, D.value(t))) : Nat}
-      N.mul_succ(10n, D.value(t))
+  Count.inc_value(d)
 
 def main() -> IO(Unit):
   IO.print("grounds-decimal: all laws hold")

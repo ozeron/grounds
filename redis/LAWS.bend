@@ -1,4 +1,5 @@
 import Base
+import ../decimal/decimal.bend as D
 import ./resp.bend as R
 import ./proof/nat.bend as N
 import ./proof/spec.bend as S
@@ -58,7 +59,7 @@ law bulk_cut:
   for +f: Nat
   for +e: {S.fit(a, max) == True{} : Bool}
   for +short: {Nat.is_lt(N.blen(p), N.blen(a)) == True{} : Bool}
-  {is_more(R.parse.go(1n+1n+f, max, R.MItem{R.BCon{36, R.render0(R.count(a, R.DNil{}), R.crlf(p))}, []})) == True{} : Bool}
+  {is_more(R.parse.go(1n+1n+f, max, R.MItem{R.BCon{36, R.render0(R.count(a, D.DNil{}), R.crlf(p))}, []})) == True{} : Bool}
 
 # and cut anywhere before its bytes: after the $, in its length, at the CR
 law cut_dollar:
@@ -67,13 +68,13 @@ law cut_dollar:
   {is_more(R.parse.go(1n+f, max, R.MItem{R.BCon{36, R.BNil{}}, []})) == True{} : Bool}
 
 law cut_length:
-  for +d: R.Dec
+  for +d: D.Dec
   for +max: Nat
   for +f: Nat
   {is_more(R.parse.go(1n+f, max, R.MItem{R.BCon{36, R.render(d, R.BNil{})}, []})) == True{} : Bool}
 
 law cut_cr:
-  for +d: R.Dec
+  for +d: D.Dec
   for +max: Nat
   for +f: Nat
   {is_more(R.parse.go(1n+f, max, R.MItem{R.BCon{36, R.render0(d, R.BCon{13, R.BNil{}})}, []})) == True{} : Bool}
@@ -84,14 +85,14 @@ law cut_end:
   for +max: Nat
   for +f: Nat
   for +e: {S.fit(a, max) == True{} : Bool}
-  {is_more(R.parse.go(1n+1n+f, max, R.MItem{R.BCon{36, R.render0(R.count(a, R.DNil{}), R.crlf(R.cat(a, R.BNil{})))}, []})) == True{} : Bool}
+  {is_more(R.parse.go(1n+1n+f, max, R.MItem{R.BCon{36, R.render0(R.count(a, D.DNil{}), R.crlf(R.cat(a, R.BNil{})))}, []})) == True{} : Bool}
 
 law cut_end_cr:
   for +a: R.Buf
   for +max: Nat
   for +f: Nat
   for +e: {S.fit(a, max) == True{} : Bool}
-  {is_more(R.parse.go(1n+1n+f, max, R.MItem{R.BCon{36, R.render0(R.count(a, R.DNil{}), R.crlf(R.cat(a, R.BCon{13, R.BNil{}})))}, []})) == True{} : Bool}
+  {is_more(R.parse.go(1n+1n+f, max, R.MItem{R.BCon{36, R.render0(R.count(a, D.DNil{}), R.crlf(R.cat(a, R.BCon{13, R.BNil{}})))}, []})) == True{} : Bool}
 
 # the null bulk string is nil, and the empty one is the empty string: a
 # client must tell them apart
