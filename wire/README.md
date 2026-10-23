@@ -368,3 +368,74 @@ separation, malformed inputs and scheme/SPKI restrictions. Exact counts and
 commands live in STACK_PROGRESS.md and the dated M2 reports. The M3 owner must
 still choose transcript snapshots, negotiate schemes, draw RSA entropy from
 the host effect and enforce handshake/record ordering and fatal cleanup.
+
+### Bend TLS 1.3 client (M3a, synthetic keys)
+
+`bend_tls_client.bend` composes the existing Bend owners over byte TCP effects.
+It consumes an already connected `Socket`; it never calls `wire_tls_*`.
+The frozen algorithms and unsupported features are in
+[TLS_PROFILE.md](../TLS_PROFILE.md). The server role and HTTP adapter remain
+future work. The runtime erasure restriction still permits synthetic keys only.
+
+| API | Contract |
+|---|---|
+| `connect(socket, Config{tables,anchors,identity,alpn,now,deadline})` | `IO(Result<Error,Connection>)`. Explicit DER trust anchors, authenticated Unicode tables, `x509_chain.Identity` DNS/raw IPv4 or IPv6, optional `http/1.1` offer. `now: IO(Nat)` supplies civil UTC **seconds since 0001-01-01**; `deadline: Nat` is an absolute `IO.now()` **millisecond** deadline. No implicit host trust or hostname resolution. |
+| `send(connection, bytes)` | `IO(Result<Error,Connection>)`; consumes the owner, splits into records of at most 16 KiB, handles partial OS writes. Empty input sends no record. |
+| `recv(connection)` | `IO(Result<Error,Received>)`, where `Received{connection,bytes}` returns the successor. Application bytes appear only after chain, CertificateVerify and server Finished verification and transmission of client Finished. Empty bytes mean authenticated close_notify; a bare TCP EOF is truncation. |
+| `key_update(connection, request)` | Sends KeyUpdate under the old application key, then advances its write epoch. Requested peer updates receive an old-write-key response before rekeying. Sending reserves a record for updates before the AES/nonce cap. |
+| `deadline(connection, at)` / `close(connection)` | Set a new absolute deadline between operations; no automatic renewal. Close sends warning close_notify within the same deadline, then closes the socket. |
+
+All operations consume their connection input. Failure closes the socket and
+returns `Error{alert,reason,notify}` without a successor; `notify` indicates
+whether a local alert should be attempted. Fatal alert writes are best effort
+within the original deadline. No asynchronous cancellation API is introduced.
+The native and Bun effects retain their existing OS-only scheduling behavior.
+
+`tls_client.bend` owns the handshake transitions. ClientHello offers both suites,
+both groups and both CertificateVerify schemes, with an X25519 share initially.
+One HRR can request P-256 or a cookie; a group replacement draws fresh entropy,
+while a cookie-only retry retains the original share. Server selections and
+session echoes are checked. Exact handshake encodings enter the transcript;
+compatibility CCS is accepted only after ClientHello and before server Finished.
+A legal main CertificateRequest receives an empty Certificate with no CV.
+Authenticated NewSessionTicket is parsed and discarded; PSK, 0-RTT and PHA stay
+unsupported. Key transitions require record boundaries. Receive and handshake
+work loops have finite budgets in addition to the caller's deadline.
+
+`tls_handshake_codec.bend` bounds encoded messages at 1 MiB, chain bytes at
+512 KiB, chain length at 16 certificates, and each DER entry at 65,535 bytes.
+Length checks precede vector splitting/copying. Context validation distinguishes
+recognized misplaced extensions (illegal_parameter), unsolicited responses
+(unsupported_extension), and duplicate/truncated framing (decode_error).
+The public Hello, EE, Certificate, CertificateRequest, CV, Finished, KeyUpdate
+and alert serializers return `Maybe`; the raw `extension`/`vector16` helpers
+require bounded caller inputs. NST fields are discarded after bounded parsing.
+
+The package gate includes the previously focused Hello corpus, codec truncation
+and bound cases, affine owner probes, cap/SNI diagnostics, RFC8448 replay and
+independent OpenSSL 3 `s_server` interop on native and Bun. Interop covers the
+eight suite × group × CV combinations, P-256 HRR, ALPN, main CertificateRequest,
+tickets, fragmentation/coalescing, KeyUpdate, close and protocol/authentication
+failures. Every client runs with invalid compatibility TLS-library/host-CA
+paths. `bend_tls_no_openssl_check.py` additionally audits emitted C effect IDs,
+JS registrations/imports/calls, native undefined symbols/libraries and loader
+literals. Legacy JS TLS stubs are isolated in `effs/tls_compat.js` so byte-TCP
+programs do not register them.
+
+The RFC8448 section 3 replay reproduces published CH/SH traffic secrets, keys,
+IVs and transcript hash through the production client owner. Its exact EE
+rejects unoffered record_size_limit (110); an explicitly labelled branch that
+removes only that extension reaches the published RSA-1024 certificate and
+rejects it (42). This is partial pinned replay, not full trace authentication.
+
+Design references: RFC9846 §§4–6, RFC8448 §3 and Go's
+`crypto/tls/handshake_client_tls13.go` (HRR and authentication order). Exact
+retrieved sources, URLs and SHA-256 hashes are retained in the dated
+`m3a/sources/references.json` artifact. Go/OpenSSL are references or test peers,
+never linked protocol implementations. Exact counts, commands and limitations
+are recorded in [STACK_PROGRESS.md](../STACK_PROGRESS.md).
+
+The final focused gate passes 109/109 phases. Each target passes 4,468 new or
+newly integrated cases: 2,993 Hello, 1,401 codec, eight replay, ten diagnostics
+and 56 live interop cases (37 negative). Fresh root acceptance is recorded in
+the dated ledger; these focused counts do not replace it.

@@ -76,7 +76,7 @@ tests, not permission to advertise client authentication.
 
 “Existing” means a component exists, not a composed socket handshake. Tests
 below apply to native and Bun; exact results are recorded in STACK_PROGRESS.
-“Missing (M3/M4)” names work deliberately outside M2.
+M3a supplies the client composition below; server-role and M4 obligations remain open.
 
 | Operation | Status / Bend owner | Evidence / remaining obligation |
 |---|---|---|
@@ -96,14 +96,45 @@ below apply to native and Bun; exact results are recorded in STACK_PROGRESS.
 | Sequence/usage/KeyUpdate derivation | Existing: crypto/traffic.bend | 70 ChaCha + 72 AES lifecycle scenarios/target; counter exhaustion, 2^24 AES sending cap, 2^48−1 sending updates; receiving has no sending caps. |
 | Handshake reassembly | Existing: wire/tls_handshake_stream.bend | 939 independent cases/target, fragmented/coalesced RFC flights, 1 MiB bound, consumed errors. |
 | Extension framing | Existing: wire/tls_extensions.bend | 1,756 ordinary + 10 stress cases/target. Context, required fields and body semantics remain M3. |
-| Hello field framing | Existing: wire/tls_hello.bend parse/is_retry | tls_hello_check.py: 2,986 ordinary + seven stress cases/target in retained October 8 focused evidence; not yet part of the root manifest. Parses Hello fields/opaque extensions, not selection semantics. |
-| Hello negotiation/HRR | Missing (M3): bounded role/state owner | Extension-body codecs for supported_versions/groups/key_share/signatures/SNI/ALPN, one HRR, retry cookie, legal offered choices and no fallback. Existing field/transcript framing is insufficient. |
-| EE/Certificate/CV/Finished codecs/order | Missing (M3): handshake owner | Exact encoded transcript boundaries, empty client Certificate, authenticated server and state transitions. |
-| Application epochs/KeyUpdate ordering | Missing (M3): handshake/record composition | Send/authenticate old-key KeyUpdate before rekey; reject pre-Finished or malformed requests. |
-| TCP/alerts/close/deadlines/cancellation | Missing (M3): transport owner using wire effects | Partial/fragmented I/O; fatal paths consume all stages/close sockets; warning close_notify, truncation rules. No connection owner exists to audit yet. |
-| Unsupported post-handshake disposal | Missing (M3): bounded parser | Silently discard NewSessionTicket; reject forbidden post-handshake auth and early-data messages per state. |
-| No-delegation live evidence | Missing (M3) | Effect/import audit plus legacy crypto/TLS effects instrumented to fail on the new socket path. |
+| Hello field framing | Existing: wire/tls_hello.bend parse/is_retry | tls_hello_check.py: 2,986 ordinary + seven stress cases/target, now integrated into the native/Bun wire and root manifests. |
+| Hello negotiation/HRR | Client: wire/tls_client.bend; server missing | Both suites/groups/CV schemes offered; initial X25519, fresh P-256 HRR replacement, cookie-only retry, second HRR rejection, required versions/shares and offered-choice checks. |
+| EE/Certificate/CV/Finished codecs/order | Client: wire/tls_handshake_codec.bend + tls_client.bend; server missing | Bounded codecs, context/unsolicited/duplicate extension alerts, main CR empty Certificate, x509_chain.verify then CV/Finished, exact transcript bytes. |
+| Application epochs/KeyUpdate ordering | Client: wire/bend_tls_client.bend + existing traffic/schedule/record owners; server missing | Authentication gates connection delivery; old-key KU before rekey; update_requested response; reserve old-key record before sending cap; enforce epoch record boundaries. |
+| TCP/alerts/close/deadlines/cancellation | Client: wire/bend_tls_client.bend; server and asynchronous cancellation missing | Exact bounded record reads, fragmented/coalesced input, partial writes, fatal cleanup/alerts, warning close_notify, EOF/truncation and absolute monotonic deadlines. |
+| Unsupported post-handshake disposal | Client: wire/tls_handshake_codec.bend + bend_tls_client.bend; server missing | Authenticated NST parsed/discarded; no resumption/0-RTT; unsolicited PHA rejected10. |
+| No-delegation live evidence | Client: bend_tls_no_openssl_check.py + independent interop; server missing | Emitted C/JS effect and import audit, native symbols/libraries/loader literals; each live client runs with invalid BEND_LIBSSL/GROUNDS_TLS_CA paths. Legacy JS TLS registrations isolated from byte TCP. |
 | HTTP/HTTPS/WSS/browser | Missing (M4): explicit Bend adapter | Preserve HTTP/cookie/Origin/auth behavior and normal browser certificate verification. |
+
+## Client connection behavior built in M3a
+
+`wire/bend_tls_client.bend` is an affine connected-socket API: connect, send,
+recv, key_update, deadline and close. Errors close the socket and return no
+successor. The caller supplies DER anchors, DNS or raw IP identity, authenticated
+Unicode assets, a wall-clock effect in civil UTC seconds since 0001-01-01 and
+an absolute IO.now millisecond deadline. DNS identities supply SNI; raw IPs do
+not. No ambient CA store or implicit wall clock enters certificate admission.
+
+Order is CH → optional HRR/CH2 → SH → EE → optional CR → Certificate → CV →
+server Finished → optional empty client Certificate → client Finished. Only
+then can application operations obtain a connection. Legal compatibility CCS
+never enters the transcript. Each encoded handshake is at most 1 MiB, with
+512 KiB/16-entry chain bounds and 65,535 bytes per certificate. Receive/handshake
+loops also have finite work budgets; deadlines are never implicitly renewed.
+
+M3a evidence covers the client only. The exact RFC8448 replay deliberately
+retains the frozen certificate and extension policies: published CH/SH keys and
+hash match; exact EE rejects unoffered record_size_limit110. A separately
+labelled modified-EE branch reaches and rejects the published RSA1024 cert42.
+Neither branch claims complete RFC trace authentication. See wire/README.md
+for the public API and dated STACK_PROGRESS.md reports for final gate counts.
+
+| Client evidence | Native and Bun coverage |
+|---|---|
+| Codec / Hello | Every-byte truncation, lengths, extension contexts/duplicates, serializer round trips, maximum message/chain cases, RFC message fixtures. |
+| Authentication and algorithms | OpenSSL 3 s_server: each of 2 suites × 2 groups × 2 CV schemes; every successful connection negotiates http/1.1; P-256 forces HRR. |
+| Connection lifecycle | Main CR empty Certificate, DNS/IP, tickets, fragmented/coalesced records, both KeyUpdate directions, requested response and close_notify. |
+| Rejection behavior | Wrong identity/trust/time; altered CV/Finished/tag; unsupported choices/schemes; malformed/context/duplicate/unsolicited messages; double HRR/order; truncation/EOF/deadline; early application/PHA; invalid KU and KU record boundaries. Matching local and peer-visible alerts where transport/deadline permits writing. |
+| Owner / host boundary | Frontend copy/reuse rejection, cap-reservation/SNI diagnostics, emitted program/import/symbol audit and invalid compatibility-library/host-CA paths. |
 
 ## Key lifecycle and runtime boundary
 
