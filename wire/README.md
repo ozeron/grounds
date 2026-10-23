@@ -507,3 +507,14 @@ certificate/Finished/epoch ordering. Retrieved source bytes, URLs, hashes and
 uses are in `~/.codex/artifacts/grounds/2026-10-23/m3b/sources/references.json`.
 Go, OpenSSL and Python are peers/oracles only. Gate results and remaining
 boundaries are recorded in [STACK_PROGRESS.md](../STACK_PROGRESS.md).
+
+The final M3b focused gate passes **230/230 wire phases**, zero skipped or
+unexecuted, on Bend 2.0.38 under the unchanged 4096 MiB aggregate/process and
+120-second per-phase guard. Each native/Bun target passes 158 live scenarios
+(56 client, 78 server, 24 Go/Bend), including 93 ordinary negative scenarios
+and 18 repeated cleanup attempts. The exact source binding, complete cases,
+positive controls and generated-program audits are retained in
+`~/.codex/artifacts/grounds/2026-10-23/m3b/wire-04*`.
+**Fresh root acceptance remains pending because of shared-host memory pressure**;
+partial/pressure-cut root reports cannot replace a complete root gate. The dated
+ledger records each attempt and the bounded stable-pressure scheduling policy.

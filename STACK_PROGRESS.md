@@ -4,15 +4,18 @@ Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and 
 
 The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
 
-- 2026-10-23 (M3b server complete; fresh root pending): corrected wire04
-  passes **230/230 phases**, zero skipped/unexecuted. Native and Bun each pass
-  **43+16 negotiation/retry**, **78 server scenarios** (56 negative plus two
-  cleanup), **24 Go/Bend peers**, and **56 M3a client cases** (37 negative).
-  This is **158 live scenarios per target**, including 93 ordinary negatives and
-  18 repeated cleanup attempts. Both roles run with legacy TLS/cookie effects
-  unavailable and positive controls/audits pass. Root01 was interrupted to fix
-  the reproduced legacy-version alert; fresh root02 is pending. M3 boxes remain
-  open. Synthetic credentials only.
+- 2026-10-23 (M3b focused acceptance complete; fresh root pressure-blocked):
+  corrected wire04 passes **230/230 phases**, zero skipped/unexecuted. Native
+  and Bun each pass **43+16 negotiation/retry**, **78 server scenarios**
+  (56 negative plus two cleanup), **24 Go/Bend peers**, and **56 unchanged M3a
+  client cases** (37 negative): **158 live scenarios per target**, including
+  93 ordinary negatives and 18 repeated cleanup attempts. Both roles run with
+  legacy TLS/cookie effects unavailable; trap controls and audits pass.
+  Root02/root03/root06 stop on shared-host memory pressure; root04/root05 are
+  blocked before execution by the shared guard lock. The authorized **45-minute
+  cumulative wait** expires at warning pressure despite requiring a continuous
+  60-second normal launch window. **Fresh root acceptance remains pending;
+  M3 is not closed and its boxes remain open.** Synthetic credentials only.
 
 - 2026-10-23 (M3a client complete for synthetic keys, Bend 2.0.38): the new
   Bend TLS 1.3 client and bounded codecs pass **109/109 wire phases** and a fresh
@@ -104,8 +107,9 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
   ALPN sends no selection, incompatible/disabled offered ALPN fails 120.
 
   Local server/peer implementation commit: **`d25792c`**. A separate bounded
-  commit adds the permanent unavailable-effects builds, positive controls,
-  audits and 119-phase wire manifest expansion; root acceptance follows it.
+  commit **`aef8054`** adds the permanent unavailable-effects builds, positive
+  controls, audits and initial 119-phase wire manifest expansion. The correction
+  **`5a88545`** adds the final two phases. Fresh root acceptance remains pending.
 
   HRR prefers the first policy-supported group, uses the message_hash rewrite,
   a fresh stateful 32-byte exact-echo cookie, one requested share and strict CH2
@@ -138,6 +142,10 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
   ```sh
   PYTHONDONTWRITEBYTECODE=1 python3 ~/.codex/artifacts/grounds/2026-10-23/m3b/run.py wire-02
   PYTHONDONTWRITEBYTECODE=1 python3 ~/.codex/artifacts/grounds/2026-10-23/m3b/run.py wire-03
+  PYTHONDONTWRITEBYTECODE=1 python3 ~/.codex/artifacts/grounds/2026-10-23/m3b/run.py wire-04
+  PYTHONDONTWRITEBYTECODE=1 python3 ~/.codex/artifacts/grounds/2026-10-23/m3b/run.py root-02
+  PYTHONDONTWRITEBYTECODE=1 python3 ~/.codex/artifacts/grounds/2026-10-23/m3b/run.py root-03
+  PYTHONDONTWRITEBYTECODE=1 python3 ~/.codex/artifacts/grounds/2026-10-23/m3b/pressure_window.py
   ```
 
   `run.py` records the exact command/environment and pre-run HEAD/branch/status
@@ -187,6 +195,63 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
   counts above and `wire-04-summary.json` derive from every retained case report;
   generated role programs/audits/controls are under `wire-04-cases/`.
   A fresh root02 follows; interrupted root01 is not acceptance.
+
+  The legacy-version correction and paired regressions are local commit
+  **`5a88545`**; root02 starts from that source revision. Its exact root command
+  uses the same guard options with `--phases tools/check_phases.json` and
+  `moon --concurrency 1 run :check --force`. Root02 stopped with exit 137,
+  reason `system-memory-pressure`, after **737 passed phases and one running**
+  (`crypto/bun/check/unicode32_nfkc_check`), elapsed **942.637s**, aggregate peak
+  **1966.3 MiB**. This was a host-pressure cutoff (kernel level 2 / warning),
+  not a test assertion or 4 GiB cutoff. `root-02.json`, `.log`,
+  `root-02-pressure-diagnostics.json` and `pressure-observations.jsonl` preserve
+  the failure. Subsequent pressure reads returned normal (kernel level 1).
+  Fresh root03 starts from unchanged implementation `5a88545` with all limits,
+  pressure checks and 2,115 declared phases retained. No unrelated processes
+  were signaled. Root03 also stopped on `system-memory-pressure` (exit 137),
+  **264 passed phases and one running**, elapsed **431.425s**, peak
+  **2125.7 MiB**, at `crypto/bun/check/poly1305_check`. The post-cutoff kernel
+  pressure remained warning/2; `root-03-pressure-diagnostics.json` records two
+  unrelated ffmpeg processes with approximately 1.1 GiB resident each. This is
+  correlation, not a proven attribution. Neither was signaled. Complete
+  `root-03.{json,log}`, command/binding and observation receipts remain retained.
+  Root acceptance remains pending. The caller authorized a bounded 45-minute
+  lightweight pressure wait on this 16 GiB shared host: poll every 10 seconds,
+  require 60 continuous seconds at normal kernel level 1, then launch a fresh
+  forced root gate. `pressure_window.py` and `pressure-window-observations.jsonl`
+  retain this scheduling evidence; a pressure-cut run is never resumed or
+  counted as acceptance. All guard limits and phases remain unchanged.
+  After 540.6s waiting, the first continuous 60-second normal window launched
+  root04, which exited 125 before any phase (`another-guarded-job-is-running`,
+  elapsed/peak zero). The shared guard lock is preserved; the monitor waits for
+  both scheduling availability and another normal window without resetting its
+  cumulative 45-minute waiting budget. Root05 likewise exited 125 before any
+  phase on the shared lock after 720.8s cumulative waiting. The monitor then
+  adds a read-only nonblocking lock-availability probe before attempting launch,
+  without bypassing the guard's own lock. Root06 starts after **1431.7s cumulative
+  waiting** and **60.3 continuous normal seconds**, from unchanged implementation
+  `5a88545`. It stops after **39.415s**, peak **478.4 MiB**, exit137
+  `system-memory-pressure`, **55 passed phases and one running** at
+  `crypto/native/build/p256_cli`. Even a clean launch window does not guarantee
+  pressure stays normal on this shared host. The monitor returns to waiting,
+  retaining the remaining cumulative budget and starting only fresh attempts.
+  The authorized cumulative wait ends at **2700.0s** (2026-10-23
+  11:31:59 UTC), exit75, status `pressure-blocked`; final kernel pressure is
+  warning/2. `pressure-window-result.json` and its append-only observations
+  preserve the whole schedule. No root was resumed, no partial report counted,
+  no unrelated process signaled, and no guard or test limit changed.
+  The only complete acceptance is **wire04 230/230**; the expected fresh root
+  is **2115 declared phases**, but no complete root pass exists for M3b.
+  M3's exit remains open pending that required gate; all five M3 boxes remain
+  unchecked. M4 is untouched. Recovery: free host capacity, require another
+  continuous normal-pressure window, then run a newly named full forced root
+  through `run.py`; do not reuse any partial run.
+
+  `wire-04-summary.json`, `wire-04-negative-cases.json`,
+  `wire-04-matrix.html`, `attempt-inventory.json` and `implementation-result.json`
+  provide the case-derived matrix, exact negative/cleanup evidence, every guard
+  attempt and the structured return-to-caller outcome. No fresh root or full
+  M3 acceptance is claimed by these focused receipts.
 
   Full algorithm matrix, **each row on native and Bun**:
 

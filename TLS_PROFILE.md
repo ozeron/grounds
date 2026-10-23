@@ -197,3 +197,21 @@ GC/JIT, stack/register or OS copies; visible constructors can bypass discipline.
 M2 may close for synthetic-key component interoperability when every finding
 has a disposition. **Live-secret use stays blocked**, and M3/M4 stay open.
 Passing vectors and timing samples cannot establish constant-time execution.
+
+## M3b focused acceptance and root boundary
+
+The final source-bound focused run (`m3b/wire-04`) passes **230/230 phases**,
+zero skipped or unexecuted, with the unchanged 4 GiB aggregate/process and
+120-second phase limits. Native and Bun each pass 43 negotiation +16 retry
+cases, 158 live scenarios (93 ordinary negatives) and 18 repeated cleanup
+attempts. The eight suite/group/server-signature combinations pass for all five
+peer/role pairings: OpenSSL server, OpenSSL client, Go server, Go client and
+Bend-to-Bend. Python additionally verifies both credential types normally
+against the synthetic CA/localhost identity. Both role programs run with legacy
+TLS/cookie effects unavailable; trap controls and C/JS/import/symbol audits pass.
+
+**Fresh full root acceptance is pending because of shared-host memory pressure.**
+All partial and scheduling-blocked attempts remain inspectable under
+`~/.codex/artifacts/grounds/2026-10-23/m3b/`. The M3 checklist remains open until
+that gate completes; M4 is not started. Synthetic-key scope and every existing
+live-secret runtime/erasure blocker remain in force.
