@@ -4,6 +4,30 @@ Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and 
 
 The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
 
+- 2026-10-23 (M4b round 2 native fixture probe isolation; root acceptance still open):
+  `round2/root-07.json` stopped on an actual `http_client/check` golden
+  mismatch after **2149 passed / 1 failed** phases, **5058.146 s**,
+  **3448.8 MiB** peak. This is not a pressure stop: all preceding packages,
+  including **18/18 Chrome scenarios per cipher**, completed at normal pressure.
+  The native legacy client fixture reported connection IDs offset by two;
+  its retry-handler traceback also shows a non-fixture request path reached
+  stateful handlers. Unrelated local `GET /` probes reproduce both problems.
+  The originating process was not captured, so no particular scanner is blamed.
+
+  The fixture now assigns connection IDs only after an admitted test target
+  and rejects discovery paths before retry-state mutation. Socket-level tests
+  reproduce the original counter contamination and retry-path exception:
+  `live-probes-red.json` records the expected three failures; after the fix,
+  `live-probes-green.json` passes **5/5** tests under the unchanged guard.
+  Existing golden files, production client APIs, pool behavior, fuzz corpora
+  and deadlines are unchanged. Only native/Python test fixtures changed; no
+  Bun behavior was debugged. The original 744-file source snapshot is retained
+  as `acceptance-source-pre-probe-fix.json`; `probe-fix-source-amendment.json`
+  names the two changed test files. Fresh `client-02.json` passes **15/15**,
+  all **30 live scenarios**, **162.722 s**, **1743.9 MiB** peak.
+  Whole-root acceptance is retrying from the beginning on the amended
+  snapshot; M4 remains open until it passes.
+
 - 2026-10-23 (M4b round 2 fresh package acceptance; root pressure stops):
   `round2/server-02.json`: **48/48 passed**, no skips, **311.104 s**,
   **1785.0 MiB** peak. `client-01.json`: **15/15 passed**, no skips,

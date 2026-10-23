@@ -5,9 +5,54 @@ import subprocess
 import sys
 import tempfile
 import textwrap
+import threading
 import unittest
 
 from fuzz_harness import Fixture, run
+import fake
+
+
+class LiveFixtureTests(unittest.TestCase):
+    def exchange(self, handler, target):
+        server, client = socket.socketpair()
+        errors = []
+
+        def worker():
+            try:
+                handler(server)
+            except Exception as error:
+                errors.append(error)
+            finally:
+                server.close()
+
+        thread = threading.Thread(target=worker, daemon=True)
+        thread.start()
+        with client:
+            client.settimeout(2)
+            client.sendall(f"GET {target} HTTP/1.1\r\nHost: localhost\r\n\r\n".encode())
+            result = client.recv(4096)
+        thread.join(2)
+        self.assertFalse(thread.is_alive())
+        self.assertEqual(errors, [])
+        return result
+
+    def test_discovery_probes_do_not_consume_connection_ids(self):
+        for key, handler in [("keep", fake.keep), ("each", fake.one_each)]:
+            with self.subTest(key=key):
+                fake.conns.clear()
+                for _ in range(2):
+                    self.assertTrue(self.exchange(handler, "/").startswith(b"HTTP/1.1 404 "))
+                result = self.exchange(handler, "/a")
+                self.assertIn(b"conn 1", result)
+                self.assertEqual(fake.conns[key], 1)
+
+    def test_discovery_probe_does_not_advance_retry_state(self):
+        fake.tries.clear()
+        self.assertTrue(self.exchange(fake.flaky, "/").startswith(b"HTTP/1.1 404 "))
+        self.assertEqual(fake.tries, {})
+        self.assertTrue(self.exchange(fake.flaky, "/2/a").startswith(b"HTTP/1.1 503 "))
+        self.assertTrue(self.exchange(fake.flaky, "/2/a").startswith(b"HTTP/1.1 503 "))
+        self.assertIn(b"GET after 3 tries", self.exchange(fake.flaky, "/2/a"))
 
 
 class HarnessTests(unittest.TestCase):

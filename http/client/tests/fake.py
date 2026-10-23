@@ -134,11 +134,17 @@ def reply(conn, code, body, extra=b""):
 
 def keep(conn):
     # answers each request with its connection's number and its own
-    with lock:
-        conns["keep"] = conns.get("keep", 0) + 1
-        me = conns["keep"]
+    me = None
     try:
         for i, (m, t, hs, body) in enumerate(requests(conn)):
+            # Local service discovery sends GET /; it is not a test connection.
+            if t not in ("/a", "/b", "/c", "/t"):
+                reply(conn, 404, b"no", b"Connection: close\r\n")
+                break
+            if me is None:
+                with lock:
+                    conns["keep"] = conns.get("keep", 0) + 1
+                    me = conns["keep"]
             reply(conn, 200, f"conn {me} req {i + 1}".encode())
     except OSError:
         pass
@@ -148,11 +154,14 @@ def keep(conn):
 def one_each(conn):
     # a keep-alive answer, then the connection closes unannounced, as an
     # idle timeout on the server does
-    with lock:
-        conns["each"] = conns.get("each", 0) + 1
-        me = conns["each"]
     try:
         for m, t, hs, body in requests(conn):
+            if t not in ("/a", "/b", "/c"):
+                reply(conn, 404, b"no", b"Connection: close\r\n")
+                break
+            with lock:
+                conns["each"] = conns.get("each", 0) + 1
+                me = conns["each"]
             reply(conn, 200, f"{m} on conn {me}".encode())
             time.sleep(0.05)
             break
@@ -165,7 +174,11 @@ def flaky(conn):
     # /n/KEY answers 503 n times per KEY, then 200 with how many tries
     try:
         for m, t, hs, body in requests(conn):
-            _, n, key = t.split("/")[:3]
+            parts = t.split("/")
+            if len(parts) != 3 or not parts[1].isdigit():
+                reply(conn, 404, b"no", b"Connection: close\r\n")
+                break
+            _, n, key = parts
             with lock:
                 tries[key] = tries.get(key, 0) + 1
                 k = tries[key]
@@ -308,14 +321,15 @@ def events(conn):
 
 KEPT.append((7317, events))
 
-for i, (name, fault) in enumerate(FAULTS):
-    threading.Thread(target=serve, args=(BASE + i, fault), daemon=True).start()
-for port, fault in KEPT:
-    threading.Thread(target=serve, args=(port, fault), daemon=True).start()
-if len(sys.argv) > 1:
-    threading.Thread(target=tls_serve, args=(sys.argv[1],), daemon=True).start()
-    while not os.path.exists(sys.argv[1] + "/key.pem"):
-        time.sleep(0.05)
-    time.sleep(0.3)
-print("ready", flush=True)
-threading.Event().wait()
+if __name__ == "__main__":
+    for i, (name, fault) in enumerate(FAULTS):
+        threading.Thread(target=serve, args=(BASE + i, fault), daemon=True).start()
+    for port, fault in KEPT:
+        threading.Thread(target=serve, args=(port, fault), daemon=True).start()
+    if len(sys.argv) > 1:
+        threading.Thread(target=tls_serve, args=(sys.argv[1],), daemon=True).start()
+        while not os.path.exists(sys.argv[1] + "/key.pem"):
+            time.sleep(0.05)
+        time.sleep(0.3)
+    print("ready", flush=True)
+    threading.Event().wait()
