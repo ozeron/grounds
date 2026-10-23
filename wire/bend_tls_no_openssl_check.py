@@ -132,7 +132,9 @@ def dynamic_literals(lines, defined, own_names):
     for line in lines:
         value = line.strip()
         if FORBIDDEN_SYMBOL.match(value) or FORBIDDEN_LIBRARY.search(value):
-            (exempt if value in defined and value in own_names else flagged).add(value)
+            # ELF names a function's static local "function.local" (err_trap.line)
+            owner = value.split(".", 1)[0]
+            (exempt if value in defined and owner in own_names else flagged).add(value)
     return sorted(flagged), sorted(exempt)
 
 
@@ -194,10 +196,12 @@ def self_check():
     assert c_effects("")["missing_byte_tcp_rng_effects"]
     own = c_defined_names('static const char* ERR_TEXT[] = { "" };\nFAR int err_claim(void) {\n  return err_fail(x);\n}')
     assert own == {"ERR_TEXT", "err_claim"}, own
-    lines = ["err_claim", "ERR_TEXT", "EVP_EncryptInit", "SSL_read", "libssl.so.3"]
-    flagged, exempt = dynamic_literals(lines, {"err_claim", "ERR_TEXT", "EVP_EncryptInit"}, own)
-    assert exempt == ["ERR_TEXT", "err_claim"], exempt
-    assert flagged == ["EVP_EncryptInit", "SSL_read", "libssl.so.3"], flagged
+    lines = ["err_claim", "err_claim.first", "ERR_TEXT", "EVP_EncryptInit", "EVP_EncryptInit.x",
+             "SSL_read", "err_claim.SSL_read", "libssl.so.3"]
+    flagged, exempt = dynamic_literals(lines, {"err_claim", "err_claim.first", "ERR_TEXT", "EVP_EncryptInit",
+                                               "EVP_EncryptInit.x"}, own)
+    assert exempt == ["ERR_TEXT", "err_claim", "err_claim.first"], exempt
+    assert flagged == ["EVP_EncryptInit", "EVP_EncryptInit.x", "SSL_read", "err_claim.SSL_read", "libssl.so.3"], flagged
 
 
 def main():
