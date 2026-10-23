@@ -229,10 +229,12 @@ interop and negative-case reports, plus inspectable no-delegation evidence.
 
 ### M4 — HTTPS/WSS integration and HTTP migration acceptance
 
-- [ ] Add explicit Bend transport selection to HTTP client/server without breaking
-  existing APIs; keep legacy compatibility paths clearly distinguishable.
-- [ ] Integrate Bend cookie signing/verification and runtime key ownership into
-  the new path; preserve authentication and cookie behavior with regression tests.
+- [x] Add explicit Bend transport selection to HTTP server without breaking
+  existing APIs; keep legacy compatibility paths clearly distinguishable (M4a).
+- [ ] Add explicit Bend transport selection to HTTP client without breaking
+  existing APIs; keep legacy compatibility paths clearly distinguishable (M4b).
+- [x] Integrate Bend cookie signing/verification and runtime key ownership into
+  the new server path; preserve authentication and cookie behavior with regression tests (M4a).
 - [ ] Verify real HTTP request/response and WebSocket traffic through Bend TLS,
   including streaming, reconnect, denied origins/authentication and cleanup.
 - [ ] Run real-browser HTTPS/WSS with locally trusted synthetic certificate

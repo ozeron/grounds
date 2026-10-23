@@ -4,6 +4,78 @@ Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and 
 
 The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
 
+- 2026-10-23 (M4a round 4; **ACCEPTED**, synthetic keys, revised Bun credential scope):
+  Implementation `8785369` keeps the separate `bend_server.bend` entry graph
+  from `4fbcd66`. The user explicitly selected **P-256 ECDSA only on Bun**;
+  native retains **P-256 ECDSA and RSA**, each with AES and ChaCha. Option (a)
+  is implemented: validated RSA credentials on Bun exit **1 before listen**
+  with `RSA certificates on Bun are unsupported for latency reasons; use
+  P-256 ECDSA`. A backend-identity effect returns only a fixed target marker;
+  Bend owns credential validation and admission. No environment override can
+  enable Bun RSA. This small startup check prevents silent unsupported use;
+  the added Bun configuration case verifies the message, exit and closed port.
+  Native RSA continues to pass both positive and negative live suites.
+
+  Only these four HTTP server live acceptance phases were removed:
+  `http_server/bend_tls_bun_rsa_aes`,
+  `http_server/bend_tls_bun_rsa_aes_negative`,
+  `http_server/bend_tls_bun_rsa_chacha`, and
+  `http_server/bend_tls_bun_rsa_chacha_negative`.
+  Native RSA/ECDSA and Bun ECDSA phases, the **1000 ms** handshake deadline,
+  **32-handshake** loops, all other deadlines, repetition counts and guard
+  limits remain unchanged. RSA crypto unit/differential suites remain on both
+  targets; wire TLS suites are unchanged. `scope-limits-audit.json` compares
+  the retained phase order/options and live-test function ASTs to `5be608b`.
+
+  The scope decision follows round-3 Bun RSA request maxima of **969.9 ms AES /
+  730.7 ms ChaCha**, versus native **about 46 ms**, against the unchanged
+  **1000 ms** handshake deadline. It does not claim the intermittent Bun RSA
+  failure was fixed. The cancelled optimization remains preserved, unapplied,
+  for possible later work at
+  `~/.codex/artifacts/grounds/2026-10-23/m4a/round4/cancelled-rsa-wip.patch`.
+  README and TLS_PROFILE record the target/credential boundary explicitly.
+
+  Fresh evidence is retained under
+  `~/.codex/artifacts/grounds/2026-10-23/m4a/round4/ecdsa-only/`:
+
+  - `server-01.json`: **37/37 passed**, 231.431 s, **1698.6 MiB** peak.
+  - `server-02.json`: **37/37 passed**, 218.822 s, **1687.0 MiB** peak.
+  - `core-01.json`: **1/1 passed**, 17.092 s, **488.5 MiB** peak;
+    **2,693 cookie cases per native/Bun target**, existing unit/proof/cold checks.
+  - `root-08.json`: **2,140/2,140 passed**, 4535.580 s, **3377.0 MiB** peak;
+    all 14 package tasks, including the **37/37** server and **161/161** RTC phases.
+
+  All gates used OpenSSL **3.6.3** with `/opt/homebrew/opt/openssl@3/bin` first
+  in PATH, Bend **2.0.38**, `PYTHONDONTWRITEBYTECODE=1`, unchanged **4096 MiB**
+  aggregate/process caps and **120 s per phase**. Server/core used fresh
+  `moon --concurrency 1 run http_server:check|http_core:check --force` commands.
+  Root used the exact requested command:
+  `python3 tools/build_guard.py --memory-mib 4096 --process-memory-mib 4096 --timeout 120 --phases tools/check_phases.json --report "$A/root-08.json" -- nice -n 10 moon --concurrency 1 run :check --force`.
+  Each complete server run passes **76 native / 38 Bun HTTPS scenarios**,
+  **5 native / 6 Bun configuration cases**, and **four host-effect abort
+  controls**. `server-source-parity.json` binds all three server runs to
+  identical **288-file source maps per target**. Root repeats the cookie corpus.
+  Curl/Python/Go/OpenSSL remain peers/oracles only; emitted effect/import/call,
+  native symbol/library/loader audits pass. No oracle enters the Bend path.
+
+  Pressure-stopped `root-01` through `root-06` remain intact, with respectively
+  **1692 / 738 / 471 / 0 / 67 / 65 passed phases** before interruption; none is
+  a product test failure or an acceptance result. Replacing this thread's rapid
+  retry driver interrupted `root-07` startup; `root-07.log` and
+  `root-07-interruption.json` preserve that separate interruption and missing
+  guard report. The replacement driver requires **60 continuous seconds** of
+  normal pressure and no other guard before a fresh retry. Recorded cumulative
+  pressure/stability waiting was **120.129 seconds of the 90-minute budget**.
+  No foreign process was signalled. The expected pre-implementation Bun RSA
+  rejection test failure remains in `configuration-red*.json` / `.log`.
+
+  Only M4's **server transport selection** and **cookie integration** criteria
+  are now checked; the combined transport item is split so the HTTP client
+  criterion stays unchecked. Client/WSS/browser/final HTTP milestone audit
+  remain M4b. M4 as a whole and live-secret use remain open; physical erasure
+  is still blocked. The M5 plan and crypto/ERASURE.md from `5be608b` are unchanged.
+  No decimal migration, cancelled optimization, bounty work, push or PR.
+
 - 2026-10-23 (M4a round 3; acceptance **BLOCKED**, fresh root passes):
   Implementation commits remain `bbd15be` / `bde7815`, followed by Montgomery
   row fusion `193f731`, fixed four-bit private powers `222985a`, and affine
