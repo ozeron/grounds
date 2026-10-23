@@ -31,6 +31,7 @@ Pure Bend cryptographic primitives. This package implements SHA-1, SHA-256, HMAC
 | `oid.bend` | `decode(bytes)` | Canonical primitive DER OID admission; retains encoded contents without narrowing arc values |
 | `x509_public_key.bend` | `decode(bytes)` | Complete RSA/PSS or uncompressed P-256 SPKI structural/public-parameter admission; retains algorithm restrictions |
 | `x509_certificate.bend` | `decode(bytes)` | Bounded certificate field framing; retains exact signed bytes and binds supported inner/outer algorithms |
+| `x509_chain.bend` / `x509_ca_path.bend` | `verify(tables,presented,anchors,identity,ServerAuth{},now)` | Composed server-certificate authentication: prepared issuer Names, exact-TBS signatures, explicit anchors, CA/path/KU/EKU, SAN-only DNS/IP and trusted UTC time; explicit failures and bounded search. See [X509_CHAIN_REVIEW.md](X509_CHAIN_REVIEW.md) for rejected features and limits. |
 | `x509_validity.bend` | `decode_time(bytes)`, `decode(bytes)`, `valid_at(bytes, now)` | Strict civil UTC calendar/interval admission and inclusive validity bounds; caller supplies trusted time |
 | `x509_extensions.bend` | `decode(bytes)`, `optional(bytes)` | Exact extension envelopes, canonical OIDs/critical flags and collision-safe duplicate rejection; opaque payloads |
 | `x509_constraints.bend` | `basic(bytes)`, `usage(bytes)`, `path_allows(limit,count)`, `policy(basic,usage)` | Basic-constraints/key-usage payload admission and local consistency; arbitrary-size path limits retained |

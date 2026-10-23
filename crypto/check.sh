@@ -57,6 +57,10 @@ check frontend/x509_name_prepare_test bend x509_name_prepare_test.bend
 check frontend/x509_name_match_test bend x509_name_match_test.bend
 check frontend/x509_extension_policy_test bend x509_extension_policy_test.bend
 check frontend/x509_verify_cli env BUN_JSC_useJIT=false bend x509_verify_cli.bend --check-only
+check frontend/x509_ca_path_test bend x509_ca_path_test.bend
+check frontend/x509_chain_test bend x509_chain_test.bend
+check frontend/x509_chain_cli env BUN_JSC_useJIT=false bend x509_chain_cli.bend --check-only
+check reference/x509_chain_check python3 x509_chain_check.py --oracle-only
 check frontend/traffic_test bend traffic_test.bend
 check frontend/traffic_type_check python3 traffic_type_check.py
 check frontend/sha256_stream_type_check python3 sha256_stream_type_check.py
@@ -109,6 +113,7 @@ check native/build/x509_name_prepare_cli ../tools/bend_native.sh x509_name_prepa
 check native/build/x509_name_match_cli ../tools/bend_native.sh x509_name_match_cli.bend "$tmp/x509_name_match" > /dev/null
 check native/build/x509_extension_policy_cli ../tools/bend_native.sh x509_extension_policy_cli.bend "$tmp/x509_extension_policy" > /dev/null
 check native/build/x509_verify_cli env BUN_JSC_useJIT=false ../tools/bend_native.sh x509_verify_cli.bend "$tmp/x509_verify" > /dev/null
+check native/build/x509_chain_cli env BUN_JSC_useJIT=false ../tools/bend_native.sh x509_chain_cli.bend "$tmp/x509_chain" > /dev/null
 check native/build/x25519_cli ../tools/bend_native.sh x25519_cli.bend "$tmp/x25519" > /dev/null
 check native/build/traffic_write_cli ../tools/bend_native.sh traffic_write_cli.bend "$tmp/traffic_write" > /dev/null
 check native/build/traffic_read_cli ../tools/bend_native.sh traffic_read_cli.bend "$tmp/traffic_read" > /dev/null
@@ -155,6 +160,9 @@ check native/check/x509_name_prepare_check python3 x509_name_prepare_check.py --
 check native/check/x509_name_match_check python3 x509_name_match_check.py --mode all -- "$tmp/x509_name_match"
 check native/check/x509_extension_policy_check python3 x509_extension_policy_check.py --signature-binary "$tmp/x509_verify" -- "$tmp/x509_extension_policy"
 check native/check/x509_signature_check python3 x509_signature_check.py -- "$tmp/x509_verify"
+for batch in $(python3 -c 'import json; n=len(json.load(open("x509_chain_vectors.json"))["cases"]); print(" ".join(f"{i:03d}" for i in range((n+3)//4)))'); do
+  check native/check/x509_chain_check/batch-$batch python3 x509_chain_check.py --batch-index "$batch" -- "$tmp/x509_chain"
+done
 check native/check/x25519_check python3 x25519_check.py --iterated "$tmp/x25519"
 check native/check/traffic_check python3 traffic_check.py python3 traffic_fixture.py --write "$tmp/traffic_write" --read "$tmp/traffic_read" --
 check native/check/traffic_aes_check python3 traffic_aes_check.py python3 traffic_fixture.py --write "$tmp/traffic_write" --read "$tmp/traffic_read" --
@@ -207,6 +215,7 @@ if command -v bun > /dev/null 2>&1; then
   check bun/build/x509_name_match_cli bend x509_name_match_cli.bend -o "$tmp/x509_name_match.js" > /dev/null
   check bun/build/x509_extension_policy_cli bend x509_extension_policy_cli.bend -o "$tmp/x509_extension_policy.js" > /dev/null
   check bun/build/x509_verify_cli env BUN_JSC_useJIT=false bend x509_verify_cli.bend -o "$tmp/x509_verify.js" > /dev/null
+  check bun/build/x509_chain_cli env BUN_JSC_useJIT=false bend x509_chain_cli.bend -o "$tmp/x509_chain.js" > /dev/null
   check bun/build/x25519_cli bend x25519_cli.bend -o "$tmp/x25519.js" > /dev/null
   check bun/build/traffic_write_cli bend traffic_write_cli.bend -o "$tmp/traffic_write.js" > /dev/null
   check bun/build/traffic_read_cli bend traffic_read_cli.bend -o "$tmp/traffic_read.js" > /dev/null
@@ -254,6 +263,9 @@ if command -v bun > /dev/null 2>&1; then
   env BUN_JSC_forceRAMSize=4194304 python3 x509_name_match_check.py --mode stress --phase-prefix crypto/bun/check/x509_name_match -- bun "$tmp/x509_name_match.js"
   check bun/check/x509_extension_policy_check python3 x509_extension_policy_check.py --bun --signature-binary "$tmp/x509_verify.js" -- bun "$tmp/x509_extension_policy.js"
   python3 x509_signature_check.py --phase-prefix crypto/bun/check/x509_signature_check -- bun "$tmp/x509_verify.js"
+  for batch in $(python3 -c 'import json; n=len(json.load(open("x509_chain_vectors.json"))["cases"]); print(" ".join(f"{i:03d}" for i in range((n+3)//4)))'); do
+    check bun/check/x509_chain_check/batch-$batch python3 x509_chain_check.py --batch-index "$batch" -- bun "$tmp/x509_chain.js"
+  done
   check bun/check/x25519_check python3 x25519_check.py bun "$tmp/x25519.js"
   check bun/check/traffic_check python3 traffic_check.py python3 traffic_fixture.py --bun --write "$tmp/traffic_write.js" --read "$tmp/traffic_read.js" --
   check bun/check/traffic_aes_check python3 traffic_aes_check.py python3 traffic_fixture.py --bun --write "$tmp/traffic_write.js" --read "$tmp/traffic_read.js" --

@@ -138,6 +138,22 @@
       "optional": false
     },
     {
+      "name": "crypto/frontend/x509_ca_path_test",
+      "optional": false
+    },
+    {
+      "name": "crypto/frontend/x509_chain_test",
+      "optional": false
+    },
+    {
+      "name": "crypto/frontend/x509_chain_cli",
+      "optional": false
+    },
+    {
+      "name": "crypto/reference/x509_chain_check",
+      "optional": false
+    },
+    {
       "name": "crypto/frontend/traffic_test",
       "optional": false
     },
@@ -346,6 +362,10 @@
       "optional": false
     },
     {
+      "name": "crypto/native/build/x509_chain_cli",
+      "optional": false
+    },
+    {
       "name": "crypto/native/build/x25519_cli",
       "optional": false
     },
@@ -527,6 +547,202 @@
     },
     {
       "name": "crypto/native/check/x509_signature_check",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-000",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-001",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-002",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-003",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-004",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-005",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-006",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-007",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-008",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-009",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-010",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-011",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-012",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-013",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-014",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-015",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-016",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-017",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-018",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-019",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-020",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-021",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-022",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-023",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-024",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-025",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-026",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-027",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-028",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-029",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-030",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-031",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-032",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-033",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-034",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-035",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-036",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-037",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-038",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-039",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-040",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-041",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-042",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-043",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-044",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-045",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-046",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-047",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_chain_check/batch-048",
       "optional": false
     },
     {
@@ -731,6 +947,10 @@
     },
     {
       "name": "crypto/bun/build/x509_verify_cli",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/build/x509_chain_cli",
       "optional": true
     },
     {
@@ -6263,6 +6483,202 @@
     },
     {
       "name": "crypto/bun/check/x509_signature_check/cli",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-000",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-001",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-002",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-003",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-004",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-005",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-006",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-007",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-008",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-009",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-010",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-011",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-012",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-013",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-014",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-015",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-016",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-017",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-018",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-019",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-020",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-021",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-022",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-023",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-024",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-025",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-026",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-027",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-028",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-029",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-030",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-031",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-032",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-033",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-034",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-035",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-036",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-037",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-038",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-039",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-040",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-041",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-042",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-043",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-044",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-045",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-046",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-047",
+      "optional": true
+    },
+    {
+      "name": "crypto/bun/check/x509_chain_check/batch-048",
       "optional": true
     },
     {

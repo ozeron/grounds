@@ -4,6 +4,13 @@ Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and 
 
 The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
 
+- 2026-10-23 (M1 composed certificate authentication; focused checks complete):
+  New `x509_chain.verify` composes explicit trust, prepared issuer Names,
+  exact-TBS signatures, CA/path/KU/EKU, SAN identity and caller UTC time.
+  Frozen full-chain differential corpus passes **193/193 native and Bun**;
+  14 CA and 12 composition frontend declarations pass. Full crypto/root
+  gates are pending at this checkpoint; M1 boxes remain open until closeout.
+
 - 2026-10-23 (M0 round 3 complete, Bend 2.0.38): isolated HTTP/SSE
   differential fixtures from unrelated local probes without reducing comparisons.
   Two fresh root runs pass **1,765/1,765** phases each under the unchanged 4 GiB
@@ -38,6 +45,111 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 | `rtc` | Bend STUN parsing, IPv4 XOR-MAPPED-ADDRESS, SHA-1/SHA-256/dual integrity, FINGERPRINT, authenticated incoming/outgoing ICE Binding exchanges, retained-socket retransmissions and explicit error/integrity outcomes. IPv4 candidate/pair priorities, bounded checklist formation, stable transport references and guarded state transitions, role-driven priority reordering, a paced shared-socket transaction engine with response-only interruption, protected incoming replies and server-side role decisions, FIFO triggered queues, ordinary round-robin/foundation scheduling and generation/sent-role attempt ownership. A bounded session now binds signaled credentials, registered receiving/sending bases, observed peer-reflexive candidates, deferred incoming work, retained attempts and endpoint integrity policies. Authenticated non-symmetric responses fail only their original current pair; interrupted old listeners retire independently. The live owner fixture explicitly binds unicast IPv4 bases and queries actual local ports before candidate formation. An additive valid-list owner resolves authenticated mappings, learns locally peer-reflexive candidates from retained signed-request priority, allocates IP-keyed foundations, reranks by role and keeps late paths separate from replacement flights. A nomination-evidence owner associates current successful checks with their valid paths and retains qualified incoming intent through materialization, exact triggered flights and response-only listeners; already-Succeeded counterparts resolve their actual generating record. A generation lifecycle owner now applies regular controlling/controlled nomination, selects completed stream paths, removes nominated component checks while retaining response listeners, continues authenticated Binding service, and defers failure through PAC. An outer transport owner derives selected physical consent routes, serves authenticated consent-only Binding requests, shares actual-send pacing and recent transaction identity admission, gates logical application routes, and preserves sealed consent loss. Full/full credential restart rebuilds ICE state while retaining only selected old consent/server contexts until replacement selection. Bounded SDP/signaling now binds connection-owned credentials and the actual retained UDP base; real Chrome verifies direct selected pairs, fresh consent, restart and cleanup on native and Bun. Separate unauthenticated discovery remains available. | Complete crypto/runtime foundations and secure signaling, then gathering, IPv6/TURN, DTLS/SCTP and SRTP/media. |
 
 ## Evidence ledger
+
+- 2026-10-23 (M1 implementation checkpoint; composed certificate authentication):
+
+  Branch `bend-https`, base `a3c145e`; no M2 work. The existing
+  `x509_name_match` already supplies M1 item 1: OID-bound prepared equality,
+  multiplicity-preserving RDN multisets and ordered Name sequences. Its
+  implementation and 33,037-case native/Bun checks remain unchanged.
+
+  Added `x509_chain.verify(tables, presented, anchors, identity, ServerAuth{}, now)`
+  returning `(tables, Verification)`, rebuilding `x509_ca_path` from the lost
+  draft's ledger contract using equivalent bottom-up pathLen accounting.
+  It checks prepared issuer/subject Names, the parent's admitted SPKI against
+  exact child TBS bytes, v3 CA/keyCertSign, non-self-issued CA counts, explicit
+  anchors, inclusive validity on every selected certificate including anchors,
+  server EKU and leaf digitalSignature, SAN-only DNS/IPv4/IPv6 identity, and
+  processed critical semantics. Name constraints reject explicitly at either
+  criticality; other unsupported critical extensions/forms also reject.
+  Limits: 16 peers, 16 anchors, eight certificates/path including leaf/anchor,
+  512 candidate examinations across backtracking and 65,535 DER bytes/cert.
+  Exact-DER duplicates within a list and cycles reject. Anchors are tried in
+  caller order before peer intermediates; failed branches can backtrack.
+  A peer root grants no trust; an explicitly supplied anchor need not be
+  presented by the peer. The reusable affine Unicode asset state is explicit.
+  Clock epoch, all failures and the stricter CA/anchor profile are documented
+  in `crypto/X509_CHAIN_REVIEW.md` and the README table.
+
+  `x509_chain_fixture.py` generated LOCAL SYNTHETIC public fixtures with
+  isolated Python cryptography **50.0.2**; no private keys were written.
+  Normal checks use stdlib Python and OpenSSL **3.6.3** as an oracle only.
+  The frozen corpus is **193 cases/target**, **55 success / 138 rejection**:
+  all three selected signature schemes, cross-encoded issuer Names, DNS/IP,
+  valid-signature wrong-issuer Names, signature and exact-TBS bit changes,
+  untrusted roots, separately supplied anchors, exact time boundaries,
+  CA=false/missing-BC/v1/v2, pathLen/rollover, KU/EKU, critical/SAN/Name/NC,
+  alternate issuers, duplicates/cycles, depth 8/9, global search/input limits,
+  truncated/malformed/trailing DER. Fourteen CA and twelve composition closed
+  declarations pass the frontend; no kernel `--verdict` claim. Tests were
+  developed with the new operation after auditing existing component tests;
+  no pre-implementation full-chain red test is claimed. Compiler/syntax
+  failures are retained separately from behavioral regression evidence.
+
+  Independent OpenSSL primary verdicts are all asserted. Its **38** recorded
+  differences from the selected Bend profile are explicit: inclusive notAfter,
+  CN fallback, TLS 1.3 digitalSignature, mandatory CA KU, unsupported Name/SAN/NC
+  semantics, duplicate/trailing input and resource limits, plus three ambiguous
+  cross-certificate presentations where it does not find the good branch.
+  For those three, OpenSSL also verifies the complete successful alternate
+  chain. The RFC and Python datetime provide the inclusive boundary oracle.
+  No OpenSSL/Python authorization or cryptography is called by Grounds code.
+
+  Standards read from fresh official snapshots: RFC 5280 sections 4.2,
+  6.1.3/6.1.4(k)-(o), 7.1; RFC 6818, 9549 and 9525; current updates
+  8398/8399, 9598, 9608, 9618, 9925 and 10007. All six Verified RFC 5280
+  errata (5802/5938/6414/7661/3579/7658) were inspected. Unsupported email,
+  policy, unsigned algorithms and revocation remain outside the admitted
+  profile; reported/held errata were not promoted to requirements. No external
+  implementation code was ported. Python HTTPS initially failed local CA
+  verification; curl fetched the official snapshots with certificate checking
+  enabled. `sources/sha256.json` binds the retained texts and errata extracts.
+
+  Artifacts: `/Users/ozeron/.codex/artifacts/grounds/2026-10-23/m1/`.
+  `pinned-provenance.json` rehashes all M0r3 tool executables unchanged:
+  Bend **2.0.38**, Moon **2.5.5**, Bun **1.3.14**, Python **3.13.12** and
+  OpenSSL **3.6.3**. `run.py` records argv/environment, whole-tree source
+  bindings (excluding bounty), logs and guard reports. Every heavy command is
+  sequential, nice 10, 4,096 MiB aggregate/process, 120 s, with system-pressure
+  checks and the original guard lock. `codegen-source-parity.json` confirms
+  retained C/JS match the final implementation source. Initial 160- and
+  187-case development runs and their failed/successful attempts are retained;
+  no reduced corpus replaces the final 193 cases. Two low-effort Astra
+  read-only consultations followed repeated Bend syntax/recursion failures.
+  A premature concurrent oracle invocation was refused by the guard lock
+  (exit 125, `oracle-final.*`); it launched no oracle work and the later
+  sequential full oracle passes. Limits were never raised.
+
+  Exact focused commands (artifact runner wraps each in `tools/build_guard.py`):
+
+  ```sh
+  A=/Users/ozeron/.codex/artifacts/grounds/2026-10-23/m1
+  PYTHONDONTWRITEBYTECODE=1 python3 "$A/run.py" ca-path-closed bend crypto/x509_ca_path_test.bend
+  PYTHONDONTWRITEBYTECODE=1 python3 "$A/run.py" chain-closed bend crypto/x509_chain_test.bend
+  PYTHONDONTWRITEBYTECODE=1 python3 "$A/run.py" chain-c-final env BUN_JSC_useJIT=false bend crypto/x509_chain_cli.bend -o "$A/chain-final.c"
+  PYTHONDONTWRITEBYTECODE=1 python3 "$A/run.py" chain-native-final tools/bend_native.sh "$A/chain-final.c" "$A/chain-final"
+  PYTHONDONTWRITEBYTECODE=1 python3 "$A/run.py" chain-js-final env BUN_JSC_useJIT=false bend crypto/x509_chain_cli.bend -o "$A/chain-final.js"
+  PYTHONDONTWRITEBYTECODE=1 python3 "$A/run.py" oracle-frozen python3 crypto/x509_chain_check.py --oracle-only --report "$A/oracle-frozen-cases.json"
+  PYTHONDONTWRITEBYTECODE=1 python3 "$A/run.py" native-frozen python3 crypto/x509_chain_check.py --report "$A/native-frozen-cases.json" -- "$A/chain-final"
+  PYTHONDONTWRITEBYTECODE=1 python3 "$A/run.py" bun-frozen python3 crypto/x509_chain_check.py --report "$A/bun-frozen-cases.json" -- bun "$A/chain-final.js"
+  ```
+
+  **Focused results:** native **193/193**, exit 0, **3.300 s**; Bun **193/193**,
+  exit 0, **52.356 s**; whole independent oracle **193/193**, exit 0, **1.025 s**,
+  plus three successful complete alternate-path checks. Reports are
+  `native-frozen-cases.json`, `bun-frozen-cases.json`, `oracle-frozen-cases.json`
+  and their paired resource `.json`/`.log`/`-command.json`/`-binding.json` files.
+  `phase-preservation.json` proves all **1,569** old crypto phases retain order
+  and optionality. **104** declared additions give **1,673 crypto phases**:
+  three frontend phases, one oracle phase, two builds and 49 four-case-or-less
+  batches per target. No existing cases or phases were removed.
+
+  Full forced crypto acceptance and optional fresh root acceptance remain
+  pending at this implementation checkpoint. Next: `python3 "$A/run.py"
+  crypto-01` (fresh `PYTHONDONTWRITEBYTECODE=1 moon run crypto:check --force`
+  under the unchanged phase guard), then audit M1 and record final gate results.
+  M1 remains open here; M2 and live TLS/HTTPS have not started. Bounty and all
+  six pre-existing untracked Python cache files remain untouched.
 
 - 2026-10-23 (M0 round 3; HTTP differential probe isolation):
 
