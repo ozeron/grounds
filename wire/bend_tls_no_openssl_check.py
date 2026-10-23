@@ -120,7 +120,29 @@ def command(argv):
     return dict(argv=argv, stdout=result.stdout, stderr=result.stderr)
 
 
-def native_imports(path):
+def c_defined_names(source):
+    """File-scope functions and arrays the emitted program defines itself, e.g.
+    the Bend runtime's err_fail(...) and ERR_TEXT[]."""
+    clean = strip_comments(source)
+    return set(re.findall(r"^(?:[A-Za-z_]\w*[ \t*]+)+([A-Za-z_]\w*)[ \t]*[(\[]", clean, re.M))
+
+
+def dynamic_literals(lines, defined, own_names):
+    """Forbidden-looking strings in a binary, less those that are only the symbol
+    table entries of names the emitted C itself defines. Static OpenSSL would be
+    defined but not in the emitted C, and a dlopen/dlsym literal is not a defined
+    symbol, so both stay forbidden."""
+    flagged, exempt = set(), set()
+    for line in lines:
+        value = line.strip()
+        if FORBIDDEN_SYMBOL.match(value) or FORBIDDEN_LIBRARY.search(value):
+            # ELF names a function's static local "function.local" (err_trap.line)
+            owner = value.split(".", 1)[0]
+            (exempt if value in defined and owner in own_names else flagged).add(value)
+    return sorted(flagged), sorted(exempt)
+
+
+def native_imports(path, own_names=frozenset()):
     nm = shutil.which("nm")
     if not nm:
         raise RuntimeError("nm is required for native import evidence")
@@ -147,11 +169,17 @@ def native_imports(path):
     if not strings:
         raise RuntimeError("strings is required for dynamic-loader name evidence")
     literals = command([strings, "-a", str(path)])
-    dynamic = sorted(set(line.strip() for line in literals["stdout"].splitlines()
-                         if FORBIDDEN_SYMBOL.match(line.strip()) or FORBIDDEN_LIBRARY.search(line.strip())))
+    table = command([nm, str(path)])
+    defined = set()
+    for line in table["stdout"].splitlines():
+        fields = line.split()
+        if len(fields) >= 2 and fields[-2] not in ("U", "u", "w", "v"):
+            defined.add(fields[-1].lstrip("_").split("@", 1)[0])
+    dynamic, exempt = dynamic_literals(literals["stdout"].splitlines(), defined, own_names)
     return dict(undefined_symbol_command=symbols, imported_symbols=sorted(imported),
                 linked_library_command=linked, linked_libraries=libraries,
                 strings_command=literals["argv"], forbidden_dynamic_loader_literals=dynamic,
+                exempt_own_program_literals=exempt,
                 forbidden_imported_symbols=sorted(name for name in imported if FORBIDDEN_SYMBOL.match(name)),
                 forbidden_linked_libraries=sorted(name for name in libraries if FORBIDDEN_LIBRARY.search(name)))
 
@@ -172,6 +200,14 @@ def self_check():
     assert js_effects(js + 'ffi.dlopen(mac ? "libssl.dylib" : "libcrypto.so", {});')["forbidden_loader_literals"]
     assert js_effects(js + 'ffi.dlopen("Crypto", {});')["forbidden_loader_literals"]
     assert c_effects("")["missing_byte_tcp_rng_effects"]
+    own = c_defined_names('static const char* ERR_TEXT[] = { "" };\nFAR int err_claim(void) {\n  return err_fail(x);\n}')
+    assert own == {"ERR_TEXT", "err_claim"}, own
+    lines = ["err_claim", "err_claim.first", "ERR_TEXT", "EVP_EncryptInit", "EVP_EncryptInit.x",
+             "SSL_read", "err_claim.SSL_read", "libssl.so.3"]
+    flagged, exempt = dynamic_literals(lines, {"err_claim", "err_claim.first", "ERR_TEXT", "EVP_EncryptInit",
+                                               "EVP_EncryptInit.x"}, own)
+    assert exempt == ["ERR_TEXT", "err_claim", "err_claim.first"], exempt
+    assert flagged == ["EVP_EncryptInit", "EVP_EncryptInit.x", "SSL_read", "err_claim.SSL_read", "libssl.so.3"], flagged
 
 
 def main():
@@ -202,7 +238,7 @@ def main():
         report["results"]["c"] = c_effects(args.c.read_text(), required)
         report["results"]["js"] = js_effects(args.js.read_text(), required)
         try:
-            report["results"]["native"] = native_imports(args.native)
+            report["results"]["native"] = native_imports(args.native, c_defined_names(args.c.read_text()))
         except (OSError, RuntimeError, subprocess.TimeoutExpired) as error:
             problems.append(f"native evidence unavailable: {error}")
         for target, result in report["results"].items():

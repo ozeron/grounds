@@ -8,7 +8,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "wire"))
-from bend_tls_no_openssl_check import c_effects, js_effects, native_imports, self_check
+from bend_tls_no_openssl_check import c_defined_names, c_effects, js_effects, native_imports, self_check
 from legacy_graph_audit import graph_ids, FORBIDDEN
 
 
@@ -26,7 +26,7 @@ def main():
         assert any(FORBIDDEN.search(value) for value in graph_ids(path.read_text(), target)), target
     required = {"wire_random_bytes", "wire_recv_timeout", "wire_send_timeout", "wire_accept_timeout", "TCP.listen", "http_readable", "http_native_target"}
     results = dict(c=c_effects(args.c.read_text(), required),
-                   js=js_effects(args.js.read_text(), required), native=native_imports(args.native))
+                   js=js_effects(args.js.read_text(), required), native=native_imports(args.native, c_defined_names(args.c.read_text())))
     problems = []
     for target, result in results.items():
         for key, value in result.items():
