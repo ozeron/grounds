@@ -14,7 +14,7 @@ OpenSSL-backed on native and unavailable on JS. The new path calls the pure
 M4a adds `cookie_bend.SigningKey{secret}`, `sign_owned(key,value)` and
 `verify_owned(key,signed)` as an explicit immutable application/runtime owner.
 The HTTPS example obtains its synthetic key from `HTTP_COOKIE_KEY` and holds it
-in `serve_bend_out_context`'s Data handler context. Signer selection stays with
+in `http/server/bend_server.bend:serve_bend_out_context`'s Data handler context. Signer selection stays with
 the app, independently of transport. There is no change to `cookie_sign`'s
 defaults and no automatic migration. The owned calls use exactly the same
 Bend implementation/result format as the String-key calls. They do not add

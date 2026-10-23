@@ -296,7 +296,7 @@ def configuration_cases(binary, directory, rows):
         assert result.returncode != 0, (name, result.stdout, result.stderr)
         with socket.socket() as probe:
             assert probe.connect_ex(("127.0.0.1", int(base["PORT"]))) != 0, name
-        rows.append(dict(name=name, exit=result.returncode, rejected=True))
+        rows.append(dict(name=name, exit=result.returncode, rejected=True, entrypoint="bend_server.serve_bend_out_context"))
     loaded = directory / "loaded-runtime"
     loaded.mkdir(exist_ok=True)
     for name in ("ecdsa.pem", "ecdsa.key", "ca.pem"):

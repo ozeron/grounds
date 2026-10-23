@@ -1,6 +1,4 @@
 import Base
-import ./transport.bend as Tr
-import ./tls_config.bend as BT
 import ../../wire/wire.bend as W
 import ../wire/http1.bend as H1
 import ../wire/bytes.bend as B
@@ -30,7 +28,6 @@ import ../core/event.bend as Ev
 
 type Tls is Data:
   Tls{cert: String, key: String}
-  BendTls{chain: List<&2,String>, key: String, suites: List<&2,U32>}
 
 type Config is Data:
   Config{port: U32, max_head_bytes: U32, max_body_bytes: U32, max_requests: U32, idle_ms: U32, request_ms: U32, drain_ms: U32, tls: Maybe<&2, Tls>, trust_proxy: Bool}
@@ -42,15 +39,6 @@ def with_tls(cfg: Config, cert: String, key: String) -> Config:
   match cfg:
     case Config{port, mh, mb, mr, ims, rms, dms, _, trust}:
       Config{port, mh, mb, mr, ims, rms, dms, Some{Tls{cert, key}}, trust}
-
-# PEM file paths, one certificate per entry (leaf first). Both TLS 1.3 suites.
-def with_bend_tls_chain(cfg: Config, chain: List<&2,String>, key: String, suites: List<&2,U32>) -> Config:
-  match cfg:
-    case Config{port,mh,mb,mr,ims,rms,dms,_,trust}:
-      Config{port,mh,mb,mr,ims,rms,dms,Some{BendTls{chain,key,suites}},trust}
-
-def with_bend_tls(cfg: Config, cert: String, key: String) -> Config:
-  with_bend_tls_chain(cfg,[cert],key,[4865,4867])
 
 def with_trust_proxy(cfg: Config, trust: Bool) -> Config:
   match cfg:
@@ -97,15 +85,10 @@ def env.u32(name: String, label: String, +d: U32) -> IO(U32):
 # cfg with what the environment sets: PORT, HTTP_MAX_HEAD_BYTES,
 # HTTP_MAX_BODY_BYTES, HTTP_MAX_REQUESTS, HTTP_IDLE_MS, HTTP_REQUEST_MS,
 # HTTP_DRAIN_MS
-def env.credential(cert: String, key: String, fallback: Maybe<&2,Tls>) -> IO(Maybe<&2,Tls>):
-  match fallback:
-    case Some{BendTls{_,_,suites}}: IO.pure(Maybe<&2,Tls>,Some{BendTls{[cert],key,suites}})
-    case _: IO.pure(Maybe<&2,Tls>,Some{Tls{cert,key}})
-
 def env.tls_pair(cert: Result<&1, &1, U32 & String, String>, key: Result<&1, &1, U32 & String, String>, fallback: Maybe<&2, Tls>) -> IO(Maybe<&2, Tls>):
   match cert key:
     case Done{c} Done{k}:
-      env.credential(c,k,fallback)
+      IO.pure(Maybe<&2, Tls>, Some{Tls{c, k}})
     case Fail{_} Fail{_}:
       IO.pure(Maybe<&2, Tls>, fallback)
     case _ _:
@@ -116,15 +99,6 @@ def env.tls(fallback: Maybe<&2, Tls>) -> IO(Maybe<&2, Tls>):
     cert : Result<&1, &1, U32 & String, String> <- IO.get_env("HTTP_TLS_CERT")
     key : Result<&1, &1, U32 & String, String> <- IO.get_env("HTTP_TLS_KEY")
     env.tls_pair(cert, key, fallback)
-
-def env.engine(value: Result<&1,&1,U32 & String,String>, tls: Maybe<&2,Tls>) -> IO(Maybe<&2,Tls>):
-  match value tls:
-    case Fail{_} tls: IO.pure(Maybe<&2,Tls>,tls)
-    case Done{"bend"} Some{Tls{cert,key}}: IO.pure(Maybe<&2,Tls>,Some{BendTls{[cert],key,[4865,4867]}})
-    case Done{"bend"} Some{BendTls{chain,key,suites}}: IO.pure(Maybe<&2,Tls>,Some{BendTls{chain,key,suites}})
-    case Done{"openssl"} Some{Tls{cert,key}}: IO.pure(Maybe<&2,Tls>,Some{Tls{cert,key}})
-    case Done{"openssl"} Some{BendTls{[cert],key,_}}: IO.pure(Maybe<&2,Tls>,Some{Tls{cert,key}})
-    case _ _: IO.die(Maybe<&2,Tls>,1,"HTTP_TLS_ENGINE must be bend|openssl with a configured credential")
 
 def from_env(cfg: Config) -> IO(Config):
   match cfg:
@@ -138,9 +112,7 @@ def from_env(cfg: Config) -> IO(Config):
         +q : U32 <- env.u32("HTTP_REQUEST_MS", "HTTP_REQUEST_MS", rms)
         +d : U32 <- env.u32("HTTP_DRAIN_MS", "HTTP_DRAIN_MS", dms)
         tls2 : Maybe<&2, Tls> <- env.tls(tls)
-        engine : Result<&1,&1,U32 & String,String> <- IO.get_env("HTTP_TLS_ENGINE")
-        tls3 : Maybe<&2,Tls> <- env.engine(engine,tls2)
-        return Config{p, a, b, c, i, q, d, tls3, trust}
+        return Config{p, a, b, c, i, q, d, tls2, trust}
 
 # Streamed responses
 # ------------------
@@ -149,20 +121,6 @@ def from_env(cfg: Config) -> IO(Config):
 # went through, how long a write may wait, and how many writes went out
 type Sink is Type:
   Sink{sock: Socket, ok: Bool, ms: U32, n: Nat}
-  TransportSink{connection: Tr.Connection, ok: Bool, ms: U32, n: Nat}
-
-type SinkState is Type:
-  SinkState{connection: Tr.Connection, ok: Bool, ms: U32, n: Nat}
-
-def sink.state(k: Sink) -> SinkState:
-  match k:
-    case Sink{socket,ok,ms,n}: SinkState{Tr.Raw{socket},ok,ms,n}
-    case TransportSink{connection,ok,ms,n}: SinkState{connection,ok,ms,n}
-
-def sink.pack(connection: Tr.Connection, ok: Bool, ms: U32, n: Nat) -> Sink:
-  match connection:
-    case Tr.Raw{socket}: Sink{socket,ok,ms,n}
-    case other: TransportSink{other,ok,ms,n}
 
 # what a handler answers: a whole response, or a status and headers whose
 # body the function writes through a Sink, in chunks
@@ -172,39 +130,36 @@ type Out is Type:
   Upgrade{accept: String, session: Socket -> B.Bytes -> IO(Unit)}
 
 def RP() -> Type:
-  Tr.Read()
+  Socket & Result<&1, &1, U32 & String, Maybe<&1, List<&2, U32>>>
 
 def RU() -> Type:
-  Tr.Sent()
+  Socket & Result<&1, &1, U32 & String, Unit>
 
-def sink.of(r: Result<&1, &1, U32 & String, Unit>, s: Tr.Connection, +ms: U32, +n: Nat) -> IO(Sink):
+def sink.of(r: Result<&1, &1, U32 & String, Unit>, s: Socket, +ms: U32, +n: Nat) -> IO(Sink):
   match r:
     case Done{_}:
-      IO.pure(Sink, sink.pack(s,True{},ms,Nat.add(n,1n)))
+      IO.pure(Sink, Sink{s, True{}, ms, Nat.add(n, 1n)})
     case Fail{_}:
-      IO.pure(Sink, sink.pack(s,False{},ms,n))
+      IO.pure(Sink, Sink{s, False{}, ms, n})
 
 def sink.sent(+ms: U32, +n: Nat, m: RU()) -> IO(Sink):
   match m:
     case (s, r):
       sink.of(r, s, ms, n)
 
-def send.go(ok: Bool, s: Tr.Connection, +ms: U32, +n: Nat, bs: B.Bytes) -> IO(Sink):
+def send.go(ok: Bool, s: Socket, +ms: U32, +n: Nat, bs: B.Bytes) -> IO(Sink):
   match ok:
     case True{}:
-      IO.bind(RU(), Sink, Tr.send(s, B.to_list(H1.chunk(bs)), ms), m => sink.sent(ms, n, m))
+      IO.bind(RU(), Sink, W.wire_send_timeout(s, B.to_list(H1.chunk(bs)), ms), m => sink.sent(ms, n, m))
     case False{}:
-      IO.pure(Sink, sink.pack(s,False{},ms,n))
+      IO.pure(Sink, Sink{s, False{}, ms, n})
 
 # bytes as the next part of the body; once a write fails, the rest are
 # dropped and the connection closes after the handler returns
-def send.state(state: SinkState, bs: List<&2, U32>) -> IO(Sink):
-  match state:
-    case SinkState{s, ok, +ms, +n}:
+def send(k: Sink, bs: List<&2, U32>) -> IO(Sink):
+  match k:
+    case Sink{s, ok, +ms, +n}:
       send.go(ok, s, ms, n, B.of_list(bs))
-
-def send(k: Sink, bs: List<&2,U32>) -> IO(Sink):
-  send.state(sink.state(k),bs)
 
 # text as the next part of the body, in UTF-8
 def send_text(k: Sink, t: String) -> IO(Sink):
@@ -239,13 +194,10 @@ def last_id(r: Req.Request) -> Maybe<&2, String>:
 type Live is Type:
   Live{ok: Bool, sink: Sink}
 
-def live.state(state: SinkState) -> Live:
-  match state:
-    case SinkState{s, +ok, ms, n}:
-      Live{ok, sink.pack(s,ok,ms,n)}
-
 def live(k: Sink) -> Live:
-  live.state(sink.state(k))
+  match k:
+    case Sink{s, +ok, ms, n}:
+      Live{ok, Sink{s, ok, ms, n}}
 
 def every.idle(same: Bool, k: Sink) -> IO(Sink):
   match same:
@@ -254,28 +206,23 @@ def every.idle(same: Bool, k: Sink) -> IO(Sink):
     case False{}:
       IO.pure(Sink, k)
 
-def every.after_state(state: SinkState, +before: Nat) -> IO(Sink):
-  match state:
-    case SinkState{s, ok, ms, +n}:
-      every.idle(Nat.is_eq(n, before), sink.pack(s,ok,ms,n))
-
-def every.after(k: Sink, before: Nat) -> IO(Sink):
-  every.after_state(sink.state(k),before)
-
-def every.step(~tick: Sink -> IO(Sink), +ms: U32, state: SinkState, next: Sink -> IO(Sink)) -> IO(Sink):
-  match state:
-    case SinkState{s,True{},m2,+n}:
-      do IO<Sink>:
-        k2 : Sink <- tick(sink.pack(s,True{},m2,n))
-        k3 : Sink <- every.after(k2,n)
-        IO.sleep(ms)
-        next(k3)
-    case SinkState{s,ok,m2,n}: IO.pure(Sink,sink.pack(s,ok,m2,n))
+def every.after(k: Sink, +before: Nat) -> IO(Sink):
+  match k:
+    case Sink{s, ok, ms, +n}:
+      every.idle(Nat.is_eq(n, before), Sink{s, ok, ms, n})
 
 def every.go(~tick: Sink -> IO(Sink), fuel: Nat, +ms: U32, k: Sink) -> IO(Sink):
-  match fuel:
-    case 0n: IO.pure(Sink,k)
-    case 1n+p: every.step(~tick,ms,sink.state(k),k2 => every.go(~tick,p,ms,k2))
+  match fuel k:
+    case 0n _:
+      IO.pure(Sink, k)
+    case 1n+f Sink{s, True{}, m2, +n}:
+      do IO<Sink>:
+        k2 : Sink <- tick(Sink{s, True{}, m2, n})
+        k3 : Sink <- every.after(k2, n)
+        x : Unit <- IO.sleep(ms)
+        every.go(~tick, f, ms, k3)
+    case 1n+_ other:
+      IO.pure(Sink, other)
 
 # tick every ms, a heartbeat when a tick writes nothing, until a write
 # fails: the client has gone
@@ -345,7 +292,7 @@ law sent:
   for close: Bool
   for rest: B.Bytes
   for m: RU()
-  for next: B.Bytes -> Nat -> Tr.Connection -> IO(Unit)
+  for next: B.Bytes -> Nat -> Socket -> IO(Unit)
   IO(Unit)
 
 # a new request starts with no deadline: its first bytes set one
@@ -353,27 +300,24 @@ def sent(close, rest, m, next):
   match close:
     case True{}:
       (s, _) = m
-      Tr.close(s)
+      W.wire_close(s)
     case False{}:
       (s, _) = m
       next(rest, 0n, s)
 
-def finish.state(state: SinkState, close: Bool, rest: B.Bytes, next: B.Bytes -> Nat -> Tr.Connection -> IO(Unit)) -> IO(Unit):
-  match state:
-    case SinkState{s, True{}, +ms, _}:
-      IO.bind(RU(), Unit, Tr.send(s, B.to_list(H1.last_chunk()), ms), m => sent(close, rest, m, next))
-    case SinkState{s, False{}, _, _}:
-      Tr.close(s)
+def finish(k: Sink, close: Bool, rest: B.Bytes, next: B.Bytes -> Nat -> Socket -> IO(Unit)) -> IO(Unit):
+  match k:
+    case Sink{s, True{}, +ms, _}:
+      IO.bind(RU(), Unit, W.wire_send_timeout(s, B.to_list(H1.last_chunk()), ms), m => sent(close, rest, m, next))
+    case Sink{s, False{}, _, _}:
+      W.wire_close(s)
 
-def finish(k: Sink, close: Bool, rest: B.Bytes, next: B.Bytes -> Nat -> Tr.Connection -> IO(Unit)) -> IO(Unit):
-  finish.state(sink.state(k),close,rest,next)
-
-def streamed.go(r: Result<&1, &1, U32 & String, Unit>, close: Bool, rest: B.Bytes, body: Sink -> IO(Sink), s: Tr.Connection, +ms: U32, next: B.Bytes -> Nat -> Tr.Connection -> IO(Unit)) -> IO(Unit):
+def streamed.go(r: Result<&1, &1, U32 & String, Unit>, close: Bool, rest: B.Bytes, body: Sink -> IO(Sink), s: Socket, +ms: U32, next: B.Bytes -> Nat -> Socket -> IO(Unit)) -> IO(Unit):
   match r:
     case Done{_}:
-      IO.bind(Sink, Unit, body(sink.pack(s,True{},ms,0n)), k => finish(k, close, rest, next))
+      IO.bind(Sink, Unit, body(Sink{s, True{}, ms, 0n}), k => finish(k, close, rest, next))
     case Fail{_}:
-      Tr.close(s)
+      W.wire_close(s)
 
 # the head went out: the handler writes the body, then the last chunk
 law streamed:
@@ -382,31 +326,20 @@ law streamed:
   for body: Sink -> IO(Sink)
   for +ms: U32
   for m: RU()
-  for next: B.Bytes -> Nat -> Tr.Connection -> IO(Unit)
+  for next: B.Bytes -> Nat -> Socket -> IO(Unit)
   IO(Unit)
 
 def streamed(close, rest, body, ms, m, next):
   (s, r) = m
   streamed.go(r, close, rest, body, s, ms, next)
 
-# Existing upgrade sessions own a raw Socket. A Bend TLS owner cannot be
-# stripped to a socket; reject before 101 until M4b supplies WSS sessions.
-def upgrade.transport(s: Tr.Connection, rest: B.Bytes, session: Socket -> B.Bytes -> IO(Unit)) -> IO(Unit):
-  match s:
-    case Tr.Raw{socket}: session(socket,rest)
-    case other: Tr.close(other)
-
-def upgrade.bend_closed(m: RU()) -> IO(Unit):
-  (s,_) = m
-  Tr.close(s)
-
-def upgraded(r: Result<&1, &1, U32 & String, Unit>, s: Tr.Connection,
+def upgraded(r: Result<&1, &1, U32 & String, Unit>, s: Socket,
              rest: B.Bytes, session: Socket -> B.Bytes -> IO(Unit)) -> IO(Unit):
   match r:
     case Done{_}:
-      upgrade.transport(s,rest,session)
+      session(s, rest)
     case Fail{_}:
-      Tr.close(s)
+      W.wire_close(s)
 
 def upgrade_sent(rest: B.Bytes, session: Socket -> B.Bytes -> IO(Unit), m: RU()) -> IO(Unit):
   (s, r) = m
@@ -414,41 +347,39 @@ def upgrade_sent(rest: B.Bytes, session: Socket -> B.Bytes -> IO(Unit), m: RU())
 
 def upgrade_closed(m: RU()) -> IO(Unit):
   (s, _) = m
-  Tr.close(s)
+  W.wire_close(s)
 
 def upgrade.checked(ok: Bool, accept: String, session: Socket -> B.Bytes -> IO(Unit),
-                    s: Tr.Connection, +ms: U32, rest: B.Bytes) -> IO(Unit):
+                    s: Socket, +ms: U32, rest: B.Bytes) -> IO(Unit):
   match ok:
     case True{}:
-      IO.bind(RU(), Unit, Tr.send(s, B.to_list(H1.websocket_head(accept)), ms),
+      IO.bind(RU(), Unit, W.wire_send_timeout(s, B.to_list(H1.websocket_head(accept)), ms),
         m => upgrade_sent(rest, session, m))
     case False{}:
-      IO.bind(RU(), Unit, Tr.send(s, B.to_list(H1.write(refuse(S.bad_request()), True{})), ms),
+      IO.bind(RU(), Unit, W.wire_send_timeout(s, B.to_list(H1.write(refuse(S.bad_request()), True{})), ms),
         m => upgrade_closed(m))
 
 def upgrade.run(+accept: String, session: Socket -> B.Bytes -> IO(Unit),
                 upgrade_close: Bool, raw: B.Bytes, +max_head: U32,
-                s: Tr.Connection, +ms: U32, rest: B.Bytes) -> IO(Unit):
+                s: Socket, +ms: U32, rest: B.Bytes) -> IO(Unit):
   upgrade.checked(Bool.and(Bool.and(H1.request_is_11(raw, max_head), Bool.not(upgrade_close)),
     Bool.not(H1.unsafe(accept, False{}))), accept, session, s, ms, rest)
 
-def respond(out: Out, +close: Bool, upgrade_close: Bool, s: Tr.Connection, +ms: U32,
+def respond(out: Out, +close: Bool, upgrade_close: Bool, s: Socket, +ms: U32,
             rest: B.Bytes, raw: B.Bytes, +max_head: U32,
-            next: B.Bytes -> Nat -> Tr.Connection -> IO(Unit)) -> IO(Unit):
+            next: B.Bytes -> Nat -> Socket -> IO(Unit)) -> IO(Unit):
   match out:
     case Whole{res}:
-      IO.bind(RU(), Unit, Tr.send(s, B.to_list(H1.write(res, close)), ms), m => sent(close, rest, m, next))
+      IO.bind(RU(), Unit, W.wire_send_timeout(s, B.to_list(H1.write(res, close)), ms), m => sent(close, rest, m, next))
     case Stream{S.Status{+c}, hs, body}:
-      IO.bind(RU(), Unit, Tr.send(s, B.to_list(H1.write_head(c, hs, close)), ms), m => streamed(close, rest, body, ms, m, next))
+      IO.bind(RU(), Unit, W.wire_send_timeout(s, B.to_list(H1.write_head(c, hs, close)), ms), m => streamed(close, rest, body, ms, m, next))
     case Upgrade{accept, session}:
-      match s:
-        case Tr.Raw{socket}: upgrade.run(accept,session,upgrade_close,raw,max_head,Tr.Raw{socket},ms,rest)
-        case other: IO.bind(RU(),Unit,Tr.send(other,B.to_list(H1.write(refuse(S.not_implemented()),True{})),ms),upgrade.bend_closed)
+      upgrade.run(accept, session, upgrade_close, raw, max_head, s, ms, rest)
 
-def got.go(done: Bool, acc: B.Bytes, bs: List<&2, U32>, +dl: Nat, s: Tr.Connection, next: B.Bytes -> Nat -> Tr.Connection -> IO(Unit)) -> IO(Unit):
+def got.go(done: Bool, acc: B.Bytes, bs: List<&2, U32>, +dl: Nat, s: Socket, next: B.Bytes -> Nat -> Socket -> IO(Unit)) -> IO(Unit):
   match done:
     case True{}:
-      Tr.close(s)
+      W.wire_close(s)
     case False{}:
       next(B.app(acc, B.of_list(bs)), dl, s)
 
@@ -465,22 +396,22 @@ law late:
 
 def late(m):
   (s, _) = m
-  Tr.close(s)
+  W.wire_close(s)
 
 # the deadline passed mid-request: 408, then close
-def timed_out(s: Tr.Connection, +ms: U32) -> IO(Unit):
+def timed_out(s: Socket, +ms: U32) -> IO(Unit):
   do IO<Unit>:
-    m : RU() <- Tr.send(s, B.to_list(H1.write(refuse(S.request_timeout()), True{})), ms)
+    m : RU() <- W.wire_send_timeout(s, B.to_list(H1.write(refuse(S.request_timeout()), True{})), ms)
     late(m)
 
-def polled.fold(r: Result<&1, &1, U32 & String, Maybe<&1, List<&2, U32>>>, acc: B.Bytes, +dl: Nat, s: Tr.Connection, +ms: U32, next: B.Bytes -> Nat -> Tr.Connection -> IO(Unit)) -> IO(Unit):
+def polled.fold(r: Result<&1, &1, U32 & String, Maybe<&1, List<&2, U32>>>, acc: B.Bytes, +dl: Nat, s: Socket, +ms: U32, next: B.Bytes -> Nat -> Socket -> IO(Unit)) -> IO(Unit):
   match r:
     case Done{Some{+bs}}:
       got.go(empty(bs), acc, bs, dl, s, next)
     case Done{None{}}:
       timed_out(s, ms)
     case Fail{_}:
-      Tr.close(s)
+      W.wire_close(s)
 
 # more bytes of a request came: go on with them, or close if the client has
 law polled:
@@ -488,7 +419,7 @@ law polled:
   for +dl: Nat
   for +ms: U32
   for m: RP()
-  for next: B.Bytes -> Nat -> Tr.Connection -> IO(Unit)
+  for next: B.Bytes -> Nat -> Socket -> IO(Unit)
   IO(Unit)
 
 def polled(acc, dl, ms, m, next):
@@ -503,15 +434,15 @@ def deadline(+dl: Nat, +now: Nat, +ms: U32) -> Nat:
     case _:
       dl
 
-def wait.go(over: Bool, +dl: Nat, +now: Nat, +ms: U32, acc: B.Bytes, s: Tr.Connection, next: B.Bytes -> Nat -> Tr.Connection -> IO(Unit)) -> IO(Unit):
+def wait.go(over: Bool, +dl: Nat, +now: Nat, +ms: U32, acc: B.Bytes, s: Socket, next: B.Bytes -> Nat -> Socket -> IO(Unit)) -> IO(Unit):
   match over:
     case True{}:
       timed_out(s, ms)
     case False{}:
-      IO.bind(RP(), Unit, Tr.recv(s, 65536, U32.from_nat(Nat.sub(dl, now)), U32.from_nat(Nat.sub(dl, now))), m => polled(acc, dl, ms, m, next))
+      IO.bind(RP(), Unit, W.wire_recv_timeout(s, 65536, U32.from_nat(Nat.sub(dl, now))), m => polled(acc, dl, ms, m, next))
 
 # a request under way waits until its deadline
-def wait(+rms: U32, +dl: Nat, acc: B.Bytes, s: Tr.Connection, next: B.Bytes -> Nat -> Tr.Connection -> IO(Unit)) -> IO(Unit):
+def wait(+rms: U32, +dl: Nat, acc: B.Bytes, s: Socket, next: B.Bytes -> Nat -> Socket -> IO(Unit)) -> IO(Unit):
   do IO<Unit>:
     +now : Nat <- IO.now()
     wait.go(Nat.is_le(deadline(dl, now, rms), now), deadline(dl, now, rms), now, rms, acc, s, next)
@@ -522,20 +453,20 @@ def wait(+rms: U32, +dl: Nat, acc: B.Bytes, s: Tr.Connection, next: B.Bytes -> N
 # an idle connection reads in slices of 200 ms, so it sees a stop soon;
 # it ends with a request's first bytes, or closed
 type Idle is Type:
-  Came{sock: Tr.Connection, bytes: List<&2, U32>}
+  Came{sock: Socket, bytes: List<&2, U32>}
   Gone{}
 
-def gone(s: Tr.Connection) -> IO(Idle):
-  IO.bind(Unit, Idle, Tr.close(s), u => IO.pure(Idle, Gone{}))
+def gone(s: Socket) -> IO(Idle):
+  IO.bind(Unit, Idle, W.wire_close(s), u => IO.pure(Idle, Gone{}))
 
-def idle.more(over: Bool, +left: U32, s: Tr.Connection, again: U32 -> Tr.Connection -> IO(Idle)) -> IO(Idle):
+def idle.more(over: Bool, +left: U32, s: Socket, again: U32 -> Socket -> IO(Idle)) -> IO(Idle):
   match over:
     case True{}:
       gone(s)
     case False{}:
       again((left - 200 : U32), s)
 
-def idle.fold(r: Result<&1, &1, U32 & String, Maybe<&1, List<&2, U32>>>, +left: U32, s: Tr.Connection, again: U32 -> Tr.Connection -> IO(Idle)) -> IO(Idle):
+def idle.fold(r: Result<&1, &1, U32 & String, Maybe<&1, List<&2, U32>>>, +left: U32, s: Socket, again: U32 -> Socket -> IO(Idle)) -> IO(Idle):
   match r:
     case Done{Some{bs}}:
       IO.pure(Idle, Came{s, bs})
@@ -547,22 +478,22 @@ def idle.fold(r: Result<&1, &1, U32 & String, Maybe<&1, List<&2, U32>>>, +left: 
 law idle.polled:
   for +left: U32
   for m: RP()
-  for again: U32 -> Tr.Connection -> IO(Idle)
+  for again: U32 -> Socket -> IO(Idle)
   IO(Idle)
 
 def idle.polled(left, m, again):
   (s, r) = m
   idle.fold(r, left, s, again)
 
-def idle.go(on: Bool, +left: U32, s: Tr.Connection, again: U32 -> Tr.Connection -> IO(Idle)) -> IO(Idle):
+def idle.go(on: Bool, +left: U32, s: Socket, again: U32 -> Socket -> IO(Idle)) -> IO(Idle):
   match on:
     case True{}:
-      IO.bind(RP(), Idle, Tr.recv(s, 65536, Bool.pick(U32, U32.is_lt(left, 200), left, 200), left), m => idle.polled(left, m, again))
+      IO.bind(RP(), Idle, W.wire_recv_timeout(s, 65536, Bool.pick(U32, U32.is_lt(left, 200), left, 200)), m => idle.polled(left, m, again))
     case False{}:
       gone(s)
 
 # wait up to left ms for a request to start; close on a stop
-def idle(+fuel: Nat, +left: U32, s: Tr.Connection) -> IO(Idle):
+def idle(+fuel: Nat, +left: U32, s: Socket) -> IO(Idle):
   match fuel:
     case 0n:
       gone(s)
@@ -571,14 +502,14 @@ def idle(+fuel: Nat, +left: U32, s: Tr.Connection) -> IO(Idle):
         +stop : U32 <- W.wire_stopping()
         idle.go(U32.is_eq(stop, 0), left, s, l => sk => idle(p, l, sk))
 
-def idle.done(i: Idle, next: B.Bytes -> Nat -> Tr.Connection -> IO(Unit)) -> IO(Unit):
+def idle.done(i: Idle, next: B.Bytes -> Nat -> Socket -> IO(Unit)) -> IO(Unit):
   match i:
     case Came{s, +bs}:
       got.go(empty(bs), B.BNil{}, bs, 0n, s, next)
     case Gone{}:
       IO.pure(Unit, Unit{})
 
-def reading(quiet: Bool, +ims: U32, +rms: U32, +dl: Nat, acc: B.Bytes, s: Tr.Connection, next: B.Bytes -> Nat -> Tr.Connection -> IO(Unit)) -> IO(Unit):
+def reading(quiet: Bool, +ims: U32, +rms: U32, +dl: Nat, acc: B.Bytes, s: Socket, next: B.Bytes -> Nat -> Socket -> IO(Unit)) -> IO(Unit):
   match quiet:
     case True{}:
       IO.bind(Idle, Unit, idle(Nat.add(U32.to_nat((ims / 200 : U32)), 2n), ims, s), i => idle.done(i, next))
@@ -627,7 +558,7 @@ def redirect_https(host: String, r: Req.Request) -> Res.Response:
     case Req.Request{_, target, _, _}:
       Res.new(S.permanent_redirect(), [H.Header{"location", "https://" ++ host ++ target}], [])
 
-def context.step(~C: Data, ~h: C -> Req.Request -> IO(Out), +context: C, p: H1.Parsed, +mh: U32, +tls: Bool, +trust: Bool, +acc: B.Bytes, s: Tr.Connection, +left: Nat, +ims: U32, +rms: U32, +dl: Nat, next: B.Bytes -> Nat -> Tr.Connection -> IO(Unit), again: B.Bytes -> Nat -> Tr.Connection -> IO(Unit)) -> IO(Unit):
+def context.step(~C: Data, ~h: C -> Req.Request -> IO(Out), +context: C, p: H1.Parsed, +mh: U32, +tls: Bool, +trust: Bool, +acc: B.Bytes, s: Socket, +left: Nat, +ims: U32, +rms: U32, +dl: Nat, next: B.Bytes -> Nat -> Socket -> IO(Unit)) -> IO(Unit):
   match p:
     case H1.Parsed{req, +close, rest}:
       do IO<Unit>:
@@ -636,44 +567,39 @@ def context.step(~C: Data, ~h: C -> Req.Request -> IO(Out), +context: C, p: H1.P
         respond(out, closing(close, left, stop), Bool.or(close, Bool.not(U32.is_eq(stop, 0))),
           s, rms, rest, acc, mh, next)
     case H1.More{}:
-      reading(Bool.not(B.nonempty(acc)), ims, rms, dl, acc, s, again)
+      reading(Bool.not(B.nonempty(acc)), ims, rms, dl, acc, s, next)
     case H1.Bad{e}:
       do IO<Unit>:
-        m : RU() <- Tr.send(s, B.to_list(H1.write(refuse(H1.status(e)), True{})), rms)
+        m : RU() <- W.wire_send_timeout(s, B.to_list(H1.write(refuse(H1.status(e)), True{})), rms)
         sent(True{}, B.BNil{}, m, next)
 
-# Request fuel decreases only after a parsed request. The independent finite
-# read/parse budget also bounds incomplete requests (TLS supplies <=16 KiB per
-# receive, so reads must not consume max_requests).
-def context.conn(~C: Data, ~h: C -> Req.Request -> IO(Out), +context: C, +budget: Nat, +fuel: Nat, +mh: U32, +mb: U32, +ims: U32, +rms: U32, +tls: Bool, +trust: Bool, +acc: B.Bytes, +dl: Nat, s: Tr.Connection) -> IO(Unit):
-  match budget fuel:
-    case 0n _: Tr.close(s)
-    case _ 0n: Tr.close(s)
-    case 1n+turns 1n+p:
-      context.step(~C,~h,context,H1.parse(copy(acc,B.BNil{}),mh,mb),mh,tls,trust,acc,s,p,ims,rms,dl,
-        b => d => sk => context.conn(~C,~h,context,turns,p,mh,mb,ims,rms,tls,trust,b,d,sk),
-        b => d => sk => context.conn(~C,~h,context,turns,1n+p,mh,mb,ims,rms,tls,trust,b,d,sk))
+# a connection: acc is what has come and is not yet a request; fuel counts
+# the requests it may still serve
+def context.conn(~C: Data, ~h: C -> Req.Request -> IO(Out), +context: C, +fuel: Nat, +mh: U32, +mb: U32, +ims: U32, +rms: U32, +tls: Bool, +trust: Bool, +acc: B.Bytes, +dl: Nat, s: Socket) -> IO(Unit):
+  match fuel:
+    case 0n:
+      W.wire_close(s)
+    case 1n+p:
+      context.step(~C, ~h, context, H1.parse(copy(acc, B.BNil{}), mh, mb), mh, tls, trust, acc, s, p, ims, rms, dl, b => d => sk => context.conn(~C, ~h, context, p, mh, mb, ims, rms, tls, trust, b, d, sk))
 
-def legacy.accepted(value: Socket & Result<&1,&1,U32 & String,Unit>) -> IO(Maybe<&1,Tr.Connection>):
-  match value:
-    case (socket,Done{_}): IO.pure(Maybe<&1,Tr.Connection>,Some{Tr.Raw{socket}})
-    case (socket,Fail{_}):
-      do IO<Maybe<&1,Tr.Connection>>:
-        W.wire_close(socket)
-        IO.pure(Maybe<&1,Tr.Connection>,None{})
+def context.handshake_done(~C: Data, ~h: C -> Req.Request -> IO(Out), +context: C, r: Result<&1, &1, U32 & String, Unit>, +mr: Nat, +mh: U32, +mb: U32, +ims: U32, +rms: U32, +trust: Bool, s: Socket) -> IO(Unit):
+  match r:
+    case Done{_}:
+      context.conn(~C, ~h, context, mr, mh, mb, ims, rms, True{}, trust, B.BNil{}, 0n, s)
+    case Fail{_}:
+      W.wire_close(s)
 
-def legacy.start(tls: Bool, socket: Socket, ms: U32) -> IO(Maybe<&1,Tr.Connection>):
+def context.handshook(~C: Data, ~h: C -> Req.Request -> IO(Out), +context: C, +mr: Nat, +mh: U32, +mb: U32, +ims: U32, +rms: U32, +trust: Bool, m: RU()) -> IO(Unit):
+  match m:
+    case (s, r):
+      context.handshake_done(~C, ~h, context, r, mr, mh, mb, ims, rms, trust, s)
+
+def context.begin_conn(~C: Data, ~h: C -> Req.Request -> IO(Out), +context: C, +tls: Bool, +trust: Bool, +mr: Nat, +mh: U32, +mb: U32, +ims: U32, +rms: U32, s: Socket) -> IO(Unit):
   match tls:
-    case False{}: IO.pure(Maybe<&1,Tr.Connection>,Some{Tr.Raw{socket}})
-    case True{}: IO.bind(Socket & Result<&1,&1,U32 & String,Unit>,Maybe<&1,Tr.Connection>,W.wire_tls_accept(socket,ms),legacy.accepted)
-
-def context.started(~C: Data, ~h: C -> Req.Request -> IO(Out), +context: C, +tls: Bool, +trust: Bool, +mr: Nat, +mh: U32, +mb: U32, +ims: U32, +rms: U32, value: Maybe<&1,Tr.Connection>) -> IO(Unit):
-  match value:
-    case None{}: IO.pure(Unit,Unit{})
-    case Some{connection}: context.conn(~C,~h,context,4294967295n,mr,mh,mb,ims,rms,tls,trust,B.BNil{},0n,connection)
-
-def context.begin_conn(~C: Data, ~h: C -> Req.Request -> IO(Out), ~E: Data, ~start: E -> Socket -> U32 -> IO(Maybe<&1,Tr.Connection>), +context: C, engine: E, +tls: Bool, +trust: Bool, +mr: Nat, +mh: U32, +mb: U32, +ims: U32, +rms: U32, s: Socket) -> IO(Unit):
-  IO.bind(Maybe<&1,Tr.Connection>,Unit,start(engine,s,rms),value => context.started(~C,~h,context,tls,trust,mr,mh,mb,ims,rms,value))
+    case True{}:
+      IO.bind(RU(), Unit, W.wire_tls_accept(s, rms), m => context.handshook(~C, ~h, context, mr, mh, mb, ims, rms, trust, m))
+    case False{}:
+      context.conn(~C, ~h, context, mr, mh, mb, ims, rms, False{}, trust, B.BNil{}, 0n, s)
 
 # a connection, counted live while it runs
 def served(act: IO(Unit)) -> IO(Unit):
@@ -726,12 +652,12 @@ def check.stop(+stop: U32, l: Listener, +dms: U32, k: Listener -> IO(Unit)) -> I
 
 # an accepted connection runs on its own; the loop goes on accepting, and
 # between connections it looks for a stop
-def context.accepted(~C: Data, ~h: C -> Req.Request -> IO(Out), ~E: Data, ~start: E -> Socket -> U32 -> IO(Maybe<&1,Tr.Connection>), +context: C, +engine: E, r: Result<&1, &1, U32 & String, Maybe<&1, Socket>>, l: Listener, +mh: U32, +mb: U32, +ims: U32, +rms: U32, +dms: U32, +mr: Nat, +tls: Bool, +trust: Bool, k: Listener -> IO(Unit)) -> IO(Unit):
+def context.accepted(~C: Data, ~h: C -> Req.Request -> IO(Out), +context: C, r: Result<&1, &1, U32 & String, Maybe<&1, Socket>>, l: Listener, +mh: U32, +mb: U32, +ims: U32, +rms: U32, +dms: U32, +mr: Nat, +tls: Bool, +trust: Bool, k: Listener -> IO(Unit)) -> IO(Unit):
   match r:
     case Done{Some{s}}:
       do IO<Unit>:
         n : U32 <- W.wire_live(1)
-        x : Unit <- IO.spawn(Unit, served(context.begin_conn(~C, ~h, ~E, ~start, context, engine, tls, trust, mr, mh, mb, ims, rms, s)))
+        x : Unit <- IO.spawn(Unit, served(context.begin_conn(~C, ~h, context, tls, trust, mr, mh, mb, ims, rms, s)))
         k(l)
     case Done{None{}}:
       do IO<Unit>:
@@ -745,53 +671,46 @@ def context.accepted(~C: Data, ~h: C -> Req.Request -> IO(Out), ~E: Data, ~start
 
 # fuel bounds the turns of the loop: a server's loop is bounded by the
 # outside world, which Bend's termination check sees as a count
-def context.accept.loop(~C: Data, ~h: C -> Req.Request -> IO(Out), ~E: Data, ~start: E -> Socket -> U32 -> IO(Maybe<&1,Tr.Connection>), +context: C, +engine: E, +fuel: Nat, +mh: U32, +mb: U32, +ims: U32, +rms: U32, +dms: U32, +mr: Nat, +tls: Bool, +trust: Bool, m: RA()) -> IO(Unit):
+def context.accept.loop(~C: Data, ~h: C -> Req.Request -> IO(Out), +context: C, +fuel: Nat, +mh: U32, +mb: U32, +ims: U32, +rms: U32, +dms: U32, +mr: Nat, +tls: Bool, +trust: Bool, m: RA()) -> IO(Unit):
   match fuel:
     case 0n:
       (l, _) = m
       W.close_listener(l)
     case 1n+p:
       (l, r) = m
-      context.accepted(~C, ~h, ~E, ~start, context, engine, r, l, mh, mb, ims, rms, dms, mr, tls, trust, l2 => IO.bind(RA(), Unit, W.wire_accept_timeout(l2, 250), m2 => context.accept.loop(~C, ~h, ~E, ~start, context, engine, p, mh, mb, ims, rms, dms, mr, tls, trust, m2)))
+      context.accepted(~C, ~h, context, r, l, mh, mb, ims, rms, dms, mr, tls, trust, l2 => IO.bind(RA(), Unit, W.wire_accept_timeout(l2, 250), m2 => context.accept.loop(~C, ~h, context, p, mh, mb, ims, rms, dms, mr, tls, trust, m2)))
 
-def listen_tls(tls: Maybe<&2,Tls>) -> IO(Bool):
+def listen_tls(tls: Maybe<&2, Tls>) -> IO(Bool):
   match tls:
-    case Some{Tls{cert,key}}:
+    case Some{Tls{cert, key}}:
       do IO<Bool>:
-        IO.try(Unit,W.wire_tls_listen_ctx(cert,key))
-        IO.pure(Bool,True{})
-    case None{}: IO.pure(Bool,False{})
-    case _: IO.die(Bool,1,"http: Bend credential requires the Bend listener")
+        x : Unit <- IO.try(Unit, W.wire_tls_listen_ctx(cert, key))
+        return True{}
+    case None{}:
+      IO.pure(Bool, False{})
 
-def context.listen(~C: Data, ~h: C -> Req.Request -> IO(Out), ~E: Data, ~start: E -> Socket -> U32 -> IO(Maybe<&1,Tr.Connection>), +context: C, +engine: E, +tls: Bool, cfg: Config) -> IO(Unit):
-  match cfg:
-    case Config{port,+mh,+mb,mr,+ims,+rms,+dms,_,+trust}:
-      do IO<Unit>:
-        W.wire_on_stop()
-        l : Listener <- IO.try(Listener,W.listen(port))
-        m : RA() <- W.wire_accept_timeout(l,250)
-        context.accept.loop(~C,~h,~E,~start,context,engine,4294967295n,mh,mb,ims,rms,dms,U32.to_nat(mr),tls,trust,m)
+# All legacy entrypoints converge here, including callers without from_env.
+# Reject the opt-in engine before initializing TLS or opening a listener.
+def legacy.engine(value: Result<&1, &1, U32 & String, String>) -> IO(Unit):
+  match value:
+    case Done{"bend"}:
+      IO.die(Unit, 1, "http: HTTP_TLS_ENGINE=bend requires http/server/bend_server.bend")
+    case _:
+      IO.pure(Unit, Unit{})
 
-# Hard Bend entry: no legacy TLS effect is reachable, even before optimization.
-# It accepts only a BendTls config and fails before listen for any other engine.
-def serve_bend_out_context(~C: Data, ~h: C -> Req.Request -> IO(Out), context: C, cfg: Config) -> IO(Unit):
+# answer requests on cfg's port with h, one at a time per connection, many
+# connections at once; h may stream a body
+def serve_out_context(~C: Data, ~h: C -> Req.Request -> IO(Out), +context: C, cfg: Config) -> IO(Unit):
   match cfg:
-    case Config{port,mh,mb,mr,ims,rms,dms,Some{BendTls{chain,key,suites}},trust}:
+    case Config{port, +mh, +mb, mr, +ims, +rms, +dms, tls, +trust}:
       do IO<Unit>:
-        prepared : BT.Prepared <- BT.load(chain,key,suites)
-        context.listen(~C,~h,~BT.Prepared,~BT.accept,context,prepared,True{},Config{port,mh,mb,mr,ims,rms,dms,None{},trust})
-    case _: IO.die(Unit,1,"http: serve_bend_out_context requires BendTls")
-
-# API-compatible runtime dispatch. Legacy effects are reachable in this entry;
-# use serve_bend_out_context when they must be absent from the emitted program.
-def serve_out_context(~C: Data, ~h: C -> Req.Request -> IO(Out), context: C, cfg: Config) -> IO(Unit):
-  match cfg:
-    case Config{port,mh,mb,mr,ims,rms,dms,Some{BendTls{chain,key,suites}},trust}:
-      serve_bend_out_context(~C,~h,context,Config{port,mh,mb,mr,ims,rms,dms,Some{BendTls{chain,key,suites}},trust})
-    case Config{port,mh,mb,mr,ims,rms,dms,tls,trust}:
-      do IO<Unit>:
+        engine : Result<&1, &1, U32 & String, String> <- IO.get_env("HTTP_TLS_ENGINE")
+        legacy.engine(engine)
+        x : Unit <- W.wire_on_stop()
         +on : Bool <- listen_tls(tls)
-        context.listen(~C,~h,~Bool,~legacy.start,context,on,on,Config{port,mh,mb,mr,ims,rms,dms,None{},trust})
+        l : Listener <- IO.try(Listener, W.listen(port))
+        m : RA() <- W.wire_accept_timeout(l, 250)
+        context.accept.loop(~C, ~h, context, 4294967295n, mh, mb, ims, rms, dms, U32.to_nat(mr), on, trust, m)
 
 # The handler remains a closed template; shared runtime configuration is explicit
 # Data, copied into accepted connections and each keep-alive request. It is

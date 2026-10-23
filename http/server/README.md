@@ -34,37 +34,43 @@ def main() -> IO(Unit):
 
 `examples/tls.bend` serves HTTPS when `HTTP_TLS_CERT` and `HTTP_TLS_KEY` are set. The handshake must finish within `request_ms`. The OpenSSL 3 server requires TLS 1.2 or newer, disables 0-RTT and accepts only an `http/1.1` ALPN offer. It loads and checks the certificate and key before opening the port.
 
-`with_tls(cfg, cert, key)` remains the legacy OpenSSL path. Explicitly choose
-Bend TLS 1.3 with `with_bend_tls(cfg, cert, key)`, using PEM **file paths**,
-or `with_bend_tls_chain(cfg, paths, key, suites)`. Chain paths are leaf first,
-one PEM certificate per file, at most sixteen. Suites are ordered preferences
-from `[4865,4867]` (AES-128-GCM/SHA-256 and ChaCha20-Poly1305/SHA-256).
-`Tls{cert,key}` retains its constructor; `BendTls{chain,key,suites}` is the new
-alternative in the existing `tls` field. Config's field count is unchanged.
+The legacy `http/server/server.bend` API keeps `with_tls(cfg, cert, key)` and
+all `serve_*` signatures. Its compile-time graph contains no Bend TLS or crypto.
+Every legacy entrypoint rejects `HTTP_TLS_ENGINE=bend` before listen, including
+callers that never call `from_env`. OpenSSL remains the default.
 
-`from_env` accepts `HTTP_TLS_ENGINE=bend|openssl` with a credential. Without
-that variable it preserves the configured engine; a newly supplied pair on a
-plain default selects legacy OpenSSL. Both PEM paths must be supplied together.
-Invalid engine names, credentials or policies fail before opening the port.
-`tls_config.bend` reads PEM and calls `bend_tls_server.from_pem` once at listener
-startup. Its immutable process owner retains validated synthetic signing-key
-components and issues a fresh affine signing owner per handshake. It does not
-re-read or re-validate PEM on connections, share traffic keys, rotate keys or
-promise physical erasure. A new process/listener is needed for key replacement.
+Opt in by importing **`http/server/bend_server.bend`** as `Server`. This separate
+module has its own Config, Out and Sink types and HTTP transport loop; do not mix
+those values with the legacy module. Choose Bend TLS 1.3 with
+`with_bend_tls(cfg, cert, key)`, using PEM **file paths**, or
+`with_bend_tls_chain(cfg, paths, key, suites)`. Chain paths are leaf first,
+one certificate per file, at most sixteen. Suites are ordered preferences from
+`[4865,4867]` (AES-128-GCM/SHA-256 and ChaCha20-Poly1305/SHA-256).
 
-`serve`, `serve_out` and `serve_out_context` dispatch either engine through
-the same HTTP parse/respond/stream loop. For a program that must contain no
-legacy TLS effects, call
-`serve_bend_out_context(~C, ~handler, context, cfg)` with a BendTls configuration.
-This entry uses the same listener/HTTP loop but binds its handshake template
-statically to Bend. A different config engine fails before listen.
-`examples/bend_tls.bend` uses this entry, `HTTP_COOKIE_KEY` and the usual HTTP
-environment variables. Its optional `HTTP_BEND_TLS_SUITE=aes|chacha` selects
-one suite for independent interop; unset permits both. Example invocation:
+Only this opt-in module's `from_env` selects `HTTP_TLS_ENGINE=bend|openssl`.
+Without it, the configured engine is preserved; a newly supplied PEM pair on a
+plain default selects OpenSSL. Both PEM paths must be supplied together.
+Invalid engines, credentials or policies fail before opening the port.
+Its `serve`, `serve_out` and `serve_out_context` support runtime selection with
+an OpenSSL fallback. For a program that must contain no legacy TLS effects, use
+`serve_bend_out_context(~C, ~handler, context, cfg)` with BendTls configuration;
+it rejects an OpenSSL selection before listen. The legacy module never imports
+this transport graph. The separate loops preserve the legacy cold-constructor
+guarantee; changes to shared HTTP behavior require validation of both modules.
+
+`tls_config.bend` loads and validates PEM once at listener startup. Its immutable
+process owner issues a fresh affine signing owner per handshake. It does not
+re-read PEM on connections, share traffic keys, rotate keys or promise physical
+erasure. Key replacement requires a new listener/process.
+
+`examples/bend_tls.bend` imports the opt-in module and uses the hard Bend entry,
+`HTTP_COOKIE_KEY` and the usual HTTP environment variables. Its optional
+`HTTP_BEND_TLS_SUITE=aes|chacha` selects one suite for interop; unset permits both.
 
 ```sh
-HTTP_TLS_CERT=/tmp/synthetic-leaf.pem HTTP_TLS_KEY=/tmp/synthetic-key.pem \
-HTTP_COOKIE_KEY=synthetic-example-key bend examples/bend_tls.bend
+HTTP_TLS_ENGINE=bend HTTP_TLS_CERT=/tmp/synthetic-leaf.pem \
+HTTP_TLS_KEY=/tmp/synthetic-key.pem HTTP_COOKIE_KEY=synthetic-example-key \
+bend examples/bend_tls.bend
 ```
 
 The frozen [TLS profile](../../TLS_PROFILE.md) and

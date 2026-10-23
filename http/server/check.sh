@@ -278,4 +278,5 @@ end
 
 begin cold
 BUN_OPTIONS="${BUN_OPTIONS:-} --smol" BUN_JSC_forceRAMSize=134217728 python3 ../../json/scripts/cold.py "$PWD/examples/hello.bend" "$PWD/examples/stack.bend" "$PWD/examples/stream.bend" "$PWD/examples/tls.bend" "$PWD/examples/redirect.bend" "$PWD/examples/trusted_proxy.bend" "$PWD/examples/auth.bend"
+python3 examples/legacy_graph_audit.py --artifacts "$artifacts/legacy-graphs" --hello "$tmp/hello" --stream "$tmp/stream"
 end

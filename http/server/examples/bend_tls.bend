@@ -1,5 +1,5 @@
 import Base
-import ../server.bend as Server
+import ../bend_server.bend as Server
 import ../../core/cookie_bend.bend as Cookie
 import ../../core/cookie.bend as Jar
 import ../../core/request.bend as Req
