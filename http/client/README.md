@@ -119,4 +119,11 @@ x <- Pool.with(C.R(Item), cfg, 8, p => Pool.send_json(Item, p, C.get("http://ite
 6. `tests/fuzz_events.py`: 1000 random event streams, chunked or to the close, in pieces that split UTF-8 chars. Each must read as a reference parser written from WHATWG's rules says.
 7. The cold check on `tests/live.bend` and the four examples: `get`, `json`, `stream` and `events`.
 
+Both differential servers bind an OS-assigned loopback port and pass a unique
+run URL to their Bend clients. Unrelated HTTP probes do not consume corpus
+entries. Acceptance requires every server case and client result, exact
+reference comparisons, and a successful client exit. `tests/fuzz_harness_test.py`
+checks probe isolation and rejects output without served cases as part of the
+package gate.
+
 `tests/soak.py` is a longer run, by hand: rounds of every kind of request through a pool, while it watches the memory and sockets of the client and of the server.

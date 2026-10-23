@@ -3,7 +3,7 @@ import ../client.bend as C
 import ../../core/event.bend as Ev
 import ../../../io/io.bend as Io
 
-# tests/fuzz_events.py's client: N event streams from 127.0.0.1:7401, one
+# tests/fuzz_events.py's client: N event streams from its run-local URL, one
 # line per event and one per end, each string as its code points, for the
 # reference to compare
 
@@ -36,22 +36,22 @@ def says(r: C.R(C.Ended)) -> String:
 def cfg() -> C.Config:
   C.with_timeout(C.default(), 20000)
 
-def run(n: Nat) -> IO(Unit):
+def run(n: Nat, +url: String) -> IO(Unit):
   match n:
     case 0n:
       IO.pure(Unit, Unit{})
     case 1n+p:
       do IO<Unit>:
-        r : C.R(C.Ended) <- C.events(~on, cfg(), C.get("http://127.0.0.1:7401/"))
+        r : C.R(C.Ended) <- C.events(~on, cfg(), C.get(url))
         x : Unit <- IO.print(says(r))
-        run(p)
+        run(p, url)
 
-def count(a: List<String>) -> Nat:
+def args(a: List<String>) -> IO(Unit):
   match a:
-    case Con{s, _}:
-      U32.to_nat(C.port.num.of(s))
-    case Nil{}:
-      100n
+    case Con{s, Con{url, _}}:
+      run(U32.to_nat(C.port.num.of(s)), url)
+    case other:
+      IO.print("expected N URL")
 
 def main() -> IO(Unit):
-  IO.bind(List<String>, Unit, Io.args(), a => run(count(a)))
+  IO.bind(List<String>, Unit, Io.args(), a => args(a))

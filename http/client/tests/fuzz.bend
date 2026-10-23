@@ -2,7 +2,7 @@ import Base
 import ../client.bend as C
 import ../../../io/io.bend as Io
 
-# tests/fuzz.py's client: N GETs to 127.0.0.1:7400, one line each, "ok
+# tests/fuzz.py's client: N GETs to its run-local URL, one line each, "ok
 # CODE LEN SUM" or "err KIND", for the reference to compare
 
 def sum(bs: List<&2, U32>, +s: U32, +n: U32) -> String:
@@ -35,22 +35,22 @@ def says(r: C.R(C.Reply)) -> String:
 def cfg() -> C.Config:
   C.with_redirects(C.with_timeout(C.default(), 20000), 0)
 
-def run(n: Nat) -> IO(Unit):
+def run(n: Nat, +url: String) -> IO(Unit):
   match n:
     case 0n:
       IO.pure(Unit, Unit{})
     case 1n+p:
       do IO<Unit>:
-        r : C.R(C.Reply) <- C.send(cfg(), C.get("http://127.0.0.1:7400/"))
+        r : C.R(C.Reply) <- C.send(cfg(), C.get(url))
         x : Unit <- IO.print(says(r))
-        run(p)
+        run(p, url)
 
-def count(a: List<String>) -> Nat:
+def args(a: List<String>) -> IO(Unit):
   match a:
-    case Con{s, _}:
-      U32.to_nat(C.port.num.of(s))
-    case Nil{}:
-      100n
+    case Con{s, Con{url, _}}:
+      run(U32.to_nat(C.port.num.of(s)), url)
+    case other:
+      IO.print("expected N URL")
 
 def main() -> IO(Unit):
-  IO.bind(List<String>, Unit, Io.args(), a => run(count(a)))
+  IO.bind(List<String>, Unit, Io.args(), a => args(a))

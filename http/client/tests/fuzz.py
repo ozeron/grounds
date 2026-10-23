@@ -2,8 +2,8 @@
 
   python3 tests/fuzz.py BINARY N SEED
 
-Serves N connections on 7400 and runs BINARY N, which is tests/fuzz.bend
-built: it GETs http://127.0.0.1:7400/ N times and prints one line per
+Serves N requests on a run-local URL and runs BINARY N URL (tests/fuzz.bend
+built): it GETs that URL N times and prints one line per
 response, "ok CODE LEN SUM" or "err KIND". Each connection gets a random
 response, valid or mutated, sent in random pieces, then the close. The
 reference parser here, written from http1.bend's rules, says what each line
@@ -11,10 +11,9 @@ must be.
 """
 import random
 import socket
-import subprocess
 import sys
-import threading
 import time
+from fuzz_harness import run
 
 BIN = sys.argv[1]
 N = int(sys.argv[2]) if len(sys.argv) > 2 else 1000
@@ -371,17 +370,9 @@ def send_chunked(conn, rng, b):
             time.sleep(0.001)
 
 
-def serve(s, rng, want):
-    for _ in range(N):
-        conn, _ = s.accept()
-        conn.settimeout(10)
+def serve(connections, rng, want):
+    for conn in connections:
         try:
-            buf = b""
-            while b"\r\n\r\n" not in buf:
-                more = conn.recv(65536)
-                if not more:
-                    break
-                buf += more
             b = case(rng)
             want.append((b, line(reference(b))))
             send_chunked(conn, rng, b)
@@ -391,20 +382,12 @@ def serve(s, rng, want):
                 pass
         except OSError:
             pass
-        conn.close()
 
 
 def main():
     rng = random.Random(SEED)
-    s = socket.socket()
-    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    s.bind(("127.0.0.1", 7400))
-    s.listen(16)
-    want = []
-    t = threading.Thread(target=serve, args=(s, rng, want), daemon=True)
-    t.start()
-    out = subprocess.run([BIN, str(N)], capture_output=True, text=True, timeout=600).stdout.split("\n")
-    t.join(10)
+    want, result = run(BIN, N, lambda connections, want: serve(connections, rng, want))
+    out = result.stdout.split("\n")
     got = [l for l in out if l]
     same = sum(1 for (b, w), g in zip(want, got) if w == g)
     kinds = {}
@@ -415,9 +398,13 @@ def main():
     bad = [(b, w, g) for (b, w), g in zip(want, got) if w != g]
     if len(got) != N:
         print(f"  the client printed {len(got)} lines for {N} responses")
+    if len(want) != N:
+        print(f"  the server served {len(want)} of {N} responses")
+    if result.returncode != 0:
+        print(f"  the client exited {result.returncode}: {result.stderr.strip()[-300:]}")
     for b, w, g in bad[:5]:
         print("  sent", b[:160], "\n  want", w, "\n  got ", g)
-    sys.exit(1 if bad or len(got) != N else 0)
+    sys.exit(1 if bad or len(got) != N or len(want) != N or result.returncode != 0 else 0)
 
 
 main()
