@@ -50,12 +50,12 @@ announce start wire/m2-bun/check/certificate_verify_rsa
 python3 tls_certificate_verify_rsa_check.py -- bun "$tmp/tls_certificate_verify_rsa.js"
 announce end wire/m2-bun/check/certificate_verify_rsa 0
 else
-announce skip wire/m2-bun/build/key_share
-announce skip wire/m2-bun/build/certificate_verify
-announce skip wire/m2-bun/build/certificate_verify_rsa
-announce skip wire/m2-bun/check/key_share
-announce skip wire/m2-bun/check/certificate_verify
-announce skip wire/m2-bun/check/certificate_verify_rsa
+announce skip wire/m2-bun/build/key_share "Bun unavailable"
+announce skip wire/m2-bun/build/certificate_verify "Bun unavailable"
+announce skip wire/m2-bun/build/certificate_verify_rsa "Bun unavailable"
+announce skip wire/m2-bun/check/key_share "Bun unavailable"
+announce skip wire/m2-bun/check/certificate_verify "Bun unavailable"
+announce skip wire/m2-bun/check/certificate_verify_rsa "Bun unavailable"
 fi
 announce start wire/native-extensions
 bend tls_extensions_test.bend
