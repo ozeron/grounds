@@ -2,6 +2,7 @@
   "version": 2,
   "manifests": [
     "../crypto/check_phases.json",
+    "../decimal/check_phases.json",
     "../wire/check_phases.json",
     "../http/core/check_phases.json",
     "../http/wire/check_phases.json",

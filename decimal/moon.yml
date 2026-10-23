@@ -3,8 +3,11 @@ language: "bend"
 
 tasks:
   check:
-    command: "./check.sh"
+    command: "python3 ../tools/check_package.py decimal/check -- ./check.sh"
     inputs:
+      - "check_phases.json"
+      - "/tools/check_phase.py"
+      - "/tools/check_package.py"
       - "/json/scripts/cold.py"
       - "*.bend"
       - "proof/*.bend"

@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "phases": [
+    {
+      "name": "decimal/check",
+      "optional": false
+    }
+  ]
+}
