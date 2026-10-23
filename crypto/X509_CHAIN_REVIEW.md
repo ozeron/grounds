@@ -108,6 +108,16 @@ revocation support. No external implementation code was ported or linked.
 Source snapshots, hashes, commands, source bindings, failed attempts and reports
 are under `~/.codex/artifacts/grounds/2026-10-23/m1/`.
 
-Focused native/Bun and package/root gate results belong in the dated
-STACK_PROGRESS ledger. M1 does not close the TLS handshake, private-key/runtime
-review, HTTPS/WSS or broader RTC gates; M2 has not been started here.
+Acceptance on 2026-10-23, implementation commit `46770d4`: native and Bun each
+pass all 193 frozen cases (55 accepted, 138 rejected), both focused and within
+each fresh gate. The forced crypto gate passes 1,673/1,673 phases; the forced
+root gate passes 1,869/1,869, with no skipped or unexecuted phases. Both use
+pinned Bend 2.0.38, unchanged 4 GiB aggregate/process guards and 120-second
+per-phase deadlines. All 1,569 pre-existing crypto phases retain their order
+and optionality; 104 phases were added. `closeout-evidence-audit.json` binds
+all per-target batch reports and unchanged gate sources. Exact commands,
+resource results and report paths are in the dated STACK_PROGRESS ledger.
+
+M1's exit criteria are met. This does not close the TLS handshake,
+private-key/runtime review, HTTPS/WSS or broader RTC gates; M2 has not been
+started here.
