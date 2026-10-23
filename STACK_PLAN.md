@@ -244,8 +244,13 @@ interop and negative-case reports, plus inspectable no-delegation evidence.
   limitations and remaining full-stack requirements.
 
 Exit: an independently verified HTTP/HTTPS/WSS path whose protocol and crypto
-logic run in Bend on native and Bun. This completes the HTTP migration milestone,
+logic run in Bend on native (Bun: see the 2026-10-23 scope note below). This completes the HTTP migration milestone,
 not the full nineteen-gate RTC/media contract unless the user revises its scope.
+
+Scope note (2026-10-23, user decision): from M4b onward, new work is built and
+gated on **native only**. Existing Bun tests that already pass stay as regression
+checks; a new Bun failure is recorded as unsupported, not debugged. The Bun Bend
+HTTPS server accepts P-256 credentials only (RSA on Bun is rejected at startup).
 
 ### M5 — Public-internet HTTPS client
 
@@ -254,7 +259,7 @@ verifies and talks to ordinary public HTTPS servers, not only synthetic fixtures
 This revises the frozen TLS_PROFILE.md; record the new profile version there.
 
 - [ ] Implement SHA-384 and SHA-512 (and HMAC/HKDF over SHA-384) in Bend with
-  published vectors and native/Bun differential tests.
+  published vectors and native differential tests.
 - [ ] Implement P-384 ECDSA verification (and P-384 key share if measured
   interop needs it) with point validation and invalid-input cases.
 - [ ] Accept certificate signatures ecdsa-with-SHA384, sha384/sha512WithRSA and
@@ -272,7 +277,7 @@ This revises the frozen TLS_PROFILE.md; record the new profile version there.
   shares, key/certificate generation. Record them as limitations.
 
 Exit: the Bend HTTP client fetches over HTTPS from servers presenting common
-public chains with normal verification on native and Bun, and the root gate passes
+public chains with normal verification on native, and the root gate passes
 fresh. Live-secret use stays blocked by `crypto/ERASURE.md`.
 
 ## Execution order and continuation
