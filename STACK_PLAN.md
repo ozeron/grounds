@@ -237,7 +237,7 @@ interop and negative-case reports, plus inspectable no-delegation evidence.
   the new server path; preserve authentication and cookie behavior with regression tests (M4a).
 - [x] Verify real HTTP request/response and WebSocket traffic through Bend TLS,
   including streaming, reconnect, denied origins/authentication and cleanup.
-- [ ] Run real-browser HTTPS/WSS with locally trusted synthetic certificate
+- [x] Run real-browser HTTPS/WSS with locally trusted synthetic certificate
   fixtures and normal verification enabled; do not bypass certificate checks.
 - [ ] Run full fresh repository acceptance and audit the HTTP milestone against
   actual source/artifacts. Record supported profile, performance baseline,

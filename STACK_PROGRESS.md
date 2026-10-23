@@ -4,6 +4,35 @@ Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and 
 
 The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
 
+- 2026-10-23 (M4b round 2 fresh package acceptance; root pressure stops):
+  `round2/server-02.json`: **48/48 passed**, no skips, **311.104 s**,
+  **1785.0 MiB** peak. `client-01.json`: **15/15 passed**, no skips,
+  **226.920 s**, **1731.3 MiB** peak, all **30** native live scenarios.
+  Both use OpenSSL **3.6.3** first in PATH (`OPENSSL=openssl`), Bend **2.0.38**,
+  Python **3.13.12**, Bun **1.3.14**, Moon **2.6.1**, concurrency 1, nice 10,
+  and the unchanged **4096 MiB** aggregate/process / **120 s per phase** guard.
+  All four server build maps and both client build maps match current source
+  bytes; `round2/acceptance-source-sha256.json` binds **744** code/check files.
+  Server evidence includes WSS **13/13 per cipher**, Chrome **18/18 per cipher**
+  with Chrome **155.0.8059.85**, and the exact native fixture audits and proven
+  TLS/cookie abort controls. The real-browser M4 box is now genuinely met.
+
+  Fresh root attempts `root-01.json` through `root-05.json` stopped solely on
+  **system-memory-pressure**, not test mismatch, memory-cap failure or timeout.
+  Respectively: **582.465 s / 1882.6 MiB**, **12.137 s / 239.9 MiB**,
+  **88.328 s / 470.5 MiB**, **373.911 s / 753.5 MiB**,
+  **125.935 s / 456.8 MiB** (the reports carry exact sampled values).
+  These are interrupted partial reports and do not qualify root acceptance.
+  The root manifest still requires **2165** phases. Normal-pressure polling
+  and lock checks preserve the user's two-hour wait budget. After repeated
+  pressure fluctuations, only this task's idle retry controller was stopped
+  (no guard active, no test/other worker signalled), and replaced with a
+  controller requiring **60 continuous seconds** at pressure level 1 before
+  the next whole-root retry. `controller-stabilization.json` and
+  `acceptance-runs.json` retain this transition and accumulated wait time.
+  No test, source, guard cap or phase deadline changed. **M4 remains open**
+  until a complete fresh root report and final source/artifact audit pass.
+
 - 2026-10-23 (M4b round 2 audit correction: WSS suite evidence):
   Source review found `bend_wss.bend` ignored `HTTP_BEND_TLS_SUITE`, while
   `bend_wss_check.py` labelled rows from that environment without asserting the
