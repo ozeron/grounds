@@ -1839,6 +1839,21 @@ def copy_leaf(j: Json) -> Json:
     case JObj{_}:
       JObj{[]}
 
+# A cold-list map for encoder templates (affine functions cannot be reused).
+def map_list(~A: Data, ~B: Data, ~f: A -> B, xs: List<&2, A>) -> List<&2, B>:
+  match xs:
+    case Nil{}:
+      []
+    case Con{h, t}:
+      Con{f(h), map_list(~A, ~B, ~f, t)}
+
+def join_fields(xs: List<&2, List<&2, Field>>) -> List<&2, Field>:
+  match xs:
+    case Nil{}:
+      []
+    case Con{h, t}:
+      List.append(&2, Field, h, join_fields(t))
+
 def last_key.pick(hit: Bool, here: Nat, found: Nat) -> Nat:
   match hit:
     case True{}:
@@ -1865,34 +1880,37 @@ type Leaf is Data:
 # them, so the caller can read j again. It stays in one def, with a mode
 # for where it is: 0n at j; 1n at field n (plus one, 0n for none) of fs;
 # 2n skipping n fields of fs; 3n skipping n items of xs
-def walk(fuel: Nat, steps: List<&2, Step>, mode: Nat, n: Nat, j: Json, fs: List<&2, Field>, xs: List<&2, Json>, done: List<&2, Step>) -> Result<&2, &2, Access, Leaf>:
+def walk_with(~A: Data, ~leaf: Json -> List<&2, Step> -> Result<&2, &2, Access, A>, ~miss: List<&2, Step> -> List<&2, Step> -> Result<&2, &2, Access, A>, fuel: Nat, steps: List<&2, Step>, mode: Nat, n: Nat, j: Json, fs: List<&2, Field>, xs: List<&2, Json>, done: List<&2, Step>) -> Result<&2, &2, Access, A>:
   match fuel steps mode n j fs xs:
     case 0n _ _ _ _ _ _:
       Fail{Missing{List.reverse(&2, Step, done)}}
     case 1n+k Nil{} 0n _ j _ _:
-      Done{Leaf{copy_leaf(j), done}}
+      leaf(j, done)
     case 1n+k Con{Name{+key}, t} 0n _ JObj{+ys} _ _:
-      walk(k, t, 1n, last_key(ys, key, 0n, 0n), JNull{}, ys, [], Con{Name{key}, done})
+      walk_with(~A, ~leaf, ~miss, k, t, 1n, last_key(ys, key, 0n, 0n), JNull{}, ys, [], Con{Name{key}, done})
     case 1n+k Con{Index{+i}, t} 0n _ JArr{ys} _ _:
-      walk(k, t, 3n, U32.to_nat(i), JNull{}, [], ys, Con{Index{i}, done})
+      walk_with(~A, ~leaf, ~miss, k, t, 3n, U32.to_nat(i), JNull{}, [], ys, Con{Index{i}, done})
     case 1n+k Con{Name{_}, _} 0n _ other _ _:
       Fail{Expected{List.reverse(&2, Step, done), KObject{}, kind(other)}}
     case 1n+k Con{Index{_}, _} 0n _ other _ _:
       Fail{Expected{List.reverse(&2, Step, done), KArray{}, kind(other)}}
     case 1n+k st 1n 0n _ ys _:
-      missing(done)
+      miss(st, done)
     case 1n+k st 1n 1n+m _ ys _:
-      walk(k, st, 2n, m, JNull{}, ys, [], done)
+      walk_with(~A, ~leaf, ~miss, k, st, 2n, m, JNull{}, ys, [], done)
     case 1n+k st 2n 0n _ Con{Field{_, v}, _} _:
-      walk(k, st, 0n, 0n, v, [], [], done)
+      walk_with(~A, ~leaf, ~miss, k, st, 0n, 0n, v, [], [], done)
     case 1n+k st 2n 1n+m _ Con{_, t} _:
-      walk(k, st, 2n, m, JNull{}, t, [], done)
+      walk_with(~A, ~leaf, ~miss, k, st, 2n, m, JNull{}, t, [], done)
     case 1n+k st 3n 0n _ _ Con{v, _}:
-      walk(k, st, 0n, 0n, v, [], [], done)
+      walk_with(~A, ~leaf, ~miss, k, st, 0n, 0n, v, [], [], done)
     case 1n+k st 3n 1n+m _ _ Con{_, t}:
-      walk(k, st, 3n, m, JNull{}, [], t, done)
-    case 1n+k _ _ _ _ _ _:
-      missing(done)
+      walk_with(~A, ~leaf, ~miss, k, st, 3n, m, JNull{}, [], t, done)
+    case 1n+k st _ _ _ _ _:
+      miss(st, done)
+
+def walk(fuel: Nat, steps: List<&2, Step>, mode: Nat, n: Nat, j: Json, fs: List<&2, Field>, xs: List<&2, Json>, done: List<&2, Step>) -> Result<&2, &2, Access, Leaf>:
+  walk_with(~Leaf, ~(j => done => Done{Leaf{copy_leaf(j), done}}), ~(st => done => Fail{Missing{List.reverse(&2, Step, done)}}), fuel, steps, mode, n, j, fs, xs, done)
 
 def read_at.fin(-A: Data, r: Result<&2, &2, Access, A>, done: List<&2, Step>) -> Result<&2, &2, Access, A>:
   match r:
@@ -1953,6 +1971,187 @@ def both(-A: Data, -B: Data, -C: Data, r1: Result<&2, &2, Access, A>, r2: Result
       Fail{e}
     case Done{_} Fail{e}:
       Fail{e}
+
+def both3(-A: Data, -B: Data, -C: Data, -Z: Data, r1: Result<&2, &2, Access, A>, r2: Result<&2, &2, Access, B>, r3: Result<&2, &2, Access, C>, f: A -> B -> C -> Z) -> Result<&2, &2, Access, Z>:
+  match r1 r2 r3:
+    case Done{a} Done{b} Done{c}:
+      Done{f(a, b, c)}
+    case Fail{e} _ _:
+      Fail{e}
+    case Done{_} Fail{e} _:
+      Fail{e}
+    case Done{_} Done{_} Fail{e}:
+      Fail{e}
+
+def both4(-A: Data, -B: Data, -C: Data, -D: Data, -Z: Data, r1: Result<&2, &2, Access, A>, r2: Result<&2, &2, Access, B>, r3: Result<&2, &2, Access, C>, r4: Result<&2, &2, Access, D>, f: A -> B -> C -> D -> Z) -> Result<&2, &2, Access, Z>:
+  match r1 r2 r3 r4:
+    case Done{a} Done{b} Done{c} Done{d}:
+      Done{f(a, b, c, d)}
+    case Fail{e} _ _ _:
+      Fail{e}
+    case Done{_} Fail{e} _ _:
+      Fail{e}
+    case Done{_} Done{_} Fail{e} _:
+      Fail{e}
+    case Done{_} Done{_} Done{_} Fail{e}:
+      Fail{e}
+
+def both5(-A: Data, -B: Data, -C: Data, -D: Data, -E: Data, -Z: Data, r1: Result<&2, &2, Access, A>, r2: Result<&2, &2, Access, B>, r3: Result<&2, &2, Access, C>, r4: Result<&2, &2, Access, D>, r5: Result<&2, &2, Access, E>, f: A -> B -> C -> D -> E -> Z) -> Result<&2, &2, Access, Z>:
+  match r1 r2 r3 r4 r5:
+    case Done{a} Done{b} Done{c} Done{d} Done{e}:
+      Done{f(a, b, c, d, e)}
+    case Fail{e} _ _ _ _:
+      Fail{e}
+    case Done{_} Fail{e} _ _ _:
+      Fail{e}
+    case Done{_} Done{_} Fail{e} _ _:
+      Fail{e}
+    case Done{_} Done{_} Done{_} Fail{e} _:
+      Fail{e}
+    case Done{_} Done{_} Done{_} Done{_} Fail{e}:
+      Fail{e}
+
+def both6(-A: Data, -B: Data, -C: Data, -D: Data, -E: Data, -F: Data, -Z: Data, r1: Result<&2, &2, Access, A>, r2: Result<&2, &2, Access, B>, r3: Result<&2, &2, Access, C>, r4: Result<&2, &2, Access, D>, r5: Result<&2, &2, Access, E>, r6: Result<&2, &2, Access, F>, f: A -> B -> C -> D -> E -> F -> Z) -> Result<&2, &2, Access, Z>:
+  match r1 r2 r3 r4 r5 r6:
+    case Done{a} Done{b} Done{c} Done{d} Done{e} Done{v}:
+      Done{f(a, b, c, d, e, v)}
+    case Fail{e} _ _ _ _ _:
+      Fail{e}
+    case Done{_} Fail{e} _ _ _ _:
+      Fail{e}
+    case Done{_} Done{_} Fail{e} _ _ _:
+      Fail{e}
+    case Done{_} Done{_} Done{_} Fail{e} _ _:
+      Fail{e}
+    case Done{_} Done{_} Done{_} Done{_} Fail{e} _:
+      Fail{e}
+    case Done{_} Done{_} Done{_} Done{_} Done{_} Fail{e}:
+      Fail{e}
+
+# Tail-recursive path concatenation avoids suspending while retaining source.
+def prefix(path: List<&2, Step>, e: Access) -> Access:
+  match e:
+    case Missing{p}:
+      Missing{List.reverse.go(&2, Step, List.reverse(&2, Step, path), p)}
+    case Expected{p, w, g}:
+      Expected{List.reverse.go(&2, Step, List.reverse(&2, Step, path), p), w, g}
+    case OutOfRange{p}:
+      OutOfRange{List.reverse.go(&2, Step, List.reverse(&2, Step, path), p)}
+
+
+# Only an absent final object key is optional; missing parents and indices fail.
+def optional_missing(-A: Data, steps: List<&2, Step>, done: List<&2, Step>) -> Result<&2, &2, Access, Maybe<&2, A>>:
+  match steps done:
+    case Nil{} Con{Name{_}, _}:
+      Done{None{}}
+    case _ p:
+      Fail{Missing{List.reverse(&2, Step, p)}}
+
+def optional(~A: Data, ~item: Json -> Result<&2, &2, Access, A>, j: Json) -> Result<&2, &2, Access, Maybe<&2, A>>:
+  match j:
+    case JNull{}:
+      Done{None{}}
+    case +other:
+      map(A, Maybe<&2, A>, item(other), x => Some{x})
+
+def optional_at.fin(-A: Data, r: Result<&2, &2, Access, Maybe<&2, A>>, path: List<&2, Step>) -> Result<&2, &2, Access, Maybe<&2, A>>:
+  match r:
+    case Done{x}:
+      Done{x}
+    case Fail{e}:
+      Fail{prefix(path, e)}
+
+def optional_at(~A: Data, ~item: Json -> Result<&2, &2, Access, A>, j: Json, path: List<&2, Step>) -> Result<&2, &2, Access, Maybe<&2, A>>:
+  walk_with(~Maybe<&2, A>, ~(v => done => optional_at.fin(A, optional(~A, ~item, v), List.reverse(&2, Step, done))), ~(st => done => optional_missing(A, st, done)), 4294967295n, path, 0n, 0n, j, [], [], [])
+
+def string_opt_at(j: Json, path: List<&2, Step>) -> Result<&2, &2, Access, Maybe<&2, String>>:
+  optional_at(~String, ~(v => string_at(v, [])), j, path)
+
+def u32_opt_at(j: Json, path: List<&2, Step>) -> Result<&2, &2, Access, Maybe<&2, U32>>:
+  optional_at(~U32, ~(v => u32_at(v, [])), j, path)
+
+def bool_opt_at(j: Json, path: List<&2, Step>) -> Result<&2, &2, Access, Maybe<&2, Bool>>:
+  optional_at(~Bool, ~(v => bool_at(v, [])), j, path)
+
+def f32_opt_at(j: Json, path: List<&2, Step>) -> Result<&2, &2, Access, Maybe<&2, F32>>:
+  optional_at(~F32, ~(v => f32_at(v, [])), j, path)
+
+def number_opt_at(j: Json, path: List<&2, Step>) -> Result<&2, &2, Access, Maybe<&2, Number>>:
+  optional_at(~Number, ~(v => number_at(v, [])), j, path)
+
+def default(-A: Data, r: Result<&2, &2, Access, Maybe<&2, A>>, fallback: A) -> Result<&2, &2, Access, A>:
+  match r:
+    case Done{Some{x}}:
+      Done{x}
+    case Done{None{}}:
+      Done{fallback}
+    case Fail{e}:
+      Fail{e}
+
+# Prefix item-relative errors with the complete array path and index.
+
+
+def list_read.push(-A: Data, r: Result<&2, &2, Access, A>, acc: List<&2, A>, i: U32) -> Result<&2, &2, Access, List<&2, A>>:
+  match r:
+    case Done{x}:
+      Done{Con{x, acc}}
+    case Fail{e}:
+      Fail{prefix([Index{i}], e)}
+
+def list_read.go(~A: Data, ~item: Json -> Result<&2, &2, Access, A>, xs: List<&2, Json>, +i: U32, r: Result<&2, &2, Access, List<&2, A>>) -> Result<&2, &2, Access, List<&2, A>>:
+  match xs r:
+    case _ Fail{e}:
+      Fail{e}
+    case Nil{} Done{acc}:
+      Done{List.reverse(&2, A, acc)}
+    case Con{+x, t} Done{acc}:
+      list_read.go(~A, ~item, t, (i + 1 : U32), list_read.push(A, item(x), acc, i))
+
+def list_read.fin(-A: Data, r: Result<&2, &2, Access, List<&2, A>>, path: List<&2, Step>) -> Result<&2, &2, Access, List<&2, A>>:
+  match r:
+    case Done{xs}:
+      Done{xs}
+    case Fail{e}:
+      Fail{prefix(path, e)}
+
+def list_read(~A: Data, ~item: Json -> Result<&2, &2, Access, A>, j: Json, path: List<&2, Step>) -> Result<&2, &2, Access, List<&2, A>>:
+  match j:
+    case JArr{xs}:
+      list_read.fin(A, list_read.go(~A, ~item, xs, 0, Done{[]}), path)
+    case other:
+      Fail{Expected{path, KArray{}, kind(other)}}
+
+# The item decoder must rebuild any source data it returns. Typed path
+# reads do this; use e.g. x => string_at(x, []) rather than raw string.
+# Keeping the callback static lets the compiler borrow the source document.
+def list_at(~A: Data, ~item: Json -> Result<&2, &2, Access, A>, j: Json, path: List<&2, Step>) -> Result<&2, &2, Access, List<&2, A>>:
+  walk_with(~List<&2, A>, ~(v => done => list_read(~A, ~item, v, List.reverse(&2, Step, done))), ~(st => done => Fail{Missing{List.reverse(&2, Step, done)}}), 4294967295n, path, 0n, 0n, j, [], [], [])
+
+# Encoders return field chunks so an absent optional contributes no fields.
+def obj(fields: List<&2, List<&2, Field>>) -> Json:
+  JObj{join_fields(fields)}
+
+def field_str(k: String, s: String) -> List<&2, Field>:
+  [Field{k, JStr{s}}]
+
+def field_u32(k: String, x: U32) -> List<&2, Field>:
+  [Field{k, num_u32(x)}]
+
+def field_bool(k: String, b: Bool) -> List<&2, Field>:
+  [Field{k, JBool{b}}]
+
+def field_opt(-A: Data, k: String, m: Maybe<&2, A>, enc: A -> Json) -> List<&2, Field>:
+  match m:
+    case None{}:
+      []
+    case Some{x}:
+      [Field{k, enc(x)}]
+
+def list_json(~A: Data, ~enc: A -> Json, xs: List<&2, A>) -> Json:
+  JArr{map_list(~A, ~Json, ~enc, xs)}
+
+def field_list(~A: Data, ~enc: A -> Json, k: String, xs: List<&2, A>) -> List<&2, Field>:
+  [Field{k, list_json(~A, ~enc, xs)}]
 
 # Errors
 # ======

@@ -6,6 +6,7 @@ import ./proof/fast_run.bend as FastRoundTrip
 import ./proof/layout.bend as Layout
 import ./proof/access.bend as Access
 import ./proof/u32.bend as Unsigned
+import ./proof/typed.bend as Typed
 
 def Laws.round_trip(j):
   RoundTrip.round_trip(j)
