@@ -339,3 +339,29 @@ type, maximum body/vector sizes, duplicates across bitset boundaries and distant
 duplicates. Diagnostic output is reconstructed from parsed fields. Seven closed
 frontend checks also pass. Complete package acceptance is tracked separately in
 STACK_PROGRESS.md; focused passes do not establish a live TLS handshake.
+
+### TLS private-key helpers (M2)
+
+The binding algorithms and existing/missing handshake matrix are in
+[TLS_PROFILE.md](../TLS_PROFILE.md). These components do not run a live
+handshake or replace the legacy OpenSSL TLS effects above. Only synthetic keys
+are permitted by [RUNTIME_REVIEW.md](../crypto/RUNTIME_REVIEW.md).
+
+| Module / API | Contract |
+|---|---|
+| `tls_key_share.generate(group)` | OS `wire_random_bytes`, 32 bytes for X25519; P-256 rejection sampling of 32 bytes/attempt, at most 16 attempts, no reduction or RNG fallback. Returns affine `Offer{private,public}`. |
+| `tls_key_share.from_random(group,bytes)` | Pure import of one candidate for deterministic independent testing; same validation as generation. |
+| `tls_key_share.shared(private,peer)` / `retire(private)` | Consume the ephemeral owner on every result. X25519 rejects all-zero shared output; P-256 validates canonical on-curve non-infinity peers. |
+| `tls_certificate_verify.content(role,hash)` / `digest(role,hash)` | Exactly 64 spaces, the server/client TLS 1.3 context, zero separator and exact 32-byte SHA-256 transcript hash; digest hashes that entire content. |
+| `tls_certificate_verify.sign_ecdsa(owner,role,hash)` / `sign_rsa(owner,role,hash,salt,blind)` | Consume the affine key wrapper even on failure. ECDSA uses RFC 6979. RSA uses the Bend private CRT PSS signer with caller-supplied fresh 32-byte salt and k-byte blinder candidate. |
+| `tls_certificate_verify.verify(scheme,key,role,hash,signature)` | Bind admitted authenticated SPKI to ECDSA P-256 or RSAE PSS. Reject PSS-only SPKI, PKCS#1 CV and cross-family choices. Raw `verify_ecdsa` / `verify_rsa` are mathematical helpers, not certificate/negotiation decisions. |
+
+Key-share checks compare independent scalar multiplication and host-RNG paths;
+type probes reject owner copies/reuse. CertificateVerify checks reconstruct
+RFC 8448 transcript/content and independently verify published signatures;
+the trace's 1024-bit key is outside the selected 2048–4096-bit RSA verifier.
+Admitted synthetic keys separately test both signing algorithms/roles, domain
+separation, malformed inputs and scheme/SPKI restrictions. Exact counts and
+commands live in STACK_PROGRESS.md and the dated M2 reports. The M3 owner must
+still choose transcript snapshots, negotiate schemes, draw RSA entropy from
+the host effect and enforce handshake/record ordering and fatal cleanup.

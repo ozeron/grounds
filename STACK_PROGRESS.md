@@ -62,6 +62,53 @@ The full completion checklist and continuation order are in [STACK_PLAN.md](STAC
 
 ## Evidence ledger
 
+- 2026-10-23 (M2 profile and TLS helper implementation checkpoint):
+
+  Crypto implementation is local commit **`9e04114`**. Frozen TLS_PROFILE.md
+  selects TLS 1.3 only, AES-128-GCM/SHA-256 and ChaCha20-Poly1305/SHA-256,
+  X25519/P-256, P-256 ECDSA and RSA-PSS-RSAE CertificateVerify, HTTP/1.1 ALPN
+  and DNS SNI. PSS-PSS and PKCS#1/SHA-256 are certificate-only; resumption,
+  PSK, 0-RTT, client certificates and post-handshake authentication are omitted
+  with explicit protocol dispositions. The operation matrix names every
+  existing owner and missing M3/M4 integration; no live handshake is added.
+
+  Fresh official-source review confirms **RFC 9846 (July 2026) obsoletes
+  RFC 8446**; the repository citation is correct and bis is published.
+  All 16 Verified RFC 8446 errata and RFC 9846 Verified erratum **9040**
+  (verified October 12) have profile dispositions. Official text/search bytes,
+  hashes and the inventory are in `m2/sources/`; reported entries are not
+  silently treated as Verified.
+
+  New `wire/tls_key_share.generate/from_random/shared/retire` supplies affine
+  ECDHE owners. X25519 takes one fresh 32-byte OS RNG draw; P-256 takes 32
+  bytes per rejection-sampled attempt, rejects 0 or >=n, and stops after 16
+  attempts with no fallback. Existing all-zero X25519 and P-256 curve checks
+  remain in force. `tls_certificate_verify.content/digest/sign_ecdsa/sign_rsa`
+  constructs both roles' exact 64-space/context/NUL/transcript-hash input;
+  `verify(scheme,key,role,hash,signature)` binds the negotiated scheme to the
+  authenticated SPKI and rejects PSS-only RSAE confusion.
+
+  Native and Bun each pass **147/147** new helper cases: key share **50**,
+  CertificateVerify **91**, RSA-CV **6**. Five valid ownership declarations
+  compile; six copy/reuse attempts reject. RFC 8448 sections 3/5 establish
+  exact pre-CV transcript/content and independent verification of published
+  signatures; those published 1024-bit RSA keys remain outside production
+  admission. Separate admitted 2048-bit cases verify RSA signing with Bend,
+  Python RFC 8017 arithmetic and OpenSSL. Evidence and exact guarded commands:
+  `m2/helpers/implementation-result.json`, `m2/helpers/{keyshare,cv,cv-rsa}-
+  {native,bun}.json`, and paired `m2/helpers-*-{command,binding}.json`, `.json`
+  guards and `.log` files. Compiler failures remain retained.
+
+  Wire adds **14** phases to the original 13; crypto adds **29** to 1,673.
+  `m2/phase-preservation.json` asserts all original phases and optionality
+  remain in order. New report fallbacks distinguish backends, and crypto's
+  private fixture is an explicit Moon cache input. Generated-runtime files,
+  exact hashes/compiler executable and inspected function bodies/locators
+  are in `m2/runtime/{manifest,reviewed-functions}.json` and `notes.txt`.
+  These are static generated-code observations, not constant-time or physical
+  erasure certification. Fresh forced crypto, wire and root gates remain
+  pending; M2 boxes are deliberately still open at this checkpoint.
+
 - 2026-10-23 (M2 crypto implementation checkpoint; full acceptance pending):
 
   On `bend-https`, added `rsa_private.validate/sign_digest`, `pem.decode`,

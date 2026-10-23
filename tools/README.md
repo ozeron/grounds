@@ -185,3 +185,15 @@ Run the splitter's storage, cross-unit direct/dynamic calls and atomic output
 publication regressions with `python3 tools/bend_native_parts_test.py` under
 the guard. Splitting addresses Clang's memory footprint; it does not resolve
 Bend frontend resource failures or certify generated-code timing safety.
+
+M2 adds private signing and credential phases to crypto and key-share/
+CertificateVerify phases to wire. Existing phase identities and order are
+preserved; native and default Bun each run every new differential case.
+RSA private checks are grouped into arithmetic, key validation, signing and
+rejection; credential import separates EC and RSA so the complete corpora fit
+the unchanged 120-second phase deadline. New crypto fixtures are explicit Moon
+inputs. `GROUNDS_M2_REPORT_DIR` optionally retains per-backend case reports;
+it changes report placement only. The dated M2 ledger records the exact phase
+counts, commands, generated-code hashes and guard reports. These gates accept
+synthetic-key component interoperability only; see
+[crypto/RUNTIME_REVIEW.md](../crypto/RUNTIME_REVIEW.md) for live-secret blockers.

@@ -1,137 +1,133 @@
 # Bend HTTPS implementation profile
 
-Decision date: 2026-10-05. Status: selected build target, not implemented TLS
-acceptance. This document refines STACK_PLAN.md M2/M3 without removing M0-M4
-exit requirements. RTC expansion is deferred by user decision.
+Binding M2 build decision: 2026-10-23. This finite profile governs M3; it is
+not live TLS acceptance. STACK_PLAN.md remains the acceptance contract.
+Only synthetic credentials may be used: see crypto/RUNTIME_REVIEW.md.
 
 ## Standards baseline
 
-Use [RFC 9846](https://www.rfc-editor.org/rfc/rfc9846.txt), which supersedes
-RFC 8446, for TLS 1.3. Section 9 requires AES-128-GCM/SHA-256, P-256 key
-exchange, RSA SHA-256 certificate signatures, RSA-PSS/SHA-256 and P-256 ECDSA.
-It recommends X25519 and additional suites. Sections 9.2/9.3 include
-certificate-signature negotiation and extensibility rules; unknown offered
-parameters are not automatically fatal. CertificateVerify must not use RSA
-PKCS#1 v1.5. Implement retry-cookie handling, transcript replacement for
-HelloRetryRequest, and correct record/key transitions.
+[RFC 9846](https://www.rfc-editor.org/rfc/rfc9846.txt), published July 2026,
+**obsoletes RFC 8446**. The repository citation is correct; TLS 1.3 bis is
+published. Use RFC 9846 normatively and RFC 8448 for published traces.
+CertificateVerify is RFC 8446 §4.4.3 / RFC 9846 §4.5.2; Finished respectively
+§4.4.4 / §4.5.3, KeyUpdate §4.6.3 / §4.7.3. Record usage remains §5.5.
+RFC 9525 governs SAN-only service identity; RFC 9325 is deployment guidance.
 
-The official RFC 9846 errata listing retrieved today contains five Reported
-entries (9040, 9042, 9043, 9161, 9157), no Verified entries. Do not silently
-promote reported changes to normative requirements. The legacy-version items
-concern older-version negotiation; this new path selects only TLS 1.3. Revisit
-message-specific errata when implementing each owner.
+Official texts and complete errata searches were retrieved on 2026-10-23;
+exact bytes, hashes and verified-entry inventory are retained under
+`~/.codex/artifacts/grounds/2026-10-23/m2/sources/`.
+RFC 9846 now has **one Verified erratum, 9040**, verified 2026-10-12.
+It corrects Appendix E.2 legacy-version selection without supported_versions.
+Our TLS-1.3-only path requires a supported_versions offer containing 1.3 and
+otherwise sends protocol_version; it never adds TLS 1.2 fallback.
+9042, 9043, 9161 and 9157 remain Reported, not normative corrections.
+This supersedes the October 5 snapshot with no Verified entries.
 
-Use [RFC 9525](https://www.rfc-editor.org/rfc/rfc9525.html) for DNS/IP service
-identity: SAN identity matching is separate from full path validation, and
-Common Name is not a hostname fallback. The existing certificate composition
-work remains required. [RFC 9325](https://www.rfc-editor.org/rfc/rfc9325.html)
-is supplemental deployment guidance, not evidence that this implementation is
-ready for deployment.
+All 16 Verified RFC 8446 entries were checked against this profile:
 
-Source snapshots and SHA-256 manifest:
-`/Users/ozeron/.codex/artifacts/grounds/2026-10-05/https-baseline/sources/`.
-The browser retrieval tool could not fetch RFC 9846; direct official HTTPS
-retrieval succeeded. No generated summary substitutes for that retained text.
+| Errata | Disposition |
+|---|---|
+| 5483 | Send X25519 public output, never private scalar or base-point input. |
+| 5868 | ECDSA DER is exactly two INTEGERs (RFC 4492 form). |
+| 6123 | Certificate-based server authentication is required here. |
+| 6142, 7250, 8799 | No ticket/PSK use; silently discard authenticated NewSessionTicket with bounded framing. |
+| 6146 | Negotiate the selected version; no downgrade path. |
+| 7303 | M3 sends close_notify at warning level and ignores subsequent data. |
+| 8423 | ClientHello extension-vector lower bound is seven bytes; required-extension semantics are separate. |
+| 8795 | Legal main-handshake CertificateRequest differs from forbidden post-handshake auth. |
+| 8803 | Security-considerations correction; no assumption of peer authentication before verification. |
+| 5976, 6122, 6141, 7774 | Registry/editorial corrections; no algorithm/wire change. |
+| 6139 | Send SNI for DNS identities; raw IP literals are not HostName values. |
 
-## Selected parameters and implementation owners
+## Frozen parameters
 
-| Surface | Decision | Existing Bend owner / required composition |
+| Surface | Binding decision |
+|---|---|
+| Version | TLS 1.3 (0x0304) only. Standard legacy fields and compatibility-CCS windows still apply. |
+| Suites | TLS_AES_128_GCM_SHA256 (0x1301), TLS_CHACHA20_POLY1305_SHA256 (0x1303). |
+| Groups | x25519 (0x001d), secp256r1 (0x0017), fresh connection/replacement shares. Uncompressed SEC1 P-256 only. |
+| CertificateVerify | ecdsa_secp256r1_sha256 (0x0403), rsa_pss_rsae_sha256 (0x0804), advertised in signature_algorithms. PSS hash/MGF SHA-256, salt exactly 32 bytes. |
+| Certificate signatures | The above plus rsa_pss_pss_sha256 (0x0809) and rsa_pkcs1_sha256 (0x0401), **only inside certificates** and signature_algorithms_cert. Preserve PSS-only SPKI restrictions. Neither additional scheme is admitted for CertificateVerify. |
+| Local credentials | P-256 SEC1/PKCS#8; two-prime RSA PKCS#1/PKCS#8 with rsaEncryption identity. No encrypted PEM, multiprime RSA, compressed points, explicit EC parameters or other curves. RSA n: 2048–4096 bits, p/q: 1024–2048 bits, canonical odd e: 3..2^32−1. Trusted prime generation is a prerequisite, not supplied by import. |
+| Peer certificates | M1 explicit-anchor x509_chain.verify, supported P-256/RSA/PSS-only issuers, SAN-only DNS/IP and caller UTC time. A PSS-only leaf cannot authenticate RSAE CertificateVerify. Existing M1 rejections remain in force. |
+| ALPN | http/1.1 only; never advertise h2/h3. Offered ALPN with no common protocol fails no_application_protocol; absent ALPN permits the HTTP/1.1 default. Reject unsolicited/wrong server selections. |
+| SNI | Client sends one DNS HostName for a DNS identity; server reads it for credential selection. Reject empty/duplicate host_name, NUL and IP literals. Verify DNS/IP identity independently. |
+
+AES-256/SHA-384, X448, EdDSA and FFDHE are outside the profile. Unknown
+well-formed offers follow context-specific RFC extensibility rules; never
+advertise or select an absent algorithm.
+
+PSK/external PSK, resumption and 0-RTT are unsupported and unadvertised.
+Do not send pre_shared_key, psk_key_exchange_modes or early_data, or issue
+tickets. Require a certificate/ECDHE path; ignore unused offers where the RFC
+permits, while enforcing extension framing/order. Reject unsolicited PSK
+selection. Silently discard authenticated NewSessionTicket; never cache/resume
+it. Reject unsolicited early application data and out-of-state EndOfEarlyData.
+
+Client certificates and post-handshake authentication are unsupported and
+unadvertised. The server never requests client authentication. A client handles
+a legal main-handshake CertificateRequest with an empty Certificate and no
+CertificateVerify; a server requiring authentication may reject it.
+Post-handshake CertificateRequest without post_handshake_auth fails
+unexpected_message. Client-role signature helpers exist for domain-separation
+tests, not permission to advertise client authentication.
+
+## Operation-to-implementation matrix
+
+“Existing” means a component exists, not a composed socket handshake. Tests
+below apply to native and Bun; exact results are recorded in STACK_PROGRESS.
+“Missing (M3/M4)” names work deliberately outside M2.
+
+| Operation | Status / Bend owner | Evidence / remaining obligation |
 |---|---|---|
-| Protocol | TLS 1.3 only in the new transport; no downgrade to legacy effects | New handshake/negotiation owner |
-| AEAD/hash | AES-128-GCM/SHA-256 and ChaCha20-Poly1305/SHA-256 | `crypto/gcm.bend`, `aead.bend`, `traffic.bend`, `wire/tls_record.bend` |
-| Key agreement | P-256 and X25519, with fresh per-connection private material | `crypto/p256.bend`, `x25519.bend`; connect host RNG and private-key ownership |
-| Handshake signatures | P-256 ECDSA/SHA-256 and RSA-PSS-RSAE/SHA-256 | `ecdsa_scheme256.bend`, `rsa_signature256.bend`; RSA private signing and full ownership are unfinished |
-| Certificate signatures | P-256 ECDSA/SHA-256, RSA PKCS#1 v1.5/SHA-256 and admitted RSA-PSS/SHA-256 | `x509_algorithm.bend`, `x509_public_key.bend`, `x509_signature.bend`; preserve key/parameter restrictions |
-| Transcript/KDF | SHA-256 incremental transcript and TLS HKDF labels | `wire/tls_transcript.bend`, `wire/tls_schedule.bend`, `sha256_stream.bend`, `hkdf.bend`, `traffic.expand_label`; component checks pass, live handshake composition remains |
-| Application | HTTP/1.1; WebSocket over that connection; ALPN `http/1.1` only | HTTP client/server plus new TLS transport adapter; never advertise h2/h3 |
-| Trust | Caller-supplied explicit anchors and expected DNS/IP identity | M1 composed validation, not a signature-only result or automatic trust of supplied peer roots |
-| Server credentials | Synthetic P-256 certificate first; RSA signing remains part of profile acceptance | Fixture import plus explicit key ownership; no host signing delegation |
+| Host randomness | Existing: wire.wire_random_bytes, OS-only random effects | random_check.py/random_host_check.c: bounds, errors, octets, zero draws. |
+| Ephemeral generation/retirement | Existing: wire/tls_key_share.bend generate/from_random/shared/retire | tls_key_share_check.py and affine checks; 32 bytes/X25519 draw; P-256 rejects 0 or >=n, 32 bytes/attempt, max 16 attempts. |
+| X25519 ECDH/validation | Existing: crypto/x25519.bend shared | RFC 7748/x25519_check.py; full-scan all-zero rejection. |
+| P-256 ECDH/validation | Existing: crypto/p256.bend | NIST/SEC1/p256_check.py; canonical on-curve non-infinity peer, cofactor one; scalar 1..n−1. |
+| PEM/private import/leaf binding | Existing: crypto/pem.bend, private_key.bend, credential.bend | private_key_check.py: independent synthetic DER/PEM, malformed/encrypted/mismatch cases. |
+| RSA-PSS private signature | Existing: crypto/rsa_private.bend validate/sign_digest | rsa_private_check.py: RFC 8017/Python cryptography oracle and existing Bend verifier; CRT/base blinding/public fault check. Synthetic-only runtime. |
+| ECDSA private signature | Existing: crypto/ecdsa_scheme256.bend/ecdsa_sign256.bend | RFC 6979/NIST/ecdsa_check.py, nonce rejection; retry timing explicitly dispositioned. |
+| CertificateVerify role/content/signature | Existing: wire/tls_certificate_verify.bend | tls_certificate_verify_check.py: RFC 8448 content/transcript where applicable, independent signature checks, role/hash mutations. verify binds selected scheme to authenticated SPKI. |
+| Transcript/HRR rewrite | Existing: wire/tls_transcript.bend/crypto/sha256_stream.bend | RFC 8448 1-RTT/retry, exact encodings/snapshots, message_hash replacement, affine checks. |
+| No-PSK HKDF schedule | Existing: wire/tls_schedule.bend | RFC 8448/independent Python HKDF, directional handshake/application owners. M3 supplies validated shared input and ordered snapshots. |
+| Finished | Existing: wire/tls_schedule.bend finished/verify_finished | 798 independent schedule outputs, mutations, single-use Finished key, full-width comparison. M3 gates delivery on verification. |
+| Certificate authentication | Existing: crypto/x509_chain.bend verify | M1: 193 complete-chain cases/target, 55 accepted/138 rejected, independent full-chain oracle. |
+| Protected record encrypt/decrypt | Existing: wire/tls_record.bend/crypto/traffic.bend | RFC 8448 AES records, independent AES/ChaCha fixtures, tag-before-release, malformed-input retirement. |
+| Sequence/usage/KeyUpdate derivation | Existing: crypto/traffic.bend | 70 ChaCha + 72 AES lifecycle scenarios/target; counter exhaustion, 2^24 AES sending cap, 2^48−1 sending updates; receiving has no sending caps. |
+| Handshake reassembly | Existing: wire/tls_handshake_stream.bend | 939 independent cases/target, fragmented/coalesced RFC flights, 1 MiB bound, consumed errors. |
+| Extension framing | Existing: wire/tls_extensions.bend | 1,756 ordinary + 10 stress cases/target. Context, required fields and body semantics remain M3. |
+| Hello field framing | Existing: wire/tls_hello.bend parse/is_retry | tls_hello_check.py: 2,986 ordinary + seven stress cases/target in retained October 8 focused evidence; not yet part of the root manifest. Parses Hello fields/opaque extensions, not selection semantics. |
+| Hello negotiation/HRR | Missing (M3): bounded role/state owner | Extension-body codecs for supported_versions/groups/key_share/signatures/SNI/ALPN, one HRR, retry cookie, legal offered choices and no fallback. Existing field/transcript framing is insufficient. |
+| EE/Certificate/CV/Finished codecs/order | Missing (M3): handshake owner | Exact encoded transcript boundaries, empty client Certificate, authenticated server and state transitions. |
+| Application epochs/KeyUpdate ordering | Missing (M3): handshake/record composition | Send/authenticate old-key KeyUpdate before rekey; reject pre-Finished or malformed requests. |
+| TCP/alerts/close/deadlines/cancellation | Missing (M3): transport owner using wire effects | Partial/fragmented I/O; fatal paths consume all stages/close sockets; warning close_notify, truncation rules. No connection owner exists to audit yet. |
+| Unsupported post-handshake disposal | Missing (M3): bounded parser | Silently discard NewSessionTicket; reject forbidden post-handshake auth and early-data messages per state. |
+| No-delegation live evidence | Missing (M3) | Effect/import audit plus legacy crypto/TLS effects instrumented to fail on the new socket path. |
+| HTTP/HTTPS/WSS/browser | Missing (M4): explicit Bend adapter | Preserve HTTP/cookie/Origin/auth behavior and normal browser certificate verification. |
 
-AES-256/SHA-384 is not selected: the current SHA-256 implementation path is the
-bounded target. Record this omission in capability documentation; do not claim
-unrestricted TLS algorithm support. ECDSA-first is implementation order only,
-not permission to omit required RSA verification/signing from final evidence.
+## Key lifecycle and runtime boundary
 
-## Connection behavior to build
+Each connection draws fresh ephemeral material from the host RNG effect;
+M3's Hello randoms are separate 32-byte draws. P-256 uses rejection sampling,
+never modulo reduction or deterministic RNG fallback. ECDSA uses RFC 6979,
+including verified erratum 3812's s=0 rejection. RSA-PSS needs 32 fresh salt
+bytes plus k uniform blinding candidate bytes per attempt; rejected candidates
+consume the owner and emit no signature. Sign helpers accept explicit entropy;
+M3 must obtain it via wire_random_bytes.
 
-1. **Negotiation and framing.** Validate complete lengths before allocation;
-   collect fragmented handshake messages across records and split coalesced
-   messages. Decode supported_versions, supported_groups, key_share, both
-   signature lists, SNI, ALPN and retry cookies. Apply context-specific unknown,
-   duplicate and unsolicited extension handling. Never advertise an algorithm
-   absent from the actual implementation. Support HelloRetryRequest and reject
-   illegal repeated retries. Specify finite connection/message/chain bounds in
-   the codec API and test exact boundaries before exposing it to sockets.
-2. **Authenticated transcript.** Retain exact handshake encodings. Bind the
-   chosen parameters, certificate chain, CertificateVerify and Finished to the
-   correct transcript and role. Establish independent read/write handshake and
-   application epochs; no application delivery before authentication succeeds.
-   Record state transitions and secret retirement without logging secret bytes.
-3. **Certificate decision.** Compose Name/RDN equality, issuer linkage, exact-DER
-   signature verification, trust anchors, CA/path/usage/critical-extension/name
-   constraints, time and SAN checks. A caller receives one success/failure
-   decision. Unsupported authorization semantics reject explicitly. OS effects
-   may supply time/file bytes, never certificate parsing or authorization.
-4. **Lifetime.** Handle KeyUpdate, close_notify, fatal alerts, cancellation,
-   timeout, peer EOF/truncation and partial writes. Keep record keys and sequence
-   numbers connection-owned. NewSessionTicket can be parsed and discarded;
-   do not store or offer resumable sessions. Keep compatibility CCS processing
-   separate from transcript authentication and legal only in its specified window.
-5. **Deliberate exclusions.** No PSK resumption, 0-RTT, client-certificate
-   authentication, post-handshake authentication, session-ticket issuance,
-   certificate fetching, HTTP/2, QUIC or DTLS in this goal. Do not advertise
-   these features. An optional client CertificateRequest needs protocol-correct
-   empty-certificate handling; a peer requiring client authentication fails
-   explicitly. Well-formed unused offers must still follow extensibility rules.
+Record counters are directional/epoch-owned, start at zero and never wrap.
+ChaCha reaches its sequence limit before its full-record usage bound. AES sends
+at most 2^24 records/epoch, below §5.5's 2^24.5; reserve an old-key record for
+KeyUpdate before exhaustion. Sending updates stop at 2^48−1; receiving owners
+do not enforce sending caps. Invalid seal/authentication/exhaustion errors
+retire traffic owners; Finished and signing errors consume their stages.
+UpdateLimit is a recoverable refusal retaining the old traffic epoch: M3 must
+close it explicitly if the connection decision is fatal.
 
-## Evidence matrix
-
-Each cell needs native and Bun evidence on the accepted current compiler.
-Independent peers are test references; OpenSSL may be used by a peer or oracle,
-never by the new Grounds TLS/crypto execution path.
-
-| Gate | Required positive evidence | Required negative/lifecycle evidence |
-|---|---|---|
-| Handshake client | Independent server, each suite/group and both handshake signature schemes; retry path | Wrong chain/hostname/time/signature/Finished, unsupported choice, malformed framing, retry misuse |
-| Handshake server | Independent client and browser, both local signing schemes and selected suite/group combinations | No common choice, invalid share, malformed extension/state order, altered Finished |
-| Certificate composition | Trusted root/intermediate/leaf paths, DNS and IP identities, cross-encoding issuer names | Untrusted/wrong issuer, CA/path/usage/constraints/critical policy, expiry and exact boundary cases |
-| Records/lifetime | Fragmented/coalesced flights, streaming, KeyUpdate, close, reconnect | Modified ciphertext, stale epochs, counters/usage limits, EOF and resource cleanup |
-| HTTP/browser | Request/response, streaming, signed cookies and WSS with normal certificate verification | Origin/auth denials, bad certificate, disconnect/reconnect and cleanup |
-
-Runtime timing/secret-dependent behavior and erasure findings in
-`crypto/ECDSA_REVIEW.md` and related reviews remain completion blockers.
-Logical affine ownership does not prove physical erasure. Synthetic-key runs
-may establish interoperability while those findings are open; they cannot
-establish live-secret safety or complete M2/M4.
-
-The final no-delegation test must make legacy TLS/crypto effects fail if the new
-path invokes them, alongside an import/effect audit. Retain compatibility-path
-regressions separately. A passing browser ICE test or encrypted-record fixture
-cannot stand in for any live TLS/HTTPS cell above.
-
-
-## Current component and runtime review checkpoint (2026-10-05)
-
-Transcripts, no-PSK SHA-256 schedule/Finished and handshake-record reassembly now
-have independent native/Bun component evidence and a fresh eleven-phase wire
-pass (commit 44249af; details in STACK_PROGRESS.md). These components still need
-negotiation, body codecs, role/order enforcement, certificate authentication and
-record-epoch integration before any live TLS claim.
-
-A static inspection of the current pinned P-256 diagnostic JavaScript preserves
-five exact generated functions and input hashes in
-`/Users/ozeron/.codex/artifacts/grounds/2026-10-05/p256-phases/generated-runtime-review.json`.
-Its scalar loop follows public counters and its inspected selector uses bitwise
-masks. This is narrow positive source evidence; it does not cover all arithmetic,
-optimized machine code, Bun JIT behavior or timing distributions. The generated
-path retains tagged heap records, trampoline state and array-to-list slice
-copies. Physical lifetime/erasure remains unverified.
-
-The new schedule's affine wrappers contain ordinary duplicable byte lists.
-Consuming a Finished key or a stage owner prevents the tested logical reuse; it
-does not erase every underlying heap/runtime copy. Existing ECDSA retry findings
-and native/runtime review remain open. Before M2 closes, bind the full signing,
-key-agreement, KDF and AEAD generated paths to reviewed compiler/runtime versions,
-resolve secret-dependent timing findings, and implement/test an explicit secret
-storage and retirement contract. No timing or erasure approval follows from this
-checkpoint; synthetic fixture keys remain the only authorized test material.
+See [crypto/RUNTIME_REVIEW.md](crypto/RUNTIME_REVIEW.md) for the exact secret
+storage/retirement contract and every disposition. Affine wrappers prevent
+ordinary logical copies/reuse, not physical wiping of inner lists, allocator,
+GC/JIT, stack/register or OS copies; visible constructors can bypass discipline.
+M2 may close for synthetic-key component interoperability when every finding
+has a disposition. **Live-secret use stays blocked**, and M3/M4 stay open.
+Passing vectors and timing samples cannot establish constant-time execution.

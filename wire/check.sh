@@ -5,6 +5,58 @@ cd "$(dirname "$0")"
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 announce() { python3 ../tools/check_phase.py "$@" >&2; }
+# M2 key agreement and CertificateVerify components; no socket handshake.
+announce start wire/m2-types/key_share
+python3 tls_key_share_type_check.py
+announce end wire/m2-types/key_share 0
+announce start wire/m2-types/certificate_verify
+python3 tls_certificate_verify_type_check.py
+announce end wire/m2-types/certificate_verify 0
+announce start wire/m2-native/build/key_share
+../tools/bend_native.sh tls_key_share_cli.bend "$tmp/tls_key_share" > /dev/null
+announce end wire/m2-native/build/key_share 0
+announce start wire/m2-native/build/certificate_verify
+../tools/bend_native.sh tls_certificate_verify_cli.bend "$tmp/tls_certificate_verify" > /dev/null
+announce end wire/m2-native/build/certificate_verify 0
+announce start wire/m2-native/build/certificate_verify_rsa
+../tools/bend_native.sh tls_certificate_verify_rsa_cli.bend "$tmp/tls_certificate_verify_rsa" > /dev/null
+announce end wire/m2-native/build/certificate_verify_rsa 0
+announce start wire/m2-native/check/key_share
+python3 tls_key_share_check.py -- "$tmp/tls_key_share"
+announce end wire/m2-native/check/key_share 0
+announce start wire/m2-native/check/certificate_verify
+python3 tls_certificate_verify_check.py -- "$tmp/tls_certificate_verify"
+announce end wire/m2-native/check/certificate_verify 0
+announce start wire/m2-native/check/certificate_verify_rsa
+python3 tls_certificate_verify_rsa_check.py -- "$tmp/tls_certificate_verify_rsa"
+announce end wire/m2-native/check/certificate_verify_rsa 0
+if command -v bun > /dev/null 2>&1; then
+announce start wire/m2-bun/build/key_share
+bend tls_key_share_cli.bend -o "$tmp/tls_key_share.js" > /dev/null
+announce end wire/m2-bun/build/key_share 0
+announce start wire/m2-bun/build/certificate_verify
+bend tls_certificate_verify_cli.bend -o "$tmp/tls_certificate_verify.js" > /dev/null
+announce end wire/m2-bun/build/certificate_verify 0
+announce start wire/m2-bun/build/certificate_verify_rsa
+bend tls_certificate_verify_rsa_cli.bend -o "$tmp/tls_certificate_verify_rsa.js" > /dev/null
+announce end wire/m2-bun/build/certificate_verify_rsa 0
+announce start wire/m2-bun/check/key_share
+python3 tls_key_share_check.py -- bun "$tmp/tls_key_share.js"
+announce end wire/m2-bun/check/key_share 0
+announce start wire/m2-bun/check/certificate_verify
+python3 tls_certificate_verify_check.py -- bun "$tmp/tls_certificate_verify.js"
+announce end wire/m2-bun/check/certificate_verify 0
+announce start wire/m2-bun/check/certificate_verify_rsa
+python3 tls_certificate_verify_rsa_check.py -- bun "$tmp/tls_certificate_verify_rsa.js"
+announce end wire/m2-bun/check/certificate_verify_rsa 0
+else
+announce skip wire/m2-bun/build/key_share
+announce skip wire/m2-bun/build/certificate_verify
+announce skip wire/m2-bun/build/certificate_verify_rsa
+announce skip wire/m2-bun/check/key_share
+announce skip wire/m2-bun/check/certificate_verify
+announce skip wire/m2-bun/check/certificate_verify_rsa
+fi
 announce start wire/native-extensions
 bend tls_extensions_test.bend
 ../tools/bend_native.sh tls_extensions_cli.bend "$tmp/tls_extensions" > /dev/null

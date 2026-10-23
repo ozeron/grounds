@@ -2,6 +2,62 @@
   "version": 1,
   "phases": [
     {
+      "name": "wire/m2-types/key_share",
+      "optional": false
+    },
+    {
+      "name": "wire/m2-types/certificate_verify",
+      "optional": false
+    },
+    {
+      "name": "wire/m2-native/build/key_share",
+      "optional": false
+    },
+    {
+      "name": "wire/m2-native/build/certificate_verify",
+      "optional": false
+    },
+    {
+      "name": "wire/m2-native/build/certificate_verify_rsa",
+      "optional": false
+    },
+    {
+      "name": "wire/m2-native/check/key_share",
+      "optional": false
+    },
+    {
+      "name": "wire/m2-native/check/certificate_verify",
+      "optional": false
+    },
+    {
+      "name": "wire/m2-native/check/certificate_verify_rsa",
+      "optional": false
+    },
+    {
+      "name": "wire/m2-bun/build/key_share",
+      "optional": true
+    },
+    {
+      "name": "wire/m2-bun/build/certificate_verify",
+      "optional": true
+    },
+    {
+      "name": "wire/m2-bun/build/certificate_verify_rsa",
+      "optional": true
+    },
+    {
+      "name": "wire/m2-bun/check/key_share",
+      "optional": true
+    },
+    {
+      "name": "wire/m2-bun/check/certificate_verify",
+      "optional": true
+    },
+    {
+      "name": "wire/m2-bun/check/certificate_verify_rsa",
+      "optional": true
+    },
+    {
       "name": "wire/native-extensions",
       "optional": false
     },
