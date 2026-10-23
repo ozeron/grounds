@@ -223,9 +223,29 @@ def pick.saved(value: Array<U32>, result: Pick) -> Pick:
   match result:
     case Pick{table, factor}: Pick{Con{value, table}, factor}
 
-def pick.cloned(+count: Nat, +mask: U32, factor: Array<U32>, pair: Array<U32> & Array<U32>, next: Array<U32> -> Pick) -> Pick:
-  (value, copy) = pair
-  pick.saved(value, next(R.select.go(Nat.add(count, 1n), 0, mask, R.Select{factor, copy, R.zero()})))
+type PickRow is Type:
+  PickRow{value: Array<U32>, factor: Array<U32>}
+
+def pick.cell(+i: U32, +mask: U32, value: Array<U32>, +digit: U32, pair: Array<U32> & U32) -> PickRow:
+  (factor, old) = pair
+  PickRow{value, Array.set(U32, factor, i,
+    U32.or(U32.and(old, U32.xor(mask, 32767)), U32.and(digit, mask)))}
+
+def pick.limb(+i: U32, mask: U32, factor: Array<U32>, pair: Array<U32> & U32) -> PickRow:
+  (value, digit) = pair
+  pick.cell(i, mask, value, digit, Array.get(U32, factor, i))
+
+# Preserve the affine table array while updating the factor in place. The
+# entire admitted prefix is read for every entry, including nonmatches.
+def pick.row(left: Nat, +i: U32, +mask: U32, state: PickRow) -> PickRow:
+  match left state:
+    case 0n PickRow{value, factor}: PickRow{value, factor}
+    case 1n+p PickRow{value, factor}:
+      pick.row(p, U32.inc(i), mask, pick.limb(i, mask, factor, Array.get(U32, value, i)))
+
+def pick.selected(state: PickRow, next: Array<U32> -> Pick) -> Pick:
+  match state:
+    case PickRow{value, factor}: pick.saved(value, next(factor))
 
 def pick.go(table: List<Array<U32>>, +count: Nat, +index: U32, +at: U32, factor: Array<U32>) -> Pick:
   match table:
@@ -234,7 +254,7 @@ def pick.go(table: List<Array<U32>>, +count: Nat, +index: U32, +at: U32, factor:
       # index and at are in 0..15: (index xor at)-1 has its high bit set
       # exactly on equality. All table entries take this same code path.
       mask = U32.mul(32767, U32.shrn(U32.sub(U32.xor(index, at), 1), 31n))
-      pick.cloned(count, mask, factor, Array.clone(U32, value),
+      pick.selected(pick.row(Nat.add(count, 1n), 0, mask, PickRow{value, factor}),
         f => pick.go(tail, count, index, U32.inc(at), f))
 
 def window.product(table: List<Array<U32>>, result: R.ModResult) -> WindowPower:

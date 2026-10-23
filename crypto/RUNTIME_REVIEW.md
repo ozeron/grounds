@@ -129,6 +129,37 @@ rebuilt programs and current acceptance results are retained under
 These source-level mitigations do not approve generated-code constant time or
 physical erasure; the synthetic-key restriction remains unchanged.
 
+M4a round 3 rechecked the source at `222985a` against freshly emitted HTTP
+server C and JS. `pick.go` preserves the arithmetic equality mask and scans
+all sixteen entries; C `spin_59`/`spin_60`/`spin_61` retain sequential limb
+addresses and bitwise selection. `window.step` retains four unconditional
+squares before selection/multiplication. `window.bytes` processes both
+nibbles of every supplied byte, including zero bytes and the top nibble;
+there is no leading-zero shortcut. Work is fixed for the supplied exponent
+encoding length and admitted modulus width, not across different key lengths.
+This does not remove the private-admission/length or runtime limitations above.
+The source hashes, generated hashes and numbered C excerpts are retained in
+`~/.codex/artifacts/grounds/2026-10-23/m4a/round3/rsa-window-review.json` and
+`rsa-window-c-excerpts.txt`. The reviewed server C SHA-256 is
+`ef9338ae29be232524203ef16d595cc12e02a1d28eaa96f10162e50476b94e57`;
+JS is `df007717de13dfc4e8b0ce2c808b7ff87391e27625375734207ad87f50314c31`.
+This is generated-source inspection, not a machine-code/JIT timing proof or
+permission to use live secrets.
+
+The round-3 repeated-handshake run subsequently reproduced a `deadline` failure
+on Bun with signing alone taking 947 ms. The lookup now preserves each affine
+table array through `Array.get` and updates the factor in place, instead of
+cloning the table array and allocating a new output for every scanned entry.
+`pick.row` still reads the complete admitted limb prefix of all sixteen entries;
+`pick.cell` uses the same bitwise mask, with no nibble-dependent branch/index.
+The rebuilt server C (`server-03/bend_tls.c`) retains this in `pick.go` and
+`spin_70`; JS retains it in `pick.row`/`pick.cell`. Their SHA-256 values are
+`9b037c8e036184f7c678046fc804100899452c33bbff9ed0ab37e542866c04f1` and
+`77ae6bfd62415aea0d1efe40427f21b2c52bc83c36973c711fb8103fb17362c9`.
+Ten independent power cases revisit all nibble values in both orders. No
+blinding, admission, inverse, recovery, deadline or repetition check is removed.
+The timing and erasure restrictions above still apply.
+
 ## References and evidence limits
 
 Arithmetic/encoding follows existing Grounds references plus RFC 7748,

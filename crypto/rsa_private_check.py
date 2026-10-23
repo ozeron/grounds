@@ -103,6 +103,15 @@ def arithmetic_cases():
             cases.append(op(f'subtract-{width}-amount-{amount}', '6',
                             [b'', be(value, width), be(amount)],
                             be(value-amount, width).hex()))
+    # Revisit every table entry in both orders, including leading-zero bytes.
+    # Append after the existing corpus to preserve its seeded inputs exactly.
+    for bits in (15, 16, 127, 1024, 2048):
+        n = rng.getrandbits(bits) | (1 << (bits-1)) | 1
+        for exponent in (0x0123456789abcdef, 0xfedcba9876543210):
+            base = rng.randrange(n)
+            cases.append(op(f'window-scan-{bits}-{exponent}', '4',
+                            [be(n), b'\x00' + be(exponent), be(base)],
+                            be(pow(base, exponent, n), len(be(n))).hex()))
     return cases
 
 
