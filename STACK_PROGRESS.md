@@ -4,6 +4,85 @@ Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and 
 
 The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
 
+- 2026-10-23 (M4a round 3; acceptance **BLOCKED**, fresh root passes):
+  Implementation commits remain `bbd15be` / `bde7815`, followed by Montgomery
+  row fusion `193f731`, fixed four-bit private powers `222985a`, and affine
+  table-array reuse `583a919`. The last optimization removes per-entry clones
+  and factor allocations while scanning every limb of all sixteen entries.
+  Source and emitted C/JS review found no exponent-nibble branch, address,
+  loop count or leading-zero shortcut. Both nibbles of every encoded byte are
+  processed. Width/admission/runtime timing limitations remain; this is not
+  machine-code/JIT constant-time approval. `crypto/RUNTIME_REVIEW.md` and
+  round3 `rsa-{window,scan}-review.json` retain the inspection and hashes.
+
+  Arithmetic/RSA verification passes **920 cases per native/Bun target**:
+  113 private arithmetic, 45 admission, 9 signatures, 28 rejection and
+  725 integer cases (`arithmetic-scan-01.json`, **11/11 phases**, 834.9 MiB).
+  The retained failing RSA fixture also passed both unchanged negative suites
+  in `fixed-02.json` (**2/2**, 251.6 MiB). This did not establish reliability:
+  the fresh post-refactor standalone server attempt below still failed.
+
+  All report names here are relative to
+  `~/.codex/artifacts/grounds/2026-10-23/m4a/round3/`:
+
+  | Fresh report | Result and boundary |
+  |---|---|
+  | `server-05.json` | **23 passed, 1 failed, 17 unexecuted**; Bun RSA/AES negative phase lost a valid handshake with TLS EOF before the request-timeout case; 1635.7 MiB. No server error was retained by that harness, so its precise cause is unconfirmed. |
+  | `core-03.json` | **1/1 passed**, 496.0 MiB; **2,693 cookie cases per target**, existing Base64/method/unit/proof/cold checks passed. |
+  | `root-02.json` | **2,144/2,144 passed**, 3394.1 MiB, 3900.897 s; exact requested nice/concurrency/force command, 4096 MiB aggregate/process and 120 s per phase. Includes **41/41 server phases**, **76 HTTPS scenarios + 5 configuration cases per target**, four host-effect abort controls, legacy HTTP/proxy/auth/CORS/WebSocket/multipart and all RTC phases. |
+
+  Root used `/opt/homebrew/opt/openssl@3/bin` first in PATH: the independent
+  oracle is OpenSSL 3.6.3. `root-01.json` preserves the prior prerequisite
+  failure (**37 passed, 1 failed**, 2106 unexecuted): Apple LibreSSL 3.3.6 lacks
+  the required verify options. No Grounds Bend path gained an oracle call.
+  `core-02.json` was pressure-stopped and retried; cumulative pressure/lock
+  waits were **90.058 seconds of the 90-minute budget**, without foreign
+  process signals. The round-2 server-09 interruption was external, not a test
+  failure, and remains separate from these genuine round-3 failures.
+
+  Earlier reports remain intact: server-01 timed out in tls_proxy (33 passed;
+  ordinary-priority follow-ups restored the original server command);
+  server-02 failed Bun RSA/ChaCha (25 passed); server-03 was pressure-stopped
+  (30 passed); server-04 failed only the unchanged cold check (40 passed).
+  The earlier RSA diagnostic logged a deadline and 947 ms signing, motivating
+  `583a919`; it does not prove the cause of server-05. Root's 32-handshake loops
+  passed with max end-to-end RSA request times of native AES/ChaCha
+  **45.8/46.5 ms**, Bun **969.9/730.7 ms**, under the unchanged 1000 ms handshake
+  deadline. These samples do not close the intermittent failure.
+
+  The authorized API split is implemented and verified **in the worktree**,
+  but held uncommitted while standalone server acceptance remains unresolved.
+  `http/server/server.bend` restores the original socket-only legacy graph;
+  all `serve_*` signatures stay unchanged and every entry rejects
+  `HTTP_TLS_ENGINE=bend` before TLS setup/listen, including callers without
+  `from_env`. Opt-in applications import `http/server/bend_server.bend`, which
+  owns its Config/Out/Sink types, runtime engine selection and hard
+  `serve_bend_out_context` entry. The Bend example, docs, matrix receipts and
+  no-delegation audit use that module. Legacy examples and the zero-hot check
+  are unchanged: **7/7 cold examples**, **9 clean C/JS graphs**, and **4 native/
+  Bun engine-rejection controls** pass (`split-focused.json` and
+  `root-02/legacy-graphs/report.json`). `entrypoint-refactor.patch` and
+  `entrypoint-source-receipt.json` bind the uncommitted implementation.
+
+  Error-logging-only replay of server-05's exact RSA fixture passes all **13
+  negative/lifecycle scenarios**, including the unchanged 32-handshake loop
+  (`diagnose-split-02.json`, 1/1, 254.6 MiB). The first diagnostic's log
+  collector consumed the shutdown text needed by the lifecycle assertion;
+  `diagnose-split-01.json` records that diagnostic-harness failure, not a
+  product failure. Its corrected collector leaves the acceptance tests intact.
+
+  No deadline, repetition, guard limit or existing assertion was loosened
+  relative to `bde7815`; `test-limits.diff` retains the earlier audit, and the
+  current server check adds graph/rejection coverage after the exact cold
+  command. **No M4 checkbox is ticked and no M4a acceptance is claimed** despite
+  the complete root pass. The remaining valid-handshake EOF needs a confirmed
+  cause and fresh server/core/root acceptance after remediation. Synthetic
+  keys only; physical secret erasure remains blocked. OpenSSL stays the legacy
+  default; Bend requires the opt-in module and `with_bend_tls` or its
+  `HTTP_TLS_ENGINE=bend` configuration. HTTP client/WSS/browser work remains
+  M4b. The orchestrator's M5/execution-order edits in STACK_PLAN.md and
+  crypto/ERASURE.md remain untouched and unstaged. No push, PR or bounty work.
+
 - 2026-10-23 (M4a server implementation checkpoint; acceptance PENDING):
   `with_bend_tls(cfg, cert_path, key_path)` / `BendTls{chain,key,suites}` and
   `HTTP_TLS_ENGINE=bend|openssl` select explicit transports without changing
