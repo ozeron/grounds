@@ -1,142 +1,141 @@
-# grounds-json public API v1
+# grounds-json typed API
 
-Levels A and B are built (see the README's tables); E is the recipe in `examples/user.bend`. v1 = **A + B + E**: safe accessors, typed paths, and hand-written decoders. Generic `Decoder<A>` combinators (D) wait until we see what composes well in Bend.
+Levels A (primitive reads), B (paths), D (typed composition) and E (user codecs) are available. D uses fixed-arity products and compile-time decoder templates; runtime `Decoder<A>` objects and derive macros remain deferred.
 
-The example throughout:
+## Primitive reads and paths
 
-```json
-{"user": {"name": "Alex", "age": 31, "tags": ["quant", "coffee"]}}
-```
+`parse(String)` and `parse_bytes(List<&2, U32>)` return `Result<&2, &2, Error, Json>`. `encode(Json)` prints compact JSON; `pretty(Json, String)` prints indented JSON. `message(Error)` formats parse errors.
 
-## What we have now
-
-| Area | Now | Problem |
-|---|---|---|
-| Parse | `parse(String)`, `parse_bytes(List<U32>)` (provisional) | fine; `parse_bytes` still marked provisional |
-| Print | `stringify(j)`, `pretty(j, unit)` | `stringify` is a JS word; the proposal says `encode` |
-| Access | `get(j, key)`, `at(j, n: Nat)` → `Maybe` | no error to report; `at` takes a `Nat`, everything else takes a `U32` |
-| Typed reads | `as_bool`, `as_str`, `as_u32`, `as_f32`, `as_list`, `as_fields` → `Maybe` | no signed read: `as_u32` cannot read `-1` |
-| Build | `num(text)`, `num_u32`, `num_f32`, the constructors `JNull`… `JObj` | fine |
-| Errors | `Error{reason, offset, line, column}`, `message(e)` | parse errors only; no access errors |
-| Bug | `get` compares keys with `String.eq` inside `Bool.pick` | shares Strings, so a program that calls `get` gets reference-counted Strings; it also scans every field after a match |
-| Docs | README lists `J.decode` | it moved to `utf8` (`U.decode`) |
-
-## Level A: primitives
-
-Each returns `Result<&2, &2, Access, A>`: `Done{a}` or `Fail{why}`.
+The following reads return `Result<&2, &2, Access, A>`:
 
 ```python
-J.get(j, "user")        # the value of a key; the last one wins on duplicates
-J.index(j, 0)           # the item at an index (U32)
-J.string(j)             # String
-J.u32(j)                # U32: a whole number in range, in any form (1e2, 100.0)
-J.f32(j)                # F32: may round past 2^24; OutOfRange, not infinity, past 3.4e38
-J.bool(j)
-J.array(j)              # List<Json>
-J.object(j)             # List<Field>, in order, duplicates kept
-J.number(j)             # Number: exact digits, for anything u32/f32 cannot hold
-J.is_null(j)            # Bool
+J.get(j, key)       # Json; the last duplicate key wins
+J.index(j, i)       # Json; i is U32
+J.string(j)        # String
+J.u32(j)           # U32; whole and in range, including 1e2 and 100.0
+J.bool(j)          # Bool
+J.f32(j)           # F32; OutOfRange rather than infinity or NaN
+J.number(j)        # Number; exact digits, sign, fraction and exponent
+J.array(j)         # List<&2, Json>
+J.object(j)        # List<&2, Field>, including duplicate keys
+J.is_null(j)       # Bool, not a Result
+
+J.at(j, [J.Name{"users"}, J.Index{3}])  # Result<Access, Json>
+J.string_at(j, path)
+J.u32_at(j, path)
+J.bool_at(j, path)
+J.f32_at(j, path)
+J.number_at(j, path)
 ```
 
-`Access` says what went wrong and where:
+`Path` means `List<&2, Step>`, where `Step` is `Name{key: String}` or `Index{i: U32}`. `Access` is `Missing{path}`, `Expected{path, want, got}`, or `OutOfRange{path}`. `J.message_access(e)` formats errors such as `$.users[3].age: expected number, found bool`; unusual keys are quoted as in `$["a.b"]`.
+
+A missing parent reports the first step that could not be found. A wrong parent kind reports that parent's path. A wrong leaf kind reports the full leaf path. Duplicate keys retain the existing last-key-wins behavior.
+
+## Level D: typed composition
+
+Below, `R(A)` abbreviates `Result<&2, &2, J.Access, A>` and every type parameter is `Data`.
 
 ```python
-type Access is Data:
-  Missing{path: Path}                            # no such key, or index past the end
-  Expected{path: Path, want: JKind, got: JKind}  # e.g. want KString, got KNumber
-  OutOfRange{path: Path}                         # a number u32 or f32 cannot hold
-
-type JKind is Data:        # `Kind` is a Bend keyword
-  KNull{}  KBool{}  KNumber{}  KString{}  KArray{}  KObject{}
+J.map(A, B, r: R(A), f: A -> B) -> R(B)
+J.both(A, B, Z, r1: R(A), r2: R(B), f: A -> B -> Z) -> R(Z)
+J.both3(A, B, C, Z, r1, r2, r3, f: A -> B -> C -> Z) -> R(Z)
+J.both4(A, B, C, D, Z, r1, r2, r3, r4, f) -> R(Z)
+J.both5(A, B, C, D, E, Z, r1, r2, r3, r4, r5, f) -> R(Z)
+J.both6(A, B, C, D, E, F, Z, r1, r2, r3, r4, r5, r6, f) -> R(Z)
 ```
 
-`J.message_access(a)` → `"$.user.tags[0]: expected string, found number"`. A key that is not a plain name (letters, digits, `_`, not starting with a digit) is written as JSON writes the string: `$["a.b"][""]`.
+All products return the first failing argument, in argument order. This specifies which error is returned; it does not promise lazy evaluation of the reads. An applicative `ap` cannot use the existing Result: Bend 2.0.38 gives functions kind `Type`, while its reusable Result payload must be `Data`.
 
-Level A reports the step it tried for `Missing` (`$.name`, `$[3]`) and the empty path `$` otherwise; level B fills in the full path.
-
-## Level B: paths
+### Optional values and defaults
 
 ```python
-type Step is Data:
-  Name{key: String}   # `Key` is taken by Base's keyboard events
-  Index{i: U32}
-
-# Path is List<&2, Step>
-J.at(j, [J.Name{"user"}, J.Name{"name"}])              # Result<Access, Json>
-J.string_at(j, [J.Name{"user"}, J.Name{"name"}])       # Done{"Alex"}
-J.u32_at(j, [J.Name{"user"}, J.Name{"age"}])           # Done{31}
-J.string_at(j, [J.Name{"user"}, J.Name{"tags"}, J.Index{0}])  # Done{"quant"}
-J.bool_at, J.f32_at, J.number_at, J.array_at, J.object_at
+J.optional_at(~A, ~item: Json -> R(A), j: Json, path: Path) -> R(Maybe<&2, A>)
+J.string_opt_at(j, path) -> R(Maybe<&2, String>)
+J.u32_opt_at(j, path) -> R(Maybe<&2, U32>)
+J.bool_opt_at(j, path) -> R(Maybe<&2, Bool>)
+J.f32_opt_at(j, path) -> R(Maybe<&2, F32>)
+J.number_opt_at(j, path) -> R(Maybe<&2, Number>)
+J.default(A, r: R(Maybe<&2, A>), fallback: A) -> R(A)
 ```
 
-This is the main win in Bend. Bend can't `match` on a function's result without a helper def, so chaining level A calls takes one small def per step. A path call does the whole lookup in one expression.
+A missing **final object key**, or `null` at a resolved path, gives `Done{None{}}`. A present value is decoded as `Some`; wrong kinds and numeric range errors still fail. A missing intermediate key or any missing array index remains `Missing`. A null intermediate parent is a kind error. An empty path observes the root: root null is None.
 
-## Level E: your own encoders and decoders
+`default` replaces only a successful None. It preserves Some and every error. `optional_at` accepts custom object or list decoders too, and prefixes their relative error paths. For round trips, a Some encoder must never emit null: null is reserved for None.
 
-Write one `to_json`/`from_json` pair and one round-trip law per type. `J.both` joins typed path reads in one expression; the first error wins.
+### Lists of user types
+
+```python
+J.list_at(~A, ~item: Json -> R(A), j: Json, path: Path) -> R(List<&2, A>)
+
+J.list_at(~String, ~(x => J.string_at(x, [])), j, [J.Name{"tags"}])
+```
+
+The `~` arguments are templates, substituted at compile time. Bend closures are affine, so a runtime function cannot be reused for every element. Templates must be closed expressions: use top-level names or literal lambdas, without captured runtime variables.
+
+Items decode in order; the first failure wins. An item decoder's relative path is prefixed with the array path and its index. Nested list decoders compose these prefixes. `examples/users.bend` decodes a list of two-field Person objects, while reading another field from the same document. Tests include `$.users[3].age`, nested indices, missing item fields, wrong array kinds and empty arrays.
+
+### Keeping types cold
+
+The scalar `_at` reads rebuild their leaves. `list_at` walks the source read-only and builds a fresh decoded list, without copying source Json containers into an intermediate tree. Its item decoder must also return rebuilt data. Use typed path reads inside a literal template lambda; a raw `J.string` returns the source String, and a named runtime decoder call can cause Bend's compiler to retain the source across suspended calls. Use `+x => ...` when the item expression reads x several times. `examples/users.bend` demonstrates the complete object callback.
+
+`scripts/cold.py` checks both recipes and the separate law example, including consumers of returned strings and list objects. Error prefixing uses tail-recursive path concatenation: a suspended append can heat the source document even on successful reads. Keep reads in defs, because main owns its arguments.
+
+The existing low-level `at`, `array_at` and `object_at` APIs are unchanged. The latter two still use the scalar leaf walker, whose container copies preserve kind but contain no members. Use `list_at` for decoded collections; these low-level functions are not deep-copy decoders.
+
+## Encoders
+
+Encoder helpers return **field chunks** (`List<&2, Field>`). `obj` joins a list of chunks, so an optional field can contribute zero fields without special caller branches.
+
+```python
+J.obj(fields: List<&2, List<&2, Field>>) -> Json
+J.field_str(k: String, s: String) -> List<&2, Field>
+J.field_u32(k: String, x: U32) -> List<&2, Field>
+J.field_bool(k: String, b: Bool) -> List<&2, Field>
+J.field_opt(A, k: String, m: Maybe<&2, A>, enc: A -> Json) -> List<&2, Field>
+J.field_list(~A, ~enc: A -> Json, k: String, xs: List<&2, A>) -> List<&2, Field>
+J.list_json(~A, ~enc: A -> Json, xs: List<&2, A>) -> Json
+```
+
+`field_opt` omits None and encodes Some. `field_u32` uses the proven `num_u32`, which builds decimal digits without opaque text conversion. Raw constructors and `num`, `num_f32` remain available.
+
+## Level E: a complete recipe
+
+`examples/user.bend` imports only Base and the runtime JSON module. It contains the type, encoder, decoder, parse-result adapter and a runnable main:
 
 ```python
 type User is Data:
-  User{name: String, age: U32}
+  User{name: String, age: U32, admin: Bool, email: Maybe<&2, String>, tags: List<&2, String>}
 
 def User.to_json(u: User) -> J.Json:
   match u:
-    case User{n, a}:
-      J.JObj{[J.Field{"name", J.JStr{n}}, J.Field{"age", J.num_u32(a)}]}
+    case User{n, a, b, e, t}:
+      J.obj([J.field_str("name", n), J.field_u32("age", a), J.field_bool("admin", b), J.field_opt(String, "email", e, s => J.JStr{s}), J.field_list(~String, ~(s => J.JStr{s}), "tags", t)])
 
 def User.from_json(+j: J.Json) -> Result<&2, &2, J.Access, User>:
-  J.both(String, U32, User, J.string_at(j, [J.Name{"name"}]), J.u32_at(j, [J.Name{"age"}]), n => a => User{n, a})
+  J.both5(String, U32, Bool, Maybe<&2, String>, List<&2, String>, User,
+    J.string_at(j, [J.Name{"name"}]), J.u32_at(j, [J.Name{"age"}]), J.bool_at(j, [J.Name{"admin"}]),
+    J.string_opt_at(j, [J.Name{"email"}]), J.list_at(~String, ~(x => J.string_at(x, [])), j, [J.Name{"tags"}]),
+    n => a => b => e => t => User{n, a, b, e, t})
 
-law user_round_trip:
-  for +u: User
-  {User.from_json(User.to_json(u)) == Done{u} : Result<&2, &2, J.Access, User>}
 ```
 
-The example proves this law for every `User`, using the shared leaf-copy and U32 proofs. It also proves `user_text_round_trip`: the existing parsed-result adapter satisfies `user(parse(encode(User.to_json(u)))) == Done{u}`. `num_u32` builds digits through `decimal.of_u32`; it uses no opaque text conversion. The check sweeps 20,000 U32 values against the old text constructor and compares numeric reads with the previous reader.
+Unknown object fields are ignored; required fields remain required. Email is optional; tags is required and may be empty. To default a missing tags field, combine `optional_at` with a list decoder and `default`.
 
-The complete proof lives in `examples/user.bend` and is checked by `json:check`. Import `proof/access.bend` for the exact leaf-copy lemmas (`copy_bool_id`, `word_add0`, `copy_text_go`, `copy_int_id`, `copy_num_u32`) and `proof/u32.bend` for `u32_round_trip`. As in the example, import `PROOF.bend` to close the library's public laws. The per-type proof only rewrites the copied fields and applies the U32 law; it does not repeat numeric or text arithmetic.
+## Proven laws
 
-For more fields, nest `J.both` or use `J.map` on an intermediate result. Keep typed reads in a def so the program's Strings stay cold.
+`proof/typed.bend` contains shared proofs, imported by `PROOF.bend`:
 
-## Names
+- `string_copy_round_trip`, `u32_copy_round_trip`, `bool_copy_round_trip`, and `u32_copy_at` connect copied reads to their stored values.
+- `scalar_field_round_trip`, with `string_field_round_trip`, `u32_field_round_trip` and `bool_field_round_trip`, proves the scalar encoder/read pairs for arbitrary keys.
+- `optional_some_round_trip` proves a Some field round trip from the item's round-trip hypothesis and a non-null encoder hypothesis. `optional_none_round_trip` proves omission decodes as None; `optional_null` proves null decodes as None. `default_some` and `default_none` prove defaults.
+- `list_round_trip`, `list_at_round_trip` and `list_field_round_trip` prove list round trips from `for x: dec(enc(x)) == Done{x}`. No list length or sample-value restriction is used.
+- `both3_done` through `both6_done` prove successful product reduction. `both5_reads` composes five individual field equalities into a constructor equality. Error priority is covered at every argument position in `typed_test.bend`.
 
-| Now | v1 | Why |
-|---|---|---|
-| `stringify` | `encode` | pairs with `parse`; keep `stringify` one release as an alias? |
-| `pretty` | `pretty` | |
-| `get` | `get` | now `Result` |
-| `at(j, n: Nat)` | `index(j, i: U32)` | `at` becomes the path lookup |
-| `as_str` / `as_bool` / … | `string` / `bool` / `u32` / `f32` / `array` / `object` / `number` | now `Result`; done |
-| `as_list`, `as_fields` | `array`, `object` | JSON's own words |
-| `parse_bytes` | `parse_bytes` | no longer provisional |
-| `num`, `num_u32`, `num_f32`, `num_text` | keep | building numbers |
-| `message(e)` | keep, plus `message_access(a)` | |
+`examples/user_laws.bend` imports the proof tree separately. `user_round_trip` proves `User.from_json(User.to_json(u)) == Done{u}` for every five-field User. Its definition is 10 lines: two branches, each applying `both5_reads` and shared leaf/list laws. Omitting email changes the encoded object's field layout, so the checker needs separate None and Some branches to reduce literal-key lookup. The U32 read also keeps its field path until the U32 theorem establishes success. This is longer than a three-line per-type proof; there is no derive tactic hiding those obligations.
 
-Clean break or aliases: we have no users yet, so I'd make a clean break and skip the aliases.
+`user_text_round_trip` is a three-line definition, rewriting with the existing `round_trip` theorem. `users_round_trip` applies the generic list theorem to the proven User codec in two lines. All are checked by `json:check`, and the recipe itself does not import proofs.
 
-## Laws (proven, in LAWS.bend)
+## Deferred
 
-- `get(JObj{[Field{k, v}]}, k) == Done{v}`, and later fields win.
-- `index(JArr{xs}, i)` is the i-th item, or `Missing` past the end.
-- `at(j, [])` is `Done{j}`; `at(j, s <> p)` is one step, then `at` on the rest.
-- `string_at(j, p)` is `at(j, p)` then `string`; the same for every typed `_at`.
-- Each typed read answers `Done` exactly on its own kind: `string(JStr{s}) == Done{s}`, and `Expected` otherwise.
-- The existing round trips stay as they are.
-
-## Not in v1
-
-- Generic `Decoder<A>` (D): after v1 shows what composes in Bend.
-- Cursor (C): Bend has no method chaining, so paths give the same thing with less API.
-- String query `"user.name"` (F): escaping and syntax errors; maybe a later `query`.
-- JSON Pointer `"/user/tags/0"` (G): a later add-on, since it's a standard and easy to build on paths.
-- Signed integers: Base has only U32, F32 and Nat. `number` returns the exact digits, and an `i32` read would follow if Base or the hub gets a signed type (the hub has `bend-i64`).
-
-## Work
-
-1. [x] Fix `get` so it shares no String; `cold.py` checks `examples/access.bend`. It reads every field, since the last duplicate wins.
-2. [x] Add `Access`, `JKind`, `Step` and level A, with their laws. [x] Level B, with `both` and `map`; typed `_at` reads walk without taking the document and copy the leaf.
-3. [x] Rename per the table; update `test.bend`, the proofs and the README.
-4. [x] Write the `User.from_json` recipe as a tested example (`examples/user.bend`).
-5. README: an API table for each level and the decoder recipe.
-
-About two days. The proofs mostly stay: they are about `parse` and the printer, not the accessors.
+Runtime Decoder objects, automatic deriving, a cursor API, string queries, JSON Pointer and signed integer conversions remain outside this change. Existing reads, `map`, `both`, errors and messages retain their APIs.
