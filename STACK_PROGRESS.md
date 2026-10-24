@@ -4,6 +4,24 @@ Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and 
 
 The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
 
+- 2026-10-24 (M4b round 2 actual root deadline stop; capacity retry pending):
+  `round2/root-08.json` passed **2053** phases before the unchanged **120 s**
+  deadline stopped `rtc/native/build/ice_transport_udp`. Total **3257.953 s**,
+  **3339.2 MiB** peak. This is an actual deadline stop, not a pressure refusal
+  or complete root acceptance. The same RTC source compiled in **58.811 s**
+  in `root-07`; `root-08-host-load.json` records load **38.62** on 10 CPUs
+  and unrelated CPU-heavy jobs at inspection. Root-08's HTTP server/browser
+  gate had already passed, including **18/18 Chrome scenarios per cipher**.
+  No RTC source, guard, deadline or test was changed to address the timeout.
+
+  The next whole-root attempt waits for pressure level 1, no other guard,
+  and one-minute load at most the logical CPU count for **60 stable seconds**.
+  This capacity wait counts against the existing **7200 s** accumulated wait
+  cap. No unrelated job is signalled or controlled. `acceptance-runs.json`
+  retains all stops and accumulated waiting; the original six pressure-only
+  stops remain distinct from root-07's fixture mismatch and root-08's timeout.
+  M4's final full-acceptance/audit box remains open pending a complete run.
+
 - 2026-10-23 (M4b round 2 native fixture probe isolation; root acceptance still open):
   `round2/root-07.json` stopped on an actual `http_client/check` golden
   mismatch after **2149 passed / 1 failed** phases, **5058.146 s**,

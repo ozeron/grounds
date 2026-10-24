@@ -232,3 +232,50 @@ All partial and scheduling-blocked attempts remain inspectable under
 `~/.codex/artifacts/grounds/2026-10-23/m3b/`. The M3 checklist remains open until
 that gate completes; M4 is not started. Synthetic-key scope and every existing
 live-secret runtime/erasure blocker remain in force.
+
+## M4 native HTTP integration profile (2026-10-23)
+
+M4 keeps the frozen SHA-256 TLS profile above: TLS 1.3,
+TLS_AES_128_GCM_SHA256 / TLS_CHACHA20_POLY1305_SHA256, X25519 / secp256r1,
+ecdsa_secp256r1_sha256 / rsa_pss_rsae_sha256 CertificateVerify, and http/1.1
+ALPN. Certificate signatures additionally admit the SHA-256 RSA-PSS-PSS and
+PKCS#1 forms listed above. No h2/h3 or algorithm expansion is implied.
+
+| HTTP surface | Native credential / verification qualification | Bun scope |
+|---|---|---|
+| Bend HTTPS server | Synthetic P-256 ECDSA SEC1/PKCS#8 and two-prime RSA 2048–4096-bit PKCS#1/PKCS#8 credentials; both suites live-gated. | Existing P-256 ECDSA regression gates retained; RSA rejected before listen. |
+| Bend HTTPS client / pools | Explicit 1..16 single-certificate PEM anchors, SAN-only DNS/IPv4 identity and caller-supplied trusted clock; frozen P-256/RSA peer-certificate verification. No local client credential or client authentication. | New Bend HTTP client unsupported; no new Bun requirements. |
+| Bend WSS / real browser | Native TLS transport owner retained through RFC 6455 upgrade, frames and close; integration and real-Chrome qualification use synthetic P-256 CA/leaf for both suites. RSA WSS is not separately qualified by these application fixtures. | New Bend WSS unsupported; existing Bun regressions retained. |
+
+Legacy HTTP server/client entry graphs keep OpenSSL as their default. Bend is
+opt-in through `bend_server.bend` and explicit configuration, or the separate
+`bend_client.bend` / `bend_pool.bend` APIs with an admitted `bend_transport.Policy`.
+A legacy server asked for the Bend engine fails with an instruction to import
+the Bend server module. A native client never falls back to host TLS or an
+ambient CA store after verification failure.
+
+The real browser test writes its synthetic CA only to a disposable Chrome
+profile's `Default/ServerCertificate` database. Chrome verifies the full chain
+and hostname, refuses an unrelated CA and mismatched hostname, and reports
+secure TLS 1.3 connections. No certificate-ignore/web-security flags, system
+keychain changes or browser-driver installation are involved. Browser WSS uses
+Origin plus a verified signed cookie; the separate Python/Go fixture retains
+its bearer requirement as well. Both emitted fixture programs are audited with
+host TLS/cookie effects replaced by proven abort controls.
+
+The diagnostic [performance baseline](http/server/PERFORMANCE.md) measures
+50 full TLS opens and 200 sequential keep-alive requests in every row, both
+suites, with identical server application code and both production clients
+against the same native server process. It has no performance acceptance
+threshold. Fresh package receipts and the status of full root acceptance are
+in [STACK_PROGRESS.md](STACK_PROGRESS.md); a partial or pressure-stopped root
+report does not complete M4.
+
+This is synthetic-key qualification only. The physical-erasure blocker in
+[crypto/ERASURE.md](crypto/ERASURE.md), ECDSA nonce/retry timing and the broader
+runtime dispositions in [crypto/RUNTIME_REVIEW.md](crypto/RUNTIME_REVIEW.md)
+remain. The 16-anchor/no-system-store boundary, wall-clock refresh obligation,
+unsupported IPv6 URL literals, resumption/0-RTT/client authentication and other
+frozen exclusions remain. M5 adds public-internet algorithms and trust-bundle
+admission next; RTC/DTLS/SCTP/TURN/media expansion and the full nineteen-gate
+stack remain deferred.
