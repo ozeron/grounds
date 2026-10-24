@@ -5,6 +5,7 @@ import ./x509_certificate.bend as C
 import ./x509_signature.bend as S
 import ./x509_public_key.bend as K
 import ./x509_name_match.bend as N
+import ./x509_name_schema.bend as NS
 import ./unicode32_prepare.bend as U
 import ./x509_validity.bend as V
 import ./x509_extensions.bend as E
@@ -81,6 +82,12 @@ def node.decoded(raw: List<&2, U32>, value: Maybe<&1, C.Certificate>) -> Maybe<N
 def node(+raw: List<&2, U32>) -> Maybe<Node>:
   node.decoded(raw, C.decode(raw))
 
+def node.anchor(raw: List<&2,U32>, value: Maybe<&1,C.Tbs>) -> Maybe<Node>:
+  match value:
+    case Some{C.Tbs{C.Header{_,version,_,_},C.Identity{issuer,validity,subject,spki},C.Tail{_,_,extensions}}}:
+      Some{Node{raw,version,issuer,subject,spki,validity,extensions}}
+    case None{}: None{}
+
 type Nodes is Data:
   Nodes{items: List<&2, Node>}
   NodesFailed{reason: Verification}
@@ -104,6 +111,29 @@ def nodes(input: List<&2, List<&2, U32>>, reversed: List<&2, Node>, left: Nat) -
     case Nil{} _: Nodes{List.reverse(&2, Node, reversed)}
     case Con{+raw, rest} 1n+p: nodes.got(raw, reversed, node(raw), xs => nodes(rest, xs, p))
     case _ 0n: NodesFailed{InputLimit{}}
+
+def anchor_nodes(input: List<&2,List<&2,U32>>, reversed: List<&2,Node>, left: Nat) -> Nodes:
+  match input left:
+    case Nil{} _: Nodes{List.reverse(&2,Node,reversed)}
+    case Con{+raw,rest} 1n+p:
+      nodes.got(raw,reversed,node.anchor(raw,C.anchor(raw)),xs => anchor_nodes(rest,xs,p))
+    case _ 0n: NodesFailed{InputLimit{}}
+
+def policy(value: Node) -> Maybe<&1,P.Admission>:
+  match value:
+    case Node{_,_,+issuer,+subject,_,_,+extensions}:
+      P.certificate.names(NS.pair(issuer,subject),subject,extensions)
+
+def anchor_limit(input: List<&2,List<&2,U32>>, +left: U32) -> Bool:
+  match input left:
+    case Nil{} _: True{}
+    case Con{_,_} 0: False{}
+    case Con{_,rest} left: anchor_limit(rest,U32.sub(left,1))
+
+def anchor_checked(valid: Bool, input: List<&2,List<&2,U32>>) -> Nodes:
+  match valid:
+    case True{}: anchor_nodes(input,[],256n)
+    case False{}: NodesFailed{InputLimit{}}
 
 def time.before(early: Bool, after: Nat, now: Nat) -> Verification:
   match early:
@@ -157,12 +187,12 @@ def checked(status: Verification, next: Unit -> Verification) -> Verification:
     case Success{}: next(Unit{})
     case reason: reason
 
-def admitted(value: Node, +now: Nat) -> Verification:
+def admitted(+value: Node, +now: Nat) -> Verification:
   match value:
-    case Node{raw, _, _, _, spki, validity, extensions}:
+    case Node{_, _, _, _, +spki, +validity, +extensions}:
       checked(time(V.decode(validity), now), u =>
         checked(key(K.decode(spki)), u =>
-          checked(critical.optional(E.optional(extensions)), u => extension_policy(P.certificate(raw)))))
+          checked(critical.optional(E.optional(extensions)), u => extension_policy(policy(value)))))
 
 def names(value: Node, tables: U.Tables) -> U.Tables & Maybe<&1, Bool>:
   match value:
@@ -245,7 +275,7 @@ def branch.ready(+parent: Node, trusted: Bool, visited: List<&2, Node>,
   depth: U32, +below: U32, +budget: U32, tables: U.Tables, self_issued: Bool, next: Descend()) -> Search:
   match parent:
     case Node{raw, version, _, _, _, _, _}:
-      branch.checked(ca.policy(version, below, P.certificate(raw)), tables, budget, t =>
+      branch.checked(ca.policy(version, below, policy(parent)), tables, budget, t =>
         branch.trusted(trusted, t, parent, visited, depth, below, budget, self_issued, next))
 
 def branch.names(parent: Node, trusted: Bool, visited: List<&2, Node>,
@@ -312,14 +342,17 @@ def finish(value: Search) -> U.Tables & Verification:
   match value:
     case Search{tables, _, result}: (tables, result)
 
+def start.pool(+budget: U32, tables: U.Tables, +leaf: Node, +pool: List<&2,Candidate>, now: Nat, self_issued: Bool) -> U.Tables & Verification:
+  finish(search(U32.to_nat(budget),tables,leaf,pool,pool,[leaf],1,0,now,budget,
+    Bool.pick(Verification,self_issued,Untrusted{},WrongIssuer{})))
+
 def start.anchors(anchors: List<&2, Node>, tables: U.Tables, +leaf: Node,
   peers: List<&2, Node>, now: Nat, self_issued: Bool) -> U.Tables & Verification:
   match anchors:
     case Nil{}: (tables, Untrusted{})
-    case anchors:
-      +pool = candidates(anchors, True{}, candidates(peers, False{}, []))
-      finish(search(512n, tables, leaf, pool, pool, [leaf], 1, 0, now, 512,
-        Bool.pick(Verification, self_issued, Untrusted{}, WrongIssuer{})))
+    case +anchors:
+      start.pool(Bool.pick(U32,Nat.is_le(List.length(&2,Node,anchors),16n),512,4096),tables,leaf,
+        candidates(anchors,True{},candidates(peers,False{},[])),now,self_issued)
 
 def start.names(+leaf: Node, peers: List<&2, Node>, anchors: List<&2, Node>, now: Nat,
   result: U.Tables & Maybe<&1, Bool>) -> U.Tables & Verification:
@@ -358,14 +391,14 @@ def reference(value: Identity) -> Bool:
 # One authorization boundary, no OS/clock/network/crypto effects. The reusable
 # affine Unicode state must come from U.tables (authenticated bundled assets).
 # now is civil UTC seconds since 0001-01-01, not IO.now or Unix seconds.
-# At most 16 peer certificates + 16 anchors, 8 certificates/path (leaf+anchor
-# included), 512 candidate examinations, 65535 bytes/certificate. No fetching.
+# At most 16 peer certificates + 256 anchors, 8 certificates/path (leaf+anchor
+# included), 4096 candidate examinations, 65535 bytes/certificate. No fetching.
 def verify(tables: U.Tables, presented: List<&2, List<&2, U32>>,
-  anchors: List<&2, List<&2, U32>>, +identity: Identity, purpose: Purpose, +now: Nat) -> U.Tables & Verification:
+  +anchors: List<&2, List<&2, U32>>, +identity: Identity, purpose: Purpose, +now: Nat) -> U.Tables & Verification:
   match purpose:
     case ServerAuth{}:
       start.checked(Bool.pick(Verification, Bool.and(reference(identity), Nat.is_le(now, V.last_second())), Success{}, Malformed{}),
-        tables, t => decoded(t, nodes(presented, [], 16n), nodes(anchors, [], 16n), identity, now))
+        tables, t => decoded(t, nodes(presented, [], 16n), anchor_checked(anchor_limit(anchors,256),anchors), identity, now))
 
 def show(value: Verification) -> String:
   match value:

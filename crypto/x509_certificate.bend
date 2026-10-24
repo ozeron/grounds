@@ -1,6 +1,7 @@
 import Base
 import ./bytes.bend as B
 import ./der.bend as D
+import ./oid.bend as O
 import ./x509_algorithm.bend as A
 
 # Raw certificate field extraction for signature verification. Names, time
@@ -264,3 +265,56 @@ def body(value: Maybe<&1, List<&2, U32>>) -> Maybe<&1, Certificate>:
 
 def decode(bytes: List<&2, U32>) -> Maybe<&1, Certificate>:
   body(D.complete(48, bytes))
+
+# Explicit trust anchors use their subject/key, never their self-signature.
+# Keep framing and exact inner/outer AlgorithmIdentifier binding without
+# requiring an implemented signature algorithm. Peer decoding stays strict.
+def anchor.equal(a: List<&2,U32>, b: List<&2,U32>) -> Bool:
+  match a b:
+    case Nil{} Nil{}: True{}
+    case Con{x,xs} Con{y,ys}: Bool.and(U32.is_eq(x,y),anchor.equal(xs,ys))
+    case _ _: False{}
+
+
+def anchor.checked(valid: Bool, tbs: Tbs) -> Maybe<&1,Tbs>:
+  match valid:
+    case True{}: Some{tbs}
+    case False{}: None{}
+
+def anchor.parameters(value: Maybe<&1,D.Element>) -> Bool:
+  match value:
+    case Some{D.Element{_,_,Nil{},_}}: True{}
+    case _: False{}
+
+def anchor.identifier(value: Maybe<&1,A.Identifier>) -> Bool:
+  match value:
+    case Some{A.Identifier{oid,Nil{}}}: O.contents(oid)
+    case Some{A.Identifier{+oid,rest}}: Bool.and(O.contents(oid),anchor.parameters(D.read(rest)))
+    case _: False{}
+
+def anchor.signature(value: Maybe<&1,List<&2,U32>>) -> Bool:
+  match value:
+    case Some{Con{0,Con{_,_}}}: True{}
+    case _: False{}
+
+def anchor.outer(tbs: Maybe<&1,Tbs>, value: Maybe<&1,D.Element>) -> Maybe<&1,Tbs>:
+  match tbs value:
+    case Some{Tbs{Header{encoded,version,serial,+inner},identity,tail}} Some{D.Element{48,_,rest,+outer}}:
+      anchor.checked(Bool.and(anchor.equal(inner,outer),
+        Bool.and(anchor.identifier(A.identifier(outer)),anchor.signature(D.complete(3,rest)))),
+        Tbs{Header{encoded,version,serial,inner},identity,tail})
+    case _ _: None{}
+
+def anchor.tbs(value: Maybe<&1,D.Element>) -> Maybe<&1,Tbs>:
+  match value:
+    case Some{D.Element{48,+body,rest,encoded}}:
+      anchor.outer(version(encoded,body,D.read(body)),D.read(rest))
+    case _: None{}
+
+def anchor.body(value: Maybe<&1,List<&2,U32>>) -> Maybe<&1,Tbs>:
+  match value:
+    case Some{bytes}: anchor.tbs(D.read(bytes))
+    case _: None{}
+
+def anchor(bytes: List<&2,U32>) -> Maybe<&1,Tbs>:
+  anchor.body(D.complete(48,bytes))

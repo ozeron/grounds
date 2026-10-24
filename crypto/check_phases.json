@@ -706,6 +706,10 @@
       "optional": false
     },
     {
+      "name": "crypto/native/build/pem_bundle_cli",
+      "optional": false
+    },
+    {
       "name": "crypto/native/build/x25519_cli",
       "optional": false
     },
@@ -899,6 +903,10 @@
     },
     {
       "name": "crypto/native/check/x509_sha2_chain",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/pem_bundle_check",
       "optional": false
     },
     {

@@ -249,7 +249,12 @@ def main():
     sl = save('search-leaf', issue(name('search leaf'), sn, lk, sk, 'v15', eku=server, san=sans))
     row('search-budget', [sl, *aliases], ['v15-root'], 'search-limit', openssl=False)
     row('peer-input-limit', [sl, *aliases, 'v15-root'], ['v15-root'], 'input-limit', openssl=False)
-    row('anchor-input-limit', ['v15-leaf', 'v15-ca'], [*aliases, 'v15-root', 'v15-alien'], 'input-limit', openssl=True)
+    row('anchor-17-admitted', ['v15-leaf', 'v15-ca'], [*aliases, 'v15-root', 'v15-alien'], 'success', openssl=True)
+    row('anchor-input-limit-256', ['v15-leaf', 'v15-ca'], ['v15-root'] * 257, 'input-limit', openssl=True)
+
+    save('v15-sha1-anchor', base64.b64decode(certificates['v15-root']).replace(bytes.fromhex('2a864886f70d01010b'), bytes.fromhex('2a864886f70d010105')))
+    row('anchor-self-signature-not-an-edge', ['v15-leaf', 'v15-ca'], ['v15-sha1-anchor'], 'success', openssl=True)
+    row('peer-sha1-still-unsupported', ['v15-leaf', 'v15-ca', 'v15-sha1-anchor'], ['v15-sha1-anchor'], 'unsupported-algorithm', openssl=True)
 
     row('empty-peer', [], [], 'malformed', openssl=False)
     output = dict(provenance='LOCAL SYNTHETIC; Python cryptography generator; no external credentials',

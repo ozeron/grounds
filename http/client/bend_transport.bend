@@ -4,6 +4,7 @@ import ../../wire/bend_tls_client.bend as TLS
 import ../../crypto/unicode32_prepare.bend as U
 import ../../crypto/x509_chain.bend as X
 import ../../crypto/pem.bend as PEM
+import ../../crypto/pem_bundle.bend as Bundle
 import ../../utf8/utf8.bend as Utf
 import ./client.bend as Legacy
 
@@ -46,9 +47,55 @@ def prepared(normalization: List<&2,U32>, profile: List<&2,U32>, clock: Clock, v
     case Done{roots}: Done{Policy{normalization,profile,roots,clock}}
     case Fail{error}: Fail{error}
 
-# One certificate per PEM value, 1..16 anchors. No ambient host CA store.
+# One certificate per PEM value, 1..256 anchors. No ambient host CA store.
 def from_pem(normalization: List<&2,U32>, profile: List<&2,U32>, pems: List<&2,List<&2,U32>>, clock: Clock) -> Legacy.R(Policy):
-  prepared(normalization,profile,clock,anchors(16n,pems,[]))
+  prepared(normalization,profile,clock,anchors(256n,pems,[]))
+
+def bundle_prepared(normalization: List<&2,U32>, profile: List<&2,U32>, clock: Clock,
+  value: Result<&2,&2,Bundle.Error,List<&2,List<&2,U32>>>) -> Legacy.R(Policy):
+  match value:
+    case Done{roots}: Done{Policy{normalization,profile,roots,clock}}
+    case Fail{reason}: Fail{Legacy.Tls{Bundle.show(reason)}}
+
+# Explicit bytes; malformed or duplicate entries fail the entire load.
+# Explanatory text outside certificate blocks is permitted (RFC 7468).
+def from_bundle(normalization: List<&2,U32>, profile: List<&2,U32>, bytes: List<&2,U32>, clock: Clock) -> Legacy.R(Policy):
+  bundle_prepared(normalization,profile,clock,Bundle.decode(bytes))
+
+def bundle_read(normalization: List<&2,U32>, profile: List<&2,U32>, clock: Clock,
+  pair: File & Result<&1,&1,U32 & String,List<&2,U32>>) -> IO(Legacy.R(Policy)):
+  (file,result) = pair
+  do IO<Legacy.R(Policy)>:
+    bytes : List<&2,U32> <- IO.pass(List<&2,U32>,result)
+    File.close(file)
+    IO.pure(Legacy.R(Policy),from_bundle(normalization,profile,bytes,clock))
+
+def bundle_bounded(large: Bool, file: File, normalization: List<&2,U32>, profile: List<&2,U32>, clock: Clock) -> IO(Legacy.R(Policy)):
+  match large:
+    case True{}:
+      do IO<Legacy.R(Policy)>:
+        File.close(file)
+        IO.pure(Legacy.R(Policy),Fail{Legacy.Tls{"bundle-limit"}})
+    case False{}:
+      do IO<Legacy.R(Policy)>:
+        pair : File & Result<&1,&1,U32 & String,List<&2,U32>> <- File.read_bytes(file,2097153)
+        bundle_read(normalization,profile,clock,pair)
+
+def bundle_size(normalization: List<&2,U32>, profile: List<&2,U32>, clock: Clock,
+  pair: File & Result<&1,&1,U32 & String,U32>) -> IO(Legacy.R(Policy)):
+  (file,result) = pair
+  do IO<Legacy.R(Policy)>:
+    size : U32 <- IO.pass(U32,result)
+    bundle_bounded(U32.is_gt(size,2097152),file,normalization,profile,clock)
+
+# A caller can pass /etc/ssl/cert.pem or certifi's cacert.pem here. No path is
+# chosen implicitly; open/read failures follow the ordinary File IO effects.
+# Size and read are both bounded, including growth between size and read.
+def from_bundle_file(normalization: List<&2,U32>, profile: List<&2,U32>, path: String, clock: Clock) -> IO(Legacy.R(Policy)):
+  do IO<Legacy.R(Policy)>:
+    file : File <- IO.try(File,File.open(path,"r"))
+    pair : File & Result<&1,&1,U32 & String,U32> <- File.size(file)
+    bundle_size(normalization,profile,clock,pair)
 
 def ipv4_next(valid: Bool, next: Unit -> Ip) -> Ip:
   match valid:

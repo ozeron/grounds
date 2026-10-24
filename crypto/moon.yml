@@ -18,3 +18,4 @@ tasks:
       - "unicode32_prepare_data.json"
       - "*.bin"
       - "*.gz"
+      - "fixtures/public-chains/*"

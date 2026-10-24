@@ -127,6 +127,7 @@ check native/build/x509_name_match_cli ../tools/bend_native.sh x509_name_match_c
 check native/build/x509_extension_policy_cli ../tools/bend_native.sh x509_extension_policy_cli.bend "$tmp/x509_extension_policy" > /dev/null
 check native/build/x509_verify_cli env BUN_JSC_useJIT=false ../tools/bend_native.sh x509_verify_cli.bend "$tmp/x509_verify" > /dev/null
 check native/build/x509_chain_cli env BUN_JSC_useJIT=false ../tools/bend_native.sh x509_chain_cli.bend "$tmp/x509_chain" > /dev/null
+check native/build/pem_bundle_cli ../tools/bend_native.sh pem_bundle_cli.bend "$tmp/pem_bundle" > /dev/null
 check native/build/x25519_cli ../tools/bend_native.sh x25519_cli.bend "$tmp/x25519" > /dev/null
 check native/build/traffic_write_cli ../tools/bend_native.sh traffic_write_cli.bend "$tmp/traffic_write" > /dev/null
 check native/build/traffic_read_cli ../tools/bend_native.sh traffic_read_cli.bend "$tmp/traffic_read" > /dev/null
@@ -176,6 +177,7 @@ check native/check/x509_name_match_check python3 x509_name_match_check.py --mode
 check native/check/x509_extension_policy_check python3 x509_extension_policy_check.py --signature-binary "$tmp/x509_verify" -- "$tmp/x509_extension_policy"
 check native/check/x509_sha2_signature python3 x509_sha2_check.py --mode signature "$tmp/x509_verify"
 check native/check/x509_sha2_chain python3 x509_sha2_check.py --mode chain "$tmp/x509_chain"
+check native/check/pem_bundle_check python3 pem_bundle_check.py "$tmp/pem_bundle"
 check native/check/x509_signature_check python3 x509_signature_check.py -- "$tmp/x509_verify"
 for batch in $(python3 -c 'import json; n=len(json.load(open("x509_chain_vectors.json"))["cases"]); print(" ".join(f"{i:03d}" for i in range((n+3)//4)))'); do
   check native/check/x509_chain_check/batch-$batch python3 x509_chain_check.py --batch-index "$batch" -- "$tmp/x509_chain"
