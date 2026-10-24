@@ -4,6 +4,19 @@ Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and 
 
 The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
 
+- 2026-10-24 (**M4 ACCEPTED**, user decision on split-run root evidence):
+  All 2,165 root phases passed fresh on `fbab2c6` under the unchanged guard
+  (4096 MiB aggregate/process, 120 s per phase, nice 10, concurrency 1, forced),
+  with OpenSSL 3 first in PATH for the oracle. No phase failed in any run.
+  Host memory pressure from unrelated jobs stopped every single full run, so
+  coverage is split across runs in `~/.codex/artifacts/grounds/2026-10-24/m4-root/`:
+  `root-01`..`root-08` (best: `root-07`, **2,008 passed**, stopped by pressure
+  in RTC) plus `rtc-05.json` (**rtc:check 161/161**, 1722 s, 2329.8 MiB peak).
+  The union covers every phase of the root manifest; pressure stops are
+  preserved and are not failures. No single uninterrupted 2,165/2,165 run
+  exists; the user accepted this evidence. M4 boxes 6/6 checked. Profile,
+  limitations and next steps are as in the entry below; M5 is next.
+
 - 2026-10-24 (M4b round 2 final audited return: **M4 INCOMPLETE**, 5/6 boxes):
   Browser integration, exact native no-delegation audits and the diagnostic
   performance baseline are implemented and verified. Fresh changed-package

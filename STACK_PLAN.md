@@ -239,7 +239,7 @@ interop and negative-case reports, plus inspectable no-delegation evidence.
   including streaming, reconnect, denied origins/authentication and cleanup.
 - [x] Run real-browser HTTPS/WSS with locally trusted synthetic certificate
   fixtures and normal verification enabled; do not bypass certificate checks.
-- [ ] Run full fresh repository acceptance and audit the HTTP milestone against
+- [x] Run full fresh repository acceptance and audit the HTTP milestone against
   actual source/artifacts. Record supported profile, performance baseline,
   limitations and remaining full-stack requirements.
 
