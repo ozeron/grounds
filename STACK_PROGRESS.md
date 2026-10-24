@@ -4,6 +4,73 @@ Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and 
 
 The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
 
+- 2026-10-24 (M4b round 2 final audited return: **M4 INCOMPLETE**, 5/6 boxes):
+  Browser integration, exact native no-delegation audits and the diagnostic
+  performance baseline are implemented and verified. Fresh changed-package
+  gates pass: `round2/server-02.json` **48/48**, **311.104 s**, **1785.0 MiB**;
+  `client-02.json` **15/15**, **162.722 s**, **1743.9 MiB**, all **30 live
+  scenarios**. No skips or weakened assertions/deadlines. Browser/WSS are
+  mandatory native server phases, not opt-in. Chrome **155.0.8059.85** passes
+  **18/18 per cipher** with a disposable profile-local P-256 CA, normal full
+  certificate verification, unrelated-CA and hostname-mismatch refusals,
+  HTTPS/fetch/XHR/cookie/text+binary WSS/close/denied-Origin coverage. The exact
+  browser executable's emitted-C/import/library/loader audit and both abort
+  controls pass. Python/Go WSS passes **13/13 per cipher**, including an
+  asserted negotiated TLS version, cipher and ALPN.
+
+  **Fresh full root acceptance was NOT obtained.** The accumulated two-hour
+  pressure/lock/capacity wait is **EXHAUSTED: 7204.524 s**, including five-second
+  polling granularity. The controller exited; no owned guarded job remains.
+  All **20** fresh named root attempts used OpenSSL **3.6.3** first in PATH,
+  Bend **2.0.38**, nice 10, concurrency 1 and unchanged **4096 MiB** aggregate /
+  process, **120 s per declared phase** limits. **18** attempts stopped only
+  on system pressure: `root-01` through `root-06`, and `root-09` through
+  `root-20`. `acceptance-runs.json` retains every exact report/command/time.
+  These are scheduling/resource interruptions, not test failures or partial
+  acceptance. The two actual failures remain distinct: root-07's native
+  fixture counter mismatch (fixed in `159e4e6`, red/green regression and fresh
+  client gate passed), and root-08's RTC native compile timeout (no source or
+  deadline change). Root-08 passed **2053** phases before its timeout; the same
+  compile took **58.811 s** in root-07. Partial counts are never accumulated.
+  Capacity observations and every failed/partial report remain inspectable.
+
+  `round2/m4-final-audit.json` maps every M4 box and its exit text to actual
+  source and receipts: **744** frozen code/check files, **zero drift** and
+  **18** matching build bindings. It explicitly records `status: blocked`,
+  `qualification_complete: false`, and the last M4 box remains unchecked.
+  The native HTTP/HTTPS/WSS path and its no-delegation evidence are qualified
+  only within the supported synthetic-key profile; M4 closeout is blocked by
+  the missing complete **2165/2165** root report. A quiet host window and a
+  fresh whole-root gate under the same limits are still required.
+
+  Supported profile: **TLS 1.3**, **AES-128-GCM-SHA256 / ChaCha20-Poly1305-SHA256**,
+  **X25519 / secp256r1**, **ecdsa_secp256r1_sha256 / rsa_pss_rsae_sha256**
+  CertificateVerify, **http/1.1** ALPN. Native HTTPS server credentials are
+  P-256 ECDSA SEC1/PKCS#8 or two-prime RSA 2048–4096 PKCS#1/PKCS#8. Existing Bun
+  HTTPS server regression scope is P-256 only; RSA is refused at startup.
+  Native client/pools require explicit **1..16** single-certificate PEM anchors,
+  a trusted clock and URL-bound SAN DNS/IPv4 verification; no ambient trust or
+  local client credentials. Native WSS/browser application fixtures qualify
+  P-256 on both suites; RSA WSS is not separately qualified. New client/WSS
+  work is native-only; existing Bun regressions are retained without new Bun
+  requirements or Bun debugging. **OpenSSL remains the legacy default**;
+  Bend server/configuration and separate client/pool policy APIs are opt-in.
+
+  The [performance baseline](http/server/PERFORMANCE.md) records all eight
+  native/legacy rows on Apple M4 / Mac16,10 / 10 CPUs / 16 GiB, both suites,
+  50 measured full TLS opens and 200 keep-alive requests per row. Its guarded
+  diagnostic passes **11/11**, **102.769 s**, **1534.5 MiB**; it has no speed
+  thresholds. Raw samples/methodology are in `round2/perf/baseline.json` and
+  metadata, including DNS/TCP and millisecond client-clock limitations.
+
+  Synthetic keys only: **crypto/ERASURE.md remains a live-secret blocker**;
+  ECDSA nonce-retry and runtime timing restrictions remain. No system CA store
+  or more than 16 client anchors until M5; trusted clock refresh, no resumption,
+  0-RTT/client authentication or IPv6 URL literals, and frozen algorithm/ALPN
+  exclusions remain. M5 is the next planned milestone after acceptance;
+  RTC/DTLS/SCTP/TURN/media expansion and the full nineteen-gate stack remain
+  incomplete. Nothing was pushed, no PR was created, and `bounty/` was untouched.
+
 - 2026-10-24 (M4b round 2 actual root deadline stop; capacity retry pending):
   `round2/root-08.json` passed **2053** phases before the unchanged **120 s**
   deadline stopped `rtc/native/build/ice_transport_udp`. Total **3257.953 s**,
