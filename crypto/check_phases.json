@@ -2,6 +2,22 @@
   "version": 1,
   "phases": [
     {
+      "name": "crypto/frontend/sha512_test",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/build/sha512_cli",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/build/hkdf_sha384_cli",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/sha512_check",
+      "optional": false
+    },
+    {
       "name": "crypto/frontend/test",
       "optional": false
     },

@@ -4,6 +4,16 @@ Binding M2 build decision and M3b composition: 2026-10-23. This finite profile
 governs synthetic-key TLS acceptance. STACK_PLAN.md remains the acceptance contract.
 Only synthetic credentials may be used: see crypto/RUNTIME_REVIEW.md.
 
+## Profile versions
+
+Version 1 is the accepted M2–M4 TLS wire profile below. Version 2 (M5,
+2026-10-24) is being implemented in ordered, tested increments. SHA-384,
+SHA-512, HMAC-SHA384 and HKDF-SHA384 are now available natively. Certificate
+algorithms, cipher negotiation and trust limits retain version 1 behavior until
+their M5 increments are verified and recorded here. M5 acceptance remains open;
+new native work does not expand the accepted Bun profile. Synthetic credentials
+and the physical-erasure blocker remain binding.
+
 ## Standards baseline
 
 [RFC 9846](https://www.rfc-editor.org/rfc/rfc9846.txt), published July 2026,

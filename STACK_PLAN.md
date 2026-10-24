@@ -258,7 +258,7 @@ Added 2026-10-23 at the user's request, after M4. Goal: the Bend TLS client
 verifies and talks to ordinary public HTTPS servers, not only synthetic fixtures.
 This revises the frozen TLS_PROFILE.md; record the new profile version there.
 
-- [ ] Implement SHA-384 and SHA-512 (and HMAC/HKDF over SHA-384) in Bend with
+- [x] Implement SHA-384 and SHA-512 (and HMAC/HKDF over SHA-384) in Bend with
   published vectors and native differential tests.
 - [ ] Implement P-384 ECDSA verification (and P-384 key share if measured
   interop needs it) with point validation and invalid-input cases.

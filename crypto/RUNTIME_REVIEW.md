@@ -169,3 +169,22 @@ by the new Bend path. Python cryptography/OpenSSL remain fixture/oracle tools.
 The static evidence establishes inspected emitted behavior only; corpus
 correctness, source-level masks and a normal timing sample cannot close the
 live-secret runtime blockers.
+
+## M5 SHA-384/SHA-512 review (2026-10-24)
+
+The new SHA-512 compression uses paired U32 words. In the freshly emitted
+native C, `spin_7` implements carry with unsigned addition, AND/OR/NOT and
+shift; `spin_0`/`spin_3` branch only on public rotation constants. The sigma,
+choice, majority and round arithmetic retain fixed bitwise/add operations.
+Schedule arrays use public round indices. HMAC pads retain byte XOR by 54/92;
+normalization depends on the public key length. HKDF's counters and requested
+output length are public metadata. Input byte-range rejection is outside the
+valid-byte domain. Hex printers are diagnostic adapters, outside the secret
+arithmetic path.
+
+Source/generated-C hashes and numbered excerpts are recorded in
+`~/.codex/artifacts/grounds/2026-10-24/m5/sha-runtime-review.json` and
+`sha-c-excerpts.txt`. The guarded native corpus uses synthetic HMAC/HKDF keys
+only. This source inspection does not establish optimized machine-code timing
+or physical erasure. Copies of pads/state/keys remain subject to the unchanged
+physical-erasure blocker in `crypto/ERASURE.md`.

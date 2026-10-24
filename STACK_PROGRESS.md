@@ -4,6 +4,21 @@ Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and 
 
 The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
 
+- 2026-10-24 (M5 deliverable 1, native primitives; **M5 acceptance OPEN**):
+  SHA-384/SHA-512 use paired U32 words and bounded file streaming; HMAC/HKDF
+  SHA-384 are implemented in Bend. Native vectors: each SHA has 4 FIPS/RFC
+  cases (including one million bytes) plus 64 differential cases, covering
+  111/112/128-byte padding; HMAC has 7 RFC 4231 plus 9 differential cases;
+  HKDF has 32 RFC-style/boundary/differential cases and one over-limit refusal.
+  HKDF also matched Python cryptography in `sha-check-05.json`.
+  Seven input/length frontend proofs pass. Fresh focused guard: **4/4 phases**,
+  `~/.codex/artifacts/grounds/2026-10-24/m5/sha-unit-05.json`, 236.5 MiB peak,
+  unchanged 4096 MiB/120 s guard. `sha-unit-01`..`04` are separate host-pressure
+  stops, not test failures. Emitted C was inspected; review/hash excerpts are
+  in the same artifact directory and `crypto/RUNTIME_REVIEW.md`. No existing
+  Bun phases changed. Full crypto/package/root gates remain pending, as do
+  M5 deliverables 2–8; this primitive increment does not enable public HTTPS.
+
 - 2026-10-24 (**M4 ACCEPTED**, user decision on split-run root evidence):
   All 2,165 root phases passed fresh on `fbab2c6` under the unchanged guard
   (4096 MiB aggregate/process, 120 s per phase, nice 10, concurrency 1, forced),

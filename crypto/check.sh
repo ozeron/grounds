@@ -23,6 +23,7 @@ cleanup() {
   exit "$result"
 }
 trap cleanup EXIT
+check frontend/sha512_test bend sha512_test.bend
 check frontend/test bend test.bend
 check frontend/chacha_test bend chacha_test.bend
 check frontend/aead_test bend aead_test.bend
@@ -65,6 +66,9 @@ check frontend/traffic_test bend traffic_test.bend
 check frontend/traffic_type_check python3 traffic_type_check.py
 check frontend/sha256_stream_type_check python3 sha256_stream_type_check.py
 check frontend/proof bend PROOF.bend
+check native/build/sha512_cli ../tools/bend_native.sh sha512_cli.bend "$tmp/sha512" > /dev/null
+check native/build/hkdf_sha384_cli ../tools/bend_native.sh hkdf_sha384_cli.bend "$tmp/hkdf384" > /dev/null
+check native/check/sha512_check python3 sha512_check.py "$tmp/sha512" "$tmp/hkdf384"
 check native/build/cli ../tools/bend_native.sh cli.bend "$tmp/sha256" > /dev/null
 check native/build/sha256_stream_cli ../tools/bend_native.sh sha256_stream_cli.bend "$tmp/sha_stream" > /dev/null
 check native/build/sha1_cli ../tools/bend_native.sh sha1_cli.bend "$tmp/sha1" > /dev/null
