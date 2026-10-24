@@ -6,6 +6,9 @@ import ../io/io.bend as Io
 
 def show_key(value: Maybe<&1, X.Key>) -> String:
   match value:
+    case Some{X.P384{}}: "p384"
+    case Some{X.Pss384{salt}}: String.concat(["pss384-", U32.show(salt)])
+    case Some{X.Pss512{salt}}: String.concat(["pss512-", U32.show(salt)])
     case Some{X.Rsa{}}:
       "rsa"
     case Some{X.PssAny{}}:

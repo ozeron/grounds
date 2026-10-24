@@ -1,5 +1,6 @@
 import Base
 import ./bytes.bend as B
+import ./x509_diagnosis.bend as Diagnosis
 import ./x509_certificate.bend as C
 import ./x509_signature.bend as S
 import ./x509_public_key.bend as K
@@ -41,6 +42,7 @@ type Verification is Data:
   Duplicate{}
   SearchLimit{}
   InputLimit{}
+  UnsupportedAlgorithm{}
   Malformed{}
 
 # Only public admitted field bytes are copiable. Affine certificate/key/Name
@@ -89,10 +91,10 @@ def nodes.unique(duplicate: Bool, item: Node, reversed: List<&2, Node>,
     case True{}: NodesFailed{Duplicate{}}
     case False{}: next(Con{item, reversed})
 
-def nodes.got(+reversed: List<&2, Node>, value: Maybe<Node>,
+def nodes.got(raw: List<&2,U32>, +reversed: List<&2, Node>, value: Maybe<Node>,
   next: List<&2, Node> -> Nodes) -> Nodes:
   match value:
-    case None{}: NodesFailed{Malformed{}}
+    case None{}: NodesFailed{Bool.pick(Verification, Diagnosis.unsupported_signature(raw), UnsupportedAlgorithm{}, Malformed{})}
     case Some{+item}:
       match item:
         case Node{raw, _, _, _, _, _, _}: nodes.unique(seen(raw, reversed), item, reversed, next)
@@ -100,7 +102,7 @@ def nodes.got(+reversed: List<&2, Node>, value: Maybe<Node>,
 def nodes(input: List<&2, List<&2, U32>>, reversed: List<&2, Node>, left: Nat) -> Nodes:
   match input left:
     case Nil{} _: Nodes{List.reverse(&2, Node, reversed)}
-    case Con{raw, rest} 1n+p: nodes.got(reversed, node(raw), xs => nodes(rest, xs, p))
+    case Con{+raw, rest} 1n+p: nodes.got(raw, reversed, node(raw), xs => nodes(rest, xs, p))
     case _ 0n: NodesFailed{InputLimit{}}
 
 def time.before(early: Bool, after: Nat, now: Nat) -> Verification:
@@ -386,4 +388,5 @@ def show(value: Verification) -> String:
     case Duplicate{}: "duplicate"
     case SearchLimit{}: "search-limit"
     case InputLimit{}: "input-limit"
+    case UnsupportedAlgorithm{}: "unsupported-algorithm"
     case Malformed{}: "malformed"

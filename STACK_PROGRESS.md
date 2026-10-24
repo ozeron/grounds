@@ -4,6 +4,21 @@ Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and 
 
 The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
 
+- 2026-10-24 (M5 deliverable 3, native SHA-2 certificate signatures; **M5 OPEN**):
+  ECDSA/SHA-384 on P-256/P-384, RSA v1.5 SHA-384/512 and strict RSA-PSS
+  SHA-384/512 are admitted by the composed X.509 verifier. PSS exact salt
+  lengths and hash/minimum-salt SPKI restrictions are enforced; mismatched
+  inner/outer salt parameters fail. Unknown signature OIDs have a distinct
+  `unsupported-algorithm` failure, after structural diagnosis only.
+  `~/.codex/artifacts/grounds/2026-10-24/m5/x509-unit-01.json`: **12/12**
+  phases, **1355.0 MiB** peak; **6,301** algorithm/DER, **90** new signatures,
+  **4,825** existing signatures, **22** fixed-time chains including new
+  algorithm positives and hostname/expiry/trust/unsupported negatives.
+  Cryptography-recorded fixtures are offline; OpenSSL 3 verifies the complete
+  fixed-time paths independently. Frontend red/green and native build receipts
+  are in the same directory. New phases are native only. Full crypto/root
+  gates remain pending; TLS cipher/CV negotiation still uses version 1.
+
 - 2026-10-24 (M5 deliverable 2, native P-384 verification; **M5 OPEN**):
   Strict point/scalar validation and shared DER parsing are implemented.
   Native corpus: **581 cases** (504 complete Wycheproof, 15 NIST CAVP,

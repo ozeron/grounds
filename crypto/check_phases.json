@@ -7132,6 +7132,18 @@
     {
       "name": "crypto/frontend/ecdsa384_test",
       "optional": false
+    },
+    {
+      "name": "crypto/frontend/x509_sha2_test",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_sha2_signature",
+      "optional": false
+    },
+    {
+      "name": "crypto/native/check/x509_sha2_chain",
+      "optional": false
     }
   ]
 }

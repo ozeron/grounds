@@ -206,3 +206,17 @@ Native evidence includes 5,810 independent Python bigint arithmetic cases
 and 581 CAVP/Wycheproof/differential/profile cases across 73 guarded batches:
 `~/.codex/artifacts/grounds/2026-10-24/m5/p384-corpus-union.json` and
 `p384-unit-01.json` (8/8 phases). The physical-erasure blocker is unchanged.
+
+## M5 X.509 SHA-2 verification (2026-10-24)
+
+New RSA SHA-384/512 EMSA-PSS/PKCS#1 v1.5 verification operates on public
+moduli, exponents, signatures and digests. PSS validates the matching MGF1
+hash, explicit salt length and trailer; PSS-only key restrictions survive
+SPKI decoding. Certificate ECDSA/SHA-384 truncates to 256 bits for P-256
+and uses all 384 bits for P-384. No new private signing operation is exposed.
+The SHA/HMAC secret-path and erasure dispositions above are unchanged.
+The native focused gate `m5/x509-unit-01.json` passes 12/12 phases at
+1355.0 MiB peak, with 6,301 algorithm/DER cases, 90 new certificate signature
+cases, all 4,825 existing signature cases, and 22 fixed-time complete chains.
+Fixtures are committed; Python cryptography was used only for recording and
+OpenSSL 3 only as the independent explicit-anchor fixed-time chain oracle.

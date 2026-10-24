@@ -4,12 +4,14 @@ import ./der.bend as D
 import ./x509_algorithm.bend as A
 import ./rsa_integer.bend as R
 import ./p256.bend as P
+import ./p384.bend as P384
 
 # Public SPKI decoding/admission only; no certificate trust or private material.
 # RSA algorithm restrictions survive INTEGER normalization. EC points use the
 # existing canonical, non-infinity P-256 curve validator.
 type PublicKey is Data:
   Rsa{algorithm: A.Key, modulus: List<&2, U32>, exponent: List<&2, U32>}
+  P384{encoded: List<&2, U32>}
   P256{encoded: List<&2, U32>}
 
 def positive.checked(valid: Bool, bytes: List<&2, U32>) -> Maybe<&1, List<&2, U32>>:
@@ -88,10 +90,21 @@ def ec.point(point: Maybe<&1, P.Point>, encoded: List<&2, U32>) -> Maybe<&1, Pub
     case None{}:
       None{}
 
+def ec384.point(point: Maybe<&1, P384.Point>, encoded: List<&2, U32>) -> Maybe<&1, PublicKey>:
+  match point:
+    case Some{_}: Some{P384{encoded}}
+    case None{}: None{}
+
 def bits(algorithm: A.Key, +bytes: List<&2, U32>) -> Maybe<&1, PublicKey>:
   match algorithm:
+    case A.P384{}:
+      ec384.point(P384.decode(bytes), bytes)
     case A.P256{}:
       ec.point(P.decode(bytes), bytes)
+    case A.Pss384{salt}:
+      rsa.body(A.Pss384{salt}, D.complete(48, bytes))
+    case A.Pss512{salt}:
+      rsa.body(A.Pss512{salt}, D.complete(48, bytes))
     case A.Rsa{}:
       rsa.body(A.Rsa{}, D.complete(48, bytes))
     case A.PssAny{}:

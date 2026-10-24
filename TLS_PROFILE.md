@@ -11,9 +11,16 @@ Version 1 is the accepted M2–M4 TLS wire profile below. Version 2 (M5,
 SHA-512, HMAC-SHA384, HKDF-SHA384 and verification-only P-384 ECDSA
 are now available natively. Strict uncompressed SEC1 points and shared strict
 DER signature parsing are tested. P-384 signing/key shares remain absent;
-X25519/P-256 share sufficiency will be checked against the interop corpus. Certificate
-algorithms, cipher negotiation and trust limits retain version 1 behavior until
-their M5 increments are verified and recorded here. M5 acceptance remains open;
+X25519/P-256 share sufficiency will be checked against the interop corpus. Native certificate verification now admits ECDSA/SHA-384 with P-256 (leftmost
+256 digest bits) or P-384, RSA PKCS#1 v1.5 SHA-384/512, and RSA-PSS
+SHA-384/512 with matching MGF1 hash and trailerField=1. PSS signatures
+bind their exact salt length (0..512 encoded bytes, additionally bounded by
+the RSA modulus); restricted PSS keys bind the hash and minimum salt.
+Missing hash/MGF defaults to unsupported SHA-1, never to SHA-2. Existing
+SHA-256 PSS signature salt remains exactly 32 bytes. Unknown certificate
+signature OIDs produce `unsupported-algorithm` after structural diagnosis;
+malformed known parameters still fail closed. Cipher negotiation and trust
+limits retain version 1 behavior until their increments are verified. M5 acceptance remains open;
 new native work does not expand the accepted Bun profile. Synthetic credentials
 and the physical-erasure blocker remain binding.
 

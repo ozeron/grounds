@@ -197,6 +197,11 @@ def version(encoded: List<&2, U32>, +bytes: List<&2, U32>, first: Maybe<&1, D.El
 
 def same_algorithm(first: A.Signature, second: A.Signature) -> Bool:
   match first second:
+    case A.RsaPss384{a} A.RsaPss384{b}: U32.is_eq(a,b)
+    case A.RsaPss512{a} A.RsaPss512{b}: U32.is_eq(a,b)
+    case A.RsaV15384{} A.RsaV15384{}: True{}
+    case A.RsaV15512{} A.RsaV15512{}: True{}
+    case A.Ecdsa384{} A.Ecdsa384{}: True{}
     case A.RsaPss256{} A.RsaPss256{}:
       True{}
     case A.RsaV15256{} A.RsaV15256{}:

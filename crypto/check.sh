@@ -39,6 +39,7 @@ check frontend/rsa_encoding_test bend rsa_encoding_test.bend
 check frontend/rsa_integer_test bend rsa_integer_test.bend
 check frontend/rsa_signature256_test bend rsa_signature256_test.bend
 check frontend/der_test bend der_test.bend
+check frontend/x509_sha2_test bend x509_sha2_test.bend
 check frontend/x509_algorithm_test env BUN_JSC_useJIT=false bend x509_algorithm_test.bend
 check frontend/x509_public_key_test env BUN_JSC_useJIT=false bend x509_public_key_test.bend
 check frontend/x509_certificate_test env BUN_JSC_useJIT=false bend x509_certificate_test.bend
@@ -168,6 +169,8 @@ check native/check/x509_name_text_check python3 x509_name_text_check.py -- "$tmp
 check native/check/x509_name_prepare_check python3 x509_name_prepare_check.py --asset-controls -- "$tmp/x509_name_prepare"
 check native/check/x509_name_match_check python3 x509_name_match_check.py --mode all -- "$tmp/x509_name_match"
 check native/check/x509_extension_policy_check python3 x509_extension_policy_check.py --signature-binary "$tmp/x509_verify" -- "$tmp/x509_extension_policy"
+check native/check/x509_sha2_signature python3 x509_sha2_check.py --mode signature "$tmp/x509_verify"
+check native/check/x509_sha2_chain python3 x509_sha2_check.py --mode chain "$tmp/x509_chain"
 check native/check/x509_signature_check python3 x509_signature_check.py -- "$tmp/x509_verify"
 for batch in $(python3 -c 'import json; n=len(json.load(open("x509_chain_vectors.json"))["cases"]); print(" ".join(f"{i:03d}" for i in range((n+3)//4)))'); do
   check native/check/x509_chain_check/batch-$batch python3 x509_chain_check.py --batch-index "$batch" -- "$tmp/x509_chain"

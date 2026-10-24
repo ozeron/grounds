@@ -262,7 +262,7 @@ This revises the frozen TLS_PROFILE.md; record the new profile version there.
   published vectors and native differential tests.
 - [x] Implement P-384 ECDSA verification (and P-384 key share if measured
   interop needs it) with point validation and invalid-input cases.
-- [ ] Accept certificate signatures ecdsa-with-SHA384, sha384/sha512WithRSA and
+- [x] Accept certificate signatures ecdsa-with-SHA384, sha384/sha512WithRSA and
   RSA-PSS with SHA-384/512 in X.509 chain verification.
 - [ ] Add TLS_AES_256_GCM_SHA384 (AES-256 key schedule and GCM) to client and
   server, keeping the existing suites and their preference order.

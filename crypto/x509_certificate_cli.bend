@@ -13,6 +13,11 @@ def optional(value: Maybe<&2, List<&2, U32>>) -> String:
 
 def algorithm(value: A.Signature) -> String:
   match value:
+    case A.RsaPss384{salt}: String.concat(["pss384-", U32.show(salt)])
+    case A.RsaPss512{salt}: String.concat(["pss512-", U32.show(salt)])
+    case A.RsaV15384{}: "v15384"
+    case A.RsaV15512{}: "v15512"
+    case A.Ecdsa384{}: "ecdsa384"
     case A.RsaPss256{}:
       "pss256"
     case A.RsaV15256{}:

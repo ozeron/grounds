@@ -24,6 +24,12 @@ SHA1 = bytes.fromhex('2b0e03021a')
 EC = bytes.fromhex('2a8648ce3d0201')
 P256 = bytes.fromhex('2a8648ce3d030107')
 ECDSA = bytes.fromhex('2a8648ce3d040302')
+ECDSA384 = bytes.fromhex('2a8648ce3d040303')
+P384 = bytes.fromhex('2b81040022')
+SHA384 = bytes.fromhex('608648016503040202')
+SHA512 = bytes.fromhex('608648016503040203')
+V15384 = bytes.fromhex('2a864886f70d01010c')
+V15512 = bytes.fromhex('2a864886f70d01010d')
 
 
 def tlv(tag, body):
@@ -73,7 +79,7 @@ def hash256(data):
     return oid == SHA256 and parameters in (b'', b'\x05\x00')
 
 
-def pss_salt(data):
+def pss_params(data):
     fields = {}
     remaining = complete(data, 48)
     previous = 159
@@ -84,17 +90,21 @@ def pss_salt(data):
         fields[tag] = body
         previous = tag
     # Absent hash and MGF fields select SHA-1; they never mean SHA-256.
-    if not hash256(fields.get(160, algorithm(SHA1, b'\x05\x00'))):
+    h_oid,h_params = identifier(fields.get(160,algorithm(SHA1)))
+    if h_oid not in (SHA256,SHA384,SHA512) or h_params not in (b'',b'\x05\x00'):
         raise ValueError('hash')
+    bits={SHA256:256,SHA384:384,SHA512:512}[h_oid]
     mgf_oid, mgf_hash = identifier(fields.get(161, algorithm(MGF, algorithm(SHA1))))
-    if mgf_oid != MGF or not hash256(mgf_hash):
+    if mgf_oid != MGF or identifier(mgf_hash)[0] != h_oid or identifier(mgf_hash)[1] not in (b'', b'\x05\x00'):
         raise ValueError('MGF')
     salt_bytes = complete(fields.get(162, b'\x02\x01\x14'), 2)
-    if len(salt_bytes) != 1 or salt_bytes[0] > 32:
-        raise ValueError('salt')
+    if not salt_bytes or len(salt_bytes)>2 or salt_bytes[0]&128 or len(salt_bytes)>1 and salt_bytes[0]==0 and salt_bytes[1]<128:
+        raise ValueError('salt encoding')
+    salt=int.from_bytes(salt_bytes,'big')
+    if salt>(32 if bits==256 else 512):raise ValueError('salt bound')
     if complete(fields.get(163, b'\x02\x01\x01'), 2) != b'\x01':
         raise ValueError('trailer')
-    return salt_bytes[0]
+    return bits,salt
 
 
 def classify(data, key):
@@ -106,14 +116,19 @@ def classify(data, key):
             if oid == RSA and params == b'\x05\x00':
                 return 'rsa'
             if oid == PSS:
-                return 'pss-any' if not params else f'pss256-{pss_salt(params)}'
-            if oid == EC and complete(params, 6) == P256:
-                return 'p256'
+                return 'pss-any' if not params else 'pss%d-%d'%pss_params(params)
+            if oid == EC:
+                curve=complete(params,6)
+                return {P256:'p256',P384:'p384'}.get(curve,'none')
         else:
             if oid == V15 and params in (b'', b'\x05\x00'):
                 return 'v15256'
-            if oid == PSS and pss_salt(params) == 32:
-                return 'pss256'
+            if oid == PSS:
+                bits,salt=pss_params(params)
+                return ('pss256' if salt==32 else 'none') if bits==256 else f'pss{bits}-{salt}'
+            if oid in (V15384,V15512) and params in (b'',b'\x05\x00'):
+                return 'v15384' if oid==V15384 else 'v15512'
+            if oid==ECDSA384 and not params:return 'ecdsa384'
             if oid == ECDSA and not params:
                 return 'ecdsa256'
     except (ValueError, IndexError):
@@ -126,9 +141,10 @@ def oracle(op, values):
         return classify(values[0], op == '0')
     if op == '2':
         key, signature = classify(values[0], True), classify(values[1], False)
-        accepted = (key == 'rsa' and signature in ('v15256', 'pss256') or
-                    (key == 'pss-any' or key.startswith('pss256-')) and signature == 'pss256' or
-                    key == 'p256' and signature == 'ecdsa256')
+        accepted = (key == 'rsa' and signature.startswith(('v15','pss')) or
+                    key == 'pss-any' and signature.startswith('pss') or
+                    key.startswith('pss') and '-' in key and signature.startswith(key.split('-')[0]) and int(key.split('-')[1]) <= (32 if signature=='pss256' else int(signature.split('-')[1])) or
+                    key == 'p256' and signature in ('ecdsa256','ecdsa384') or key=='p384' and signature=='ecdsa384')
         return str(accepted).lower()
     try:
         if len(values[0]) > 65535:
@@ -156,6 +172,26 @@ def cases():
         (algorithm(EC, tlv(6, P256)), 'p256', 'none'),
         (algorithm(ECDSA), 'none', 'ecdsa256'),
     ]
+    for oid,label in [(V15384,'v15384'),(V15512,'v15512'),(ECDSA384,'ecdsa384')]:
+        positives.append((algorithm(oid),'none',label))
+    positives.append((algorithm(EC,tlv(6,P384)),'p384','none'))
+    for bits,hash_oid in [(384,SHA384),(512,SHA512)]:
+        for salt in (0,1,20,31,32,47,48,49,63,64,65,127,128,207,255,256,511,512,513):
+            value=salt.to_bytes((salt.bit_length()+7)//8 or 1,'big')
+            value=(b'\0' if value[0]&128 else b'')+value
+            for null_hash,null_mgf,trailer in itertools.product((b'',b'\x05\x00'),(b'',b'\x05\x00'),(b'',tlv(163,tlv(2,b'\x01')))):
+                h=tlv(160,algorithm(hash_oid,null_hash))
+                m=tlv(161,algorithm(MGF,algorithm(hash_oid,null_mgf)))
+                aid=algorithm(PSS,tlv(48,h+m+tlv(162,tlv(2,value))+trailer))
+                add('SHA2-PSS-salt-params','0',[aid],f'pss{bits}-{salt}' if salt<=512 else 'none')
+                add('SHA2-PSS-salt-params','1',[aid],f'pss{bits}-{salt}' if salt<=512 else 'none')
+        h=tlv(160,algorithm(hash_oid));m=tlv(161,algorithm(MGF,algorithm(hash_oid)))
+        aid=algorithm(PSS,tlv(48,h+m))
+        add('SHA2-PSS-default-salt','1',[aid],f'pss{bits}-20')
+        for wrong in [tlv(161,algorithm(MGF,algorithm(SHA256))),tlv(161,algorithm(SHA1)),b'']:
+            add('SHA2-PSS-wrong-MGF','1',[algorithm(PSS,tlv(48,h+wrong+tlv(162,tlv(2,b'\x30'))))],'none')
+        for bad in [b'',b'\x00\x30',b'\xff',b'\x00\x00\x80',b'\x80']:
+            add('SHA2-PSS-malformed-salt','1',[algorithm(PSS,tlv(48,h+m+tlv(162,tlv(2,bad))))],'none')
     for null_hash, null_mgf, salt, explicit_trailer in itertools.product((False, True), (False, True), range(34), (False, True)):
         h = algorithm(SHA256, b'\x05\x00' if null_hash else b'')
         m = algorithm(MGF, algorithm(SHA256, b'\x05\x00' if null_mgf else b''))

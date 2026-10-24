@@ -6,6 +6,11 @@ import ../io/io.bend as Io
 
 def show_signature(value: Maybe<&1, X.Signature>) -> String:
   match value:
+    case Some{X.RsaPss384{salt}}: String.concat(["pss384-", U32.show(salt)])
+    case Some{X.RsaPss512{salt}}: String.concat(["pss512-", U32.show(salt)])
+    case Some{X.RsaV15384{}}: "v15384"
+    case Some{X.RsaV15512{}}: "v15512"
+    case Some{X.Ecdsa384{}}: "ecdsa384"
     case Some{X.RsaPss256{}}:
       "pss256"
     case Some{X.RsaV15256{}}:

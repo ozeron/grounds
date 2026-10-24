@@ -6,6 +6,9 @@ import ../io/io.bend as Io
 
 def algorithm(value: A.Key) -> String:
   match value:
+    case A.P384{}: "p384"
+    case A.Pss384{salt}: String.concat(["pss384-", U32.show(salt)])
+    case A.Pss512{salt}: String.concat(["pss512-", U32.show(salt)])
     case A.Rsa{}:
       "rsa"
     case A.PssAny{}:
@@ -21,6 +24,8 @@ def show(value: Maybe<&1, K.PublicKey>) -> String:
       String.concat([algorithm(kind), ":", B.hex(modulus), ":", B.hex(exponent)])
     case Some{K.P256{encoded}}:
       String.concat(["p256:", B.hex(encoded)])
+    case Some{K.P384{encoded}}:
+      String.concat(["p384:", B.hex(encoded)])
     case None{}:
       "none"
 
