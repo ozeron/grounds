@@ -28,6 +28,7 @@ check frontend/test bend test.bend
 check frontend/chacha_test bend chacha_test.bend
 check frontend/aead_test bend aead_test.bend
 check frontend/aes128_test bend aes128_test.bend
+check frontend/aes256_test bend aes256_test.bend
 check frontend/gcm_test bend gcm_test.bend
 check frontend/hmac_sha1_test bend hmac_sha1_test.bend
 check frontend/x25519_test bend x25519_test.bend
@@ -84,6 +85,8 @@ check native/build/chacha_cli ../tools/bend_native.sh chacha_cli.bend "$tmp/chac
 check native/build/poly1305_cli ../tools/bend_native.sh poly1305_cli.bend "$tmp/poly1305" > /dev/null
 check native/build/aead_cli ../tools/bend_native.sh aead_cli.bend "$tmp/aead" > /dev/null
 check native/build/aes128_cli ../tools/bend_native.sh aes128_cli.bend "$tmp/aes128" > /dev/null
+check native/build/aes256_cli ../tools/bend_native.sh aes256_cli.bend "$tmp/aes256" > /dev/null
+check native/build/traffic_cli ../tools/bend_native.sh traffic_cli.bend "$tmp/traffic" > /dev/null
 check native/build/gcm_cli ../tools/bend_native.sh gcm_cli.bend "$tmp/gcm" > /dev/null
 check native/build/field_cli ../tools/bend_native.sh field_cli.bend "$tmp/field25519" > /dev/null
 check native/build/field256_cli ../tools/bend_native.sh field256_cli.bend "$tmp/field256" > /dev/null
@@ -135,6 +138,8 @@ check native/check/chacha_check python3 chacha_check.py "$tmp/chacha20"
 check native/check/poly1305_check python3 poly1305_check.py "$tmp/poly1305"
 check native/check/aead_check python3 aead_check.py "$tmp/aead"
 check native/check/aes128_check python3 aes128_check.py "$tmp/aes128"
+check native/check/aes256_check python3 aes256_check.py "$tmp/aes256" "$tmp/gcm"
+check native/check/traffic_aes256_check python3 traffic_aes256_check.py "$tmp/traffic"
 check native/check/gcm_check python3 gcm_check.py "$tmp/gcm"
 check native/check/field_check python3 field_check.py "$tmp/field25519"
 check native/check/field256_check python3 field256_check.py "$tmp/field256"

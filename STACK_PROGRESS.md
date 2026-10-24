@@ -4,6 +4,59 @@ Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and 
 
 The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
 
+- 2026-10-24 (M5 deliverable 4, native AES-256/SHA-384 TLS; **M5 OPEN**):
+  TLS_AES_256_GCM_SHA384 is implemented in both Bend roles, including
+  AES-256/GCM, SHA-384 transcript/HRR, HKDF-SHA384, 48-byte Finished and
+  traffic updates. AES-128, ChaCha20, AES-256 remains the preference order.
+  Native CertificateVerify admits P-384/SHA-384 and RSAE-PSS SHA-384/512;
+  local signing retains P-256/SHA-256 or RSAE-PSS/SHA-256. Profile version 2
+  records these additions without extending the accepted Bun scope.
+  Artifacts: `~/.codex/artifacts/grounds/2026-10-24/m5/`.
+  `aes-unit-03.json`: **5/5**, **334.6 MiB** peak; AES-256 2 published +
+  64 differential blocks, GCM-256 2 published + 48 differential seal/open
+  cases through 64 KiB, **201** evaluator checks. `tls-unit-03.json`:
+  **10/10**, **521.5 MiB**; SHA-384 schedule **855 outputs / 200 commands**,
+  **48** transcript and **78** AES-256 traffic scenarios, plus existing
+  SHA-256/AES-128 cases. `cv4-01.json`: **2/2**, **1928.1 MiB**, **132**
+  native CertificateVerify positive/role/hash/SPKI/scheme/DER/salt cases.
+  `tls-interop-03.json`: **6/6** phases, **30/30** forced-0x1302 cases:
+  OpenSSL server/client **10/4**, Go server/client **6/4**, Bend/Bend **4**,
+  directional KeyUpdates **2**. Both X25519/P-256 shares and P-384 peer
+  credentials pass. Go uses a test-only cipher-list overlay; Grounds never
+  calls its cryptography. Source/build bindings: `tls-interop-union.json`
+  and `tls-native-build-union.json`. The codec's original 32-byte-only
+  Finished refusal is preserved in `codec-red-01.json`; 32/48-byte parsing
+  and serialization now agree with the selected schedule. Two interop harness
+  failures (duplicate report field, AES-128-only proxy inspection) are retained
+  in `tls-interop-01/02`; neither is counted as a passing run.
+  Fresh emitted-C inspection is recorded in `crypto/RUNTIME_REVIEW.md`,
+  `aes256-runtime-review.json`, `aes256-c-excerpts.txt` and `emit4-01.json`.
+  Native TLS emission uses the compiler-only `BUN_JSC_useJIT=false` setting
+  to reduce frontend pressure; evaluator behavior and deadlines are unchanged.
+  Full crypto passes **1791/1791**, **2267.3 MiB**, **1592.676 s**, in
+  `package-crypto-02.json`, including every existing Bun regression.
+  `package-crypto-01.json` is a separate pressure stop after 153 passes.
+  Full wire passes **240/240**, **2079.1 MiB**, **533.974 s**, in
+  `package-wire-01.json`, including all existing native/Bun phases and the
+  new 32/48-byte Finished frontend proofs. All **1702** crypto and **230**
+  wire phases from M4 are preserved (`phase-preservation.json`).
+  Full HTTP client passes **15/15**, **1779.4 MiB**, **175.029 s**, in
+  `package-http_client-01.json`; source-bound builds and all peer reports
+  are retained under `http-client/`. Full HTTP server passes **48/48**,
+  **1860.3 MiB**, **317.075 s**, in `package-http_server-01.json`, including existing Bun,
+  WSS and real-browser coverage; detailed reports are in `http-server/`.
+  All four changed-package gates are forced, uncached, sequential, with
+  OpenSSL 3 first in PATH and unchanged 4096 MiB / 120-second phase limits.
+  `changed-package-union.json` binds their **2094/2094** passed phases to
+  the final implementation sources; documentation-only differences from
+  the pre-gate snapshot are enumerated rather than concealed.
+  The fresh root gate is deferred with deliverables 5–8 at the explicitly
+  authorized 1–4 round boundary; these package passes are not root acceptance.
+  Trust-bundle API/scaling/measurements, recorded public CA corpus and opt-in
+  live HTTP checks remain unimplemented (deliverables 5–6); M5 acceptance
+  remains open. P-384 key-share omission is provisional pending that corpus.
+  The physical-erasure blocker in `crypto/ERASURE.md` remains unchanged.
+
 - 2026-10-24 (M5 deliverable 3, native SHA-2 certificate signatures; **M5 OPEN**):
   ECDSA/SHA-384 on P-256/P-384, RSA v1.5 SHA-384/512 and strict RSA-PSS
   SHA-384/512 are admitted by the composed X.509 verifier. PSS exact salt

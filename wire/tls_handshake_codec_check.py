@@ -137,7 +137,7 @@ def expected(mode, data):
             if not signature: raise Rejected()
             result=f'cv:{scheme}:{signature.hex()}'
         elif kind==20:
-            if len(body)!=32: raise Rejected()
+            if len(body) not in (32,48): raise Rejected()
             result='finished:'+body.hex()
         elif kind==24:
             if len(body)!=1: raise Rejected()
@@ -196,7 +196,7 @@ def cases(stress):
     add('nonoctet','run','nonbyte')
     for kind in (0,3,5,12,16,254,255): add('unexpected-type','run',frame(kind,b''))
     for body in (b'',b'\2',b'\xff',b'\0\0'): add('bad-key-update','run',frame(24,body))
-    for size in (0,1,31,33,64): add('finished-width','run',frame(20,bytes(size)))
+    for size in (0,1,31,32,33,47,48,49,64): add('finished-width','run',frame(20,bytes(size)))
     for body in (b'',bytes(8),bytes(8)+b'\0\0\0\0\0'):
         add('malformed-ticket','run',frame(4,body))
     for k in (5,18,65000): add('unsolicited-cert-extension','run',cert(u24(1)+b'x'+vec(ext(k))))

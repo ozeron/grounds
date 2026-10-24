@@ -319,7 +319,7 @@ def parse_body(kind: U32, +body: List<&2, U32>, encoded: List<&2, U32>) -> Resul
     case 11: parse_certificate(body)
     case 13: request(body)
     case 15: parse_signature(body)
-    case 20: finished_size(Nat.is_eq(B.length(body), 32n), body)
+    case 20: finished_size(Bool.or(Nat.is_eq(B.length(body),32n),Nat.is_eq(B.length(body),48n)), body)
     case 24:
       match body:
         case Con{0, Nil{}}: Done{KeyUpdate{0}}
@@ -447,7 +447,7 @@ def finished_encoded(valid: Bool, data: List<&2, U32>) -> Maybe<&2, List<&2, U32
     case True{}: frame(20, data)
 
 def finished(+data: List<&2, U32>) -> Maybe<&2, List<&2, U32>>:
-  finished_encoded(Nat.is_eq(B.length(data), 32n), data)
+  finished_encoded(Bool.or(Nat.is_eq(B.length(data),32n),Nat.is_eq(B.length(data),48n)), data)
 
 def key_update(request: U32) -> Maybe<&2, List<&2, U32>>:
   match request:

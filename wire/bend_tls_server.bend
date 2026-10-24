@@ -63,9 +63,9 @@ def within(+allowed: List<&2,U32>, values: List<&2,U32>) -> Bool:
 def policy_valid(policy: N.Policy) -> Bool:
   match policy:
     case N.Policy{+suites,+groups,_}:
-      Bool.and(Bool.and(Nat.is_gt(B.length(suites),0n),Nat.is_le(B.length(suites),2n)),
+      Bool.and(Bool.and(Nat.is_gt(B.length(suites),0n),Nat.is_le(B.length(suites),3n)),
         Bool.and(Bool.and(Nat.is_gt(B.length(groups),0n),Nat.is_le(B.length(groups),2n)),
-          Bool.and(within([4865,4867],suites),within([29,23],groups))))
+          Bool.and(within([4865,4867,4866],suites),within([29,23],groups))))
 
 def pem_valid(valid: Bool, chain: List<&2,List<&2,U32>>, key: List<&2,U32>, policy: N.Policy, at: Nat) -> Result<&2,&1,PEM.Error,Config>:
   match valid:
@@ -218,7 +218,7 @@ def retry_random(pipe: Transport.Pipe, config: Config, +first: List<&2,U32>, tra
     case Fail{_}: failure(pipe,Transport.Error{80,"random",True{}})
     case Done{bytes}:
       +cookie = C.vector16(bytes)
-      retry_encoded(pipe,config,first,cookie,transcript,C.hello_server(H.retry_random(),session,suite,
+      retry_encoded(pipe,config,first,cookie,X.select(U32.is_eq(suite,4866),transcript),C.hello_server(H.retry_random(),session,suite,
         B.append(C.extension(43,[3,4]),B.append(C.extension(51,[U32.shrn(group,8n),U32.and(group,255)]),C.extension(44,cookie)))))
 
 def hello_choice(pipe: Transport.Pipe, config: Config, transcript: X.Transcript, +first: List<&2,U32>, +cookie: List<&2,U32>, +message: List<&2,U32>, +session: List<&2,U32>, +scheme: U32, +choice: N.Choice) -> IO(Work):

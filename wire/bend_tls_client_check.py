@@ -163,7 +163,7 @@ def expand(secret, label, length):
     info = length.to_bytes(2, "big") + bytes([len(label)]) + label + b"\x00"
     block, output, index = b"", b"", 1
     while len(output) < length:
-        block = hmac.digest(secret, block + info + bytes([index]), "sha256")
+        block = hmac.digest(secret, block + info + bytes([index]), "sha384" if len(secret)==48 else "sha256")
         output += block
         index += 1
     return output[:length]
@@ -178,7 +178,7 @@ class Epoch:
     """Independent test AES-GCM record transform, never used by the client."""
     def __init__(self, secret):
         self.secret = secret
-        self.key = expand(secret, b"key", 16)
+        self.key = expand(secret, b"key", 32 if len(secret)==48 else 16)
         self.iv = expand(secret, b"iv", 12)
         self.sequence = 0
 
@@ -201,7 +201,7 @@ class Epoch:
         return header + ciphertext + tag
 
     def update(self):
-        return Epoch(expand(self.secret, b"traffic upd", 32))
+        return Epoch(expand(self.secret, b"traffic upd", len(self.secret)))
 
 
 def hello_fields(encoded):
@@ -215,7 +215,7 @@ def hello_mutation(encoded, name):
     body, session_end, ext_start = hello_fields(encoded)
     body = bytearray(body)
     if name == "unsupported-suite":
-        body[session_end:session_end + 2] = bytes.fromhex("1302")
+        body[session_end:session_end + 2] = bytes.fromhex("1304")
     elif name in {"duplicate-extension", "unsolicited-extension"}:
         extra = bytes.fromhex("002b00020304") if name == "duplicate-extension" else bytes.fromhex("fde80000")
         body.extend(extra)
@@ -460,14 +460,14 @@ class Proxy:
                         following = record(source)
                         if following is None:
                             raise AssertionError("OpenSSL stopped after ServerHello")
-                        if following[0] == 23 and self.case["suite"] == "aes":
+                        if following[0] == 23 and self.case["suite"] in {"aes", "aes256"}:
                             following, _, _ = self.protected(following, direction)
                         self.emit(target, encoded + following)
                         self.events.append(dict(direction="server", coalesced_records=2))
                         continue
                 if kind == 21:
                     self.events.append(dict(direction=direction, alert=list(encoded[5:])))
-                if kind == 23 and self.case["suite"] == "aes":
+                if kind == 23 and self.case["suite"] in {"aes", "aes256"}:
                     if direction == "server" and name == "modified-record" and not self.mutation_applied:
                         encoded, _, _ = self.protected(encoded, direction)
                         encoded = encoded[:-1] + bytes([encoded[-1] ^ 1])
@@ -570,7 +570,7 @@ def peer(directory, openssl, case):
                "-cert", str(directory / (case["signature"] + ".pem")),
                "-key", str(directory / (case["signature"] + ".key")),
                "-ciphersuites", SUITES[case["suite"]][1], "-groups", GROUPS[case["group"]][1],
-               "-sigalgs", "ecdsa_secp256r1_sha256" if case["signature"] == "ecdsa" else "rsa_pss_rsae_sha256",
+               "-sigalgs", case.get("sigalg", {"ecdsa":"ecdsa_secp256r1_sha256","p384":"ecdsa_secp384r1_sha384","rsa":"rsa_pss_rsae_sha256"}[case["signature"]]),
                "-alpn", "http/1.1", "-naccept", "1", "-quiet", "-keylogfile", str(keylog)]
     if case["name"] != "tickets":
         command += ["-num_tickets", "0"]

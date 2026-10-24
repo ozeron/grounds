@@ -70,7 +70,19 @@
       "optional": false
     },
     {
+      "name": "wire/m5-native/check/schedule",
+      "optional": false
+    },
+    {
       "name": "wire/native-foundations",
+      "optional": false
+    },
+    {
+      "name": "wire/m5-native/check/transcript",
+      "optional": false
+    },
+    {
+      "name": "wire/m5-native/check/certificate-verify",
       "optional": false
     },
     {
@@ -919,6 +931,34 @@
     },
     {
       "name": "wire/m3b-bun/server/038",
+      "optional": false
+    },
+    {
+      "name": "wire/m5-native/build/go-aes256",
+      "optional": false
+    },
+    {
+      "name": "wire/m5-native/interop/openssl-server",
+      "optional": false
+    },
+    {
+      "name": "wire/m5-native/interop/openssl-client",
+      "optional": false
+    },
+    {
+      "name": "wire/m5-native/interop/go-server",
+      "optional": false
+    },
+    {
+      "name": "wire/m5-native/interop/go-client",
+      "optional": false
+    },
+    {
+      "name": "wire/m5-native/interop/bend",
+      "optional": false
+    },
+    {
+      "name": "wire/m5-native/interop/updates",
       "optional": false
     }
   ]

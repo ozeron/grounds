@@ -11,7 +11,7 @@ import time
 
 def aes_blocks(key: bytes, blocks: bytes) -> bytes:
     return subprocess.run(
-        ["openssl", "enc", "-aes-128-ecb", "-K", key.hex(), "-nopad", "-nosalt"],
+        ["openssl", "enc", f"-aes-{8*len(key)}-ecb", "-K", key.hex(), "-nopad", "-nosalt"],
         input=blocks, capture_output=True, check=True,
     ).stdout
 
@@ -130,7 +130,8 @@ def main() -> None:
         reject(n=bytes(x ^ 1 for x in nonce))
         for size in (0, 1, 15, 17, 32):
             reject(t=bytes(size))
-        for size in (0, 1, 15, 17, 24, 32):
+        verify(bytes(32), nonce, aad, data, oracle(bytes(32), nonce, aad, data), "AES-256 admitted key width")
+        for size in (0, 1, 15, 17, 24, 31, 33):
             assert bend("seal", bytes(size), nonce, aad, data).returncode != 0
             reject(k=bytes(size))
         for size in (0, 1, 11, 13, 16):

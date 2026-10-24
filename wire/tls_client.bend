@@ -74,7 +74,7 @@ def extensions_sni(identity: A.Identity, alpn: Bool, base: List<&2,U32>, cookie:
 
 def extensions(identity: A.Identity, alpn: Bool, +group: U32, public: List<&2,U32>, cookie: List<&2,U32>) -> List<&2,U32>:
   base = B.append(C.extension(43,[2,3,4]), B.append(C.extension(10,[0,4,0,29,0,23]),
-    B.append(C.extension(13,[0,4,4,3,8,4]), B.append(C.extension(50,[0,8,4,3,8,4,8,9,4,1]),
+    B.append(C.extension(13,[0,10,4,3,8,4,5,3,8,5,8,6]), B.append(C.extension(50,[0,22,4,3,5,3,8,4,8,5,8,6,8,9,8,10,8,11,4,1,5,1,6,1]),
       C.extension(51,C.vector16(B.append([U32.shrn(group,8n),U32.and(group,255)],C.vector16(public))))))))
   extensions_sni(identity,alpn,base,cookie)
 
@@ -93,7 +93,7 @@ def hello(auth: Auth, transcript: X.Transcript, private: K.Ephemeral, +public: L
   match auth:
     case Auth{tables,+anchors,+identity,+now,+alpn}:
       hello_bytes(Auth{tables,anchors,identity,now,alpn},transcript,private,public,random,group,retry_suite,
-        C.hello_client(random,[],extensions(identity,alpn,group,public,cookie)))
+        C.hello_client_suites(random,[],[19,1,19,3,19,2],extensions(identity,alpn,group,public,cookie)))
 
 def start(auth: Auth, random: List<&2,U32>, offer: K.Offer) -> Action:
   match offer:
@@ -107,12 +107,14 @@ def retry_offer(auth: Auth, transcript: X.Transcript, random: List<&2,U32>, grou
 def new_read(suite: U32, secret: List<&2,U32>) -> Maybe<&1,T.ReadKey>:
   match suite:
     case 4865: T.new_aes128_read(secret)
+    case 4866: T.new_aes256_read(secret)
     case 4867: T.new_read(secret)
     case _: None{}
 
 def new_write(suite: U32, secret: List<&2,U32>) -> Maybe<&1,T.WriteKey>:
   match suite:
     case 4865: T.new_aes128_write(secret)
+    case 4866: T.new_aes256_write(secret)
     case 4867: T.new_write(secret)
     case _: None{}
 
@@ -169,20 +171,20 @@ def retry_cookie(auth: Auth, transcript: X.Transcript, private: K.Ephemeral, pub
       retry_valid(cookie_valid(cookie),auth,X.append(transcript,message),Some{private},public,random,group,suite,cookie)
     case _ _: Failed{47,"unnecessary-or-invalid-retry"}
 
-def hello_choice(valid: Bool, retry: Bool, auth: Auth, transcript: X.Transcript, private: K.Ephemeral, public: List<&2,U32>, random: List<&2,U32>, group: U32, retry_suite: U32, suite: U32, +extensions: List<&2,E.Extension>, message: List<&2,U32>) -> Action:
+def hello_choice(valid: Bool, retry: Bool, auth: Auth, transcript: X.Transcript, private: K.Ephemeral, public: List<&2,U32>, random: List<&2,U32>, group: U32, retry_suite: U32, +suite: U32, +extensions: List<&2,E.Extension>, message: List<&2,U32>) -> Action:
   match valid retry:
     case False{} _: Failed{47,"server-selection"}
     case True{} True{}:
       match retry_suite:
-        case 0: retry_cookie(auth,transcript,private,public,random,group,suite,message,find(51,extensions),find(44,extensions))
+        case 0: retry_cookie(auth,X.select(U32.is_eq(suite,4866),transcript),private,public,random,group,suite,message,find(51,extensions),find(44,extensions))
         case _: Failed{10,"second-hello-retry-request"}
-    case True{} False{}: server_share(auth,X.append(transcript,message),private,suite,group,find(51,extensions))
+    case True{} False{}: server_share(auth,X.append(X.select(U32.is_eq(suite,4866),transcript),message),private,suite,group,find(51,extensions))
 
 def hello_version(auth: Auth, transcript: X.Transcript, private: K.Ephemeral, public: List<&2,U32>, random: List<&2,U32>, group: U32, +retry_suite: U32, +suite: U32, extensions: List<&2,E.Extension>, message: List<&2,U32>, retry: Bool, version: Maybe<&2,List<&2,U32>>) -> Action:
   match version:
     case None{}: Failed{70,"missing-supported-versions"}
     case Some{[3,4]}:
-      hello_choice(Bool.and(Bool.or(U32.is_eq(suite,4865),U32.is_eq(suite,4867)),Bool.or(U32.is_eq(retry_suite,0),U32.is_eq(retry_suite,suite))),retry,auth,transcript,private,public,random,group,retry_suite,suite,extensions,message)
+      hello_choice(Bool.and(Bool.or(Bool.or(U32.is_eq(suite,4865),U32.is_eq(suite,4867)),U32.is_eq(suite,4866)),Bool.or(U32.is_eq(retry_suite,0),U32.is_eq(retry_suite,suite))),retry,auth,transcript,private,public,random,group,retry_suite,suite,extensions,message)
     case _: Failed{47,"server-version"}
 
 def hello_extensions(error: Maybe<&2,U32>, auth: Auth, transcript: X.Transcript, private: K.Ephemeral, public: List<&2,U32>, random: List<&2,U32>, group: U32, retry_suite: U32, +suite: U32, +extensions: List<&2,E.Extension>, message: List<&2,U32>, retry: Bool) -> Action:
@@ -248,7 +250,7 @@ def certificate_verify_scheme(valid: Bool, auth: Auth, transcript: X.Transcript,
     case True{}: certificate_verify_hash(auth,X.snapshot(transcript),keys,requested,leaf,suite,group,alpn,scheme,signature,message,leaf_key(Cert.decode(leaf)))
 
 def certificate_verify(auth: Auth, transcript: X.Transcript, keys: Keys, requested: Bool, leaf: List<&2,U32>, suite: U32, group: U32, alpn: Bool, +scheme: U32, signature: List<&2,U32>, message: List<&2,U32>) -> Action:
-  certificate_verify_scheme(Bool.or(U32.is_eq(scheme,1027),U32.is_eq(scheme,2052)),auth,transcript,keys,requested,leaf,suite,group,alpn,scheme,signature,message)
+  certificate_verify_scheme(C.member(scheme,[1027,1283,2052,2053,2054]),auth,transcript,keys,requested,leaf,suite,group,alpn,scheme,signature,message)
 
 def completed(read: Maybe<&1,T.ReadKey>, write: Maybe<&1,T.WriteKey>, bytes: Maybe<&2,List<&2,U32>>, suite: U32, group: U32, alpn: Bool) -> Action:
   match read write bytes:

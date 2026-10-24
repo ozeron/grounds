@@ -27,10 +27,17 @@ def report(owner: Maybe<&1, T.Transcript>) -> IO(Maybe<&1, T.Transcript>):
         IO.pure(Maybe<&1, T.Transcript>, None{})
     case Some{transcript}: report_snapshot(T.snapshot(transcript))
 
+def select(owner: Maybe<&1,T.Transcript>, large: Bool) -> Maybe<&1,T.Transcript>:
+  match owner:
+    case Some{owner}: Some{T.select(large,owner)}
+    case None{}: None{}
+
 def loop(paths: List<String>, owner: Maybe<&1, T.Transcript>) -> IO(Unit):
   match paths:
     case Nil{}: IO.pure(Unit, Unit{})
     case Con{"reset", tail}: loop(tail, Some{T.start()})
+    case Con{"sha384", tail}: loop(tail, select(owner,True{}))
+    case Con{"sha256", tail}: loop(tail, select(owner,False{}))
     case Con{path, tail}:
       do IO<Unit>:
         bytes : List<&2, U32> <- Io.read_bytes(path)

@@ -76,6 +76,10 @@ python3 tls_schedule_type_check.py
 ../tools/bend_native.sh tls_schedule_cli.bend "$tmp/tls_schedule" > /dev/null
 python3 tls_schedule_check.py -- "$tmp/tls_schedule"
 announce end wire/native-schedule 0
+announce start wire/m5-native/check/schedule
+bend tls_sha384_test.bend
+python3 tls_sha384_check.py -- "$tmp/tls_schedule"
+announce end wire/m5-native/check/schedule 0
 announce start wire/native-foundations
 python3 tls_handshake_vectors.py --check tls_handshake_vectors.json
 bend tls_transcript_test.bend
@@ -100,6 +104,12 @@ sed -E 's/CID\(([A-Za-z_]+)\)/CID_\1/g' effs/random.c > "$tmp/host/effs/random.c
 bend bench.bend -o "$tmp/bench" > /dev/null
 python3 bench_check.py "$tmp/bench"
 announce end wire/native-foundations 0
+announce start wire/m5-native/check/transcript
+python3 tls_transcript384_check.py "$tmp/tls_transcript"
+announce end wire/m5-native/check/transcript 0
+announce start wire/m5-native/check/certificate-verify
+python3 tls_certificate_verify_sha2_check.py "$tmp/tls_certificate_verify"
+announce end wire/m5-native/check/certificate-verify 0
 if command -v bun > /dev/null 2>&1; then
   announce start wire/bun-foundations
   bend tls_transcript_cli.bend -o "$tmp/tls_transcript.js" > /dev/null
@@ -245,7 +255,7 @@ announce start wire/m3-native/build/tls_client_replay
 ../tools/bend_native.sh "$tmp/tls_client_replay.c" "$tmp/tls_client_replay" > /dev/null
 announce end wire/m3-native/build/tls_client_replay 0
 announce start wire/m3-native/emit/bend_tls_client
-python3 bend_tls_no_delegation_build.py --program client --output "$tmp/bend_tls_client.c" --report "$m3_reports/client-disabled-c-build.json"
+env BUN_JSC_useJIT=false python3 bend_tls_no_delegation_build.py --program client --output "$tmp/bend_tls_client.c" --report "$m3_reports/client-disabled-c-build.json"
 announce end wire/m3-native/emit/bend_tls_client 0
 announce start wire/m3-native/build/bend_tls_client
 ../tools/bend_native.sh "$tmp/bend_tls_client.c" "$tmp/bend_tls_client" > /dev/null
@@ -554,7 +564,7 @@ announce start wire/m3b-native/check/negotiation
 python3 tls_server_handshake_check.py --report "$m3_reports/server-negotiation-native.json" -- "$tmp/server_negotiation"
 announce end wire/m3b-native/check/negotiation 0
 announce start wire/m3b-native/emit/server
-python3 bend_tls_no_delegation_build.py --program server --output "$tmp/bend_tls_server.c" --report "$m3_reports/server-disabled-c-build.json"
+env BUN_JSC_useJIT=false python3 bend_tls_no_delegation_build.py --program server --output "$tmp/bend_tls_server.c" --report "$m3_reports/server-disabled-c-build.json"
 announce end wire/m3b-native/emit/server 0
 announce start wire/m3b-native/build/server
 ../tools/bend_native.sh "$tmp/bend_tls_server.c" "$tmp/bend_tls_server" > /dev/null
@@ -878,3 +888,26 @@ announce end wire/m3b-native/server/038 0
 announce start wire/m3b-bun/server/038
 python3 bend_tls_server_check.py --expected-batches 39 --batch-index 38 --report "$m3_reports/server-bun-038.json" -- bun "$tmp/bend_tls_server.js"
 announce end wire/m3b-bun/server/038 0
+
+# M5 native-only forced AES-256/SHA-384 peers. Existing Bun matrices stay intact.
+announce start wire/m5-native/build/go-aes256
+python3 tls_go_aes256_build.py --output "$tmp/tls_go_aes256" --report "$m3_reports/go-aes256-build.json"
+announce end wire/m5-native/build/go-aes256 0
+announce start wire/m5-native/interop/openssl-server
+python3 tls_aes256_interop_check.py --client "$tmp/bend_tls_client" --server "$tmp/bend_tls_server" --go-peer "$tmp/tls_go_aes256" --peer openssl-server --report "$m3_reports/aes256-openssl-server.json"
+announce end wire/m5-native/interop/openssl-server 0
+announce start wire/m5-native/interop/openssl-client
+python3 tls_aes256_interop_check.py --client "$tmp/bend_tls_client" --server "$tmp/bend_tls_server" --go-peer "$tmp/tls_go_aes256" --peer openssl-client --report "$m3_reports/aes256-openssl-client.json"
+announce end wire/m5-native/interop/openssl-client 0
+announce start wire/m5-native/interop/go-server
+python3 tls_aes256_interop_check.py --client "$tmp/bend_tls_client" --server "$tmp/bend_tls_server" --go-peer "$tmp/tls_go_aes256" --peer go-server --report "$m3_reports/aes256-go-server.json"
+announce end wire/m5-native/interop/go-server 0
+announce start wire/m5-native/interop/go-client
+python3 tls_aes256_interop_check.py --client "$tmp/bend_tls_client" --server "$tmp/bend_tls_server" --go-peer "$tmp/tls_go_aes256" --peer go-client --report "$m3_reports/aes256-go-client.json"
+announce end wire/m5-native/interop/go-client 0
+announce start wire/m5-native/interop/bend
+python3 tls_aes256_interop_check.py --client "$tmp/bend_tls_client" --server "$tmp/bend_tls_server" --go-peer "$tmp/tls_go_aes256" --peer bend --report "$m3_reports/aes256-bend.json"
+announce end wire/m5-native/interop/bend 0
+announce start wire/m5-native/interop/updates
+python3 tls_aes256_interop_check.py --client "$tmp/bend_tls_client" --server "$tmp/bend_tls_server" --go-peer "$tmp/tls_go_aes256" --peer updates --report "$m3_reports/aes256-updates.json"
+announce end wire/m5-native/interop/updates 0

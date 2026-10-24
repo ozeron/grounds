@@ -1,6 +1,7 @@
 """AES-GCM TLS traffic owners: independent HKDF/AES/GHASH and usage limits."""
 
 from pathlib import Path
+import hmac
 import random
 import subprocess
 import sys
@@ -10,9 +11,23 @@ from gcm_check import oracle as gcm
 from traffic_check import expand_label, updated, record as chacha
 
 
+def label384(secret, label, context, length):
+    name=b'tls13 '+label
+    info=length.to_bytes(2,'big')+bytes([len(name)])+name+bytes([len(context)])+context
+    output=b'';block=b'';counter=1
+    while len(output)<length:
+        block=hmac.digest(secret,block+info+bytes([counter]),'sha384');output+=block;counter+=1
+    return output[:length]
+
+def label_for(secret,label,context,length):
+    return (label384 if len(secret)==48 else expand_label)(secret,label,context,length)
+
+def updated_for(secret):
+    return label384(secret,b'traffic upd',b'',48) if len(secret)==48 else updated(secret)
+
 def record(secret, sequence, message, aad):
-    key = expand_label(secret, b"key", b"", 16)
-    iv = expand_label(secret, b"iv", b"", 12)
+    key = label_for(secret, b"key", b"", 32 if len(secret)==48 else 16)
+    iv = label_for(secret, b"iv", b"", 12)
     nonce = bytes(a ^ b for a, b in zip(iv, sequence.to_bytes(12, "big")))
     return gcm(key, nonce, aad, message)
 
@@ -27,7 +42,9 @@ def rstate(sequence):
     return f"read-state:{counter}"
 
 
-def main():
+def main(aes256=False):
+    secret_size=48 if aes256 else 32
+    write_mode,read_mode=('write-aes256','read-aes256') if aes256 else ('write-aes','read-aes')
     command = sys.argv[1:]
     rng = random.Random(0x1301)
     count = 0
@@ -59,18 +76,18 @@ def main():
             return ["open", put(aad), put(c), put(t)], [f"plaintext:{message.hex()}", rstate(seq + 1)]
 
         for length in (0, 1, 15, 16, 17, 63, 64, 65, 16385):
-            secret, message = rng.randbytes(32), rng.randbytes(length)
+            secret, message = rng.randbytes(secret_size), rng.randbytes(length)
             aad = b"\x17\x03\x03" + (length + 16).to_bytes(2, "big")
-            wa, ra = ["write-aes", put(secret)], ["read-aes", put(secret)]
+            wa, ra = [write_mode, put(secret)], [read_mode, put(secret)]
             we, re = [wstate(0)], [rstate(0)]
             for seq in range(3):
                 a, e = seal(secret, seq, message, aad); wa += a; we += e
                 a, e = opened(secret, seq, message, aad); ra += a; re += e
             run(wa, we); run(ra, re)
 
-        secret, message, aad = rng.randbytes(32), b"traffic fixture\x17", b"\x17\x03\x03\x00\x20"
+        secret, message, aad = rng.randbytes(secret_size), b"traffic fixture\x17", b"\x17\x03\x03\x00\x20"
         cap = 2**24
-        wa = ["write-aes", put(secret), "seed", "0", str(cap - 2)]
+        wa = [write_mode, put(secret), "seed", "0", str(cap - 2)]
         we = [wstate(0), wstate(cap - 2)]
         for seq in (cap - 2, cap - 1):
             a, e = seal(secret, seq, message, aad); wa += a; we += e
@@ -78,19 +95,19 @@ def main():
         run(wa + a + a + ["update"], we + ["seal-error:usage-limit", "write-state:closed:0:0",
             "seal-error:closed", "write-state:closed:0:0", "update-error:closed", "write-state:closed:0:0"])
         for start in (cap, 2**32, 2**63, 2**64 - 1):
-            run(["write-aes", put(secret), "seed", str(start >> 32), str(start & 0xffffffff)] + a,
+            run([write_mode, put(secret), "seed", str(start >> 32), str(start & 0xffffffff)] + a,
                 [wstate(0), wstate(start), "seal-error:usage-limit", "write-state:closed:0:0"])
 
         # The old-key KeyUpdate consumes the last permitted record, then reset.
         update_message = bytes.fromhex("1800000100")
         a, e = seal(secret, cap - 1, update_message, aad)
-        b, f = seal(updated(secret), 0, message, aad, 1)
-        run(["write-aes", put(secret), "seed", "0", str(cap - 1)] + a + ["update"] + b,
+        b, f = seal(updated_for(secret), 0, message, aad, 1)
+        run([write_mode, put(secret), "seed", "0", str(cap - 1)] + a + ["update"] + b,
             [wstate(0), wstate(cap - 1)] + e + ["updated", wstate(0, 1)] + f)
 
         # Receive usage is not capped; full sequence carry/exhaustion still apply.
         for start in (cap - 1, cap, 2**32 - 1, 2**63 - 1, 2**64 - 2):
-            args = ["read-aes", put(secret), "seed", str(start >> 32), str(start & 0xffffffff)]
+            args = [read_mode, put(secret), "seed", str(start >> 32), str(start & 0xffffffff)]
             expected = [rstate(0), rstate(start)]
             for seq in range(start, min(start + 3, 2**64)):
                 a, e = opened(secret, seq, message, aad); args += a; expected += e
@@ -101,7 +118,7 @@ def main():
                              "update-error:closed", "read-state:closed"]
             run(args, expected)
 
-        wa, ra = ["write-aes", put(secret)], ["read-aes", put(secret)]
+        wa, ra = [write_mode, put(secret)], [read_mode, put(secret)]
         we, re = [wstate(0)], [rstate(0)]
         current = secret
         for generation in range(5):
@@ -109,62 +126,62 @@ def main():
                 a, e = seal(current, seq, message, aad, generation); wa += a; we += e
                 a, e = opened(current, seq, message, aad); ra += a; re += e
             if generation < 4:
-                current = updated(current)
+                current = updated_for(current)
                 wa += ["update"]; we += ["updated", wstate(0, generation + 1)]
                 ra += ["update"]; re += ["updated", rstate(0)]
         run(wa, we); run(ra, re)
 
         generation_cap = 2**48 - 1
-        a, e = seal(updated(secret), 0, message, aad, generation_cap)
-        b, f = seal(updated(secret), 1, message, aad, generation_cap)
-        run(["write-aes", put(secret), "generation", "65535", "4294967294", "update"] + a + ["update"] + b,
+        a, e = seal(updated_for(secret), 0, message, aad, generation_cap)
+        b, f = seal(updated_for(secret), 1, message, aad, generation_cap)
+        run([write_mode, put(secret), "generation", "65535", "4294967294", "update"] + a + ["update"] + b,
             [wstate(0), wstate(0, generation_cap - 1), "updated", wstate(0, generation_cap)] + e +
             ["update-error:update-limit", wstate(1, generation_cap)] + f)
-        a, e = seal(updated(secret), 0, message, aad, 2**32)
-        run(["write-aes", put(secret), "generation", "0", "4294967295", "update"] + a,
+        a, e = seal(updated_for(secret), 0, message, aad, 2**32)
+        run([write_mode, put(secret), "generation", "0", "4294967295", "update"] + a,
             [wstate(0), wstate(0, 2**32 - 1), "updated", wstate(0, 2**32)] + e)
 
         good, good_expected = opened(secret, 0, message, aad)
         cipher, tag = record(secret, 0, message, aad)
 
         def deny(k=secret, a=aad, c=cipher, t=tag):
-            run(["read-aes", put(k), "open", put(a), put(c), put(t)] + good + ["update"],
+            run([read_mode, put(k), "open", put(a), put(c), put(t)] + good + ["update"],
                 [rstate(0), "open-error:authentication", "read-state:closed", "open-error:closed", "read-state:closed",
                  "update-error:closed", "read-state:closed"])
 
         for i in range(16):
             bad = bytearray(tag); bad[i] ^= 1; deny(t=bad)
-        deny(k=updated(secret)); deny(a=aad + b"x"); deny(c=bytes([cipher[0] ^ 1]) + cipher[1:])
+        deny(k=updated_for(secret)); deny(a=aad + b"x"); deny(c=bytes([cipher[0] ^ 1]) + cipher[1:])
         deny(t=tag[:-1]); deny(t=tag + b"x")
         second, _ = opened(secret, 1, message, aad)
-        run(["read-aes", put(secret)] + second + good,
+        run([read_mode, put(secret)] + second + good,
             [rstate(0), "open-error:authentication", "read-state:closed", "open-error:closed", "read-state:closed"])
-        run(["read-aes", put(secret)] + good + good,
+        run([read_mode, put(secret)] + good + good,
             [rstate(0)] + good_expected + ["open-error:authentication", "read-state:closed"])
-        run(["read-aes", put(secret), "update"] + good,
+        run([read_mode, put(secret), "update"] + good,
             [rstate(0), "updated", rstate(0), "open-error:authentication", "read-state:closed"])
 
         for bad_aad, bad_message in ((aad + b"x", message), (aad, bytes(16386))):
             a = ["seal", put(bad_aad), put(bad_message)]
-            run(["write-aes", put(secret)] + a + ["update"],
+            run([write_mode, put(secret)] + a + ["update"],
                 [wstate(0), "seal-error:invalid", "write-state:closed:0:0", "update-error:closed", "write-state:closed:0:0"])
             c, t = record(secret, 0, bad_message, bad_aad); deny(a=bad_aad, c=c, t=t)
         a, _ = seal(secret, 0, message, aad)
-        run(["write-aes", put(secret), "bad"] + a + ["update"],
+        run([write_mode, put(secret), "bad"] + a + ["update"],
             [wstate(0), "seal-error:invalid", "write-state:closed:0:0", "seal-error:closed", "write-state:closed:0:0",
              "update-error:closed", "write-state:closed:0:0"])
-        run(["write-aes", put(secret), "close", "update"] + a,
+        run([write_mode, put(secret), "close", "update"] + a,
             [wstate(0), "write-state:closed:0:0", "update-error:closed", "write-state:closed:0:0",
              "seal-error:closed", "write-state:closed:0:0"])
-        run(["read-aes", put(secret), "close", "update"] + good,
+        run([read_mode, put(secret), "close", "update"] + good,
             [rstate(0), "read-state:closed", "update-error:closed", "read-state:closed", "open-error:closed", "read-state:closed"])
-        for bad_secret in (b"", bytes(31), bytes(33)):
-            for mode in ("write-aes", "read-aes"):
+        for bad_secret in ((b"",bytes(31),bytes(33),bytes(32),bytes(47),bytes(49)) if aes256 else (b"",bytes(31),bytes(33))):
+            for mode in (write_mode, read_mode):
                 run([mode, put(bad_secret)], rejected=True)
 
         # Negotiated algorithm identity is retained; no authentication fallback.
-        c, t = chacha(secret, 0, message, aad); deny(c=c, t=t)
-        run(["read", put(secret), "open", put(aad), put(cipher), put(tag)],
+        c, t = chacha(secret[:32], 0, message, aad); deny(c=c, t=t)
+        run(["read", put(secret[:32]), "open", put(aad), put(cipher), put(tag)],
             [rstate(0), "open-error:authentication", "read-state:closed"])
     print(f"AES-GCM TLS traffic: {count} differential/usage-limit/update/counter/algorithm/retirement scenarios passed")
 

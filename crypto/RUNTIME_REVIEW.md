@@ -220,3 +220,29 @@ The native focused gate `m5/x509-unit-01.json` passes 12/12 phases at
 cases, all 4,825 existing signature cases, and 22 fixed-time complete chains.
 Fixtures are committed; Python cryptography was used only for recording and
 OpenSSL 3 only as the independent explicit-anchor fixed-time chain oracle.
+
+## M5 AES-256 / SHA-384 traffic review (2026-10-24)
+
+AES-256 reuses the existing arithmetic S-box and byte-state operations with
+240 expanded key bytes and fourteen rounds. Fresh native C preserves fixed
+eight-iteration GF multiplies (`aes256-final.c` `spin_6`–`spin_11`), branches
+only on public expansion positions (`spin_16`), and indexes keys/state with
+public byte/round counters (`spin_26`–`spin_32`). GCM's prepared-key width is
+public metadata. GHASH retains masked bit selection and reduction
+(`gcm-final.c` `spin_27`/`spin_28`), without secret-indexed tables.
+
+The SHA-384 schedule reuses the SHA/HMAC/HKDF arithmetic reviewed above.
+Hash selection depends on public suite/width; HMAC pad continuations XOR key
+bytes with 54/92. Finished's emitted `spin_86` walks all 32 or 48 bytes using
+XOR/OR before comparison; GCM's `spin_83` visits all 16 tag bytes before
+plaintext release. Malformed public lengths and out-of-byte-domain inputs
+remain early refusals. The source and generated-C hashes, numbered excerpts,
+and emission guard are in
+`~/.codex/artifacts/grounds/2026-10-24/m5/aes256-runtime-review.json` and
+`aes256-c-excerpts.txt`.
+
+This inspection does not establish optimized machine-code timing or physical
+erasure. SHA-384/HMAC/HKDF and AES/GCM contain synthetic secrets, with the
+same copying/allocator limits as the existing secret primitives. P-384 remains
+public verification only. `crypto/ERASURE.md`'s physical-erasure blocker stays
+open; none of this evidence admits live private/session secrets.

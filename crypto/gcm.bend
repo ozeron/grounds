@@ -1,8 +1,8 @@
 import Base
 import ./bytes.bend as B
-import ./aes128.bend as AES
+import ./aes.bend as AES
 
-# SP 800-38D / RFC 5116 AEAD_AES_128_GCM: 96-bit nonce, full 128-bit tag.
+# SP 800-38D / RFC 5116 AEAD_AES_128_GCM / AEAD_AES_256_GCM: 96-bit nonce, full 128-bit tag.
 # Callers must ensure nonce uniqueness under each key. All field limbs are
 # 16-bit; GHASH uses fixed 128-bit multiplication without secret table indices.
 # These source properties do not establish generated-runtime timing safety.
@@ -133,7 +133,7 @@ def hash(+h: Field, +aad: List<&2, U32>, +ciphertext: List<&2, U32>) -> Field:
   hash.cipher(h, ciphertext, length, hash.go(block_count(length), h, Hash{aad, zero()}))
 
 type Crypt is Type:
-  Crypt{keys: Array<U32>, bytes: List<&2, U32>, reversed: List<&2, U32>}
+  Crypt{keys: AES.Prepared, bytes: List<&2, U32>, reversed: List<&2, U32>}
 
 def crypt.xor(stream: List<&2, U32>, bytes: List<&2, U32>, reversed: List<&2, U32>) -> List<&2, U32> & List<&2, U32>:
   match stream bytes:
@@ -142,15 +142,15 @@ def crypt.xor(stream: List<&2, U32>, bytes: List<&2, U32>, reversed: List<&2, U3
     case _ _:
       (bytes, reversed)
 
-def crypt.output(keys: Array<U32>, pair: List<&2, U32> & List<&2, U32>) -> Crypt:
+def crypt.output(keys: AES.Prepared, pair: List<&2, U32> & List<&2, U32>) -> Crypt:
   (bytes, reversed) = pair
   Crypt{keys, bytes, reversed}
 
-def crypt.block(bytes: List<&2, U32>, reversed: List<&2, U32>, pair: Array<U32> & List<&2, U32>) -> Crypt:
+def crypt.block(bytes: List<&2, U32>, reversed: List<&2, U32>, pair: AES.Prepared & List<&2, U32>) -> Crypt:
   (keys, stream) = pair
   crypt.output(keys, crypt.xor(stream, bytes, reversed))
 
-def crypt.go(left: Nat, +nonce: List<&2, U32>, +counter: U32, work: Crypt) -> Array<U32> & List<&2, U32>:
+def crypt.go(left: Nat, +nonce: List<&2, U32>, +counter: U32, work: Crypt) -> AES.Prepared & List<&2, U32>:
   match left work:
     case 0n Crypt{keys, _, reversed}:
       (keys, List.reverse(&2, U32, reversed))
@@ -158,25 +158,25 @@ def crypt.go(left: Nat, +nonce: List<&2, U32>, +counter: U32, work: Crypt) -> Ar
       crypt.go(p, nonce, U32.inc(counter),
         crypt.block(bytes, reversed, AES.block(keys, B.append(nonce, word32(counter)))))
 
-def crypt(keys: Array<U32>, nonce: List<&2, U32>, +bytes: List<&2, U32>) -> Array<U32> & List<&2, U32>:
+def crypt(keys: AES.Prepared, nonce: List<&2, U32>, +bytes: List<&2, U32>) -> AES.Prepared & List<&2, U32>:
   crypt.go(block_count(B.length(bytes)), nonce, 2, Crypt{keys, bytes, []})
 
-def tag.mask(h: Field, aad: List<&2, U32>, ciphertext: List<&2, U32>, pair: Array<U32> & List<&2, U32>) -> Array<U32> & List<&2, U32>:
+def tag.mask(h: Field, aad: List<&2, U32>, ciphertext: List<&2, U32>, pair: AES.Prepared & List<&2, U32>) -> AES.Prepared & List<&2, U32>:
   (keys, mask) = pair
   (keys, field.bytes(field.xor(field(mask), hash(h, aad, ciphertext))))
 
-def tag.h(nonce: List<&2, U32>, aad: List<&2, U32>, ciphertext: List<&2, U32>, pair: Array<U32> & List<&2, U32>) -> Array<U32> & List<&2, U32>:
+def tag.h(nonce: List<&2, U32>, aad: List<&2, U32>, ciphertext: List<&2, U32>, pair: AES.Prepared & List<&2, U32>) -> AES.Prepared & List<&2, U32>:
   (keys, h) = pair
   tag.mask(field(h), aad, ciphertext, AES.block(keys, B.append(nonce, [0, 0, 0, 1])))
 
-def tag(keys: Array<U32>, nonce: List<&2, U32>, aad: List<&2, U32>, ciphertext: List<&2, U32>) -> Array<U32> & List<&2, U32>:
+def tag(keys: AES.Prepared, nonce: List<&2, U32>, aad: List<&2, U32>, ciphertext: List<&2, U32>) -> AES.Prepared & List<&2, U32>:
   tag.h(nonce, aad, ciphertext, AES.block(keys, List.replicate(U32, 16n, 0)))
 
-def seal.tag(ciphertext: List<&2, U32>, pair: Array<U32> & List<&2, U32>) -> Maybe<&2, Sealed>:
+def seal.tag(ciphertext: List<&2, U32>, pair: AES.Prepared & List<&2, U32>) -> Maybe<&2, Sealed>:
   (_, mac) = pair
   Some{Sealed{ciphertext, mac}}
 
-def seal.cipher(nonce: List<&2, U32>, aad: List<&2, U32>, pair: Array<U32> & List<&2, U32>) -> Maybe<&2, Sealed>:
+def seal.cipher(nonce: List<&2, U32>, aad: List<&2, U32>, pair: AES.Prepared & List<&2, U32>) -> Maybe<&2, Sealed>:
   (keys, +ciphertext) = pair
   seal.tag(ciphertext, tag(keys, nonce, aad, ciphertext))
 
@@ -184,7 +184,7 @@ def plaintext_length(length: Nat) -> Bool:
   Nat.is_le(length, Nat.sub(Nat.mul(16n, Nat.add(4294967295n, 1n)), 32n))
 
 def valid(+key: List<&2, U32>, +nonce: List<&2, U32>, +aad: List<&2, U32>, +bytes: List<&2, U32>) -> Bool:
-  Bool.and(Bool.and(Nat.is_eq(B.length(key), 16n), B.valid(key)),
+  Bool.and(Bool.and(Bool.or(Nat.is_eq(B.length(key), 16n), Nat.is_eq(B.length(key), 32n)), B.valid(key)),
     Bool.and(Bool.and(Nat.is_eq(B.length(nonce), 12n), B.valid(nonce)),
       Bool.and(B.valid(aad), Bool.and(B.valid(bytes), plaintext_length(B.length(bytes))))))
 
@@ -207,18 +207,18 @@ def tag_difference(expected: List<&2, U32>, supplied: List<&2, U32>, difference:
     case _ _:
       1
 
-def open.output(pair: Array<U32> & List<&2, U32>) -> Maybe<&2, List<&2, U32>>:
+def open.output(pair: AES.Prepared & List<&2, U32>) -> Maybe<&2, List<&2, U32>>:
   (_, plaintext) = pair
   Some{plaintext}
 
-def open.verified(ok: Bool, keys: Array<U32>, nonce: List<&2, U32>, ciphertext: List<&2, U32>) -> Maybe<&2, List<&2, U32>>:
+def open.verified(ok: Bool, keys: AES.Prepared, nonce: List<&2, U32>, ciphertext: List<&2, U32>) -> Maybe<&2, List<&2, U32>>:
   match ok:
     case False{}:
       None{}
     case True{}:
       open.output(crypt(keys, nonce, ciphertext))
 
-def open.tag(supplied: List<&2, U32>, nonce: List<&2, U32>, ciphertext: List<&2, U32>, pair: Array<U32> & List<&2, U32>) -> Maybe<&2, List<&2, U32>>:
+def open.tag(supplied: List<&2, U32>, nonce: List<&2, U32>, ciphertext: List<&2, U32>, pair: AES.Prepared & List<&2, U32>) -> Maybe<&2, List<&2, U32>>:
   (keys, expected) = pair
   open.verified(U32.is_eq(tag_difference(expected, supplied, 0), 0), keys, nonce, ciphertext)
 

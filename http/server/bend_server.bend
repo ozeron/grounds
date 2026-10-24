@@ -52,7 +52,7 @@ def with_bend_tls_chain(cfg: Config, chain: List<&2,String>, key: String, suites
       Config{port,mh,mb,mr,ims,rms,dms,Some{BendTls{chain,key,suites}},trust}
 
 def with_bend_tls(cfg: Config, cert: String, key: String) -> Config:
-  with_bend_tls_chain(cfg,[cert],key,[4865,4867])
+  with_bend_tls_chain(cfg,[cert],key,[4865,4867,4866])
 
 def with_trust_proxy(cfg: Config, trust: Bool) -> Config:
   match cfg:
@@ -122,7 +122,7 @@ def env.tls(fallback: Maybe<&2, Tls>) -> IO(Maybe<&2, Tls>):
 def env.engine(value: Result<&1,&1,U32 & String,String>, tls: Maybe<&2,Tls>) -> IO(Maybe<&2,Tls>):
   match value tls:
     case Fail{_} tls: IO.pure(Maybe<&2,Tls>,tls)
-    case Done{"bend"} Some{Tls{cert,key}}: IO.pure(Maybe<&2,Tls>,Some{BendTls{[cert],key,[4865,4867]}})
+    case Done{"bend"} Some{Tls{cert,key}}: IO.pure(Maybe<&2,Tls>,Some{BendTls{[cert],key,[4865,4867,4866]}})
     case Done{"bend"} Some{BendTls{chain,key,suites}}: IO.pure(Maybe<&2,Tls>,Some{BendTls{chain,key,suites}})
     case Done{"openssl"} Some{Tls{cert,key}}: IO.pure(Maybe<&2,Tls>,Some{Tls{cert,key}})
     case Done{"openssl"} Some{BendTls{[cert],key,_}}: IO.pure(Maybe<&2,Tls>,Some{Tls{cert,key}})

@@ -56,7 +56,7 @@ def app(key: Cookie.SigningKey, r: Req.Request) -> IO(Server.Out):
 
 def suites(value: Result<&1,&1,U32 & String,String>) -> IO(List<&2,U32>):
   match value:
-    case Fail{_}: IO.pure(List<&2,U32>,[4865,4867])
+    case Fail{_}: IO.pure(List<&2,U32>,[4865,4867,4866])
     case Done{"aes"}: IO.pure(List<&2,U32>,[4865])
     case Done{"chacha"}: IO.pure(List<&2,U32>,[4867])
     case _: IO.die(List<&2,U32>,1,"HTTP_BEND_TLS_SUITE must be aes|chacha")

@@ -1,10 +1,12 @@
 import Base
 import ./bytes.bend as B
 import ./hkdf.bend as H
+import ./hkdf_sha384.bend as H384
 import ./aead.bend as A
 import ./gcm.bend as G
 
-# TLS ChaCha20-Poly1305/AES-128-GCM SHA-256 traffic (RFC 9846 5.3, 7.1-7.3).
+# TLS ChaCha20-Poly1305/AES-128-GCM SHA-256 and AES-256-GCM SHA-384
+# traffic (RFC 9846 5.3, 7.1-7.3).
 # Affine owners prevent copying a live epoch through the normal interface.
 # Record framing, handshake phase and KeyUpdate message ordering belong to TLS.
 # Dropping old key lists retires them logically; runtime copies are not scrubbed.
@@ -55,6 +57,31 @@ def expand_label(+secret: List<&2, U32>, +label: List<&2, U32>, +context: List<&
         Bool.and(B.valid(label), Bool.and(Nat.is_le(B.length(context), 255n), B.valid(context))))))
   label.checked(ok, length, secret, label, context)
 
+def label384.checked(ok: Bool, +length: Nat, secret: List<&2, U32>, +label: List<&2, U32>, +context: List<&2, U32>) -> Maybe<&2, List<&2, U32>>:
+  match ok:
+    case False{}:
+      None{}
+    case True{}:
+      encoded = B.append([U32.from_nat(Nat.div(length, 256n)), U32.from_nat(Nat.mod(length, 256n)),
+        U32.from_nat(Nat.add(6n, B.length(label)))],
+        B.append([116, 108, 115, 49, 51, 32],
+          B.append(label, Con{U32.from_nat(B.length(context)), context})))
+      H384.expand(length, secret, encoded)
+
+# Labels exclude the "tls13 " prefix. The lengths are TLS vector bounds and
+# the SHA-384 HKDF output bound, not a general uint16 output length.
+def expand_label384(+secret: List<&2, U32>, +label: List<&2, U32>, +context: List<&2, U32>, +length: Nat) -> Maybe<&2, List<&2, U32>>:
+  ok = Bool.and(Nat.is_le(length, 12240n),
+    Bool.and(Bool.and(Nat.is_eq(B.length(secret), 48n), B.valid(secret)),
+      Bool.and(Bool.and(Nat.is_ge(B.length(label), 1n), Nat.is_le(B.length(label), 249n)),
+        Bool.and(B.valid(label), Bool.and(Nat.is_le(B.length(context), 255n), B.valid(context))))))
+  label384.checked(ok, length, secret, label, context)
+
+def expand_label_for(large: Bool, secret: List<&2,U32>, label: List<&2,U32>, context: List<&2,U32>, length: Nat) -> Maybe<&2,List<&2,U32>>:
+  match large:
+    case True{}: expand_label384(secret,label,context,length)
+    case False{}: expand_label(secret,label,context,length)
+
 def derived(secret: List<&2, U32>, key: Maybe<&2, List<&2, U32>>, iv: Maybe<&2, List<&2, U32>>) -> Maybe<&1, Epoch>:
   match key iv:
     case Some{key} Some{iv}:
@@ -76,6 +103,9 @@ def aes.derived(secret: List<&2, U32>, key: Maybe<&2, List<&2, U32>>, iv: Maybe<
 def new_aes_epoch(+secret: List<&2, U32>) -> Maybe<&1, Epoch>:
   aes.derived(secret, expand_label(secret, [107, 101, 121], [], 16n),
     expand_label(secret, [105, 118], [], 12n))
+
+def new_aes256_epoch(+secret: List<&2,U32>) -> Maybe<&1,Epoch>:
+  aes.derived(secret,expand_label384(secret,[107,101,121],[],32n),expand_label384(secret,[105,118],[],12n))
 
 def write_new(epoch: Maybe<&1, Epoch>) -> Maybe<&1, WriteKey>:
   match epoch:
@@ -104,6 +134,12 @@ def new_aes128_write(secret: List<&2, U32>) -> Maybe<&1, WriteKey>:
 
 def new_aes128_read(secret: List<&2, U32>) -> Maybe<&1, ReadKey>:
   read_new(new_aes_epoch(secret))
+
+def new_aes256_write(secret: List<&2,U32>) -> Maybe<&1,WriteKey>:
+  write_new(new_aes256_epoch(secret))
+
+def new_aes256_read(secret: List<&2,U32>) -> Maybe<&1,ReadKey>:
+  read_new(new_aes256_epoch(secret))
 
 def next.high(last: Bool, high: U32) -> Sequence:
   match last:
@@ -247,12 +283,17 @@ def update.secret(secret: Maybe<&2, List<&2, U32>>) -> Maybe<&1, Epoch>:
     case Some{secret}:
       new_epoch(secret)
 
+def update.aes_width(large: Bool, secret: List<&2,U32>) -> Maybe<&1,Epoch>:
+  match large:
+    case True{}: new_aes256_epoch(secret)
+    case False{}: new_aes_epoch(secret)
+
 def update.aes_secret(secret: Maybe<&2, List<&2, U32>>) -> Maybe<&1, Epoch>:
   match secret:
     case None{}:
       None{}
-    case Some{secret}:
-      new_aes_epoch(secret)
+    case Some{+secret}:
+      update.aes_width(Nat.is_eq(B.length(secret),48n),secret)
 
 def update(epoch: Epoch) -> Maybe<&1, Epoch>:
   match epoch:
@@ -260,8 +301,8 @@ def update(epoch: Epoch) -> Maybe<&1, Epoch>:
       None{}
     case ChachaReady{secret, _, _, _}:
       update.secret(expand_label(secret, [116, 114, 97, 102, 102, 105, 99, 32, 117, 112, 100], [], 32n))
-    case AesReady{secret, _, _, _}:
-      update.aes_secret(expand_label(secret, [116, 114, 97, 102, 102, 105, 99, 32, 117, 112, 100], [], 32n))
+    case AesReady{+secret, _, _, _}:
+      update.aes_secret(expand_label_for(Nat.is_eq(B.length(secret),48n),secret, [116, 114, 97, 102, 102, 105, 99, 32, 117, 112, 100], [], B.length(secret)))
 
 def generation.next(carry: Bool, high: U32, low: U32) -> Generation:
   match carry:

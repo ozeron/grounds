@@ -171,5 +171,5 @@ def hello_encoded(transcript: X.Transcript, +choice: N.Choice, +chain: List<&2,L
 def start(transcript: X.Transcript, +choice: N.Choice, +session: List<&2,U32>, +chain: List<&2,List<&2,U32>>, key: P.Private, +scheme: U32, +shared: List<&2,U32>, +random: List<&2,U32>, +public: List<&2,U32>) -> IO(Maybe<&1,Flight>):
   match choice:
     case N.Choice{+suite,+group,share,sni,alpn}:
-      hello_encoded(transcript,N.Choice{suite,group,share,sni,alpn},chain,key,scheme,shared,
+      hello_encoded(X.select(U32.is_eq(suite,4866),transcript),N.Choice{suite,group,share,sni,alpn},chain,key,scheme,shared,
         C.hello_server(random,session,suite,B.append(C.extension(43,[3,4]),C.extension(51,B.append([U32.shrn(group,8n),U32.and(group,255)],C.vector16(public))))))

@@ -1,6 +1,12 @@
 import Base
 import ../crypto/bytes.bend as B
 import ../crypto/sha256.bend as H
+import ../crypto/sha384.bend as H384
+import ../crypto/sha512.bend as H512
+import ../crypto/ecdsa384.bend as E384
+import ../crypto/ecdsa_der384.bend as ED384
+import ../crypto/rsa_encoding_sha2.bend as RE
+import ../crypto/rsa_signature_sha2.bend as R2
 import ../crypto/ecdsa_scheme256.bend as E
 import ../crypto/rsa_signature256.bend as R
 import ../crypto/rsa_private.bend as S
@@ -33,7 +39,7 @@ def content.checked(valid: Bool, role: Role, hash: List<&2, U32>) -> Maybe<&2, L
       Some{B.append(List.replicate(U32, 64n, 32), B.append(context(role), Con{0, hash}))}
 
 def content(role: Role, +transcript_hash: List<&2, U32>) -> Maybe<&2, List<&2, U32>>:
-  content.checked(Bool.and(Nat.is_eq(B.length(transcript_hash), 32n), B.valid(transcript_hash)), role, transcript_hash)
+  content.checked(Bool.and(Bool.or(Nat.is_eq(B.length(transcript_hash), 32n),Nat.is_eq(B.length(transcript_hash), 48n)), B.valid(transcript_hash)), role, transcript_hash)
 
 def digest.content(value: Maybe<&2, List<&2, U32>>) -> Maybe<&2, List<&2, U32>>:
   match value:
@@ -80,6 +86,29 @@ def verify_rsa.digest(modulus: List<&2, U32>, exponent: List<&2, U32>, signature
 def verify_rsa(modulus: List<&2, U32>, exponent: List<&2, U32>, role: Role, transcript_hash: List<&2, U32>, signature: List<&2, U32>) -> Bool:
   verify_rsa.digest(modulus, exponent, signature, digest(role, transcript_hash))
 
+def sha2.content(large: Bool, value: Maybe<&2,List<&2,U32>>) -> Maybe<&2,List<&2,U32>>:
+  match large value:
+    case False{} Some{bytes}: H384.digest(bytes)
+    case True{} Some{bytes}: H512.digest(bytes)
+    case _ _: None{}
+
+def verify_ecdsa384.decoded(peer: List<&2,U32>, digest: Maybe<&2,List<&2,U32>>, signature: Maybe<&1,List<&2,U32>>) -> Bool:
+  match digest signature:
+    case Some{hash} Some{signature}: E384.verify_digest(peer,hash,signature)
+    case _ _: False{}
+
+def verify_ecdsa384(peer: List<&2,U32>, role: Role, hash: List<&2,U32>, signature: List<&2,U32>) -> Bool:
+  verify_ecdsa384.decoded(peer,sha2.content(False{},content(role,hash)),ED384.decode(signature))
+
+def verify_rsa_sha2.digest(large: Bool, modulus: List<&2,U32>, exponent: List<&2,U32>, signature: List<&2,U32>, value: Maybe<&2,List<&2,U32>>) -> Bool:
+  match large value:
+    case False{} Some{digest}: R2.verify_pss_digest(48n,RE.Sha384{},modulus,exponent,digest,signature)
+    case True{} Some{digest}: R2.verify_pss_digest(64n,RE.Sha512{},modulus,exponent,digest,signature)
+    case _ _: False{}
+
+def verify_rsa_sha2(+large: Bool, modulus: List<&2,U32>, exponent: List<&2,U32>, role: Role, hash: List<&2,U32>, signature: List<&2,U32>) -> Bool:
+  verify_rsa_sha2.digest(large,modulus,exponent,signature,sha2.content(large,content(role,hash)))
+
 # Protocol-facing verification binds the negotiated scheme to the authenticated
 # leaf's admitted SPKI algorithm. In particular PSS-only SPKI is ineligible for
 # rsa_pss_rsae_sha256 even when its raw RSA mathematics would verify.
@@ -87,5 +116,8 @@ def verify_rsa(modulus: List<&2, U32>, exponent: List<&2, U32>, role: Role, tran
 def verify(scheme: U32, key: K.PublicKey, role: Role, transcript_hash: List<&2, U32>, signature: List<&2, U32>) -> Bool:
   match scheme key:
     case 1027 K.P256{encoded}: verify_ecdsa(encoded, role, transcript_hash, signature)
+    case 1283 K.P384{encoded}: verify_ecdsa384(encoded,role,transcript_hash,signature)
+    case 2053 K.Rsa{A.Rsa{}, modulus, exponent}: verify_rsa_sha2(False{},modulus,exponent,role,transcript_hash,signature)
+    case 2054 K.Rsa{A.Rsa{}, modulus, exponent}: verify_rsa_sha2(True{},modulus,exponent,role,transcript_hash,signature)
     case 2052 K.Rsa{A.Rsa{}, modulus, exponent}: verify_rsa(modulus, exponent, role, transcript_hash, signature)
     case _ _: False{}

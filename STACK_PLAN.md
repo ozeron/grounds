@@ -264,7 +264,7 @@ This revises the frozen TLS_PROFILE.md; record the new profile version there.
   interop needs it) with point validation and invalid-input cases.
 - [x] Accept certificate signatures ecdsa-with-SHA384, sha384/sha512WithRSA and
   RSA-PSS with SHA-384/512 in X.509 chain verification.
-- [ ] Add TLS_AES_256_GCM_SHA384 (AES-256 key schedule and GCM) to client and
+- [x] Add TLS_AES_256_GCM_SHA384 (AES-256 key schedule and GCM) to client and
   server, keeping the existing suites and their preference order.
 - [ ] Load trust anchors from a PEM bundle (system bundle or explicit file),
   raising anchor/candidate limits within the guard's memory budget; keep anchors

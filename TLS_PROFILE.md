@@ -19,8 +19,22 @@ the RSA modulus); restricted PSS keys bind the hash and minimum salt.
 Missing hash/MGF defaults to unsupported SHA-1, never to SHA-2. Existing
 SHA-256 PSS signature salt remains exactly 32 bytes. Unknown certificate
 signature OIDs produce `unsupported-algorithm` after structural diagnosis;
-malformed known parameters still fail closed. Cipher negotiation and trust
-limits retain version 1 behavior until their increments are verified. M5 acceptance remains open;
+malformed known parameters still fail closed. Native TLS now supports
+TLS_AES_256_GCM_SHA384 (0x1302), with AES-256/GCM, a SHA-384 transcript,
+HKDF-SHA384 schedule, 48-byte Finished and SHA-384 traffic updates. Both
+roles pass forced-suite OpenSSL 3 and Go loopback interoperability. The
+client verifies ecdsa_secp384r1_sha384 and rsa_pss_rsae_sha384/sha512
+CertificateVerify; local signing remains P-256/SHA-256 or RSAE-PSS/SHA-256,
+over the selected 32- or 48-byte transcript hash.
+
+Suite preference is AES-128-GCM, ChaCha20-Poly1305, then AES-256-GCM.
+Thirty forced-AES-256 peer cases pass, including both X25519/P-256 groups,
+P-384 credentials, RSA-PSS SHA-384/512 and directional KeyUpdates. This
+loopback evidence gives no reason to change that preference. It does not
+replace the pending public-chain corpus or settle P-384 key-share demand.
+Package/root gate evidence is recorded in STACK_PROGRESS.md.
+Trust limits retain version 1 behavior until
+the bundle increment is verified. M5 acceptance remains open;
 new native work does not expand the accepted Bun profile. Synthetic credentials
 and the physical-erasure blocker remain binding.
 
@@ -59,7 +73,7 @@ All 16 Verified RFC 8446 entries were checked against this profile:
 | 5976, 6122, 6141, 7774 | Registry/editorial corrections; no algorithm/wire change. |
 | 6139 | Send SNI for DNS identities; raw IP literals are not HostName values. |
 
-## Frozen parameters
+## Version 1 frozen parameters
 
 | Surface | Binding decision |
 |---|---|
@@ -90,7 +104,20 @@ suites remain unchanged on both targets. The cancelled optimization patch is
 preserved, unapplied, for possible later work at
 `~/.codex/artifacts/grounds/2026-10-23/m4a/round4/cancelled-rsa-wip.patch`.
 
-AES-256/SHA-384, X448, EdDSA and FFDHE are outside the profile. Unknown
+Version 1 excludes AES-256/SHA-384. Version 2 adds native TLS suite 0x1302,
+with AES-256-GCM and a SHA-384 transcript, HKDF schedule, Finished and
+traffic updates. The native client and default server preference is AES-128-GCM,
+ChaCha20, then AES-256-GCM; no interop evidence warrants changing this order.
+Before suite selection the client retains both streaming transcript hashes;
+selection precedes ServerHello/HRR append and the HRR message_hash uses the
+selected digest width. A later hash switch is refused. Finished framing admits
+32/48 bytes; the schedule enforces the negotiated width. The generic ClientHello
+codec default remains unchanged; the opt-in TLS client explicitly offers all
+three suites. Native peer CertificateVerify additionally accepts P-384/SHA-384
+and RSAE-PSS SHA-384/512, with digest-width salts. Local signing remains
+P-256/SHA-256 or RSAE-PSS/SHA-256, including with SHA-384 transcripts.
+
+X448, EdDSA and FFDHE remain outside both profiles. Unknown
 well-formed offers follow context-specific RFC extensibility rules; never
 advertise or select an absent algorithm.
 

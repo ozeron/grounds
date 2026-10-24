@@ -24,9 +24,29 @@ def signature(value: Maybe<&1, List<&2, U32>>) -> IO(Unit):
 def bool(value: Bool) -> IO(Unit):
   IO.print(Bool.pick(String, value, "true", "false"))
 
+def scheme(name: String) -> U32:
+  match name:
+    case "1027": 1027
+    case "1283": 1283
+    case "2053": 2053
+    case "2054": 2054
+    case _: 0
+
+def verify_key(scheme: U32, role: C.Role, hash: List<&2,U32>, signature: List<&2,U32>, key: Maybe<&1,K.PublicKey>) -> Bool:
+  match key:
+    case Some{key}: C.verify(scheme,key,role,hash,signature)
+    case None{}: False{}
+
 def loop(args: List<String>) -> IO(Unit):
   match args:
     case Nil{}: IO.pure(Unit, Unit{})
+    case Con{"verify-sha2", Con{s, Con{r, Con{peer, Con{hash, Con{sig, rest}}}}}}:
+      do IO<Unit>:
+        a : List<&2,U32> <- Io.read_bytes(peer)
+        b : List<&2,U32> <- Io.read_bytes(hash)
+        c : List<&2,U32> <- Io.read_bytes(sig)
+        bool(verify_key(scheme(s),role(r),b,c,K.decode(a)))
+        loop(rest)
     case Con{"content", Con{r, Con{path, rest}}}:
       do IO<Unit>:
         hash : List<&2, U32> <- Io.read_bytes(path)

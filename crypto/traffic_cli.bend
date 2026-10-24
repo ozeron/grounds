@@ -234,6 +234,14 @@ def label_emit(result: Maybe<&2, List<&2, U32>>) -> IO(Unit):
 
 def dispatch(args: List<String>) -> IO(Unit):
   match args:
+    case Con{"write-aes256", Con{secret, tail}}:
+      do IO<Unit>:
+        bytes : List<&2,U32> <- Io.read_bytes(secret)
+        write_started(T.new_aes256_write(bytes),tail)
+    case Con{"read-aes256", Con{secret, tail}}:
+      do IO<Unit>:
+        bytes : List<&2,U32> <- Io.read_bytes(secret)
+        read_started(T.new_aes256_read(bytes),tail)
     case Con{"write-aes", Con{secret, tail}}:
       do IO<Unit>:
         bytes : List<&2, U32> <- Io.read_bytes(secret)
