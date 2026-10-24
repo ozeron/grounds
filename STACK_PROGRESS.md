@@ -4,6 +4,21 @@ Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and 
 
 The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
 
+- 2026-10-24 (M5 deliverable 2, native P-384 verification; **M5 OPEN**):
+  Strict point/scalar validation and shared DER parsing are implemented.
+  Native corpus: **581 cases** (504 complete Wycheproof, 15 NIST CAVP,
+  48 cryptography differential, 14 profile/point/scalar cases), **221 valid /
+  360 rejected**, all passed in 73 guarded batches. Receipts/source bindings:
+  `~/.codex/artifacts/grounds/2026-10-24/m5/p384-corpus-union.json`.
+  Focused `p384-unit-01.json`: **8/8 phases**, **397.9 MiB** peak; 5,810
+  independent bigint arithmetic cases; unchanged P-256 DER regressions
+  **1,388/1,388 each native and Bun**; P-256/P-384 frontend proofs.
+  Pressure-stopped corpus/frontend attempts are preserved separately; no
+  assertion failure observed. No P-384 signing/private key/key share is exposed.
+  Existing X25519/P-256 shares remain; corpus evidence for that decision is
+  still pending. Full changed-package/root gates and deliverables 3–8 remain
+  open; this increment does not enable public HTTPS.
+
 - 2026-10-24 (M5 deliverable 1, native primitives; **M5 acceptance OPEN**):
   SHA-384/SHA-512 use paired U32 words and bounded file streaming; HMAC/HKDF
   SHA-384 are implemented in Bend. Native vectors: each SHA has 4 FIPS/RFC

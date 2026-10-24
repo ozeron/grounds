@@ -188,3 +188,21 @@ Source/generated-C hashes and numbered excerpts are recorded in
 only. This source inspection does not establish optimized machine-code timing
 or physical erasure. Copies of pads/state/keys remain subject to the unchanged
 physical-erasure blocker in `crypto/ERASURE.md`.
+
+## M5 P-384 verification review (2026-10-24)
+
+`field384`, `p384`, `ecdsa384` and `ecdsa_der384` process public keys,
+message digests and signatures only. No P-384 signing, private-key import or
+ECDH/key-share entry point is exposed. Point admission requires canonical
+uncompressed SEC1 coordinates below p, on the curve, and non-infinity.
+Signature scalars must be nonzero and below n; shared DER parsing rejects
+negative, nonminimal, trailing and oversized INTEGER encodings. The existing
+P-256 native/Bun DER corpus remains unchanged and passes after extraction.
+
+The Montgomery byte-limb arithmetic retains fixed-width add/subtract, wide
+reduction and complete projective formulas from the P-256 implementation.
+The public-data scope does not confer a private-secret timing guarantee.
+Native evidence includes 5,810 independent Python bigint arithmetic cases
+and 581 CAVP/Wycheproof/differential/profile cases across 73 guarded batches:
+`~/.codex/artifacts/grounds/2026-10-24/m5/p384-corpus-union.json` and
+`p384-unit-01.json` (8/8 phases). The physical-erasure blocker is unchanged.

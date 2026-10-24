@@ -34,6 +34,7 @@ check frontend/x25519_test bend x25519_test.bend
 check frontend/field256_test bend field256_test.bend
 check frontend/p256_test bend p256_test.bend
 check frontend/ecdsa256_test bend ecdsa256_test.bend
+check frontend/ecdsa384_test bend ecdsa384_test.bend
 check frontend/rsa_encoding_test bend rsa_encoding_test.bend
 check frontend/rsa_integer_test bend rsa_integer_test.bend
 check frontend/rsa_signature256_test bend rsa_signature256_test.bend
@@ -69,6 +70,10 @@ check frontend/proof bend PROOF.bend
 check native/build/sha512_cli ../tools/bend_native.sh sha512_cli.bend "$tmp/sha512" > /dev/null
 check native/build/hkdf_sha384_cli ../tools/bend_native.sh hkdf_sha384_cli.bend "$tmp/hkdf384" > /dev/null
 check native/check/sha512_check python3 sha512_check.py "$tmp/sha512" "$tmp/hkdf384"
+check native/build/ecdsa384_cli ../tools/bend_native.sh ecdsa384_cli.bend "$tmp/ecdsa384" > /dev/null
+check native/build/field384_cli ../tools/bend_native.sh field384_cli.bend "$tmp/field384" > /dev/null
+check native/check/field384_check python3 field384_check.py "$tmp/field384"
+python3 ecdsa384_check.py --phase-prefix crypto/native/check/ecdsa384_check "$tmp/ecdsa384"
 check native/build/cli ../tools/bend_native.sh cli.bend "$tmp/sha256" > /dev/null
 check native/build/sha256_stream_cli ../tools/bend_native.sh sha256_stream_cli.bend "$tmp/sha_stream" > /dev/null
 check native/build/sha1_cli ../tools/bend_native.sh sha1_cli.bend "$tmp/sha1" > /dev/null

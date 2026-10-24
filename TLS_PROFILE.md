@@ -8,7 +8,10 @@ Only synthetic credentials may be used: see crypto/RUNTIME_REVIEW.md.
 
 Version 1 is the accepted M2–M4 TLS wire profile below. Version 2 (M5,
 2026-10-24) is being implemented in ordered, tested increments. SHA-384,
-SHA-512, HMAC-SHA384 and HKDF-SHA384 are now available natively. Certificate
+SHA-512, HMAC-SHA384, HKDF-SHA384 and verification-only P-384 ECDSA
+are now available natively. Strict uncompressed SEC1 points and shared strict
+DER signature parsing are tested. P-384 signing/key shares remain absent;
+X25519/P-256 share sufficiency will be checked against the interop corpus. Certificate
 algorithms, cipher negotiation and trust limits retain version 1 behavior until
 their M5 increments are verified and recorded here. M5 acceptance remains open;
 new native work does not expand the accepted Bun profile. Synthetic credentials

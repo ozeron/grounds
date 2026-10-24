@@ -260,7 +260,7 @@ This revises the frozen TLS_PROFILE.md; record the new profile version there.
 
 - [x] Implement SHA-384 and SHA-512 (and HMAC/HKDF over SHA-384) in Bend with
   published vectors and native differential tests.
-- [ ] Implement P-384 ECDSA verification (and P-384 key share if measured
+- [x] Implement P-384 ECDSA verification (and P-384 key share if measured
   interop needs it) with point validation and invalid-input cases.
 - [ ] Accept certificate signatures ecdsa-with-SHA384, sha384/sha512WithRSA and
   RSA-PSS with SHA-384/512 in X.509 chain verification.
