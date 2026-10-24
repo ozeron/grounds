@@ -58,3 +58,68 @@ for mode in ordinary negative bend openssl go; do
   python3 tests/bend_tls_check.py --mode "$mode" --binary "$artifacts/client" --fixtures "$artifacts/fixtures" --server "$artifacts/server" --go "$artifacts/go-peer" --report "$artifacts/$mode.json"
   end
 done
+
+# M5 is native only. All fixture verification stays offline; the internet
+# diagnostic is merely checked for its default explicit opt-out below.
+begin bend_bundle_build
+native tests/bundle.bend "$artifacts/bundle-policy"
+end
+begin bend_bundle_check
+python3 ../../crypto/pem_bundle_check.py --policy "$artifacts/bundle-policy"
+end
+begin bend_public_chain_build
+# Compiler-only baseline JIT avoids the optimizing frontend memory spike.
+BUN_JSC_useDFGJIT=false BUN_JSC_useFTLJIT=false native tests/public_chain.bend "$artifacts/public-chain"
+end
+begin bend_public_chain_0
+python3 ../../crypto/public_chain_check.py --batch-index 0 "$artifacts/public-chain"
+end
+begin bend_public_chain_1
+python3 ../../crypto/public_chain_check.py --batch-index 1 "$artifacts/public-chain"
+end
+begin bend_public_chain_2
+python3 ../../crypto/public_chain_check.py --batch-index 2 "$artifacts/public-chain"
+end
+begin bend_public_chain_3
+python3 ../../crypto/public_chain_check.py --batch-index 3 "$artifacts/public-chain"
+end
+begin bend_public_chain_4
+python3 ../../crypto/public_chain_check.py --batch-index 4 "$artifacts/public-chain"
+end
+begin bend_public_chain_5
+python3 ../../crypto/public_chain_check.py --batch-index 5 "$artifacts/public-chain"
+end
+begin bend_public_chain_6
+python3 ../../crypto/public_chain_check.py --batch-index 6 "$artifacts/public-chain"
+end
+begin bend_public_chain_7
+python3 ../../crypto/public_chain_check.py --batch-index 7 "$artifacts/public-chain"
+end
+begin bend_public_chain_8
+python3 ../../crypto/public_chain_check.py --batch-index 8 "$artifacts/public-chain"
+end
+begin bend_public_chain_9
+python3 ../../crypto/public_chain_check.py --batch-index 9 "$artifacts/public-chain"
+end
+begin bend_public_chain_10
+python3 ../../crypto/public_chain_check.py --batch-index 10 "$artifacts/public-chain"
+end
+begin bend_public_chain_11
+python3 ../../crypto/public_chain_check.py --batch-index 11 "$artifacts/public-chain"
+end
+begin bend_public_chain_12
+python3 ../../crypto/public_chain_check.py --batch-index 12 "$artifacts/public-chain"
+end
+begin bend_public_frontend
+BUN_JSC_useDFGJIT=false BUN_JSC_useFTLJIT=false python3 public_https_build.py --trace "$artifacts/public.c" "$artifacts/public-build.json"
+end
+begin bend_public_compile
+native "$artifacts/public.c" "$artifacts/public-http"
+end
+begin bend_public_no_delegation
+python3 ../server/examples/bend_native_audit.py --role client --native "$artifacts/public-http" --c "$artifacts/public.c" --probe-dir "$artifacts/probes" --report "$artifacts/public-audit.json"
+end
+begin bend_public_live_opt_out
+# Even when the caller opts into the diagnostic separately, gates stay offline.
+GROUNDS_PUBLIC_HTTPS_LIVE=0 python3 public_https_live.py --report "$artifacts/public-live-skipped.json"
+end

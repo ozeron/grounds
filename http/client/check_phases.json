@@ -60,6 +60,86 @@
     {
       "name": "http_client/bend_live_go",
       "optional": false
+    },
+    {
+      "name": "http_client/bend_bundle_build",
+      "optional": false
+    },
+    {
+      "name": "http_client/bend_bundle_check",
+      "optional": false
+    },
+    {
+      "name": "http_client/bend_public_chain_build",
+      "optional": false
+    },
+    {
+      "name": "http_client/bend_public_chain_0",
+      "optional": false
+    },
+    {
+      "name": "http_client/bend_public_chain_1",
+      "optional": false
+    },
+    {
+      "name": "http_client/bend_public_chain_2",
+      "optional": false
+    },
+    {
+      "name": "http_client/bend_public_chain_3",
+      "optional": false
+    },
+    {
+      "name": "http_client/bend_public_chain_4",
+      "optional": false
+    },
+    {
+      "name": "http_client/bend_public_chain_5",
+      "optional": false
+    },
+    {
+      "name": "http_client/bend_public_chain_6",
+      "optional": false
+    },
+    {
+      "name": "http_client/bend_public_chain_7",
+      "optional": false
+    },
+    {
+      "name": "http_client/bend_public_chain_8",
+      "optional": false
+    },
+    {
+      "name": "http_client/bend_public_chain_9",
+      "optional": false
+    },
+    {
+      "name": "http_client/bend_public_chain_10",
+      "optional": false
+    },
+    {
+      "name": "http_client/bend_public_chain_11",
+      "optional": false
+    },
+    {
+      "name": "http_client/bend_public_chain_12",
+      "optional": false
+    },
+    {
+      "name": "http_client/bend_public_frontend",
+      "optional": false
+    },
+    {
+      "name": "http_client/bend_public_compile",
+      "optional": false
+    },
+    {
+      "name": "http_client/bend_public_no_delegation",
+      "optional": false
+    },
+    {
+      "name": "http_client/bend_public_live_opt_out",
+      "optional": false
     }
   ]
 }

@@ -1,0 +1,972 @@
+{
+  "bundle_file": "mozilla-2026-10-20.pem",
+  "bundle_sha256": "796f1389bfea13c0ed78f663b765baaff54a508e5483786bd6ece73c5e3e3cbe",
+  "bundle_source": "https://curl.se/ca/cacert.pem",
+  "bundle_recorded_at": "2026-10-24",
+  "mozilla_snapshot": "2026-10-20",
+  "anchor_count": 118,
+  "chains": [
+    {
+      "label": "le-r10",
+      "hostname": "valid-isrgrootx1.letsencrypt.org",
+      "now": 1756684800,
+      "expired_now": 1763478095,
+      "source": "https://crt.sh/?d=20460471460",
+      "recorded_at": "2026-10-24",
+      "certificates": [
+        {
+          "file": "le-r10-0.pem",
+          "sha256": "4c942fce85cafd2c1b3df9f1ec4bc6a4fb33bbab4312bcfccd677665763683ac",
+          "der_sha256": "1e1a5b50dc1de982503f99b1c0d02cc70784907e17f2ca93540c1b420c4a270f",
+          "subject": "CN=valid-isrgrootx1.letsencrypt.org",
+          "issuer": "CN=R10,O=Let's Encrypt,C=US",
+          "not_before": "2025-08-20T15:01:35+00:00",
+          "not_after": "2025-11-18T15:01:34+00:00",
+          "signature_oid": "1.2.840.113549.1.1.11",
+          "public_key": "RSAPublicKey",
+          "recorded_from": "le-r10-leaf.pem"
+        },
+        {
+          "file": "le-r10-1.pem",
+          "sha256": "29ee679fb573c905bf3538126de6893a9e20ebe1cf400c6df22e5d171c94f543",
+          "der_sha256": "9d7c3f1aa6ad2b2ec0d5cf1e246f8d9ae6cbc9fd0755ad37bb974b1f2fb603f3",
+          "subject": "CN=R10,O=Let's Encrypt,C=US",
+          "issuer": "CN=ISRG Root X1,O=Internet Security Research Group,C=US",
+          "not_before": "2024-03-13T00:00:00+00:00",
+          "not_after": "2027-03-12T23:59:59+00:00",
+          "signature_oid": "1.2.840.113549.1.1.11",
+          "public_key": "RSAPublicKey",
+          "recorded_from": "le-r10.pem"
+        }
+      ],
+      "untrusted_result": "unsupported-name",
+      "removed_anchor_indices": [
+        41
+      ],
+      "removed_anchor_subjects": [
+        "CN=ISRG Root X1,O=Internet Security Research Group,C=US"
+      ],
+      "openssl_command": [
+        "/opt/homebrew/opt/openssl@3/bin/openssl",
+        "verify",
+        "-show_chain",
+        "-no-CApath",
+        "-no-CAstore",
+        "-CAfile",
+        "/Users/ozeron/code/grounds/crypto/fixtures/public-chains/mozilla-2026-10-20.pem",
+        "-purpose",
+        "sslserver",
+        "-attime",
+        "1756684800",
+        "-verify_hostname",
+        "valid-isrgrootx1.letsencrypt.org",
+        "-untrusted",
+        "/Users/ozeron/.codex/artifacts/grounds/2026-10-24/m5/round2/oracle-chain.pem",
+        "/Users/ozeron/code/grounds/crypto/fixtures/public-chains/le-r10-0.pem"
+      ],
+      "openssl_exit": 0,
+      "openssl_output": "/Users/ozeron/code/grounds/crypto/fixtures/public-chains/le-r10-0.pem: OK\nChain:\ndepth=0: CN=valid-isrgrootx1.letsencrypt.org (untrusted)\ndepth=1: C=US, O=Let's Encrypt, CN=R10 (untrusted)\ndepth=2: C=US, O=Internet Security Research Group, CN=ISRG Root X1\n"
+    },
+    {
+      "label": "le-e5",
+      "hostname": "valid-isrgrootx2.letsencrypt.org",
+      "now": 1756684800,
+      "expired_now": 1761058899,
+      "source": "https://crt.sh/?d=19858555253",
+      "recorded_at": "2026-10-24",
+      "certificates": [
+        {
+          "file": "le-e5-0.pem",
+          "sha256": "a473883d339c39b714442dc3829f42737cf4b220d9c7e34ba4e1df69f5da5bfa",
+          "der_sha256": "ca1a99637985cd35f9624e9d90a8176051befac6a9477fe4dc4f6b140f9fe431",
+          "subject": "CN=valid-isrgrootx2.letsencrypt.org",
+          "issuer": "CN=E5,O=Let's Encrypt,C=US",
+          "not_before": "2025-07-23T15:01:39+00:00",
+          "not_after": "2025-10-21T15:01:38+00:00",
+          "signature_oid": "1.2.840.10045.4.3.3",
+          "public_key": "ECPublicKey",
+          "recorded_from": "le-e5-final.pem"
+        },
+        {
+          "file": "le-e5-1.pem",
+          "sha256": "b6ffef8106f353f17760c87571330245487d3ac7a4d3865379029baa3de330e1",
+          "der_sha256": "e788d14b0436b5120bbee3f15c15badf08c1407fe72568a4f16f9151c380e1e3",
+          "subject": "CN=E5,O=Let's Encrypt,C=US",
+          "issuer": "CN=ISRG Root X2,O=Internet Security Research Group,C=US",
+          "not_before": "2024-03-13T00:00:00+00:00",
+          "not_after": "2027-03-12T23:59:59+00:00",
+          "signature_oid": "1.2.840.10045.4.3.3",
+          "public_key": "ECPublicKey",
+          "recorded_from": "le-e5.pem"
+        }
+      ],
+      "untrusted_result": "unsupported-name",
+      "removed_anchor_indices": [
+        77
+      ],
+      "removed_anchor_subjects": [
+        "CN=ISRG Root X2,O=Internet Security Research Group,C=US"
+      ],
+      "openssl_command": [
+        "/opt/homebrew/opt/openssl@3/bin/openssl",
+        "verify",
+        "-show_chain",
+        "-no-CApath",
+        "-no-CAstore",
+        "-CAfile",
+        "/Users/ozeron/code/grounds/crypto/fixtures/public-chains/mozilla-2026-10-20.pem",
+        "-purpose",
+        "sslserver",
+        "-attime",
+        "1756684800",
+        "-verify_hostname",
+        "valid-isrgrootx2.letsencrypt.org",
+        "-untrusted",
+        "/Users/ozeron/.codex/artifacts/grounds/2026-10-24/m5/round2/oracle-chain.pem",
+        "/Users/ozeron/code/grounds/crypto/fixtures/public-chains/le-e5-0.pem"
+      ],
+      "openssl_exit": 0,
+      "openssl_output": "/Users/ozeron/code/grounds/crypto/fixtures/public-chains/le-e5-0.pem: OK\nChain:\ndepth=0: CN=valid-isrgrootx2.letsencrypt.org (untrusted)\ndepth=1: C=US, O=Let's Encrypt, CN=E5 (untrusted)\ndepth=2: C=US, O=Internet Security Research Group, CN=ISRG Root X2\n"
+    },
+    {
+      "label": "le-e6",
+      "hostname": "valid-isrgrootx2.letsencrypt.org",
+      "now": 1756684800,
+      "expired_now": 1762268493,
+      "source": "https://crt.sh/?d=20161793249",
+      "recorded_at": "2026-10-24",
+      "certificates": [
+        {
+          "file": "le-e6-0.pem",
+          "sha256": "622f793a10fe0329060cb52c98ab686253479dad49ba868e23f5cdfd0992c275",
+          "der_sha256": "3d764a8c17fe0d27b449ac6c47c0798eeb1d3f801c6d101f5b3fb7b40ad5d78f",
+          "subject": "CN=valid-isrgrootx2.letsencrypt.org",
+          "issuer": "CN=E6,O=Let's Encrypt,C=US",
+          "not_before": "2025-08-06T15:01:33+00:00",
+          "not_after": "2025-11-04T15:01:32+00:00",
+          "signature_oid": "1.2.840.10045.4.3.3",
+          "public_key": "ECPublicKey",
+          "recorded_from": "le-e6-leaf.pem"
+        },
+        {
+          "file": "le-e6-1.pem",
+          "sha256": "1429463d25654be735b6af5026b96ac989709b04a8107580bc5efcd8209ae72d",
+          "der_sha256": "065ab7d2a050f947587121765d8d070c0e1330d5798faa42c2072749ed293762",
+          "subject": "CN=E6,O=Let's Encrypt,C=US",
+          "issuer": "CN=ISRG Root X2,O=Internet Security Research Group,C=US",
+          "not_before": "2024-03-13T00:00:00+00:00",
+          "not_after": "2027-03-12T23:59:59+00:00",
+          "signature_oid": "1.2.840.10045.4.3.3",
+          "public_key": "ECPublicKey",
+          "recorded_from": "le-e6.pem"
+        }
+      ],
+      "untrusted_result": "unsupported-name",
+      "removed_anchor_indices": [
+        77
+      ],
+      "removed_anchor_subjects": [
+        "CN=ISRG Root X2,O=Internet Security Research Group,C=US"
+      ],
+      "openssl_command": [
+        "/opt/homebrew/opt/openssl@3/bin/openssl",
+        "verify",
+        "-show_chain",
+        "-no-CApath",
+        "-no-CAstore",
+        "-CAfile",
+        "/Users/ozeron/code/grounds/crypto/fixtures/public-chains/mozilla-2026-10-20.pem",
+        "-purpose",
+        "sslserver",
+        "-attime",
+        "1756684800",
+        "-verify_hostname",
+        "valid-isrgrootx2.letsencrypt.org",
+        "-untrusted",
+        "/Users/ozeron/.codex/artifacts/grounds/2026-10-24/m5/round2/oracle-chain.pem",
+        "/Users/ozeron/code/grounds/crypto/fixtures/public-chains/le-e6-0.pem"
+      ],
+      "openssl_exit": 0,
+      "openssl_output": "/Users/ozeron/code/grounds/crypto/fixtures/public-chains/le-e6-0.pem: OK\nChain:\ndepth=0: CN=valid-isrgrootx2.letsencrypt.org (untrusted)\ndepth=1: C=US, O=Let's Encrypt, CN=E6 (untrusted)\ndepth=2: C=US, O=Internet Security Research Group, CN=ISRG Root X2\n"
+    },
+    {
+      "label": "valid-isrgrootx1.letsencrypt.org",
+      "hostname": "valid-isrgrootx1.letsencrypt.org",
+      "now": 1792843200,
+      "expired_now": 1800380313,
+      "source": "TLS1.3 s_client -showcerts valid-isrgrootx1.letsencrypt.org:443 with SNI and http/1.1",
+      "recorded_at": "2026-10-24",
+      "certificates": [
+        {
+          "file": "valid-isrgrootx1.letsencrypt.org-0.pem",
+          "sha256": "d3aca4b65cb4c1d21d5025ec785701521024fdaaef01c96c8cbd2df94e34e69e",
+          "der_sha256": "59b8cdebe5515befe2f0f293f0833bffe475353479b407b6dc65b4f2dbddef31",
+          "subject": "CN=valid-isrgrootx1.letsencrypt.org",
+          "issuer": "CN=YR2,O=Let's Encrypt,C=US",
+          "not_before": "2026-10-21T17:38:33+00:00",
+          "not_after": "2027-01-19T17:38:32+00:00",
+          "signature_oid": "1.2.840.113549.1.1.11",
+          "public_key": "RSAPublicKey",
+          "recorded_from": "valid-isrgrootx1.letsencrypt.org-0.pem"
+        },
+        {
+          "file": "valid-isrgrootx1.letsencrypt.org-1.pem",
+          "sha256": "f504663442f7a619127e8e12214a58a198599986d4ab42e22587d22af7e9e7eb",
+          "der_sha256": "238b85a0099c65b970477d5724f1a1d475ce5058cffe4efa8733899bdb863c47",
+          "subject": "CN=YR2,O=Let's Encrypt,C=US",
+          "issuer": "CN=Root YR,O=ISRG,C=US",
+          "not_before": "2025-09-03T00:00:00+00:00",
+          "not_after": "2028-09-02T23:59:59+00:00",
+          "signature_oid": "1.2.840.113549.1.1.11",
+          "public_key": "RSAPublicKey",
+          "recorded_from": "valid-isrgrootx1.letsencrypt.org-1.pem"
+        },
+        {
+          "file": "valid-isrgrootx1.letsencrypt.org-2.pem",
+          "sha256": "b3858d7a4d598b4ab6ed2892a1b8c0ee035154876dd40a082a3b05387eea11a4",
+          "der_sha256": "072639d0b140d5bffae16ad9c3f6cc6086040621f51ee61a6d46a8915c07cf76",
+          "subject": "CN=Root YR,O=ISRG,C=US",
+          "issuer": "CN=ISRG Root X1,O=Internet Security Research Group,C=US",
+          "not_before": "2026-05-13T00:00:00+00:00",
+          "not_after": "2032-09-02T23:59:59+00:00",
+          "signature_oid": "1.2.840.113549.1.1.11",
+          "public_key": "RSAPublicKey",
+          "recorded_from": "valid-isrgrootx1.letsencrypt.org-2.pem"
+        }
+      ],
+      "untrusted_result": "unsupported-name",
+      "removed_anchor_indices": [
+        41
+      ],
+      "removed_anchor_subjects": [
+        "CN=ISRG Root X1,O=Internet Security Research Group,C=US"
+      ],
+      "openssl_command": [
+        "/opt/homebrew/opt/openssl@3/bin/openssl",
+        "verify",
+        "-show_chain",
+        "-no-CApath",
+        "-no-CAstore",
+        "-CAfile",
+        "/Users/ozeron/code/grounds/crypto/fixtures/public-chains/mozilla-2026-10-20.pem",
+        "-purpose",
+        "sslserver",
+        "-attime",
+        "1792843200",
+        "-verify_hostname",
+        "valid-isrgrootx1.letsencrypt.org",
+        "-untrusted",
+        "/Users/ozeron/.codex/artifacts/grounds/2026-10-24/m5/round2/oracle-chain.pem",
+        "/Users/ozeron/code/grounds/crypto/fixtures/public-chains/valid-isrgrootx1.letsencrypt.org-0.pem"
+      ],
+      "openssl_exit": 0,
+      "openssl_output": "/Users/ozeron/code/grounds/crypto/fixtures/public-chains/valid-isrgrootx1.letsencrypt.org-0.pem: OK\nChain:\ndepth=0: CN=valid-isrgrootx1.letsencrypt.org (untrusted)\ndepth=1: C=US, O=Let's Encrypt, CN=YR2 (untrusted)\ndepth=2: C=US, O=ISRG, CN=Root YR (untrusted)\ndepth=3: C=US, O=Internet Security Research Group, CN=ISRG Root X1\n"
+    },
+    {
+      "label": "valid-isrgrootx2.letsencrypt.org",
+      "hostname": "valid-isrgrootx2.letsencrypt.org",
+      "now": 1792843200,
+      "expired_now": 1799861913,
+      "source": "TLS1.3 s_client -showcerts valid-isrgrootx2.letsencrypt.org:443 with SNI and http/1.1",
+      "recorded_at": "2026-10-24",
+      "certificates": [
+        {
+          "file": "valid-isrgrootx2.letsencrypt.org-0.pem",
+          "sha256": "1e58889153b047eddec7ec4fc19f9831b3bc0112f853099b6cf9ebaac1fa03a2",
+          "der_sha256": "ef94c75ba11ed3ffae7ae7d7833dd91d7712420755113e6487400ddbde1a8b87",
+          "subject": "CN=valid-isrgrootx2.letsencrypt.org",
+          "issuer": "CN=YE1,O=Let's Encrypt,C=US",
+          "not_before": "2026-10-15T17:38:33+00:00",
+          "not_after": "2027-01-13T17:38:32+00:00",
+          "signature_oid": "1.2.840.10045.4.3.3",
+          "public_key": "ECPublicKey",
+          "recorded_from": "valid-isrgrootx2.letsencrypt.org-0.pem"
+        },
+        {
+          "file": "valid-isrgrootx2.letsencrypt.org-1.pem",
+          "sha256": "30028f6eecdb9ba45b1a2440187278be1bc08c360da6611f21b4b3e74b103981",
+          "der_sha256": "a2372d06431e9716365eeed47ec020351497d182fcc038e457e58168a03cac07",
+          "subject": "CN=YE1,O=Let's Encrypt,C=US",
+          "issuer": "CN=Root YE,O=ISRG,C=US",
+          "not_before": "2025-09-03T00:00:00+00:00",
+          "not_after": "2028-09-02T23:59:59+00:00",
+          "signature_oid": "1.2.840.10045.4.3.3",
+          "public_key": "ECPublicKey",
+          "recorded_from": "valid-isrgrootx2.letsencrypt.org-1.pem"
+        },
+        {
+          "file": "valid-isrgrootx2.letsencrypt.org-2.pem",
+          "sha256": "2681e97e939cab7cde4fad1dc733fc7c99e39a203190e8f298e1c02ab431b1e9",
+          "der_sha256": "0fc0901cca2bae9e9fdbb02d50d02f1094f7b36672086991b9e897626dc485f0",
+          "subject": "CN=Root YE,O=ISRG,C=US",
+          "issuer": "CN=ISRG Root X2,O=Internet Security Research Group,C=US",
+          "not_before": "2026-05-13T00:00:00+00:00",
+          "not_after": "2032-09-02T23:59:59+00:00",
+          "signature_oid": "1.2.840.10045.4.3.3",
+          "public_key": "ECPublicKey",
+          "recorded_from": "valid-isrgrootx2.letsencrypt.org-2.pem"
+        }
+      ],
+      "untrusted_result": "unsupported-name",
+      "removed_anchor_indices": [
+        77
+      ],
+      "removed_anchor_subjects": [
+        "CN=ISRG Root X2,O=Internet Security Research Group,C=US"
+      ],
+      "openssl_command": [
+        "/opt/homebrew/opt/openssl@3/bin/openssl",
+        "verify",
+        "-show_chain",
+        "-no-CApath",
+        "-no-CAstore",
+        "-CAfile",
+        "/Users/ozeron/code/grounds/crypto/fixtures/public-chains/mozilla-2026-10-20.pem",
+        "-purpose",
+        "sslserver",
+        "-attime",
+        "1792843200",
+        "-verify_hostname",
+        "valid-isrgrootx2.letsencrypt.org",
+        "-untrusted",
+        "/Users/ozeron/.codex/artifacts/grounds/2026-10-24/m5/round2/oracle-chain.pem",
+        "/Users/ozeron/code/grounds/crypto/fixtures/public-chains/valid-isrgrootx2.letsencrypt.org-0.pem"
+      ],
+      "openssl_exit": 0,
+      "openssl_output": "/Users/ozeron/code/grounds/crypto/fixtures/public-chains/valid-isrgrootx2.letsencrypt.org-0.pem: OK\nChain:\ndepth=0: CN=valid-isrgrootx2.letsencrypt.org (untrusted)\ndepth=1: C=US, O=Let's Encrypt, CN=YE1 (untrusted)\ndepth=2: C=US, O=ISRG, CN=Root YE (untrusted)\ndepth=3: C=US, O=Internet Security Research Group, CN=ISRG Root X2\n"
+    },
+    {
+      "label": "example.com",
+      "hostname": "example.com",
+      "now": 1792843200,
+      "expired_now": 1798239396,
+      "source": "TLS1.3 s_client -showcerts example.com:443 with SNI and http/1.1",
+      "recorded_at": "2026-10-24",
+      "certificates": [
+        {
+          "file": "example.com-0.pem",
+          "sha256": "3bc9242e86bff9fb2b409ad80857697ab3d6f03accac30d6cb4710d247c64559",
+          "der_sha256": "85ca6ab068e9bcce88b6c4aa3c47f7d17228134a457f870d3800e6223a0df07a",
+          "subject": "CN=example.com",
+          "issuer": "CN=Cloudflare TLS Issuing ECC CA 3,O=SSL Corporation,C=US",
+          "not_before": "2026-09-26T22:49:11+00:00",
+          "not_after": "2026-12-25T22:56:35+00:00",
+          "signature_oid": "1.2.840.10045.4.3.2",
+          "public_key": "ECPublicKey",
+          "recorded_from": "example.com-0.pem"
+        },
+        {
+          "file": "example.com-1.pem",
+          "sha256": "1d3773ca403674d9cbaf899801b315ad0d3647d7ff8833e5b97c6cf67611ad78",
+          "der_sha256": "f15f29abef73aa4dd9ab754baeae3685bdd3874b46b525071177628685718026",
+          "subject": "CN=Cloudflare TLS Issuing ECC CA 3,O=SSL Corporation,C=US",
+          "issuer": "CN=SSL.com TLS Transit ECC CA R2,O=SSL Corporation,C=US",
+          "not_before": "2025-05-29T19:49:45+00:00",
+          "not_after": "2035-05-27T19:49:44+00:00",
+          "signature_oid": "1.2.840.10045.4.3.3",
+          "public_key": "ECPublicKey",
+          "recorded_from": "example.com-1.pem"
+        },
+        {
+          "file": "example.com-2.pem",
+          "sha256": "6673455bb06ef4fdbbb41d6b86c8b434836448d33b957d1b3ceff0a053787dcd",
+          "der_sha256": "5d1bc399274e649e1c72697de91a54ad725088c5221cb61e17ee9c290bc42a92",
+          "subject": "CN=SSL.com TLS Transit ECC CA R2,O=SSL Corporation,C=US",
+          "issuer": "CN=SSL.com TLS ECC Root CA 2022,O=SSL Corporation,C=US",
+          "not_before": "2022-10-21T17:02:23+00:00",
+          "not_after": "2037-10-17T17:02:22+00:00",
+          "signature_oid": "1.2.840.10045.4.3.3",
+          "public_key": "ECPublicKey",
+          "recorded_from": "example.com-2.pem"
+        },
+        {
+          "file": "example.com-3.pem",
+          "sha256": "24b226bca66d2fd890ea56cf56d9ddd177fd5ed57ff9f9859b073057a96a881b",
+          "der_sha256": "ba06d3d3e348fce7478cc84b422d0e638e9e221ef1a0b53adc14cc70e04b8ab8",
+          "subject": "CN=SSL.com TLS ECC Root CA 2022,O=SSL Corporation,C=US",
+          "issuer": "CN=AAA Certificate Services,O=Comodo CA Limited,L=Salford,ST=Greater Manchester,C=GB",
+          "not_before": "2025-08-01T00:00:00+00:00",
+          "not_after": "2028-12-31T23:59:59+00:00",
+          "signature_oid": "1.2.840.113549.1.1.11",
+          "public_key": "ECPublicKey",
+          "recorded_from": "example.com-3.pem"
+        }
+      ],
+      "untrusted_result": "unsupported-name",
+      "removed_anchor_indices": [
+        96
+      ],
+      "removed_anchor_subjects": [
+        "CN=SSL.com TLS ECC Root CA 2022,O=SSL Corporation,C=US"
+      ],
+      "openssl_command": [
+        "/opt/homebrew/opt/openssl@3/bin/openssl",
+        "verify",
+        "-show_chain",
+        "-no-CApath",
+        "-no-CAstore",
+        "-CAfile",
+        "/Users/ozeron/code/grounds/crypto/fixtures/public-chains/mozilla-2026-10-20.pem",
+        "-purpose",
+        "sslserver",
+        "-attime",
+        "1792843200",
+        "-verify_hostname",
+        "example.com",
+        "-untrusted",
+        "/Users/ozeron/.codex/artifacts/grounds/2026-10-24/m5/round2/oracle-chain.pem",
+        "/Users/ozeron/code/grounds/crypto/fixtures/public-chains/example.com-0.pem"
+      ],
+      "openssl_exit": 0,
+      "openssl_output": "/Users/ozeron/code/grounds/crypto/fixtures/public-chains/example.com-0.pem: OK\nChain:\ndepth=0: CN=example.com (untrusted)\ndepth=1: C=US, O=SSL Corporation, CN=Cloudflare TLS Issuing ECC CA 3 (untrusted)\ndepth=2: C=US, O=SSL Corporation, CN=SSL.com TLS Transit ECC CA R2 (untrusted)\ndepth=3: C=US, O=SSL Corporation, CN=SSL.com TLS ECC Root CA 2022\n"
+    },
+    {
+      "label": "www.google.com",
+      "hostname": "www.google.com",
+      "now": 1792843200,
+      "expired_now": 1797878481,
+      "source": "TLS1.3 s_client -showcerts www.google.com:443 with SNI and http/1.1",
+      "recorded_at": "2026-10-24",
+      "certificates": [
+        {
+          "file": "www.google.com-0.pem",
+          "sha256": "dbc981210510dfe3d667ef2965fc69a2ff06c8984ab40c3a92f9deaecf57ffb1",
+          "der_sha256": "6f77f1313ee0fc7a737561907ea6cdc4eeba44fb5e37485299173cc8f7edee92",
+          "subject": "CN=www.google.com",
+          "issuer": "CN=WE2,O=Google Trust Services,C=US",
+          "not_before": "2026-09-28T18:41:21+00:00",
+          "not_after": "2026-12-21T18:41:20+00:00",
+          "signature_oid": "1.2.840.10045.4.3.2",
+          "public_key": "ECPublicKey",
+          "recorded_from": "www.google.com-0.pem"
+        },
+        {
+          "file": "www.google.com-1.pem",
+          "sha256": "002b54158ceeb93329c9e63404d5d2fccba4e1715486b8a4fbbc67483ffa4a52",
+          "der_sha256": "9c3f2fd11c57d7c649ad5a0932c0f0d29756f6a0a1c74c43e1e89a62d64cd320",
+          "subject": "CN=WE2,O=Google Trust Services,C=US",
+          "issuer": "CN=GTS Root R4,O=Google Trust Services LLC,C=US",
+          "not_before": "2023-12-13T09:00:00+00:00",
+          "not_after": "2029-02-20T14:00:00+00:00",
+          "signature_oid": "1.2.840.10045.4.3.3",
+          "public_key": "ECPublicKey",
+          "recorded_from": "www.google.com-1.pem"
+        },
+        {
+          "file": "www.google.com-2.pem",
+          "sha256": "f253f16839979e0dc58f518fca534126bc522b9389636b7bfaf201a58d24994c",
+          "der_sha256": "76b27b80a58027dc3cf1da68dac17010ed93997d0b603e2fadbe85012493b5a7",
+          "subject": "CN=GTS Root R4,O=Google Trust Services LLC,C=US",
+          "issuer": "CN=GlobalSign Root CA,OU=Root CA,O=GlobalSign nv-sa,C=BE",
+          "not_before": "2023-11-15T03:43:21+00:00",
+          "not_after": "2028-01-28T00:00:42+00:00",
+          "signature_oid": "1.2.840.113549.1.1.11",
+          "public_key": "ECPublicKey",
+          "recorded_from": "www.google.com-2.pem"
+        }
+      ],
+      "untrusted_result": "unsupported-name",
+      "removed_anchor_indices": [
+        82
+      ],
+      "removed_anchor_subjects": [
+        "CN=GTS Root R4,O=Google Trust Services LLC,C=US"
+      ],
+      "openssl_command": [
+        "/opt/homebrew/opt/openssl@3/bin/openssl",
+        "verify",
+        "-show_chain",
+        "-no-CApath",
+        "-no-CAstore",
+        "-CAfile",
+        "/Users/ozeron/code/grounds/crypto/fixtures/public-chains/mozilla-2026-10-20.pem",
+        "-purpose",
+        "sslserver",
+        "-attime",
+        "1792843200",
+        "-verify_hostname",
+        "www.google.com",
+        "-untrusted",
+        "/Users/ozeron/.codex/artifacts/grounds/2026-10-24/m5/round2/oracle-chain.pem",
+        "/Users/ozeron/code/grounds/crypto/fixtures/public-chains/www.google.com-0.pem"
+      ],
+      "openssl_exit": 0,
+      "openssl_output": "/Users/ozeron/code/grounds/crypto/fixtures/public-chains/www.google.com-0.pem: OK\nChain:\ndepth=0: CN=www.google.com (untrusted)\ndepth=1: C=US, O=Google Trust Services, CN=WE2 (untrusted)\ndepth=2: C=US, O=Google Trust Services LLC, CN=GTS Root R4\n"
+    },
+    {
+      "label": "letsencrypt.org",
+      "hostname": "letsencrypt.org",
+      "now": 1792843200,
+      "expired_now": 1796308472,
+      "source": "TLS1.3 s_client -showcerts letsencrypt.org:443 with SNI and http/1.1",
+      "recorded_at": "2026-10-24",
+      "certificates": [
+        {
+          "file": "letsencrypt.org-0.pem",
+          "sha256": "575d60359032d36d770cbbabd2bc32924f51d9792f3ed5f99ecbdd02b9efa24a",
+          "der_sha256": "1fc4f697eefa3022d872df232293bdda7624c93964d778a53026912d9d529a53",
+          "subject": "CN=letsencrypt.org",
+          "issuer": "CN=YE2,O=Let's Encrypt,C=US",
+          "not_before": "2026-09-04T14:34:32+00:00",
+          "not_after": "2026-12-03T14:34:31+00:00",
+          "signature_oid": "1.2.840.10045.4.3.3",
+          "public_key": "ECPublicKey",
+          "recorded_from": "letsencrypt.org-0.pem"
+        },
+        {
+          "file": "letsencrypt.org-1.pem",
+          "sha256": "a1809226d01db1ae8df803a73a31a97330a924e3059c42b4be599449c43c5119",
+          "der_sha256": "97658de8c68dfa98ace1e5028a63d54a1aae911b3e21471076c6850cd08cbab4",
+          "subject": "CN=YE2,O=Let's Encrypt,C=US",
+          "issuer": "CN=Root YE,O=ISRG,C=US",
+          "not_before": "2025-09-03T00:00:00+00:00",
+          "not_after": "2028-09-02T23:59:59+00:00",
+          "signature_oid": "1.2.840.10045.4.3.3",
+          "public_key": "ECPublicKey",
+          "recorded_from": "letsencrypt.org-1.pem"
+        },
+        {
+          "file": "letsencrypt.org-2.pem",
+          "sha256": "2681e97e939cab7cde4fad1dc733fc7c99e39a203190e8f298e1c02ab431b1e9",
+          "der_sha256": "0fc0901cca2bae9e9fdbb02d50d02f1094f7b36672086991b9e897626dc485f0",
+          "subject": "CN=Root YE,O=ISRG,C=US",
+          "issuer": "CN=ISRG Root X2,O=Internet Security Research Group,C=US",
+          "not_before": "2026-05-13T00:00:00+00:00",
+          "not_after": "2032-09-02T23:59:59+00:00",
+          "signature_oid": "1.2.840.10045.4.3.3",
+          "public_key": "ECPublicKey",
+          "recorded_from": "letsencrypt.org-2.pem"
+        },
+        {
+          "file": "letsencrypt.org-3.pem",
+          "sha256": "4dadd67f1de699b79466b1e672187e6caef5e0fdab4404d649ad8188a1b2d9a1",
+          "der_sha256": "ee5f7abd6981bb0255632cd8f49283451b4b18844d12040b44ee00f07b8fe2c6",
+          "subject": "CN=ISRG Root X2,O=Internet Security Research Group,C=US",
+          "issuer": "CN=ISRG Root X1,O=Internet Security Research Group,C=US",
+          "not_before": "2026-05-13T00:00:00+00:00",
+          "not_after": "2032-09-02T23:59:59+00:00",
+          "signature_oid": "1.2.840.113549.1.1.11",
+          "public_key": "ECPublicKey",
+          "recorded_from": "letsencrypt.org-3.pem"
+        }
+      ],
+      "untrusted_result": "unsupported-name",
+      "removed_anchor_indices": [
+        41,
+        77
+      ],
+      "removed_anchor_subjects": [
+        "CN=ISRG Root X1,O=Internet Security Research Group,C=US",
+        "CN=ISRG Root X2,O=Internet Security Research Group,C=US"
+      ],
+      "openssl_command": [
+        "/opt/homebrew/opt/openssl@3/bin/openssl",
+        "verify",
+        "-show_chain",
+        "-no-CApath",
+        "-no-CAstore",
+        "-CAfile",
+        "/Users/ozeron/code/grounds/crypto/fixtures/public-chains/mozilla-2026-10-20.pem",
+        "-purpose",
+        "sslserver",
+        "-attime",
+        "1792843200",
+        "-verify_hostname",
+        "letsencrypt.org",
+        "-untrusted",
+        "/Users/ozeron/.codex/artifacts/grounds/2026-10-24/m5/round2/oracle-chain.pem",
+        "/Users/ozeron/code/grounds/crypto/fixtures/public-chains/letsencrypt.org-0.pem"
+      ],
+      "openssl_exit": 0,
+      "openssl_output": "/Users/ozeron/code/grounds/crypto/fixtures/public-chains/letsencrypt.org-0.pem: OK\nChain:\ndepth=0: CN=letsencrypt.org (untrusted)\ndepth=1: C=US, O=Let's Encrypt, CN=YE2 (untrusted)\ndepth=2: C=US, O=ISRG, CN=Root YE (untrusted)\ndepth=3: C=US, O=Internet Security Research Group, CN=ISRG Root X2\n"
+    },
+    {
+      "label": "github.com",
+      "hostname": "github.com",
+      "now": 1792843200,
+      "expired_now": 1795996800,
+      "source": "TLS1.3 s_client -showcerts github.com:443 with SNI and http/1.1",
+      "recorded_at": "2026-10-24",
+      "certificates": [
+        {
+          "file": "github.com-0.pem",
+          "sha256": "97baed381c38ab0924c143184dd2e85619fd46cfaa8472dfb719bc1a5c9d524e",
+          "der_sha256": "46b601ee08b418cf8a3a1ebfe670ba5ce43bb05a917fa8b2dd087a30471cfc63",
+          "subject": "CN=github.com",
+          "issuer": "CN=Sectigo Public Server Authentication CA DV E36,O=Sectigo Limited,C=GB",
+          "not_before": "2026-09-01T00:00:00+00:00",
+          "not_after": "2026-11-29T23:59:59+00:00",
+          "signature_oid": "1.2.840.10045.4.3.2",
+          "public_key": "ECPublicKey",
+          "recorded_from": "github.com-0.pem"
+        },
+        {
+          "file": "github.com-1.pem",
+          "sha256": "7c6a6533e40bafb4cbb46d60e8098b1529829053f903aa5b195ce61d5a9f2fd6",
+          "der_sha256": "873f0ba80e3ac222656dfd04158cc15c2927d42d5d05f01dee4a47eb43a916df",
+          "subject": "CN=Sectigo Public Server Authentication CA DV E36,O=Sectigo Limited,C=GB",
+          "issuer": "CN=Sectigo Public Server Authentication Root E46,O=Sectigo Limited,C=GB",
+          "not_before": "2021-03-22T00:00:00+00:00",
+          "not_after": "2036-03-21T23:59:59+00:00",
+          "signature_oid": "1.2.840.10045.4.3.3",
+          "public_key": "ECPublicKey",
+          "recorded_from": "github.com-1.pem"
+        },
+        {
+          "file": "github.com-2.pem",
+          "sha256": "3d7e8979ca5725de9153c9fb1d9d74f737941061845bfa7ffa04397788a59fdf",
+          "der_sha256": "ea6b89ed6907a209ff9188676fb164e7aced894b8996dfbe5ce5bbcc22de4ddd",
+          "subject": "CN=Sectigo Public Server Authentication Root E46,O=Sectigo Limited,C=GB",
+          "issuer": "CN=USERTrust ECC Certification Authority,O=The USERTRUST Network,L=Jersey City,ST=New Jersey,C=US",
+          "not_before": "2021-03-22T00:00:00+00:00",
+          "not_after": "2038-01-18T23:59:59+00:00",
+          "signature_oid": "1.2.840.10045.4.3.3",
+          "public_key": "ECPublicKey",
+          "recorded_from": "github.com-2.pem"
+        }
+      ],
+      "untrusted_result": "unsupported-name",
+      "removed_anchor_indices": [
+        31,
+        93
+      ],
+      "removed_anchor_subjects": [
+        "CN=USERTrust ECC Certification Authority,O=The USERTRUST Network,L=Jersey City,ST=New Jersey,C=US",
+        "CN=Sectigo Public Server Authentication Root E46,O=Sectigo Limited,C=GB"
+      ],
+      "openssl_command": [
+        "/opt/homebrew/opt/openssl@3/bin/openssl",
+        "verify",
+        "-show_chain",
+        "-no-CApath",
+        "-no-CAstore",
+        "-CAfile",
+        "/Users/ozeron/code/grounds/crypto/fixtures/public-chains/mozilla-2026-10-20.pem",
+        "-purpose",
+        "sslserver",
+        "-attime",
+        "1792843200",
+        "-verify_hostname",
+        "github.com",
+        "-untrusted",
+        "/Users/ozeron/.codex/artifacts/grounds/2026-10-24/m5/round2/oracle-chain.pem",
+        "/Users/ozeron/code/grounds/crypto/fixtures/public-chains/github.com-0.pem"
+      ],
+      "openssl_exit": 0,
+      "openssl_output": "/Users/ozeron/code/grounds/crypto/fixtures/public-chains/github.com-0.pem: OK\nChain:\ndepth=0: CN=github.com (untrusted)\ndepth=1: C=GB, O=Sectigo Limited, CN=Sectigo Public Server Authentication CA DV E36 (untrusted)\ndepth=2: C=GB, O=Sectigo Limited, CN=Sectigo Public Server Authentication Root E46\n"
+    },
+    {
+      "label": "www.cloudflare.com",
+      "hostname": "www.cloudflare.com",
+      "now": 1792843200,
+      "expired_now": 1799617417,
+      "source": "TLS1.3 s_client -showcerts www.cloudflare.com:443 with SNI and http/1.1",
+      "recorded_at": "2026-10-24",
+      "certificates": [
+        {
+          "file": "www.cloudflare.com-0.pem",
+          "sha256": "ffae7ea90a6606ccc56ac41474d7a9b919a8865b13caf097e2768dffd9e0bf11",
+          "der_sha256": "7c794df05f61fe7b7ea841ef0803b847eb865ce24e3654a8da6c3cdc9e738d3d",
+          "subject": "CN=www.cloudflare.com",
+          "issuer": "CN=WE1,O=Google Trust Services,C=US",
+          "not_before": "2026-10-12T20:43:38+00:00",
+          "not_after": "2027-01-10T21:43:36+00:00",
+          "signature_oid": "1.2.840.10045.4.3.2",
+          "public_key": "ECPublicKey",
+          "recorded_from": "www.cloudflare.com-0.pem"
+        },
+        {
+          "file": "www.cloudflare.com-1.pem",
+          "sha256": "9b31ef9391a16f076750e135f1f346052abcebdc5fb51b2b7dfe27794141a1d5",
+          "der_sha256": "1dfc1605fbad358d8bc844f76d15203fac9ca5c1a79fd4857ffaf2864fbebf96",
+          "subject": "CN=WE1,O=Google Trust Services,C=US",
+          "issuer": "CN=GTS Root R4,O=Google Trust Services LLC,C=US",
+          "not_before": "2023-12-13T09:00:00+00:00",
+          "not_after": "2029-02-20T14:00:00+00:00",
+          "signature_oid": "1.2.840.10045.4.3.3",
+          "public_key": "ECPublicKey",
+          "recorded_from": "www.cloudflare.com-1.pem"
+        },
+        {
+          "file": "www.cloudflare.com-2.pem",
+          "sha256": "f253f16839979e0dc58f518fca534126bc522b9389636b7bfaf201a58d24994c",
+          "der_sha256": "76b27b80a58027dc3cf1da68dac17010ed93997d0b603e2fadbe85012493b5a7",
+          "subject": "CN=GTS Root R4,O=Google Trust Services LLC,C=US",
+          "issuer": "CN=GlobalSign Root CA,OU=Root CA,O=GlobalSign nv-sa,C=BE",
+          "not_before": "2023-11-15T03:43:21+00:00",
+          "not_after": "2028-01-28T00:00:42+00:00",
+          "signature_oid": "1.2.840.113549.1.1.11",
+          "public_key": "ECPublicKey",
+          "recorded_from": "www.cloudflare.com-2.pem"
+        }
+      ],
+      "untrusted_result": "unsupported-name",
+      "removed_anchor_indices": [
+        82
+      ],
+      "removed_anchor_subjects": [
+        "CN=GTS Root R4,O=Google Trust Services LLC,C=US"
+      ],
+      "openssl_command": [
+        "/opt/homebrew/opt/openssl@3/bin/openssl",
+        "verify",
+        "-show_chain",
+        "-no-CApath",
+        "-no-CAstore",
+        "-CAfile",
+        "/Users/ozeron/code/grounds/crypto/fixtures/public-chains/mozilla-2026-10-20.pem",
+        "-purpose",
+        "sslserver",
+        "-attime",
+        "1792843200",
+        "-verify_hostname",
+        "www.cloudflare.com",
+        "-untrusted",
+        "/Users/ozeron/.codex/artifacts/grounds/2026-10-24/m5/round2/oracle-chain.pem",
+        "/Users/ozeron/code/grounds/crypto/fixtures/public-chains/www.cloudflare.com-0.pem"
+      ],
+      "openssl_exit": 0,
+      "openssl_output": "/Users/ozeron/code/grounds/crypto/fixtures/public-chains/www.cloudflare.com-0.pem: OK\nChain:\ndepth=0: CN=www.cloudflare.com (untrusted)\ndepth=1: C=US, O=Google Trust Services, CN=WE1 (untrusted)\ndepth=2: C=US, O=Google Trust Services LLC, CN=GTS Root R4\n"
+    },
+    {
+      "label": "www.microsoft.com",
+      "hostname": "www.microsoft.com",
+      "now": 1792843200,
+      "expired_now": 1800215722,
+      "source": "TLS1.3 s_client -showcerts www.microsoft.com:443 with SNI and http/1.1",
+      "recorded_at": "2026-10-24",
+      "certificates": [
+        {
+          "file": "www.microsoft.com-0.pem",
+          "sha256": "2c1598afc496ec9628c6bb98a8955ebfcfc4810a240ca60aa62ed641a390ca67",
+          "der_sha256": "9f17b548f7d24f309dbcaab571576c0ca73b80559ce69f27fe295f6408cc57bf",
+          "subject": "CN=www.microsoft.com,O=Microsoft Corporation,L=Redmond,ST=WA,C=US",
+          "issuer": "CN=Microsoft TLS G2 RSA CA OCSP 04,O=Microsoft Corporation,C=US",
+          "not_before": "2026-01-22T19:55:21+00:00",
+          "not_after": "2027-01-17T19:55:21+00:00",
+          "signature_oid": "1.2.840.113549.1.1.12",
+          "public_key": "RSAPublicKey",
+          "recorded_from": "www.microsoft.com-0.pem"
+        },
+        {
+          "file": "www.microsoft.com-1.pem",
+          "sha256": "9a2573b478d0086cbe44a8036dc2c333bd9d6d765d3d5b5a7ba5fedce0f80609",
+          "der_sha256": "ac8ea9f2874fd368a3e778b1a0b165ee898db9b9687c17edcdc76908ab58c82c",
+          "subject": "CN=Microsoft TLS G2 RSA CA OCSP 04,O=Microsoft Corporation,C=US",
+          "issuer": "CN=Microsoft TLS RSA Root G2,O=Microsoft Corporation,C=US",
+          "not_before": "2025-08-01T20:02:59+00:00",
+          "not_after": "2029-06-03T20:02:59+00:00",
+          "signature_oid": "1.2.840.113549.1.1.12",
+          "public_key": "RSAPublicKey",
+          "recorded_from": "www.microsoft.com-1.pem"
+        },
+        {
+          "file": "www.microsoft.com-2.pem",
+          "sha256": "cc80b386dca2922d3f341ab2595004a063f75dbbc5d96c5e026614f1555f0ef9",
+          "der_sha256": "ddcd1e8a20638d4aaff7201bb1d56452acd2c759f1686bdc38f73dd15732bdc2",
+          "subject": "CN=Microsoft TLS RSA Root G2,O=Microsoft Corporation,C=US",
+          "issuer": "CN=DigiCert Global Root G2,OU=www.digicert.com,O=DigiCert Inc,C=US",
+          "not_before": "2025-05-21T00:00:00+00:00",
+          "not_after": "2029-06-19T23:59:59+00:00",
+          "signature_oid": "1.2.840.113549.1.1.12",
+          "public_key": "RSAPublicKey",
+          "recorded_from": "www.microsoft.com-2.pem"
+        }
+      ],
+      "untrusted_result": "unsupported-name",
+      "removed_anchor_indices": [
+        26
+      ],
+      "removed_anchor_subjects": [
+        "CN=DigiCert Global Root G2,OU=www.digicert.com,O=DigiCert Inc,C=US"
+      ],
+      "openssl_command": [
+        "/opt/homebrew/opt/openssl@3/bin/openssl",
+        "verify",
+        "-show_chain",
+        "-no-CApath",
+        "-no-CAstore",
+        "-CAfile",
+        "/Users/ozeron/code/grounds/crypto/fixtures/public-chains/mozilla-2026-10-20.pem",
+        "-purpose",
+        "sslserver",
+        "-attime",
+        "1792843200",
+        "-verify_hostname",
+        "www.microsoft.com",
+        "-untrusted",
+        "/Users/ozeron/.codex/artifacts/grounds/2026-10-24/m5/round2/oracle-chain.pem",
+        "/Users/ozeron/code/grounds/crypto/fixtures/public-chains/www.microsoft.com-0.pem"
+      ],
+      "openssl_exit": 0,
+      "openssl_output": "/Users/ozeron/code/grounds/crypto/fixtures/public-chains/www.microsoft.com-0.pem: OK\nChain:\ndepth=0: C=US, ST=WA, L=Redmond, O=Microsoft Corporation, CN=www.microsoft.com (untrusted)\ndepth=1: C=US, O=Microsoft Corporation, CN=Microsoft TLS G2 RSA CA OCSP 04 (untrusted)\ndepth=2: C=US, O=Microsoft Corporation, CN=Microsoft TLS RSA Root G2 (untrusted)\ndepth=3: C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Global Root G2\n"
+    },
+    {
+      "label": "www.sectigo.com",
+      "hostname": "www.sectigo.com",
+      "now": 1792843200,
+      "expired_now": 1797292800,
+      "source": "TLS1.3 s_client -showcerts www.sectigo.com:443 with SNI and http/1.1",
+      "recorded_at": "2026-10-24",
+      "certificates": [
+        {
+          "file": "www.sectigo.com-0.pem",
+          "sha256": "d413a5866391bfff6f32c63013bec8a616e1290012e4ca6fb2f26757415e46f3",
+          "der_sha256": "988fa465b96376cb69dc7147ae91efc4423c8742083e5fe12c25535cc3c31963",
+          "subject": "CN=sectigo.com,O=Sectigo Limited,ST=London,C=GB",
+          "issuer": "CN=Sectigo Public Server Authentication CA OV R36,O=Sectigo Limited,C=GB",
+          "not_before": "2026-09-15T00:00:00+00:00",
+          "not_after": "2026-12-14T23:59:59+00:00",
+          "signature_oid": "1.2.840.113549.1.1.11",
+          "public_key": "RSAPublicKey",
+          "recorded_from": "www.sectigo.com-0.pem"
+        },
+        {
+          "file": "www.sectigo.com-1.pem",
+          "sha256": "505ca50c3930cedca888c4e1ebb0747cb485498547b60ea6bcd23cf78766aeeb",
+          "der_sha256": "6542d176bed50f193c0ce297ae44ecd8a0a86bec2ede682769344059b4e78530",
+          "subject": "CN=Sectigo Public Server Authentication CA OV R36,O=Sectigo Limited,C=GB",
+          "issuer": "CN=Sectigo Public Server Authentication Root R46,O=Sectigo Limited,C=GB",
+          "not_before": "2021-03-22T00:00:00+00:00",
+          "not_after": "2036-03-21T23:59:59+00:00",
+          "signature_oid": "1.2.840.113549.1.1.12",
+          "public_key": "RSAPublicKey",
+          "recorded_from": "www.sectigo.com-1.pem"
+        },
+        {
+          "file": "www.sectigo.com-2.pem",
+          "sha256": "3da940d835508b90b20fcd97c9c8fc5906de6cf08a3416d516af7ddab92e0b2d",
+          "der_sha256": "92f351bf3d54164dfa8dd8f9e1139d3150349786485d2b9eecd00e2971c1e6c5",
+          "subject": "CN=Sectigo Public Server Authentication Root R46,O=Sectigo Limited,C=GB",
+          "issuer": "CN=USERTrust RSA Certification Authority,O=The USERTRUST Network,L=Jersey City,ST=New Jersey,C=US",
+          "not_before": "2021-03-22T00:00:00+00:00",
+          "not_after": "2038-01-18T23:59:59+00:00",
+          "signature_oid": "1.2.840.113549.1.1.12",
+          "public_key": "RSAPublicKey",
+          "recorded_from": "www.sectigo.com-2.pem"
+        },
+        {
+          "file": "www.sectigo.com-3.pem",
+          "sha256": "8a3dbcb92ab1c6277647fe2ab8536b5c982abbfdb1f1df5728e01b906aba953a",
+          "der_sha256": "e793c9b02fd8aa13e21c31228accb08119643b749c898964b1746d46c3d4cbd2",
+          "subject": "CN=USERTrust RSA Certification Authority,O=The USERTRUST Network,L=Jersey City,ST=New Jersey,C=US",
+          "issuer": "CN=USERTrust RSA Certification Authority,O=The USERTRUST Network,L=Jersey City,ST=New Jersey,C=US",
+          "not_before": "2010-02-01T00:00:00+00:00",
+          "not_after": "2038-01-18T23:59:59+00:00",
+          "signature_oid": "1.2.840.113549.1.1.12",
+          "public_key": "RSAPublicKey",
+          "recorded_from": "www.sectigo.com-3.pem"
+        }
+      ],
+      "untrusted_result": "unsupported-name",
+      "removed_anchor_indices": [
+        30,
+        94
+      ],
+      "removed_anchor_subjects": [
+        "CN=USERTrust RSA Certification Authority,O=The USERTRUST Network,L=Jersey City,ST=New Jersey,C=US",
+        "CN=Sectigo Public Server Authentication Root R46,O=Sectigo Limited,C=GB"
+      ],
+      "openssl_command": [
+        "/opt/homebrew/opt/openssl@3/bin/openssl",
+        "verify",
+        "-show_chain",
+        "-no-CApath",
+        "-no-CAstore",
+        "-CAfile",
+        "/Users/ozeron/code/grounds/crypto/fixtures/public-chains/mozilla-2026-10-20.pem",
+        "-purpose",
+        "sslserver",
+        "-attime",
+        "1792843200",
+        "-verify_hostname",
+        "www.sectigo.com",
+        "-untrusted",
+        "/Users/ozeron/.codex/artifacts/grounds/2026-10-24/m5/round2/oracle-chain.pem",
+        "/Users/ozeron/code/grounds/crypto/fixtures/public-chains/www.sectigo.com-0.pem"
+      ],
+      "openssl_exit": 0,
+      "openssl_output": "/Users/ozeron/code/grounds/crypto/fixtures/public-chains/www.sectigo.com-0.pem: OK\nChain:\ndepth=0: C=GB, ST=London, O=Sectigo Limited, CN=sectigo.com (untrusted)\ndepth=1: C=GB, O=Sectigo Limited, CN=Sectigo Public Server Authentication CA OV R36 (untrusted)\ndepth=2: C=GB, O=Sectigo Limited, CN=Sectigo Public Server Authentication Root R46\n"
+    },
+    {
+      "label": "www.amazon.com",
+      "hostname": "www.amazon.com",
+      "now": 1792843200,
+      "expired_now": 1799712000,
+      "source": "TLS1.3 s_client -showcerts www.amazon.com:443 with SNI and http/1.1",
+      "recorded_at": "2026-10-24",
+      "certificates": [
+        {
+          "file": "www.amazon.com-0.pem",
+          "sha256": "ee29fb7084171839824b2f86194dfc856e41e9b1a5da297e2b5ccf3948748d1a",
+          "der_sha256": "ab1fe26963731abd166a55c3657277db884d4c2493510eff078a0170586fe565",
+          "subject": "CN=www.amazon.com",
+          "issuer": "CN=Amazon RSA 2048 M04,O=Amazon,C=US",
+          "not_before": "2026-01-19T00:00:00+00:00",
+          "not_after": "2027-01-11T23:59:59+00:00",
+          "signature_oid": "1.2.840.113549.1.1.11",
+          "public_key": "RSAPublicKey",
+          "recorded_from": "www.amazon.com-0.pem"
+        },
+        {
+          "file": "www.amazon.com-1.pem",
+          "sha256": "78da2e08db43786bc287a2596871dcf9d698d66064b559a51e30ae8ce5cdba96",
+          "der_sha256": "138bdf6e23ac971eb4e626b279dd6a26f057510f1de394293a5eea2860de019b",
+          "subject": "CN=Amazon RSA 2048 M04,O=Amazon,C=US",
+          "issuer": "CN=Amazon Root CA 1,O=Amazon,C=US",
+          "not_before": "2022-08-23T22:26:35+00:00",
+          "not_after": "2030-08-23T22:26:35+00:00",
+          "signature_oid": "1.2.840.113549.1.1.11",
+          "public_key": "RSAPublicKey",
+          "recorded_from": "www.amazon.com-1.pem"
+        },
+        {
+          "file": "www.amazon.com-2.pem",
+          "sha256": "bc8d18c009d4189020f7b87e2bfe19baa12035c581c6375f4197470f28df2956",
+          "der_sha256": "87dcd4dc74640a322cd205552506d1be64f12596258096544986b4850bc72706",
+          "subject": "CN=Amazon Root CA 1,O=Amazon,C=US",
+          "issuer": "CN=Starfield Services Root Certificate Authority - G2,O=Starfield Technologies\\, Inc.,L=Scottsdale,ST=Arizona,C=US",
+          "not_before": "2015-05-25T12:00:00+00:00",
+          "not_after": "2037-12-31T01:00:00+00:00",
+          "signature_oid": "1.2.840.113549.1.1.11",
+          "public_key": "RSAPublicKey",
+          "recorded_from": "www.amazon.com-2.pem"
+        }
+      ],
+      "untrusted_result": "unsupported-name",
+      "removed_anchor_indices": [
+        7,
+        43
+      ],
+      "removed_anchor_subjects": [
+        "CN=Starfield Services Root Certificate Authority - G2,O=Starfield Technologies\\, Inc.,L=Scottsdale,ST=Arizona,C=US",
+        "CN=Amazon Root CA 1,O=Amazon,C=US"
+      ],
+      "openssl_command": [
+        "/opt/homebrew/opt/openssl@3/bin/openssl",
+        "verify",
+        "-show_chain",
+        "-no-CApath",
+        "-no-CAstore",
+        "-CAfile",
+        "/Users/ozeron/code/grounds/crypto/fixtures/public-chains/mozilla-2026-10-20.pem",
+        "-purpose",
+        "sslserver",
+        "-attime",
+        "1792843200",
+        "-verify_hostname",
+        "www.amazon.com",
+        "-untrusted",
+        "/Users/ozeron/.codex/artifacts/grounds/2026-10-24/m5/round2/oracle-chain.pem",
+        "/Users/ozeron/code/grounds/crypto/fixtures/public-chains/www.amazon.com-0.pem"
+      ],
+      "openssl_exit": 0,
+      "openssl_output": "/Users/ozeron/code/grounds/crypto/fixtures/public-chains/www.amazon.com-0.pem: OK\nChain:\ndepth=0: CN=www.amazon.com (untrusted)\ndepth=1: C=US, O=Amazon, CN=Amazon RSA 2048 M04 (untrusted)\ndepth=2: C=US, O=Amazon, CN=Amazon Root CA 1\n"
+    }
+  ],
+  "notes": [
+    "Historical LE chains use fixed 2025-09-01 UTC; current chains use fixed 2026-10-24 12:00 UTC. No wall clock in offline gates.",
+    "Public certificate bytes only; no private credentials.",
+    "Root removal deletes every bundle root on any issuer/subject in the recorded path, including direct and cross-signed alternatives."
+  ]
+}
