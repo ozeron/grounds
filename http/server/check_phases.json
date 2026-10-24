@@ -75,19 +75,19 @@
     },
     {
       "name": "http_server/bend_tls_bun_ecdsa_aes",
-      "optional": false
+      "optional": true
     },
     {
       "name": "http_server/bend_tls_bun_ecdsa_aes_negative",
-      "optional": false
+      "optional": true
     },
     {
       "name": "http_server/bend_tls_bun_ecdsa_chacha",
-      "optional": false
+      "optional": true
     },
     {
       "name": "http_server/bend_tls_bun_ecdsa_chacha_negative",
-      "optional": false
+      "optional": true
     },
     {
       "name": "http_server/bend_tls_configuration_native",
@@ -95,7 +95,7 @@
     },
     {
       "name": "http_server/bend_tls_configuration_bun",
-      "optional": false
+      "optional": true
     },
     {
       "name": "http_server/bend_wss_frontend_native",

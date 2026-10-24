@@ -12,6 +12,20 @@ phase=
 announce() { python3 ../../tools/check_phase.py "$@"; }
 begin() { phase="http_server/$1"; announce start "$phase"; }
 end() { announce end "$phase" 0; phase=; }
+# Only the five Bun live HTTP phases have the authorized Linux-CI exception.
+# Keep builds, no-delegation controls and every native phase gating everywhere.
+bun_live() {
+  name=$1
+  shift
+  if [ -n "${CI:-}" ] && [ "${RUNNER_OS:-}" = Linux ]; then
+    "$@"
+    announce skip "http_server/$name" "Bun live HTTPS unsupported on Linux CI: shared-runner latency exceeds the unchanged handshake deadline"
+  else
+    begin "$name"
+    "$@"
+    end
+  fi
+}
 # Release the frontend before bounded native C compilation. Compiler-only
 # heap settings do not change any server or peer evaluator environment.
 native() {
@@ -101,25 +115,15 @@ end
 begin bend_tls_native_rsa_chacha_negative
 python3 examples/bend_tls_check.py --fixtures "$artifacts/fixtures" --credential rsa --suite chacha --negative --report "$artifacts/bend_tls_native_rsa_chacha_negative.json" -- "$artifacts/bend_tls"
 end
-begin bend_tls_bun_ecdsa_aes
-python3 examples/bend_tls_check.py --target bun --fixtures "$artifacts/fixtures" --credential ecdsa --suite aes --go "$tmp/bend_tls_go" --legacy "$tmp/cookie_legacy" --report "$artifacts/bend_tls_bun_ecdsa_aes.json" -- bun "$artifacts/bend_tls.js"
-end
-begin bend_tls_bun_ecdsa_aes_negative
-python3 examples/bend_tls_check.py --target bun --fixtures "$artifacts/fixtures" --credential ecdsa --suite aes --negative --report "$artifacts/bend_tls_bun_ecdsa_aes_negative.json" -- bun "$artifacts/bend_tls.js"
-end
-begin bend_tls_bun_ecdsa_chacha
-python3 examples/bend_tls_check.py --target bun --fixtures "$artifacts/fixtures" --credential ecdsa --suite chacha --go "$tmp/bend_tls_go" --legacy "$tmp/cookie_legacy" --report "$artifacts/bend_tls_bun_ecdsa_chacha.json" -- bun "$artifacts/bend_tls.js"
-end
-begin bend_tls_bun_ecdsa_chacha_negative
-python3 examples/bend_tls_check.py --target bun --fixtures "$artifacts/fixtures" --credential ecdsa --suite chacha --negative --report "$artifacts/bend_tls_bun_ecdsa_chacha_negative.json" -- bun "$artifacts/bend_tls.js"
-end
+bun_live bend_tls_bun_ecdsa_aes python3 examples/bend_tls_check.py --target bun --fixtures "$artifacts/fixtures" --credential ecdsa --suite aes --go "$tmp/bend_tls_go" --legacy "$tmp/cookie_legacy" --report "$artifacts/bend_tls_bun_ecdsa_aes.json" -- bun "$artifacts/bend_tls.js"
+bun_live bend_tls_bun_ecdsa_aes_negative python3 examples/bend_tls_check.py --target bun --fixtures "$artifacts/fixtures" --credential ecdsa --suite aes --negative --report "$artifacts/bend_tls_bun_ecdsa_aes_negative.json" -- bun "$artifacts/bend_tls.js"
+bun_live bend_tls_bun_ecdsa_chacha python3 examples/bend_tls_check.py --target bun --fixtures "$artifacts/fixtures" --credential ecdsa --suite chacha --go "$tmp/bend_tls_go" --legacy "$tmp/cookie_legacy" --report "$artifacts/bend_tls_bun_ecdsa_chacha.json" -- bun "$artifacts/bend_tls.js"
+bun_live bend_tls_bun_ecdsa_chacha_negative python3 examples/bend_tls_check.py --target bun --fixtures "$artifacts/fixtures" --credential ecdsa --suite chacha --negative --report "$artifacts/bend_tls_bun_ecdsa_chacha_negative.json" -- bun "$artifacts/bend_tls.js"
 
 begin bend_tls_configuration_native
 python3 examples/bend_tls_check.py --configuration --fixtures "$artifacts/fixtures" --report "$artifacts/configuration-native.json" -- "$artifacts/bend_tls"
 end
-begin bend_tls_configuration_bun
-python3 examples/bend_tls_check.py --target bun --configuration --fixtures "$artifacts/fixtures" --report "$artifacts/configuration-bun.json" -- bun "$artifacts/bend_tls.js"
-end
+bun_live bend_tls_configuration_bun python3 examples/bend_tls_check.py --target bun --configuration --fixtures "$artifacts/fixtures" --report "$artifacts/configuration-bun.json" -- bun "$artifacts/bend_tls.js"
 
 # M4b WSS is native-only; existing Bun M4a checks above remain unchanged.
 m4b=${GROUNDS_M4B_SERVER_ARTIFACTS:-$artifacts/m4b}

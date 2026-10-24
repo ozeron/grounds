@@ -4,6 +4,22 @@ Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and 
 
 The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
 
+- 2026-10-24 (M5 round 2 item 0, Bun Linux-CI timing disposition):
+  The wrong-CA assertion is unchanged: only SSLCertVerificationError passes.
+  A local owned-process 25% duty-cycle experiment reproduces the reported
+  pre-Certificate SSLEOFError on Bun **3/3**, versus certificate rejection
+  **3/3** on native at the same duty cycle. Both targets reject normally
+  unthrottled. This is latency under the existing 1000 ms handshake deadline,
+  not evidence of a native protocol defect. No deadline or assertion changed.
+  Per the native-only/new-Bun-failures policy, exactly the five Bun live HTTP
+  phases (four ECDSA suite/negative rows and configuration) now record an
+  explicit unsupported skip only with nonempty `CI` and `RUNNER_OS=Linux`.
+  Native phases, Bun build/audit controls and local macOS Bun gates remain.
+  Artifacts: `~/.codex/artifacts/grounds/2026-10-24/m5/round2/`:
+  `item0-timing-01.json`, `item0-timing-results.json`, `item0-policy-01.json`.
+  CPU throttling uses SIGSTOP/SIGCONT only on the diagnostic's owned server;
+  no production scheduler or execution policy changed.
+
 - 2026-10-24 (M5 deliverable 4, native AES-256/SHA-384 TLS; **M5 OPEN**):
   TLS_AES_256_GCM_SHA384 is implemented in both Bend roles, including
   AES-256/GCM, SHA-384 transcript/HRR, HKDF-SHA384, 48-byte Finished and
