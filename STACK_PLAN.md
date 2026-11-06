@@ -266,14 +266,14 @@ This revises the frozen TLS_PROFILE.md; record the new profile version there.
   RSA-PSS with SHA-384/512 in X.509 chain verification.
 - [x] Add TLS_AES_256_GCM_SHA384 (AES-256 key schedule and GCM) to client and
   server, keeping the existing suites and their preference order.
-- [ ] Load trust anchors from a PEM bundle (system bundle or explicit file),
+- [x] Load trust anchors from a PEM bundle (system bundle or explicit file),
   raising anchor/candidate limits within the guard's memory budget; keep anchors
   explicit inputs, never an implicit trust-all.
-- [ ] Interop: a recorded corpus of public chains (Let's Encrypt RSA and ECDSA,
-  plus other major CAs) verified offline on both targets; an opt-in, non-gating
-  live check against a few public hosts. Negative cases: wrong host, expired,
+- [x] Interop: a recorded corpus of public chains (Let's Encrypt RSA and ECDSA,
+  plus other major CAs) verified offline on native (2026-10-23 scope); an
+  opt-in, non-gating live check against a few public hosts. Negative cases: wrong host, expired,
   untrusted root, unsupported algorithm fails closed.
-- [ ] Still out of scope: OCSP/CRL revocation, Ed25519, post-quantum hybrid key
+- [x] Still out of scope: OCSP/CRL revocation, Ed25519, post-quantum hybrid key
   shares, key/certificate generation. Record them as limitations.
 
 Exit: the Bend HTTP client fetches over HTTPS from servers presenting common

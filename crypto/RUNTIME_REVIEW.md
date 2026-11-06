@@ -246,3 +246,33 @@ erasure. SHA-384/HMAC/HKDF and AES/GCM contain synthetic secrets, with the
 same copying/allocator limits as the existing secret primitives. P-384 remains
 public verification only. `crypto/ERASURE.md`'s physical-erasure blocker stays
 open; none of this evidence admits live private/session secrets.
+
+
+## M5 explicit bundles and public-server verification (2026-10-24)
+
+The bundle parser and anchor search operate on public certificate bytes only.
+Trust comes from explicit caller-supplied bytes/path, not anchor self-signatures.
+Anchor framing accepts unknown/SHA-1 self-signature algorithms without enabling
+those algorithms on any peer signature edge; exact inner/outer identifiers,
+canonical OIDs, DER and signature BIT STRING framing remain checked.
+The 2 MiB/256-anchor/4096-examination bounds do not expand peer/path bounds.
+Malformed/duplicate/overflow inputs reject the complete load. File loading
+bounds size and read, including growth after the size check.
+
+The native HTTP diagnostic uses the ordinary Bend client, explicit bundle,
+trusted clock and Unicode assets. The disposable build replaces host TLS and
+cookie effects with established abort controls. Its optional diagnostic prints
+observe public CV scheme and authenticated suite/group only; no admission,
+transcript, timeout, secret or network bytes change. The emitted-C/native
+no-delegation audit covers this exact entry. Python/OpenSSL remain peers,
+recorders and offline oracles, never a Grounds verification implementation.
+
+The pinned public corpus exercises P-384 signature verification, not private
+P-384 signing or ECDH. Five public handshakes used X25519, supporting retention
+of the existing X25519/P-256 share set. The synthetic-server-credential rule,
+physical-erasure blocker in ERASURE.md, finite Name profile and exclusions
+(OCSP/CRL, Ed25519, PQ shares, key/cert generation) all remain. The opt-in
+public-server observations do not authorize production secret use.
+
+Guarded counts, measurements, source/binary bindings and final root disposition
+are recorded in STACK_PROGRESS.md and the M5 round2 artifact directory.

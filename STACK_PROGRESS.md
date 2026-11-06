@@ -4,6 +4,62 @@ Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and 
 
 The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
 
+- 2026-10-24 (M5 round 2 deliverables 5–6; implementation complete, **gates pending**):
+  Explicit `bend_transport.from_bundle` bytes and `from_bundle_file` caller-path
+  APIs load 1–256 anchors, with 2 MiB text / 65,535-byte DER limits. Caller
+  supplies Unicode assets and trusted clock; no ambient trust is discovered.
+  Malformed blocks/DER/OIDs, duplicates and overflow reject the entire load;
+  explanatory text outside blocks is permitted. Both file size and read are
+  bounded. Explicit anchors do not depend on their self-signatures, so the
+  Mozilla store's SHA-1 self-signatures load without admitting SHA-1 peers.
+  The peer/path bounds stay 16/8; candidate budget stays 512 through 16 anchors
+  and is 4096 for larger stores. Linear scanning remains based on measurement.
+  `eceb5de` implements bundle admission; `222e681` records the public corpus,
+  diagnostic client and offline gates. All new work is native only.
+  Artifacts below are under `~/.codex/artifacts/grounds/2026-10-24/m5/round2/`.
+  `bundle-final-01.json` passes 3/3 phases, 46 bytes/file policy cases,
+  3655.2 MiB peak. `final-focus-01.json` passes 18/18 phases, including the
+  final anchor regressions, all 65 public-chain cases and measurements;
+  peak 3731.2 MiB. The full 196-case legacy chain matrix is included in the
+  pending package gates (earlier 194-case evidence alone is not final coverage).
+  The pinned Mozilla 2026-10-20 snapshot contains 118 roots / 200116 bytes,
+  SHA-256 `796f1389bfea13c0ed78f663b765baaff54a508e5483786bd6ece73c5e3e3cbe`.
+  Thirteen committed leaf/intermediate chains cover LE R10 → ISRG X1,
+  E5/E6 → ISRG X2 (P-384), current LE test hosts, example.com, GTS/Google,
+  letsencrypt.org, GitHub, Cloudflare, Microsoft → DigiCert, Sectigo/USERTrust
+  and Amazon. The manifest records source, hashes, fixed time and OpenSSL
+  verification. Historical LE uses 2025-09-01 UTC; current chains use
+  2026-10-24 12:00 UTC. Every chain passes normal verification and refuses
+  wrong hostname, expiry, removed anchors and unknown signatures; the latter
+  reports `unsupported-algorithm`. Removed-root scans can report
+  `unsupported-name` on unrelated anchors. The EV www.digicert.com Name is
+  outside the existing finite profile; Microsoft supplies DigiCert coverage.
+  No failed or CT-poison recording is counted as positive evidence.
+  `bundle-measurements.json`: 8 repetitions per parse/load; median bytes/file
+  times are 108/109 ms (118 roots), 220/224 ms (200), 331.5/332 ms (256).
+  Max clean-process RSS is 9.69 / 11.89 / 13.92 MiB respectively. Larger
+  stores add explicitly synthetic signature aliases, never claimed as public
+  certificates. Full-bundle verification medians are 70–410 ms (5 repetitions
+  per chain), max RSS 13.61 MiB; timing excludes bundle/Unicode loading.
+  `final-live-01.json` passes the exact emitted-C/native no-delegation audit
+  with two abort controls, then records the explicitly opt-in, non-gating
+  diagnostic (100.6 MiB peak). `final-live-results.json`: example.com,
+  www.google.com, letsencrypt.org, github.com, www.cloudflare.com all return
+  HTTP 200 with normal verification; every row uses AES_128_GCM_SHA256,
+  X25519 and ecdsa_secp256r1_sha256. The binary SHA-256 and bundle hash are
+  recorded. Retain X25519/P-256 shares: P-384 signatures work in the corpus,
+  while no observed public handshake requires a P-384 share; prior forced
+  interop also covers P-256. No P-384 signing/share implementation is added.
+  The optimizing-JIT frontend exceeded 4 GiB; JIT-off exceeded 120 seconds.
+  Baseline-JIT compilation passes within unchanged limits (`live-build-baseline-final-01.json`):
+  frontend 83.492 s, compile 34.990 s, peak 3842.95 MiB. New public compiler
+  phases use that compiler-only setting; native runtime behavior is unchanged.
+  Failed attempts are retained. Fresh changed-package and root gates remain
+  pending; M5 exit is not yet claimed. Synthetic server credentials only,
+  ERASURE.md's physical-erasure blocker, no OCSP/CRL, Ed25519, PQ shares or
+  key/certificate generation remain binding. TLS_PROFILE.md v2 and
+  crypto/RUNTIME_REVIEW.md describe the final native implementation boundary.
+
 - 2026-10-24 (M5 round 2 item 0, Bun Linux-CI timing disposition):
   The wrong-CA assertion is unchanged: only SSLCertVerificationError passes.
   A local owned-process 25% duty-cycle experiment reproduces the reported

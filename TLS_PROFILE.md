@@ -1,17 +1,21 @@
 # Bend HTTPS implementation profile
 
 Binding M2 build decision and M3b composition: 2026-10-23. This finite profile
-governs synthetic-key TLS acceptance. STACK_PLAN.md remains the acceptance contract.
-Only synthetic credentials may be used: see crypto/RUNTIME_REVIEW.md.
+governs synthetic-key TLS acceptance and native public-server verification.
+STACK_PLAN.md remains the acceptance contract.
+Only synthetic server credentials may be used: see crypto/RUNTIME_REVIEW.md.
 
 ## Profile versions
 
 Version 1 is the accepted M2–M4 TLS wire profile below. Version 2 (M5,
-2026-10-24) is being implemented in ordered, tested increments. SHA-384,
+2026-10-24) adds the native public-internet client profile described here. SHA-384,
 SHA-512, HMAC-SHA384, HKDF-SHA384 and verification-only P-384 ECDSA
 are now available natively. Strict uncompressed SEC1 points and shared strict
 DER signature parsing are tested. P-384 signing/key shares remain absent;
-X25519/P-256 share sufficiency will be checked against the interop corpus. Native certificate verification now admits ECDSA/SHA-384 with P-256 (leftmost
+X25519/P-256 shares are retained: the five recorded public HTTP handshakes
+all negotiated X25519, while forced-suite loopback tests also exercise P-256.
+P-384 certificate signatures do not require a P-384 ECDH share. Native
+certificate verification now admits ECDSA/SHA-384 with P-256 (leftmost
 256 digest bits) or P-384, RSA PKCS#1 v1.5 SHA-384/512, and RSA-PSS
 SHA-384/512 with matching MGF1 hash and trailerField=1. PSS signatures
 bind their exact salt length (0..512 encoded bytes, additionally bounded by
@@ -30,13 +34,46 @@ over the selected 32- or 48-byte transcript hash.
 Suite preference is AES-128-GCM, ChaCha20-Poly1305, then AES-256-GCM.
 Thirty forced-AES-256 peer cases pass, including both X25519/P-256 groups,
 P-384 credentials, RSA-PSS SHA-384/512 and directional KeyUpdates. This
-loopback evidence gives no reason to change that preference. It does not
-replace the pending public-chain corpus or settle P-384 key-share demand.
-Package/root gate evidence is recorded in STACK_PROGRESS.md.
-Trust limits retain version 1 behavior until
-the bundle increment is verified. M5 acceptance remains open;
-new native work does not expand the accepted Bun profile. Synthetic credentials
-and the physical-erasure blocker remain binding.
+loopback evidence gives no reason to change that preference. The offline
+corpus additionally verifies thirteen public chains with the pinned Mozilla
+bundle, including Let's Encrypt R10/E5/E6, DigiCert, GTS, Sectigo/USERTrust
+and Amazon. All five requested public HTTP fetches verified and returned 200;
+network observations are opt-in diagnostics, never acceptance gates.
+Package/root gate evidence and M5 acceptance status are in STACK_PROGRESS.md.
+New native work does not expand the accepted Bun profile. Synthetic server
+credentials and the physical-erasure blocker remain binding.
+
+### Version 2 explicit trust profile
+
+`http/client/bend_transport.bend` exposes `from_bundle` for explicit PEM bytes
+and `from_bundle_file` for a caller-supplied path, including a system or certifi
+bundle path. It never discovers ambient trust. Unicode assets and a trusted
+clock sample are still explicit caller inputs. `from_pem` remains available.
+
+The PEM bundle is bounded to 2 MiB and 256 anchors; each certificate retains
+its 65,535-byte DER limit. File loading bounds both size and read. Explanatory
+text outside exact CERTIFICATE delimiters is allowed; malformed blocks or
+DER/OID framing, duplicate entries and overflow reject the entire load,
+without partial trust. Empty stores fail. File IO errors use normal File effects.
+A trust anchor's self-signature never establishes trust: structurally valid
+SHA-1 self-signatures can be stored, but SHA-1 peer signatures remain refused.
+Key admission, Name matching and CA/extension policies still apply on the path.
+
+There are at most 16 presented certificates and 8 certificates per path,
+including leaf and anchor. Search permits 512 candidate examinations for
+stores of at most 16 anchors, 4096 for larger stores. The pinned 118-root
+snapshot and synthetic 200/256-anchor scale cases stay within the guard;
+linear scanning is retained on measured performance (dated ledger receipts).
+The bundle SHA-256 is
+`796f1389bfea13c0ed78f663b765baaff54a508e5483786bd6ece73c5e3e3cbe`.
+
+Offline checks use fixed times, SAN-only hostname verification and recorded
+roots. Unknown certificate signatures return `unsupported-algorithm`.
+The finite Name profile remains: some EV Names are unsupported, and removed
+trust roots can report `unsupported-name` after scanning unrelated anchors.
+No network issuer fetching, CN fallback, OCSP/CRL, Ed25519, PQ shares or
+key/certificate generation is added. Public-certificate verification is not
+approval for secret erasure or production private credentials.
 
 ## Standards baseline
 
@@ -321,8 +358,10 @@ report does not complete M4.
 This is synthetic-key qualification only. The physical-erasure blocker in
 [crypto/ERASURE.md](crypto/ERASURE.md), ECDSA nonce/retry timing and the broader
 runtime dispositions in [crypto/RUNTIME_REVIEW.md](crypto/RUNTIME_REVIEW.md)
-remain. The 16-anchor/no-system-store boundary, wall-clock refresh obligation,
+remain. Version 2 supersedes the M4 16-anchor limit with explicit bundle
+loading; no ambient trust discovery, the wall-clock refresh obligation,
 unsupported IPv6 URL literals, resumption/0-RTT/client authentication and other
-frozen exclusions remain. M5 adds public-internet algorithms and trust-bundle
-admission next; RTC/DTLS/SCTP/TURN/media expansion and the full nineteen-gate
+frozen exclusions remain. Version 2 above adds native public-internet
+algorithms and explicit trust-bundle admission; RTC/DTLS/SCTP/TURN/media
+expansion and the full nineteen-gate
 stack remain deferred.
