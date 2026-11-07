@@ -307,8 +307,11 @@ real-world HTTPS use without widening the frozen exclusions.
   (`1e6ffcd`..`b47f459`; gap table in `http/client/CLIENT_AUDIT.md`).
   Deferred with rationale: chunked or streamed uploads, gzip/deflate,
   CONNECT proxies, and a DNS timeout.
-- [ ] Opt-in system CA bundle loading. It stays an explicit caller choice,
-  never ambient trust.
+- [x] Opt-in system CA bundle loading. It stays an explicit caller choice,
+  never ambient trust. Done 2026-11-07 (`8694753`..`01c8aa1`):
+  `bend_transport.from_system_bundle` (`SSL_CERT_FILE`, then a fixed path
+  list); system files drop identical duplicates and skip OpenSSL TRUSTED
+  CERTIFICATE blocks. See TLS_PROFILE.md version 3.
 - [ ] IPv6: TCP connections, AAAA resolution and bracketed IPv6 URL literals.
 - [ ] Server SNI multi-certificate selection.
 - [ ] Broaden the finite Name profile for common EV certificates (for example

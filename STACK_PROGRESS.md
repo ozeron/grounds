@@ -4,6 +4,93 @@ Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and 
 
 The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
 
+- 2026-11-07 (M6 item 2 done: opt-in system CA bundle): commits
+  `8694753`, `dfc17d4`, `e2f408a`, `01c8aa1` on `0e0d110`.
+  - API (`http/client/bend_transport.bend`): `from_system_bundle(
+    normalization, profile, clock)` returns `IO(R(System{path, policy}))`;
+    `from_system_bundle_paths(..., candidates, clock)` takes the list from
+    the caller; `system_paths()` and `system_candidates(override, paths)`
+    are the pure resolution. No new C effects (`IO.get_env`, `File.open`
+    results). `from_pem`, `from_bundle*` and `default` are unchanged.
+  - Path policy: a non-empty `SSL_CERT_FILE` replaces the list (OpenSSL
+    semantics) and never falls back. Otherwise, in order:
+    `/etc/ssl/certs/ca-certificates.crt`, `/etc/pki/tls/certs/ca-bundle.crt`,
+    `/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem` (added: Fedora 45
+    no longer ships `/etc/pki/tls/certs/ca-bundle.crt`),
+    `/etc/ssl/ca-bundle.pem`, `/etc/ssl/cert.pem`. The first file that
+    opens wins; after that a size/read/admission failure fails the load.
+  - Admission (`crypto/pem_bundle.bend`, new `decode.system`; `decode`
+    unchanged): limits (2 MiB, 256 blocks, duplicates counted) and
+    whole-load rejection of malformed entries stay. Byte-identical
+    duplicates are dropped. Exactly framed `TRUSTED CERTIFICATE` blocks are
+    skipped, never trusted. Evidence: the NixOS bundle (the devbox's own,
+    471,106 bytes, SHA-256 `994c1d2d…6376`) has 118 plain roots plus 172
+    TRUSTED blocks: 118 serverAuth copies of the plain roots, 48
+    email-only, 6 without trust bits, no rejections. With whole-load
+    rejection it failed as `malformed-bundle`. Fedora's
+    `ca-bundle.trust.crt` (398 TRUSTED blocks only) gives `empty-bundle`.
+    No measured bundle needed skipping of malformed entries, had
+    duplicates or CRLF, or exceeded 148 roots, so the caps stay.
+  - Real bundles (gate-built bundle CLI on macwork; sizes, roots, load,
+    peak RSS): macOS 26.6/26.7 `/etc/ssl/cert.pem` 333,483 B, 128, 0.16 s,
+    15.0 MiB (`9dae8d76…b994`); Debian 13 222,073 B, 148, 0.16 s,
+    10.7 MiB (`e9c7b63e…43b7`); NixOS 26.05 471,106 B, 118, 0.25 s,
+    20.4 MiB; Fedora 45 `tls-ca-bundle.pem` 182,304 B, 118, 0.11 s,
+    9.1 MiB (`9a9c1b79…f299`); Alpine 3.24 178,791 B, 118, 0.11 s,
+    9.0 MiB (`5961c0a3…568b`); openSUSE Leap 16 179,271 B, 118, 0.11 s,
+    9.0 MiB (`404e0892…068e`). Linux bundles came from docker images on
+    devbox; none is committed (hashes and copies in the artifacts). On the
+    NixOS devbox itself (x86_64, clang 21.1.8 build of the same emitted C)
+    `system-env` loaded `/etc/ssl/certs/ca-certificates.crt`, 118 roots,
+    0.54 s, 20.5 MiB.
+  - Tests: new gating phase `http_client/bend_system_bundle_check`
+    (`tests/system_bundle_check.py`, 67 cases on the pinned Mozilla
+    snapshot): duplicates (adjacent, non-adjacent, CRLF), a synthesized
+    NixOS-shaped bundle, TRUSTED framing errors, malformed entries after a
+    duplicate, limits (256 + duplicate is `bundle-limit`; TRUSTED blocks
+    do not count), first-wins, missing and unreadable candidates skipped,
+    no fall-through after open, `SSL_CERT_FILE` override, missing override
+    without fallback, and unset/empty env using the fixed list (host result
+    recorded, not gated). The explicit APIs still reject duplicates and
+    TRUSTED blocks. `tests/bundle.bend` maps modes to a constructor.
+  - Live (opt-in, non-gating; `public_https.bend` takes `@system`,
+    `public_https_live.py --system`): macwork, `/etc/ssl/cert.pem`, 6/6
+    verified HTTP 200; NixOS devbox, `/etc/ssl/certs/ca-certificates.crt`,
+    6/6 verified HTTP 200 (the same file through `from_bundle_file` gives
+    `malformed-bundle`; `SSL_CERT_FILE=/nonexistent` gives
+    `no-system-bundle`). Pinned-bundle rerun on macwork 6/6. All rows
+    TLS_AES_128_GCM_SHA256/x25519.
+
+  Fresh macwork gates at `01c8aa1`, clean tree, unchanged
+  4096 MiB / 120 s guard:
+  - `http_client:check --force`: **41/41** phases (one new), peak
+    1789.0 MiB (`bend_frontend_native`; `bend_server_frontend` 1738,
+    `bend_public_frontend` 1537, `bend_bundle_build` 1372), 361 s. Bundle
+    policy 134/134, system bundle 67/67.
+  - `crypto:check --force`: **1,793/1,793**, peak 1276.7 MiB
+    (`native/build/private_key_cli`, which does not import `pem_bundle`
+    and is unchanged; 912 MiB in the previous run), 1724 s. Bundle
+    admission 67/67; `pem_bundle_cli` build 829 MiB (875 before).
+  - `http_server:check` not rerun: no server or shared wire source
+    changed (`pem_bundle`/`bend_transport` are client-only), and the
+    client gate rebuilt the server frontend.
+
+  Limitations: macOS Keychain trust settings, user/MDM roots and
+  distrust are not seen (no Security.framework); `SSL_CERT_DIR` and
+  hashed directories are not read; TRUSTED blocks' trust/reject settings
+  are not parsed, so a root present only in TRUSTED form is not trusted,
+  and a rejection entry would not be honoured; an unreadable file after
+  open (for example a directory) follows the File IO effects.
+
+  Artifacts: `~/.codex/artifacts/grounds/2026-11-07/m6/system-ca/`
+  (`<gate>-01.json/.log/.inputs.txt/-artifacts`, `gates.out`, `gates.sh`,
+  `bundles/` with `bundles.sha256`, `bundle-measurements.jsonl`,
+  `trusted-blocks.txt`, `load-rss-macwork.txt`, `public-live-system.json`,
+  `public-live-pinned.json`, `devbox-public-live-system.json`,
+  `devbox-contrast.txt`, `tools/`).
+
+  Next: the remaining unticked M6 items.
+
 - 2026-11-07 (M6 review fix: four P2 findings and two interop
   relaxations): an independent GPT-6.1-Sol review of `22128d7..4ea30b7`
   found four P2 issues. Each was reproduced red on macwork before its fix
