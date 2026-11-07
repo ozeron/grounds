@@ -2,6 +2,11 @@ import Base
 import ./pem.bend as P
 import ./bytes.bend as B
 import ./x509_certificate.bend as C
+import ./der.bend as D
+import ./oid.bend as O
+import ./x509_algorithm.bend as A
+import ./x509_name.bend as N
+import ./x509_extensions.bend as E
 import ../utf8/utf8.bend as Utf
 
 # RFC 7468 explanatory text is allowed outside blocks. Every delimiter line
@@ -73,16 +78,63 @@ def unique(duplicate: Bool, raw: List<&2,U32>, roots: List<&2,List<&2,U32>>,
     case True{}: Fail{Duplicate{}}
     case False{}: next(Con{raw,roots})
 
-def certificate(+raw: List<&2,U32>, value: Maybe<&1,C.Tbs>, +roots: List<&2,List<&2,U32>>,
-  next: List<&2,List<&2,U32>> -> Result<&2,&2,Error,List<&2,List<&2,U32>>>) -> Result<&2,&2,Error,List<&2,List<&2,U32>>>:
+# Nested framing is checked with the chain owners' structural decoders before
+# any entry is admitted. Valid DER outside the supported key/Name/signature
+# profile still loads; chain search applies that policy only if it is used.
+def framed.attributes(items: List<&2,N.Attribute>, valid: Bool) -> Bool:
+  match items:
+    case Nil{}: valid
+    case Con{N.Attribute{oid,_,_,_},rest}: framed.attributes(rest,Bool.and(valid,O.contents(oid)))
+
+def framed.rdns(rdns: List<&2,List<&2,N.Attribute>>, valid: Bool) -> Bool:
+  match rdns:
+    case Nil{}: valid
+    case Con{items,rest}: framed.rdns(rest,framed.attributes(items,valid))
+
+def framed.name(value: Maybe<&1,N.Name>) -> Bool:
   match value:
-    case None{}: Fail{Malformed{}}
-    case Some{_}: unique(seen(raw,roots),raw,roots,next)
+    case Some{N.Name{rdns,_}}: framed.rdns(rdns,True{})
+    case None{}: False{}
+
+def framed.bits(value: Maybe<&1,List<&2,U32>>) -> Bool:
+  match value:
+    case Some{bits}: C.bit_string(bits)
+    case None{}: False{}
+
+def framed.key(value: Maybe<&1,D.Element>) -> Bool:
+  match value:
+    case Some{D.Element{48,_,rest,algorithm}}:
+      Bool.and(C.anchor.identifier(A.identifier(algorithm)),framed.bits(D.complete(3,rest)))
+    case _: False{}
+
+def framed.spki(value: Maybe<&1,List<&2,U32>>) -> Bool:
+  match value:
+    case Some{body}: framed.key(D.read(body))
+    case None{}: False{}
+
+def framed.extensions(value: Maybe<&1,List<&1,E.Extension>>) -> Bool:
+  match value:
+    case Some{_}: True{}
+    case None{}: False{}
+
+def framed(value: Maybe<&1,C.Tbs>) -> Bool:
+  match value:
+    case Some{C.Tbs{_,C.Identity{issuer,_,subject,spki},C.Tail{_,_,extensions}}}:
+      Bool.and(Bool.and(framed.name(N.collected(D.complete(48,issuer),True{})),
+          framed.name(N.collected(D.complete(48,subject),True{}))),
+        Bool.and(framed.spki(D.complete(48,spki)),framed.extensions(E.optional(extensions))))
+    case None{}: False{}
+
+def certificate(+raw: List<&2,U32>, valid: Bool, +roots: List<&2,List<&2,U32>>,
+  next: List<&2,List<&2,U32>> -> Result<&2,&2,Error,List<&2,List<&2,U32>>>) -> Result<&2,&2,Error,List<&2,List<&2,U32>>>:
+  match valid:
+    case False{}: Fail{Malformed{}}
+    case True{}: unique(seen(raw,roots),raw,roots,next)
 
 def block(value: Result<&2,&1,P.Error,P.Block>, roots: List<&2,List<&2,U32>>,
   next: List<&2,List<&2,U32>> -> Result<&2,&2,Error,List<&2,List<&2,U32>>>) -> Result<&2,&2,Error,List<&2,List<&2,U32>>>:
   match value:
-    case Done{P.Block{P.Certificate{},+der}}: certificate(der,C.anchor(der),roots,next)
+    case Done{P.Block{P.Certificate{},+der}}: certificate(der,framed(C.anchor(der)),roots,next)
     case _: Fail{Malformed{}}
 
 def parsed(value: Result<&2,&2,Error,Parsed>, roots: List<&2,List<&2,U32>>,

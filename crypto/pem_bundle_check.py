@@ -10,6 +10,9 @@ import subprocess
 import tempfile
 import time
 
+import x509_algorithm_check as A
+import x509_certificate_check as D
+
 ROOT = Path(__file__).parent
 BUNDLE = ROOT / 'fixtures/public-chains/mozilla-2026-10-20.pem'
 BUNDLE_SHA256 = '796f1389bfea13c0ed78f663b765baaff54a508e5483786bd6ece73c5e3e3cbe'
@@ -22,6 +25,37 @@ def certificates(data):
 
 def pem(raw):
     return b'-----BEGIN CERTIFICATE-----\n' + base64.encodebytes(raw) + b'-----END CERTIFICATE-----\n'
+
+
+def nested(raw, field, value):
+    # Replace one TBS field, re-encoding only the enclosing lengths. The outer
+    # framing stays valid so only nested SPKI/Name/extension parsing can reject.
+    tbs, algorithm, signature = D.elements(A.complete(raw, 48))
+    fields = D.elements(tbs[1])
+    if field == 'extensions':
+        at = len(fields) - 1
+        assert fields[at][0] == 0xa3
+    else:
+        at = (1 if fields[0][0] == 0xa0 else 0) + dict(issuer=2, subject=4, spki=5)[field]
+    encoded = [f[2] for f in fields]
+    encoded[at] = value
+    return A.tlv(48, A.tlv(48, b''.join(encoded)) + algorithm[2] + signature[2])
+
+
+# Valid DER outside the supported key/Name profile still loads; chain search
+# reports unsupported-algorithm/unsupported-name only if the anchor is used.
+NESTED = [
+    ('truncated-spki-oid', 'spki', '300106', 'malformed-bundle'),
+    ('spki-bit-string-padding', 'spki', '300b300506032a864803020800', 'malformed-bundle'),
+    ('spki-trailing-element', 'spki', '300d300506032a0304030200000500', 'malformed-bundle'),
+    ('subject-rdn-not-set', 'subject', '30023000', 'malformed-bundle'),
+    ('issuer-attribute-without-oid', 'issuer', '300431023000', 'malformed-bundle'),
+    ('subject-noncanonical-attribute-oid', 'subject', '300b3109300706038004030c00', 'malformed-bundle'),
+    ('truncated-extension', 'extensions', 'a3053003300106', 'malformed-bundle'),
+    ('extension-without-value', 'extensions', 'a309300730050603551d13', 'malformed-bundle'),
+    ('unknown-key-algorithm', 'spki', '300c300506032a03040303000000', 'ok:2'),
+    ('unsupported-name-attribute', 'subject', '300d310b300906032a030516024142', 'ok:2'),
+]
 
 
 def cases():
@@ -52,6 +86,9 @@ def cases():
         ('not-a-certificate', pem(b'\x30\x00'), 'malformed-bundle'),
         ('noncanonical-signature-oid', pem(roots[0].replace(bytes.fromhex('2a8648ce3d040303'), bytes.fromhex('808648ce3d040303'))), 'malformed-bundle'),
         ('duplicate', good + good, 'duplicate-anchor'),
+        *[row for name, field, value, expected in NESTED
+          for row in ((name + '-after-valid', good + pem(nested(roots[1], field, bytes.fromhex(value))), expected),
+                      (name + '-before-valid', pem(nested(roots[1], field, bytes.fromhex(value))) + good, expected))],
         ('scale-200', b''.join(expanded[:200]), 'ok:200'),
         ('scale-256', b''.join(expanded[:256]), 'ok:256'),
         ('scale-257', b''.join(expanded), 'bundle-limit'),
