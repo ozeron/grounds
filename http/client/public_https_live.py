@@ -22,6 +22,8 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--binary', type=Path)
     p.add_argument('--bundle', type=Path)
+    p.add_argument('--system', action='store_true',
+                   help='opt into Tr.from_system_bundle (SSL_CERT_FILE, then the fixed path list) instead of --bundle')
     p.add_argument('--report', type=Path, required=True)
     a = p.parse_args()
     report = dict(gating=False, results=[])
@@ -29,14 +31,18 @@ def main():
         report.update(skipped=True, reason='Set GROUNDS_PUBLIC_HTTPS_LIVE=1 explicitly; public network never gates checks')
         print(report['reason'])
     else:
-        assert a.binary and a.bundle, 'explicit binary and bundle required'
+        assert a.binary and (a.bundle or a.system) and not (a.bundle and a.system), 'explicit binary and one of --bundle/--system required'
         report.update(binary=str(a.binary.resolve()), binary_sha256=hashlib.sha256(a.binary.read_bytes()).hexdigest(),
-                      bundle=str(a.bundle.resolve()), bundle_sha256=hashlib.sha256(a.bundle.read_bytes()).hexdigest(),
                       recorded_at=datetime.now(timezone.utc).isoformat(), diagnostic_overlay=True)
+        if a.system:
+            report.update(bundle='@system', ssl_cert_file=os.environ.get('SSL_CERT_FILE'))
+        else:
+            report.update(bundle=str(a.bundle.resolve()), bundle_sha256=hashlib.sha256(a.bundle.read_bytes()).hexdigest())
+        argument = '@system' if a.system else str(a.bundle.resolve())
         targets = [(host, 'https://' + host + '/', []) for host in HOSTS] + [(url, url, ['follow']) for url in REDIRECTS]
         for host, url, extra in targets:
             civil = int(time.time()) + 62135596800
-            cmd = [str(a.binary.resolve()), str(ROOT / 'crypto/unicode32_nfkc.bin'), str(ROOT / 'crypto/unicode32_prepare.bin'), str(a.bundle.resolve()), str(civil), url] + extra
+            cmd = [str(a.binary.resolve()), str(ROOT / 'crypto/unicode32_nfkc.bin'), str(ROOT / 'crypto/unicode32_prepare.bin'), argument, str(civil), url] + extra
             start = time.monotonic()
             try:
                 r = subprocess.run(cmd, capture_output=True, text=True, timeout=25,
@@ -45,12 +51,17 @@ def main():
                 negotiated = [list(map(int, line.split(':')[1:])) for line in lines if line.startswith('m5-negotiated:')]
                 signatures = [int(line.split(':')[1]) for line in lines if line.startswith('m5-cv:')]
                 answer = next((line for line in lines if line.startswith(('ok:', 'error:'))), '')
+                loaded = next((line.split(':', 1)[1] for line in lines if line.startswith('system-bundle:')), None)
                 verified = r.returncode == 0 and answer.startswith('ok:') and len(negotiated) == len(signatures) == 1
                 pair = negotiated[0] if negotiated else [None, None]
                 row = dict(host=host, url=url, followed_redirects=bool(extra), verified=verified, http_status=int(answer.split(':')[1]) if answer.startswith('ok:') else None,
                            suite=SUITES.get(pair[0], pair[0]), group=GROUPS.get(pair[1], pair[1]),
                            signature=SIGNATURES.get(signatures[0], signatures[0]) if signatures else None,
                            output=r.stdout, stderr=r.stderr, exit=r.returncode)
+                if a.system:
+                    row['system_bundle'] = loaded
+                    if loaded and Path(loaded).is_file():
+                        row['system_bundle_sha256'] = hashlib.sha256(Path(loaded).read_bytes()).hexdigest()
             except (OSError, subprocess.TimeoutExpired) as e:
                 row = dict(host=host, verified=False, error=repr(e))
             row['elapsed_seconds'] = time.monotonic() - start
