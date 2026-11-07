@@ -160,6 +160,48 @@ URL literals. No ambient roots, verification bypass or TLS fallback is provided.
 An HTTPS-to-HTTPS redirect opens/reuses only that destination's origin and
 re-verifies every new connection; private headers are stripped as before.
 
+### Real-world behaviour of the Bend TLS client (M6)
+
+`CLIENT_AUDIT.md` compares this path with RFC 9110/9112. The pure rules
+live in `policy.bend`, which `test.bend` checks without sockets.
+
+- **Deadlines:** `timeout_ms` still bounds the whole call. Two new
+  options are off (0) by default. `C.with_connect_timeout(cfg, ms)` bounds
+  each TCP connect and TLS handshake, per new connection.
+  `C.with_read_timeout(cfg, ms)` bounds each read of a head or body, so a
+  stalled server fails fast while a slow download that keeps arriving is
+  not cut short. `C.with_max_head(cfg, n)` sets the head limit. DNS
+  resolution is not bounded; it is a blocking `wire_resolve`.
+- **Requests:** a header whose name is not a token (for example
+  `Transfer-Encoding ` with a trailing space, or `X:Y`), or whose value
+  holds a control character other than tab, is dropped, like one with
+  CR, LF or NUL. A URL's `#fragment` is never sent. No `Accept-Encoding`
+  or `User-Agent` is added.
+- **Responses:** the final status must be 200–599. A 101, a 9th 1xx, or
+  a code outside that range is `BadResponse`, and its connection is
+  closed. A response with both Content-Length and Transfer-Encoding is
+  framed by chunked coding and its connection is never reused (RFC 9112
+  §6.3). Conflicting or non-digit Content-Length values,
+  Transfer-Encodings other than one `chunked`, obs-fold, bare LF, bad
+  chunk sizes and oversized heads are refused. Each case is a live test.
+- **Redirects:** a Location may be absolute, network-path (`//host/p`),
+  absolute-path, relative (`b?x=1`, `../d`) or query-only. It is resolved
+  per RFC 3986 with dot segments removed and the fragment dropped. A
+  scheme other than http(s), or an empty Location, is not followed.
+  Authorization, Cookie and Proxy-Authorization are dropped when the
+  origin (scheme, host ignoring ASCII case, port) changes, and kept on the
+  same origin, even when the Location is absolute. When a 303, or a 301
+  or 302 for POST, turns the request into a GET, the body and its
+  Content-Type, -Encoding, -Language and -Location headers are dropped.
+  307 and 308 keep the method and body for every method.
+- **Keep-alive:** the pool reuses a connection per origin. Idle
+  connections past `idle_ms`, `Connection: close` responses, HTTP/1.0,
+  close-delimited bodies, extra bytes after a body, and CL+TE responses
+  are not reused. Only idempotent requests are retried on a stale
+  connection. The live tests count the server's connections.
+- **Deferred:** chunked or streamed uploads, gzip/deflate, CONNECT
+  proxies, and a DNS timeout (see `CLIENT_AUDIT.md`).
+
 The affine TLS owner travels through HTTP framing and the pool. Ordinary calls
 retain one absolute deadline through DNS, connect, handshake, writes, reads,
 redirects and retries. Streaming/SSE retain the existing per-read deadline policy.
@@ -169,7 +211,9 @@ a stale connection. Rebuilding affine Unicode tables on new connections adds
 startup cost; this path has no session resumption. There is no WebSocket client
 in this package. Server WSS is checked with independent Python and Go peers.
 
-`moon run http_client:check --force` also runs the native M4b live corpus,
+`moon run http_client:check --force` also runs the M6 live groups
+(`tests/bend_m6_check.py`: framing, redirects, pool, deadlines and stream, 74
+scenarios against two independent Python TLS peers). It also runs the native M4b live corpus,
 legacy graph audit and emitted C/native symbol/library/loader audit with host TLS
 and cookie effects replaced by proven abort controls. Set
 `GROUNDS_M4B_CLIENT_ARTIFACTS` to a **new** directory to retain exact outputs and

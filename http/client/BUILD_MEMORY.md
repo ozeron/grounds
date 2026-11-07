@@ -81,3 +81,19 @@ default branch is large.
 Nothing upstream is needed for the target. A worthwhile fix in Bend would be
 to compile a literal row as one equality test with one shared default (a
 join point) instead of unfolding it bit by bit.
+
+## M6 note: a literal match whose default calls a dispatcher
+
+The M6 live modes were first added behind the existing
+`match mode: case "pool": ... case other: extra(cfg, url, other)`
+in `tests/bend_tls.bend`. Here `extra` dispatched on further modes with
+`String.eq`. `bend --check-only` on the test client then peaked at 2.78
+GiB. Without that one default call it peaked at 1.64 GiB. The default row
+is copied into every unfolded level of the literal patterns, and in each
+copy the checker evaluates the call against a partly known string.
+
+Every mode now maps to a `Mode` constructor through a `String.eq` chain
+(`mode.of`), and `run` matches the constructor. There are no literal
+patterns, and the peak is 1.84 GiB with all 29 modes. Rule: never put a
+call that inspects the scrutinee in the default row of a string-literal
+match. Map strings to a constructor first.
