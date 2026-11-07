@@ -74,6 +74,11 @@ end
 begin bend_bundle_check
 python3 ../../crypto/pem_bundle_check.py --policy "$artifacts/bundle-policy"
 end
+# M6: opt-in system bundle admission (duplicates dropped, TRUSTED blocks
+# skipped) and path resolution (SSL_CERT_FILE, fixed candidates).
+begin bend_system_bundle_check
+python3 tests/system_bundle_check.py "$artifacts/bundle-policy"
+end
 begin bend_public_chain_build
 # Compiler-only baseline JIT avoids the optimizing frontend memory spike.
 BUN_JSC_useDFGJIT=false BUN_JSC_useFTLJIT=false native tests/public_chain.bend "$artifacts/public-chain"

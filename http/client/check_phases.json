@@ -90,6 +90,10 @@
       "optional": false
     },
     {
+      "name": "http_client/bend_system_bundle_check",
+      "optional": false
+    },
+    {
       "name": "http_client/bend_public_chain_build",
       "optional": false
     },
