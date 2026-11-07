@@ -122,6 +122,22 @@ its own bundle in 0.54 s at 20.5 MiB. No measured bundle has duplicates,
 CRLF or more than 148 roots, so the version 2 limits stay. The explicit
 `from_bundle_file` still rejects the NixOS file (`malformed-bundle`).
 
+### IPv6 identity (M6, 2026-11-07)
+
+No wire or algorithm change; this states how an IPv6 destination is
+identified. A URL host in brackets (`https://[2001:db8::1]:8443/`) is parsed
+in Bend (`wire/ip.bend`, RFC 4291 hex groups only) and kept as its RFC 5952
+canonical text. Its reference identity is `x509_chain.Ip` with the 16
+address bytes, matched byte for byte against 16-byte iPAddress SANs (the
+same `x509_identity.ip` rule as IPv4: lengths 4 or 16, no IPv4-mapped alias
+and no subnet). Every text form of one address is therefore one identity,
+and no SNI is sent (RFC 6066 section 3: HostName is a DNS name; RFC 6125
+and RFC 9525 IP-ID). The Host header carries the canonical text in
+brackets. Zone IDs (`%25`), IPvFuture and the dotted IPv4 tail
+(`::ffff:192.0.2.1`) are refused before any connection: a zone is local to
+one host and has no certificate identity. A DNS name that resolves to IPv6
+is still a DNS identity with SNI, whichever address family connects.
+
 Offline checks use fixed times, SAN-only hostname verification and recorded
 roots. Unknown certificate signatures return `unsupported-algorithm`.
 The finite Name profile remains: some EV Names are unsupported, and removed
@@ -416,7 +432,7 @@ runtime dispositions in [crypto/RUNTIME_REVIEW.md](crypto/RUNTIME_REVIEW.md)
 remain. Version 2 supersedes the M4 16-anchor limit with explicit bundle
 loading; version 3 adds caller-requested system bundle loading only. No
 ambient trust discovery, the wall-clock refresh obligation,
-unsupported IPv6 URL literals, resumption/0-RTT/client authentication and other
+resumption/0-RTT/client authentication and other
 frozen exclusions remain. Version 2 above adds native public-internet
 algorithms and explicit trust-bundle admission; RTC/DTLS/SCTP/TURN/media
 expansion and the full nineteen-gate

@@ -175,8 +175,14 @@ TLS 1.3 uses the frozen [profile](../../TLS_PROFILE.md), always offers ALPN
 `http/1.1`, derives SNI and SAN verification identity from each destination URL,
 and maps verification/protocol errors to the **same** legacy `Err` type
 (`Tls{why}`, preserving `certificate:` + `x509_chain.show(reason)`). IPv4 literals
-use IP SANs without SNI. The existing URL parser supports DNS and IPv4, not IPv6
-URL literals. No ambient roots (host roots only through `from_system_bundle`), verification bypass or TLS fallback is provided.
+and IPv6 literals use IP SANs without SNI. A bracketed IPv6 host
+(`https://[2001:db8::1]:8443/`) is kept as its RFC 5952 canonical text, so
+equal addresses written differently are one origin for pooling and
+redirects; the Host header keeps the brackets. Zone IDs (`%25`), IPvFuture
+and dotted IPv4 tails are `BadUrl`. Names are looked up for A and AAAA
+(`wire/dial.bend`): addresses are tried one at a time in the resolver's
+order with families alternating, and a refused or unreachable address falls
+through to the next (see `CLIENT_AUDIT.md`). No ambient roots (host roots only through `from_system_bundle`), verification bypass or TLS fallback is provided.
 An HTTPS-to-HTTPS redirect opens/reuses only that destination's origin and
 re-verifies every new connection; private headers are stripped as before.
 
@@ -195,8 +201,9 @@ live in `policy.bend`, which `test.bend` checks without sockets.
   `timeout_ms` only. Waiting for a connection of a full pool ends at the
   total deadline (`Timeout`), and a retry whose backoff would reach it
   is not made: the last outcome is returned at once.
-  `C.with_max_head(cfg, n)` sets the head limit. DNS resolution is not
-  bounded; it is a blocking `wire_resolve`.
+  `C.with_max_head(cfg, n)` sets the head limit. The A/AAAA lookup is
+  bounded by the connect deadline (`connect_ms`, else `timeout_ms`) and
+  fails `Timeout` past it.
 - **Requests:** a header whose name is not a token (for example
   `Transfer-Encoding ` with a trailing space, or `X:Y`), or whose value
   holds a control character other than tab, is dropped, like one with
@@ -229,7 +236,7 @@ live in `policy.bend`, which `test.bend` checks without sockets.
   are not reused. Only idempotent requests are retried on a stale
   connection. The live tests count the server's connections.
 - **Deferred:** chunked or streamed uploads, gzip/deflate, CONNECT
-  proxies, and a DNS timeout (see `CLIENT_AUDIT.md`).
+  proxies, and Happy Eyeballs racing (see `CLIENT_AUDIT.md`).
 
 The affine TLS owner travels through HTTP framing and the pool. Ordinary calls
 retain one absolute deadline through DNS, connect, handshake, writes, reads,

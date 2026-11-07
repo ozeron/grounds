@@ -18,9 +18,11 @@ w : Socket & Result<&1, &1, U32 & String, Unit> <- W.wire_send(sock, [72, 105])
 | `W.wire_recv_timeout(sock, max, ms)` | the same, as `Some{bytes}`; `None{}` when nothing comes within `ms` |
 | `W.wire_send(sock, bytes)` | every byte; a value past 255 fails with `EINVAL` before any is sent |
 | `W.wire_send_timeout(sock, bytes, ms)` | the same, failing `ETIMEDOUT` when the peer takes nothing for `ms` |
-| `W.wire_connect_timeout(host, port, ms)` | `connect`, failing `ETIMEDOUT` past `ms`: an address that drops packets would wait for the OS |
+| `W.wire_connect_timeout(host, port, ms)` | `connect` to an IPv4 or (native) IPv6 literal, failing `ETIMEDOUT` past `ms`: an address that drops packets would wait for the OS |
+| `W.wire_listen_on(host, port)` | `listen` on one IPv4 or (native) IPv6 literal, `"::1"` or `"::"`; an IPv6 listener is `IPV6_V6ONLY` |
+| `W.wire_resolve_timeout(host, ms)` | every A and AAAA address of a name, as text in the resolver's order (at most 32), or `ETIMEDOUT` past `ms` (native; the Bun lookup blocks) |
 | `W.wire_accept_timeout(l, ms)` | `accept`, as `Some{sock}`; `None{}` when no connection comes within `ms` |
-| `W.wire_resolve(host)` | a host name to its first IPv4 address, dotted; `connect` takes only addresses |
+| `W.wire_resolve(host)` | a host name to its first IPv4 address, dotted, with no deadline (kept for existing callers) |
 | `W.wire_udp_bind(host, port)` | binds one IPv4 literal; port `0` requests an ephemeral port; failures close any newly allocated socket |
 | `W.wire_udp_local_address(sock)` | returns `(host, port)` from the OS, preserving socket ownership; wildcard sockets report `0.0.0.0` |
 | `W.wire_udp_send_to(sock, host, port, bytes, ms)` | sends one binary UDP datagram or fails; invalid bytes fail `EINVAL` before send |
@@ -32,6 +34,28 @@ w : Socket & Result<&1, &1, U32 & String, Unit> <- W.wire_send(sock, [72, 105])
 | `W.wire_tls_accept(sock, ms)` | accepts TLS on a connected socket within `ms` |
 | `W.wire_close(sock)` | sends TLS close_notify when needed, then closes the socket |
 | `W.listen(port)`, `W.accept(l)`, `W.connect(host, port)`, `W.close(sock)`, `W.close_listener(l)` | Base's own |
+
+`dial.bend` connects by name or literal: `D.dial(host, port, deadline)` gives
+`Dialed{socket}`, `Unresolved{errno}`, `Unreached{errno}` or `Late{}`. A
+literal is connected to directly. A name is looked up with
+`wire_resolve_timeout` bounded by the deadline; its addresses keep the
+resolver's (RFC 6724) order, lose any scoped link-local entry, and alternate
+families from the first one's (RFC 8305 section 4), at most 8. They are
+tried one after another, each but the last within `max(left / n, min(left,
+250 ms))`, so a refused or unreachable address falls through at once and a
+silent one costs only its share. Racing (Happy Eyeballs) is not done: it
+needs a multi-socket effect that closes the losing connects. `ip.bend` holds
+the pure parts: strict IPv4 text, RFC 4291 IPv6 text (hex groups; no zone
+ID, no dotted tail), RFC 5952 canonical text, 4/16-byte iPAddress octets,
+the order and the budget. `ip_test.bend` checks them; `ipv6.bend` with
+`ipv6_check.py` checks the native transport (phase `wire/native-ipv6`).
+
+The lookup cannot be cancelled: it runs on a detached thread of its own and
+writes one byte to a pipe; the event loop waits on the pipe until the
+deadline. A lookup that is cut off finishes on that thread, frees its record
+and does not keep the program alive. At most 64 lookups may be unfinished
+(`EAGAIN` beyond). C only calls `getaddrinfo`, `inet_ntop` and `inet_pton`;
+which text is an address and what to try is decided in Bend.
 
 `tls_record.bend` adds a pure Bend protected-record path for
 TLS_CHACHA20_POLY1305_SHA256 and TLS_AES_128_GCM_SHA256. It uses `crypto/traffic.bend` affine read/write
@@ -191,7 +215,7 @@ speed threshold. Evidence is in
 - The TLS client uses `wire_tls_connect(sock, host, ms)`, `wire_tls_send_timeout`, `wire_tls_recv_timeout` and `wire_tls_close`. It verifies the certificate chain and host; `GROUNDS_TLS_CA` adds a PEM trust root.
 - An effect's name is global in a program: its C id is `CID_WIRE_RECV`, taken from the def's name. So the effects carry the package's name, and there are no `recv`/`send` wrappers: a one-line wrapper is merged into the effect and takes its name.
 - The effects follow `bend-kit-wire` on BendHub (`0x096635686408886b7d907f16c4550317`, MIT-0), with `List<U32>` in place of one Char per byte, for both the C and JS targets.
-- For UDP, use `wire_udp_bind(host, port)` when local address identity matters, and query `wire_udp_local_address` before advertising a port assigned by the OS. It accepts canonical IPv4 literals and ports 0–65535, without DNS, address reuse options or fallback binding. Errors retain OS errno; an invalid literal/port returns `EINVAL`. Failed bind/nonblocking setup closes the newly allocated socket. Close successful sockets with `Socket.close(sock)`. Base's existing `UDP.bind(port)` remains available for wildcard binding. UDP transport remains IPv4; IPv6 is still pending. The receive limit is checked against the full datagram; the largest supported receive buffer is 65535 bytes.
+- For UDP, use `wire_udp_bind(host, port)` when local address identity matters, and query `wire_udp_local_address` before advertising a port assigned by the OS. It accepts canonical IPv4 literals and ports 0–65535, without DNS, address reuse options or fallback binding. Errors retain OS errno; an invalid literal/port returns `EINVAL`. Failed bind/nonblocking setup closes the newly allocated socket. Close successful sockets with `Socket.close(sock)`. Base's existing `UDP.bind(port)` remains available for wildcard binding. UDP transport remains IPv4; IPv6 UDP is still pending (TCP has IPv6 since M6). The receive limit is checked against the full datagram; the largest supported receive buffer is 65535 bytes.
 - An explicitly bound unicast IP identifies the receiving local address for an unconnected UDP socket. A wildcard socket's `getsockname` result is `0.0.0.0`; it does not identify a received packet's destination IP. The new effects call OS `bind`/`getsockname` and keep protocol logic in Bend. Bun loads only `getsockname` from the system library because Base's syscall table lacks it. See Apple's [bind](https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man2/bind.2.html) and [getsockname](https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man2/getsockname.2.html) references.
 
 `moon run wire:check` builds these natively and runs them:

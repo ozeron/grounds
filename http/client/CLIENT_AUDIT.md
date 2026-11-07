@@ -97,7 +97,7 @@ that name at the end.
 | One total deadline over connect, TLS, send, read, redirects and retries | **partial** (first audit said present) | `bend_client.bend:1296`, `:303`, `:483`; but a pooled request waited for a connection without one (`bend_pool.bend:166`) and a retry slept its full backoff past it (`bend_client.bend:1136`) | review fix: pool waits end at the deadline; a retry whose backoff would reach it is not made and the last outcome is returned at once; no try, retry or redirect starts past it |
 | Separate connect + TLS handshake deadline | **missing** | `bend_client.bend:268` used the total | added: `with_connect_timeout(c, ms)` |
 | Per-read (idle) deadline for head and body | **missing** | only the total | added: `with_read_timeout(c, ms)`; review fix: it also bounded request writes (a slow upload failed) and was ignored by stream/events; now reads only, everywhere |
-| DNS resolution bounded | partial | `wire_resolve` is a blocking `getaddrinfo` without a timeout; the deadline is checked right after it | not changed (needs a wire effect) |
+| DNS resolution bounded | partial | `wire_resolve` is a blocking `getaddrinfo` without a timeout; the deadline is checked right after it | M6 item 3: fixed, `wire_resolve_timeout` (see IPv6 below); a lookup past the connect deadline is `Timeout` |
 | stream/events: per-read deadline | present | `bend_client.bend:1478` | connect deadline also applies; review fix: `read_ms` applies too (the smaller wins), one-shot and pooled |
 
 ## Optional
@@ -123,8 +123,8 @@ that name at the end.
 - **CONNECT proxies.** Needs proxy configuration, a CONNECT exchange
   before TLS, proxy authentication and its own error mapping. No M6 target
   needs a proxy.
-- **DNS timeout.** `wire_resolve` is a `wire` effect. Bounding it needs a C/JS
-  effect change outside the client.
+- **DNS timeout.** Done in M6 item 3 (IPv6, below): `wire_resolve_timeout`
+  waits for the lookup only until the deadline.
 
 ## Tests added in M6
 
@@ -174,3 +174,56 @@ cases (and `rh_cl_list` inverted) with the law `body_length_read`, and 26
 live scenarios. Live totals are framing 53, redirects 16, pool 6,
 deadlines 20 and stream 5 (100, was 74).
 
+## IPv6 (M6 item 3, 2026-11-07)
+
+| Area | Before | M6 item 3 |
+| --- | --- | --- |
+| IPv6 TCP connect | missing: `wire_connect_timeout` took IPv4 only (`io_sys_addr`) | native: IPv4 or IPv6 literal (`gw_addr`, `inet_pton`, no `%zone`); Bun: IPv4 only |
+| AAAA resolution | missing: `wire_resolve` asked for `AF_INET` and kept the first | `wire_resolve_timeout(host, ms)`: every address, A and AAAA, in the resolver's (RFC 6724) order, at most 32; Bun: blocking `getent ahosts`, ms not applied |
+| Bracketed URL literals | missing: `[` was `BadUrl` | `url.bend`: RFC 5952 canonical host, bracketed authority; zone IDs (`%25`), IPvFuture and dotted IPv4 tails refused |
+| IPv6 IP-SAN identity | x509 already matched 16-byte iPAddress SANs; the client built only IPv4 references | `bend_transport.identity`: a v6 literal is `X.Ip{16 bytes}`, no SNI |
+| Address fallback | one address | `wire/dial.bend`: sequential, ordered, per-attempt budget (below) |
+| Server bind on IPv6 | Base `TCP.listen` is IPv4 only | `wire_listen_on(host, port)`: IPv4 or IPv6 literal, `IPV6_V6ONLY` (native) |
+
+Connection policy (Bend, `wire/dial.bend` and `wire/ip.bend`):
+
+- A literal is connected to directly, without a lookup.
+- A name is looked up with a deadline (the connect phase's: `connect_ms`
+  if set, else the total). getaddrinfo cannot be cancelled, so the lookup
+  runs on a detached thread that writes to a pipe; the event loop parks on
+  the pipe with the deadline. Past it the caller gets `ETIMEDOUT` (client:
+  `Timeout`) and the thread finishes and frees its record on its own; it
+  does not hold the process open. At most 64 unfinished lookups
+  (`EAGAIN` beyond). A failed lookup is `NoHost` as before.
+- Order: the resolver's order, scoped link-local addresses dropped, then
+  families alternate starting with the first address's (RFC 8305 section
+  4); at most 8 addresses.
+- Attempts are sequential, not raced (RFC 8305 Happy Eyeballs is
+  deferred). Each attempt but the last gets `max(left / n, min(left, 250
+  ms))` of the time left, n being the addresses still to try; the last gets
+  all of it. A refused or unreachable address (fast RST or ICMP) moves on at
+  once; a silent one costs its share, so one black-holed family cannot use
+  up the whole connect deadline. Only TCP failures move on; a TLS failure
+  on a connected address is the answer (no retry on another address).
+- Why no race: a Bend IO computation has one continuation per pending
+  effect, and `IO.fork`/`IO.within` cannot cancel the loser, so a lost
+  connect would hold a socket and keep the program alive until its own
+  deadline. A race needs a new multi-socket effect (start nonblocking
+  connects, wait on all, close the losers), with the stagger policy in
+  Bend. That is a larger surface than M6 needs; on dual-stack loopback and
+  for hosts whose broken family fails fast, sequential order behaves the
+  same.
+
+Tests: `wire/ip_test.bend` (54: text/bytes, canonical text, order and
+budget), `wire/ipv6_check.py` (12 native transport cases: bytes over
+`::1`, IPv4 refused on the same port, A+AAAA for localhost, dialing an
+IPv6-only and an IPv4-only listener by name, refused fallback to nothing,
+zone IDs refused by the effects, and a lookup cut at 300 ms while multicast
+DNS would take 5 s), `test.bend` (22 URL/redirect cases) and
+`tests/bend_m6_check.py --mode ipv6` (17 live scenarios against Python TLS
+peers on `::1` and `127.0.0.1` with a synthetic IPv6 IP-SAN leaf).
+
+Limits: no Happy Eyeballs racing; no zone IDs; IPv4-embedded IPv6 text is
+refused (the bytes are fine when written in hex); the Bun lookup blocks;
+UDP stays IPv4; the legacy client (`client.bend`) still resolves IPv4 only,
+so an IPv6 URL there fails `NoHost`.
