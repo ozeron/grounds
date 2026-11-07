@@ -4,6 +4,29 @@ Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and 
 
 The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
 
+- 2026-11-06 (M5 round 3; **pressure-blocked, M5 OPEN**): review of `eceb5de`
+  (bundle limits, atomic rejection, anchor framing, unchanged CA/name policy
+  via node fields) and `222e681` (offline corpus phases, opt-in live script
+  defaulting to skip) found no defect; no source changed. Round-2 doc numbers
+  were checked against round-2 artifacts (peaks 3655.2/3731.2/3842.95/100.6
+  MiB, five live rows) and committed in `eb070ce`. Fresh forced
+  `crypto:check` on `eb070ce` under the unchanged 4096 MiB / 120 s guard
+  (nice 10, concurrency 1, OpenSSL 3 first in PATH) ran 18 times between
+  23:10 and 01:15 UTC. Every run ended in `system-memory-pressure`, and
+  **0 phases failed**. The best was `package-crypto-16.json`: **523/1793**,
+  800 s, 3000.9 MiB peak. Eight stops occurred during the `pem_bundle_cli`
+  native build. Unrelated workloads caused the pressure: swap was 9.2–9.9 GiB
+  used of 10–11 GiB, alongside Spotlight `mds_stores` (~1.7 GiB), a
+  Virtualization VM and an iOS Simulator. None of them was signaled. The
+  2-hour retry budget ran out, so wire, http_client, http_server and the root
+  gate were not started. Artifacts are in
+  `~/.codex/artifacts/grounds/2026-11-06/m5/round3/`: `package-crypto-01..18`
+  `.json/.log/.inputs.json`, `crypto-attempts-summary.txt`, `packages.sh`,
+  `guard_retry.py`, plus `launch-errors/` (two zsh launch mistakes that ran
+  no phases). Required unlock: free host memory (swap headroom, sustained
+  normal pressure), then re-run `packages.sh` and the root gate fresh on the
+  same source revision. No limit was changed. M3/M5 boxes are not ticked.
+
 - 2026-10-24 (M5 round 2 deliverables 5–6; implementation complete, **gates pending**):
   Explicit `bend_transport.from_bundle` bytes and `from_bundle_file` caller-path
   APIs load 1–256 anchors, with 2 MiB text / 65,535-byte DER limits. Caller
