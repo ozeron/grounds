@@ -1,6 +1,7 @@
 import Base
 import ./url.bend as C
 import ./policy.bend as P
+import ../core/headers.bend as H
 
 # each def is a test: it checks only if both sides compute to the same value
 
@@ -221,4 +222,23 @@ def loc_abs_dot_last() -> {P.resolve("http://h:8080/x/./y/.", True{}, "/") == P.
   {==}
 
 def loc_abs_upper_dots() -> {P.resolve("HTTPS://H/a/%2e%2e/./b", False{}, "/") == P.RAbs{"https://H/a/%2e%2e/b"} : P.Ref}:
+  {==}
+
+# a User-Agent unless the caller set one
+def agent_default() -> {P.agent(Some{"grounds-bend"}, [H.Header{"accept", "*/*"}]) == [H.Header{"accept", "*/*"}, H.Header{"user-agent", "grounds-bend"}] : List<&2, H.Header>}:
+  {==}
+
+def agent_caller() -> {P.agent(Some{"grounds-bend"}, [H.Header{"User-Agent", "mine/1"}]) == [H.Header{"User-Agent", "mine/1"}] : List<&2, H.Header>}:
+  {==}
+
+def agent_caller_case() -> {P.agent(Some{"grounds-bend"}, [H.Header{"USER-AGENT", "x"}, H.Header{"a", "b"}]) == [H.Header{"USER-AGENT", "x"}, H.Header{"a", "b"}] : List<&2, H.Header>}:
+  {==}
+
+def agent_caller_invalid() -> {P.agent(Some{"grounds-bend"}, [H.Header{"User-Agent", "a\nb"}]) == [H.Header{"User-Agent", "a\nb"}, H.Header{"user-agent", "grounds-bend"}] : List<&2, H.Header>}:
+  {==}
+
+def agent_off() -> {P.agent(None{}, [H.Header{"a", "b"}]) == [H.Header{"a", "b"}] : List<&2, H.Header>}:
+  {==}
+
+def agent_off_caller() -> {P.agent(None{}, [H.Header{"User-Agent", "mine"}]) == [H.Header{"User-Agent", "mine"}] : List<&2, H.Header>}:
   {==}

@@ -1,6 +1,7 @@
 import Base
 import ../wire/http1.bend as H1
 import ../core/text.bend as T
+import ../core/headers.bend as H
 
 # Client policies as plain values: which headers a caller may send, which
 # statuses end an exchange, which headers a redirect keeps, and where a
@@ -34,6 +35,25 @@ def header.ok(n: String, v: String) -> Bool:
 # status (RFC 9110 §15)
 def final(+c: U32) -> Bool:
   Bool.and(U32.is_ge(c, 200), U32.is_le(c, 599))
+
+# the headers, then User-Agent: ua unless the caller set one the client
+# sends (any case, a valid value); None adds none
+def agent.add(found: Bool, ua: Maybe<&2, String>, hs: List<&2, H.Header>) -> List<&2, H.Header>:
+  match found ua:
+    case False{} Some{s}:
+      List.append(&2, H.Header, hs, [H.Header{"user-agent", s}])
+    case _ _:
+      hs
+
+def agent.go(hs: List<&2, H.Header>, acc: List<&2, H.Header>, found: Bool, ua: Maybe<&2, String>) -> List<&2, H.Header>:
+  match hs:
+    case Nil{}:
+      agent.add(found, ua, List.reverse(&2, H.Header, acc))
+    case Con{H.Header{+n, +v}, t}:
+      agent.go(t, Con{H.Header{n, v}, acc}, Bool.or(found, Bool.and(T.same_ci(n, "user-agent", True{}), header.ok(n, v))), ua)
+
+def agent(ua: Maybe<&2, String>, hs: List<&2, H.Header>) -> List<&2, H.Header>:
+  agent.go(hs, [], False{}, ua)
 
 # credentials for the origin they were sent to: a redirect to another
 # origin drops them

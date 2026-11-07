@@ -28,59 +28,60 @@ import ./policy.bend as Pol
 # request, redirects and retries included, has timeout_ms; a response
 # past max_head_bytes or max_body_bytes is refused. download streams a
 # body through a channel instead. connect_ms bounds each connect and TLS
-# handshake, read_ms each read; 0 leaves them to timeout_ms alone.
+# handshake, read_ms each read; 0 leaves them to timeout_ms alone. agent is
+# the User-Agent sent when the caller sets none; None sends none.
 
 type Config is Data:
-  Config{timeout_ms: U32, max_head_bytes: U32, max_body_bytes: U32, retries: U32, backoff_ms: U32, redirects: U32, idle_ms: U32, policy: Tr.Policy, connect_ms: U32, read_ms: U32}
+  Config{timeout_ms: U32, max_head_bytes: U32, max_body_bytes: U32, retries: U32, backoff_ms: U32, redirects: U32, idle_ms: U32, policy: Tr.Policy, connect_ms: U32, read_ms: U32, agent: Maybe<&2, String>}
 
 # 10 s, 16 KiB of head, 8 MiB of body, no retries (100 ms apart once
-# turned on), up to 5 redirects, pooled connections idle up to 4 s, and no
-# connect or read deadline of their own
+# turned on), up to 5 redirects, pooled connections idle up to 4 s, no
+# connect or read deadline of their own, and User-Agent: grounds-bend
 def default(policy: Tr.Policy) -> Config:
-  Config{10000, 16384, 8388608, 0, 100, 5, 4000, policy, 0, 0}
+  Config{10000, 16384, 8388608, 0, 100, 5, 4000, policy, 0, 0, Some{"grounds-bend"}}
 
 def with_timeout(c: Config, ms: U32) -> Config:
   match c:
-    case Config{_, mh, mb, rt, bo, rd, id, policy, cm, rm}:
-      Config{ms, mh, mb, rt, bo, rd, id, policy, cm, rm}
+    case Config{_, mh, mb, rt, bo, rd, id, policy, cm, rm, ua}:
+      Config{ms, mh, mb, rt, bo, rd, id, policy, cm, rm, ua}
 
 def with_max_body(c: Config, n: U32) -> Config:
   match c:
-    case Config{ms, mh, _, rt, bo, rd, id, policy, cm, rm}:
-      Config{ms, mh, n, rt, bo, rd, id, policy, cm, rm}
+    case Config{ms, mh, _, rt, bo, rd, id, policy, cm, rm, ua}:
+      Config{ms, mh, n, rt, bo, rd, id, policy, cm, rm, ua}
 
 # a response head of at most n bytes; a longer one is TooLarge
 def with_max_head(c: Config, n: U32) -> Config:
   match c:
-    case Config{ms, _, mb, rt, bo, rd, id, policy, cm, rm}:
-      Config{ms, n, mb, rt, bo, rd, id, policy, cm, rm}
+    case Config{ms, _, mb, rt, bo, rd, id, policy, cm, rm, ua}:
+      Config{ms, n, mb, rt, bo, rd, id, policy, cm, rm, ua}
 
 # retry a request that is safe to repeat up to n more times, on a failed
 # connection or a 502, 503 or 504: backoff_ms first, doubling up to 5 s
 def with_retries(c: Config, n: U32, backoff_ms: U32) -> Config:
   match c:
-    case Config{ms, mh, mb, _, _, rd, id, policy, cm, rm}:
-      Config{ms, mh, mb, n, backoff_ms, rd, id, policy, cm, rm}
+    case Config{ms, mh, mb, _, _, rd, id, policy, cm, rm, ua}:
+      Config{ms, mh, mb, n, backoff_ms, rd, id, policy, cm, rm, ua}
 
 # follow up to n redirects; 0 hands a 3xx back as it is
 def with_redirects(c: Config, n: U32) -> Config:
   match c:
-    case Config{ms, mh, mb, rt, bo, _, id, policy, cm, rm}:
-      Config{ms, mh, mb, rt, bo, n, id, policy, cm, rm}
+    case Config{ms, mh, mb, rt, bo, _, id, policy, cm, rm, ua}:
+      Config{ms, mh, mb, rt, bo, n, id, policy, cm, rm, ua}
 
 # how long a pooled connection may sit idle before it is closed, not used
 def with_idle(c: Config, ms: U32) -> Config:
   match c:
-    case Config{t, mh, mb, rt, bo, rd, _, policy, cm, rm}:
-      Config{t, mh, mb, rt, bo, rd, ms, policy, cm, rm}
+    case Config{t, mh, mb, rt, bo, rd, _, policy, cm, rm, ua}:
+      Config{t, mh, mb, rt, bo, rd, ms, policy, cm, rm, ua}
 
 # resolving the host's address aside, connecting and the TLS handshake
 # must end within ms of their start (and within timeout_ms); each new
 # connection, after a redirect or retry too, gets its own ms. 0 turns it off
 def with_connect_timeout(c: Config, ms: U32) -> Config:
   match c:
-    case Config{t, mh, mb, rt, bo, rd, id, policy, _, rm}:
-      Config{t, mh, mb, rt, bo, rd, id, policy, ms, rm}
+    case Config{t, mh, mb, rt, bo, rd, id, policy, _, rm, ua}:
+      Config{t, mh, mb, rt, bo, rd, id, policy, ms, rm, ua}
 
 # each read of a response, head or body, must bring bytes within ms (and
 # the whole call stays within timeout_ms): a server that stalls fails fast
@@ -90,8 +91,20 @@ def with_connect_timeout(c: Config, ms: U32) -> Config:
 # not cut short
 def with_read_timeout(c: Config, ms: U32) -> Config:
   match c:
-    case Config{t, mh, mb, rt, bo, rd, id, policy, cm, _}:
-      Config{t, mh, mb, rt, bo, rd, id, policy, cm, ms}
+    case Config{t, mh, mb, rt, bo, rd, id, policy, cm, _, ua}:
+      Config{t, mh, mb, rt, bo, rd, id, policy, cm, ms, ua}
+
+# send s as the User-Agent of every request whose caller set none
+def with_user_agent(c: Config, s: String) -> Config:
+  match c:
+    case Config{t, mh, mb, rt, bo, rd, id, policy, cm, rm, _}:
+      Config{t, mh, mb, rt, bo, rd, id, policy, cm, rm, Some{s}}
+
+# send no User-Agent of the client's own; a caller's is still sent
+def without_user_agent(c: Config) -> Config:
+  match c:
+    case Config{t, mh, mb, rt, bo, rd, id, policy, cm, rm, _}:
+      Config{t, mh, mb, rt, bo, rd, id, policy, cm, rm, None{}}
 
 # Requests and replies
 # --------------------
@@ -242,6 +255,19 @@ def spec.of(r: Req) -> Result<&2, &2, Err, Spec>:
   match r:
     case Req{m, u, kv, b, k}:
       spec.make(Ur.verb.check(Ur.verb(m)), Ur.url(Pol.frag.cut(u)), kv.hs(kv, False{}, False{}, []), body.of(b), key.of(k))
+
+# the config's User-Agent added, unless the caller set one
+def spec.agent(ua: Maybe<&2, String>, sp: Spec) -> Spec:
+  match sp:
+    case Spec{v, u, hs, b, pl}:
+      Spec{v, u, Pol.agent(ua, hs), b, pl}
+
+def spec.agent.r(ua: Maybe<&2, String>, r: Result<&2, &2, Err, Spec>) -> Result<&2, &2, Err, Spec>:
+  match r:
+    case Done{sp}:
+      Done{spec.agent(ua, sp)}
+    case Fail{e}:
+      Fail{e}
 
 # a connection, or why there is none
 type Opened is Type:
@@ -1419,10 +1445,10 @@ def fuel.of(rt: U32, rd: U32) -> Nat:
 
 def start(cfg: Config, sp: Spec) -> IO(RR()):
   match cfg:
-    case Config{+ms, mh, mb, +rt, bo, +rd, _, policy, cm, rm}:
+    case Config{+ms, mh, mb, +rt, bo, +rd, _, policy, cm, rm, ua}:
       do IO<RR()>:
         +now : Nat <- IO.now()
-        drive(fuel.of(rt, rd), sp, left.of(rt, rd, bo, Nat.add(now, U32.to_nat(ms))), lim.of(now, ms, mh, mb, policy, Ph{cm, rm}))
+        drive(fuel.of(rt, rd), spec.agent(ua, sp), left.of(rt, rd, bo, Nat.add(now, U32.to_nat(ms))), lim.of(now, ms, mh, mb, policy, Ph{cm, rm}))
 
 def url.tls(u: Ur.Url) -> Bool:
   match u:
@@ -1617,10 +1643,10 @@ def stream.spec(~f: List<&2, U32> -> IO(Bool), s: Result<&2, &2, Err, Spec>, +ms
 # body limit; timeout_ms is per read, and redirects are not followed
 def stream(~f: List<&2, U32> -> IO(Bool), c: Config, r: Req) -> IO(R(Head)):
   match c:
-    case Config{+ms, mh, _, _, _, _, _, policy, cm, rm}:
+    case Config{+ms, mh, _, _, _, _, _, policy, cm, rm, ua}:
       do IO<R(Head)>:
         +now : Nat <- IO.now()
-        stream.spec(~f, spec.of(r), ms, mh, Nat.add(now, U32.to_nat(ms)), policy, Ph{cm, rm})
+        stream.spec(~f, spec.agent.r(ua, spec.of(r)), ms, mh, Nat.add(now, U32.to_nat(ms)), policy, Ph{cm, rm})
 
 # a spec's origin, as a pool keys its connections, and the spec back
 type Orig is Data:
@@ -1875,8 +1901,8 @@ def ev.once(~on: Ev.Message -> IO(Bool), s: Result<&2, &2, Err, Spec>, +ms: U32,
 # then. timeout_ms is per read
 def events(~on: Ev.Message -> IO(Bool), c: Config, r: Req) -> IO(R(Ended)):
   match c:
-    case Config{+ms, mh, _, _, _, _, _, policy, cm, rm}:
-      ev.once(~on, spec.of(r), ms, mh, policy, Ph{cm, rm})
+    case Config{+ms, mh, _, _, _, _, _, policy, cm, rm, ua}:
+      ev.once(~on, spec.agent.r(ua, spec.of(r)), ms, mh, policy, Ph{cm, rm})
 
 def keep.last(new: Maybe<&2, String>, old: Maybe<&2, String>) -> Maybe<&2, String>:
   match new:
@@ -2016,5 +2042,5 @@ def ev.retry(~on: Ev.Message -> IO(Bool), s: Result<&2, &2, Err, Spec>, +n: U32,
 # status, or a wrong Content-Type
 def events_retry(~on: Ev.Message -> IO(Bool), c: Config, r: Req, +n: U32) -> IO(R(Ended)):
   match c:
-    case Config{+ms, mh, _, _, +bo, _, _, policy, cm, rm}:
-      ev.retry(~on, spec.of(r), n, ms, mh, bo, policy, Ph{cm, rm})
+    case Config{+ms, mh, _, _, +bo, _, _, policy, cm, rm, ua}:
+      ev.retry(~on, spec.agent.r(ua, spec.of(r)), n, ms, mh, bo, policy, Ph{cm, rm})
