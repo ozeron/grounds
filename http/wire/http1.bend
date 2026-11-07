@@ -1265,12 +1265,22 @@ def head.len(ok: Bool, +n: Nat, +code: U32, hs: List<&2, H.Header>, +reuse: Bool
     case False{}:
       HBad{BodyTooLarge{}}
 
+# whether no Content-Length came: with Transfer-Encoding too, chunked
+# frames the body, but the message may be smuggling one, so the
+# connection is not used again (RFC 9112 §6.3)
+def cl.none(cl: CL) -> Bool:
+  match cl:
+    case NoLen{}:
+      True{}
+    case _:
+      False{}
+
 def head.frame(s: Scanned, none: Bool, +code: U32, +v11: Bool, rest: B.Bytes, +max: Nat) -> Head:
   match s none:
     case Scanned{hs, Frame{_, _, _, +c, _}} True{}:
       Head{code, hs, FNone{}, Bool.and(v11, Bool.not(c)), rest}
-    case Scanned{hs, Frame{_, True{}, _, +c, _}} False{}:
-      head.te(te.scan(hs, 0, False{}, []), code, Bool.and(v11, Bool.not(c)), rest)
+    case Scanned{hs, Frame{cl, True{}, _, +c, _}} False{}:
+      head.te(te.scan(hs, 0, False{}, []), code, Bool.and(Bool.and(v11, Bool.not(c)), cl.none(cl)), rest)
     case Scanned{hs, Frame{Len{+n}, False{}, _, +c, _}} False{}:
       head.len(Nat.is_le(n, max), n, code, hs, Bool.and(v11, Bool.not(c)), rest)
     case Scanned{hs, Frame{NoLen{}, False{}, _, _, _}} False{}:

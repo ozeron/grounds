@@ -27,7 +27,7 @@ H1.write(response, close)   # the bytes to send
 
 For clients:
 - `write_request` writes a request head: host, the caller's headers, Content-Length, and `connection: close` unless the connection is kept.
-- `read_head` reads a response's head, and says how the body is framed and whether the connection may be kept.
+- `read_head` reads a response's head, and says how the body is framed and whether the connection may be kept. A response with both Transfer-Encoding and Content-Length is framed by the chunked coding, and its connection is never kept, since such a message may be smuggling another (§6.3).
 - `chunks.feed` decodes a chunked body a read at a time.
 
 For streamed responses, `write_head`, `chunk` and `last_chunk` write the head and the chunks.
@@ -38,7 +38,7 @@ The parser works on its own `Bytes` list (`B.BNil`, `B.BCon{head, tail}`); `B.of
 
 ## Tests
 
-`test.bend` holds 78 cases: a valid request, each rejection above, incomplete input, chunked bodies, a body with a pipelined request after it, response heads, the request and chunk writers, and write then `parse_response` giving the response back. That round trip is a test, not a law: a proof would need `U32.show` and digit parsing to invert on any length, which is not cheap in Bend yet. `moon run http1:check` runs the tests, `examples/echo.bend`, and the cold check.
+`test.bend` holds 95 cases: a valid request, each rejection above, incomplete input, chunked bodies, a body with a pipelined request after it, response heads (including CL+TE, conflicting lengths, folding and oversized heads), chunked bodies a client must refuse, the request and chunk writers, and write then `parse_response` giving the response back. That round trip is a test, not a law: a proof would need `U32.show` and digit parsing to invert on any length, which is not cheap in Bend yet. `moon run http1:check` runs the tests, `examples/echo.bend`, and the cold check.
 
 **Laws.** `LAWS.bend`, proven in `PROOF.bend`. Header names match in any case.
 - **Smuggling:** a Transfer-Encoding anywhere is seen. A request that has one is framed by it alone (`parse_te`). With a Content-Length too, in either order, it is refused (`parse_te_cl`). A bad Content-Length stays bad, and two that differ anywhere make it bad. A folded line anywhere fails the head.

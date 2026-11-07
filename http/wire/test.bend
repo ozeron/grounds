@@ -253,6 +253,33 @@ def rh_http10() -> {rh("HTTP/1.0 200 OK\r\nContent-Length: 0\r\n\r\n") == H1.Hea
 def rh_chunked() -> {rh("HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n1\r\n") == H1.Head{200, [H.Header{"Transfer-Encoding", "chunked"}], H1.FChunked{}, True{}, b("1\r\n")} : H1.Head}:
   {==}
 
+def rh_te_cl() -> {rh("HTTP/1.1 200 OK\r\nContent-Length: 3\r\nTransfer-Encoding: chunked\r\n\r\n") == H1.Head{200, [H.Header{"Content-Length", "3"}, H.Header{"Transfer-Encoding", "chunked"}], H1.FChunked{}, False{}, b("")} : H1.Head}:
+  {==}
+
+def rh_cl_te() -> {rh("HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nContent-Length: 3\r\n\r\n") == H1.Head{200, [H.Header{"Transfer-Encoding", "chunked"}, H.Header{"Content-Length", "3"}], H1.FChunked{}, False{}, b("")} : H1.Head}:
+  {==}
+
+def rh_te_gzip() -> {rh("HTTP/1.1 200 OK\r\nTransfer-Encoding: gzip, chunked\r\n\r\n") == H1.HBad{H1.Unsupported{}} : H1.Head}:
+  {==}
+
+def rh_cl_differ() -> {rh("HTTP/1.1 200 OK\r\nContent-Length: 3\r\nContent-Length: 4\r\n\r\n") == H1.HBad{H1.BadLength{}} : H1.Head}:
+  {==}
+
+def rh_cl_list() -> {rh("HTTP/1.1 200 OK\r\nContent-Length: 3, 3\r\n\r\n") == H1.HBad{H1.BadLength{}} : H1.Head}:
+  {==}
+
+def rh_fold() -> {rh("HTTP/1.1 200 OK\r\nX: a\r\n b\r\n\r\n") == H1.HBad{H1.ObsFold{}} : H1.Head}:
+  {==}
+
+def rh_space_colon() -> {rh("HTTP/1.1 200 OK\r\nContent-Length : 3\r\n\r\n") == H1.HBad{H1.BadHeader{}} : H1.Head}:
+  {==}
+
+def rh_bare_lf() -> {rh("HTTP/1.1 200 OK\nContent-Length: 0\n\n") == H1.HBad{H1.BadLine{}} : H1.Head}:
+  {==}
+
+def rh_head_large() -> {H1.read_head(b("HTTP/1.1 200 OK\r\nX: 0123456789\r\n\r\n"), 20, 16n, False{}) == H1.HBad{H1.HeadTooLarge{}} : H1.Head}:
+  {==}
+
 def rh_to_close() -> {rh("HTTP/1.1 200 OK\r\n\r\nab") == H1.Head{200, [], H1.FClose{}, False{}, b("ab")} : H1.Head}:
   {==}
 
@@ -271,4 +298,34 @@ def feed_one() -> {H1.chunks.feed(b("3\r\nab"), H1.CS{H1.CSize{0n, False{}}, B.B
   {==}
 
 def feed_two() -> {H1.chunks.feed(b("c\r\n0\r\n\r\nNEXT"), H1.CS{H1.CData{1n}, B.BNil{}, 3n, 17n}, 16n) == H1.FedEnd{b("c"), b("NEXT")} : H1.Fed}:
+  {==}
+
+# chunked bodies a client must refuse: a size that is not hex, a size past
+# the limit, a missing CR LF after the data, and a bare LF in an extension
+
+def ch(s: String) -> H1.Chunked:
+  H1.chunks(b(s), 16n)
+
+def ch_bad_hex() -> {ch("zz\r\nab\r\n0\r\n\r\n") == H1.CBad{H1.BadLength{}} : H1.Chunked}:
+  {==}
+
+def ch_too_big() -> {ch("11\r\n") == H1.CBad{H1.BodyTooLarge{}} : H1.Chunked}:
+  {==}
+
+def ch_huge_size() -> {ch("ffffffffffffffff\r\n") == H1.CBad{H1.BodyTooLarge{}} : H1.Chunked}:
+  {==}
+
+def ch_no_crlf() -> {ch("2\r\nabX\r\n0\r\n\r\n") == H1.CBad{H1.BadLength{}} : H1.Chunked}:
+  {==}
+
+def ch_ext_lf() -> {ch("2;a\nb\r\nab\r\n0\r\n\r\n") == H1.CBad{H1.BadLength{}} : H1.Chunked}:
+  {==}
+
+def ch_sign() -> {ch("+2\r\nab\r\n0\r\n\r\n") == H1.CBad{H1.BadLength{}} : H1.Chunked}:
+  {==}
+
+def ch_ext_trailer() -> {ch("2;n=v\r\nab\r\n0\r\nX-T: 1\r\n\r\nNEXT") == H1.CDone{b("ab"), b("NEXT")} : H1.Chunked}:
+  {==}
+
+def ch_truncated() -> {ch("2\r\na") == H1.CMore{} : H1.Chunked}:
   {==}
