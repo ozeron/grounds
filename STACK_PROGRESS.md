@@ -4,6 +4,86 @@ Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and 
 
 The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
 
+- 2026-11-07 (M6 review fix: four P2 findings and two interop
+  relaxations): an independent GPT-6.1-Sol review of `22128d7..4ea30b7`
+  found four P2 issues. Each was reproduced red on macwork before its fix
+  (`red-pre-fix-bundle.txt`, `red-pre-fix-live.txt`, and unit cases
+  failing on the old code).
+  - Bundle (`a71e4bf`): `crypto/pem_bundle.bend` validated the SPKI
+    algorithm OID but only the TLV framing of its parameters. The SPKI
+    `3013300c06072a8648ce3d02010601800303000000` (an unterminated EC curve
+    OID) loaded as `ok:2` next to a valid root. Now SPKI and signature
+    AlgorithmIdentifier parameters are walked to the leaves (each element
+    DER-framed, constructed ones recursively, every OID canonical);
+    rsaEncryption needs NULL and id-ecPublicKey a namedCurve OID.
+    Well-formed unknown algorithms still load. `pem_bundle_check.py` adds
+    12 nested rows (24 cases; 20 were red before). The Mozilla snapshot
+    still loads `ok:118`.
+  - Deadlines (`6e73444`): `read_ms` was ignored by stream and events,
+    one-shot and pooled, and it bounded request writes. Reads now take
+    `read_ms` within the total deadline (streaming: within `timeout_ms`
+    per read); writes take only the total deadline. Before: a 1 s stall
+    under `read_ms` 300 was read through (`ok` at 1.1 s), and a 2 MiB
+    upload read slowly failed at 440 ms. Now the stall fails at
+    0.41 s and the upload succeeds at 1.44 s.
+  - Total deadline (`6e73444`): a pooled request waited on the pool
+    indefinitely (`Chan.recv`), and a retry slept its full backoff. Pool
+    waits now use `Chan.try_recv` up to the deadline (`Timeout`). A retry
+    whose backoff would reach the deadline is not made, and the last
+    outcome is returned at once. No try, retry or redirect starts past the
+    deadline. Before: 2.08 s for a 400 ms GET behind a pool of one, and
+    15.1 s for three 5 s backoffs under an 800 ms total. Now 0.41 s and
+    0.08 s. The audit's "total deadline: present" claim is corrected to
+    partial.
+  - Redirects (`ea3face`): network-path and absolute Locations kept dot
+    segments (`//other/a/../b` sent `/a/../b`). `policy.bend` now removes
+    them after the authority and keeps the query.
+  - Interop: `Content-Length: 5, 5` (and OWS variants) is that length
+    (`3e642ac`, RFC 9110 §8.6 / RFC 9112 §6.3). Identical repeated fields
+    were already accepted. Conflicts, empty elements and non-digits are
+    still refused. The frame-step proofs now range over `cl_value`, and
+    the new law `body_length_read` ties the writer's Content-Length to it.
+    A default `user-agent: grounds-bend` is sent unless the caller sets
+    one (`7803297`), with `with_user_agent` and `without_user_agent`.
+    `Config` gained a trailing `agent` field. `HTTP/1.1 200` without the
+    SP stays refused.
+  - Tests: 14 policy unit cases, 11 framing unit cases (`rh_cl_list`
+    inverted), and 26 new live scenarios (`ccfe455`). These cover
+    Proxy-Authorization dropped across origins through dotted Locations
+    and kept on the same origin, User-Agent default/custom/off, stream and
+    events stalls one-shot and pooled, slow uploads, retry budgets, and a
+    saturated pool. Live totals: framing 53, redirects 16, pool 6,
+    deadlines 20, stream 5.
+  - Harness: the first gate run (`attempt-01/`) passed all 20 deadline
+    scenarios but failed at peer teardown on a client reset recorded by
+    the Python peer. `4874cc0` closes stalled peer connections. Client
+    behaviour did not change.
+  - Docs: `CLIENT_AUDIT.md` (new "Review fix" section), `README.md`, and
+    `TLS_PROFILE.md` (bundle wording).
+
+  Fresh macwork gates at `4874cc0`, clean tree, unchanged
+  4096 MiB / 120 s guard:
+  - `http_client:check --force`: **40/40**, peak 1797.5 MiB
+    (`bend_server_frontend`; `bend_frontend_native` 1755,
+    `bend_public_frontend` 1528), 358 s. Bundle policy 134/134 with
+    `ok:118`; 65 public-chain cases with 118 anchors.
+  - `http_wire:check --force`: **1/1**, peak 318.9 MiB.
+  - `wire:check --force`: **240/240**, peak 1230.6 MiB, 602 s.
+  - `http_server:check --force`: **48/48**, peak 1921.4 MiB
+    (`bend_browser_frontend_native`), 351 s.
+  - `crypto:check --force`: **1,793/1,793**, peak 927.3 MiB
+    (`credential_cli`), 1681 s. Bundle admission 67/67;
+    `pem_bundle_cli` build peak 875 MiB (857 before).
+
+  Artifacts: `~/.codex/artifacts/grounds/2026-11-07/m6/review-fix/`
+  (`<gate>-01.json/.log/.inputs.txt/-artifacts`, `gates.out`, `gates.sh`,
+  `attempt-01/`, `red-pre-fix-*.txt`, `green-probe-live.txt`,
+  `probe.py`). The scratch copy `macwork:~/code/grounds-m6-scratch`
+  (untracked; identical to the tracked tree plus local JSON bench data)
+  was deleted.
+
+  Next: the remaining unticked M6 items.
+
 - 2026-11-07 (M6 item 1 done: HTTP/1.1 client completeness): the native
   Bend TLS client (`bend_client.bend`, `bend_pool.bend`) was audited
   against RFC 9110/9112. The gap table, with baseline `file:line` refs, is
