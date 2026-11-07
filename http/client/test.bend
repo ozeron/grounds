@@ -196,3 +196,29 @@ def origin_port() -> {P.origin.same(True{}, "h", 443, True{}, "h", 8443) == Fals
 
 def origin_scheme() -> {P.origin.same(True{}, "h", 443, False{}, "h", 443) == False{} : Bool}:
   {==}
+
+# network-path and absolute Locations lose their dot segments too; the
+# query is kept as it is
+def loc_net_dots() -> {P.resolve("//other/a/../b", True{}, "/") == P.RAbs{"https://other/b"} : P.Ref}:
+  {==}
+
+def loc_net_dots_query() -> {P.resolve("//other:8443/a/./b/../c?x=/../y#f", True{}, "/") == P.RAbs{"https://other:8443/a/c?x=/../y"} : P.Ref}:
+  {==}
+
+def loc_net_dots_http() -> {P.resolve("//h/../../x/", False{}, "/") == P.RAbs{"http://h/x/"} : P.Ref}:
+  {==}
+
+def loc_net_bare() -> {P.resolve("//h", True{}, "/") == P.RAbs{"https://h"} : P.Ref}:
+  {==}
+
+def loc_net_query_only() -> {P.resolve("//h?a/../b", True{}, "/") == P.RAbs{"https://h?a/../b"} : P.Ref}:
+  {==}
+
+def loc_abs_dots() -> {P.resolve("https://h/a/../../b?q=1", False{}, "/") == P.RAbs{"https://h/b?q=1"} : P.Ref}:
+  {==}
+
+def loc_abs_dot_last() -> {P.resolve("http://h:8080/x/./y/.", True{}, "/") == P.RAbs{"http://h:8080/x/y/"} : P.Ref}:
+  {==}
+
+def loc_abs_upper_dots() -> {P.resolve("HTTPS://H/a/%2e%2e/./b", False{}, "/") == P.RAbs{"https://H/a/%2e%2e/b"} : P.Ref}:
+  {==}

@@ -201,10 +201,56 @@ def scheme.go(s: String, +acc: String, go: Bool) -> Sch:
     case SCon{Chr{+x}, t} True{}:
       scheme.go(t, SCon{Chr{T.lower(x)}, acc}, scheme.char(x))
 
+# an authority, and the path and query after it
+type AP is Data:
+  AP{auth: String, rest: String}
+
+def auth.go(s: String, acc: String) -> AP:
+  match s:
+    case SNil{}:
+      AP{String.reverse(acc), ""}
+    case SCon{Chr{47}, t}:
+      AP{String.reverse(acc), SCon{Chr{47}, t}}
+    case SCon{Chr{63}, t}:
+      AP{String.reverse(acc), SCon{Chr{63}, t}}
+    case SCon{c, t}:
+      auth.go(t, SCon{c, acc})
+
+def net.pq(q: PQ) -> String:
+  match q:
+    case PQ{p, qs}:
+      dots(p) ++ qs
+
+# a path after the authority loses its . and .. segments; a query is kept
+# as it is
+def net.rest(r: String) -> String:
+  match r:
+    case SCon{Chr{47}, t}:
+      net.pq(pq(SCon{Chr{47}, t}))
+    case other:
+      other
+
+def net.ap(ap: AP) -> String:
+  match ap:
+    case AP{a, r}:
+      "//" ++ a ++ net.rest(r)
+
+# //authority/path?query, from what follows the //, with the path's dot
+# segments removed (RFC 3986 §5.2.2, §5.2.4)
+def net(s: String) -> String:
+  net.ap(auth.go(s, ""))
+
+def abs.rest(rest: String) -> String:
+  match rest:
+    case SCon{Chr{47}, SCon{Chr{47}, t}}:
+      net(t)
+    case other:
+      other
+
 def abs.of(+web: Bool, name: String, rest: String) -> Ref:
   match web:
     case True{}:
-      RAbs{name ++ ":" ++ rest}
+      RAbs{name ++ ":" ++ abs.rest(rest)}
     case False{}:
       RNone{}
 
@@ -225,7 +271,7 @@ def rel.of(r: String, +tls: Bool, base: String) -> Ref:
     case SNil{}:
       RNone{}
     case SCon{Chr{47}, SCon{Chr{47}, t}}:
-      RAbs{Bool.pick(String, tls, "https://", "http://") ++ t}
+      RAbs{Bool.pick(String, tls, "https:", "http:") ++ net(t)}
     case SCon{Chr{47}, t}:
       rel.abs(pq(SCon{Chr{47}, t}))
     case SCon{Chr{63}, t}:
