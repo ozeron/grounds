@@ -348,6 +348,36 @@ static void __attribute__((constructor)) gw_udp_recv_use(void) {
 
 #endif
 
+#if (defined(CID(wire_connect_timeout)) || defined(CID(wire_listen_on))) && !defined(GROUNDS_WIRE_ADDR)
+#define GROUNDS_WIRE_ADDR
+
+// An IPv4 literal (the runtime's parser) or an IPv6 one (inet_pton: no
+// zone ID) and a port, as a socket address; the family, or -1. Which text
+// is an address is Bend's to decide (ip.bend); this only hands it to the OS.
+static int gw_addr(const char* host, u32 port, struct sockaddr_storage* at, socklen_t* len) {
+  memset(at, 0, sizeof(*at));
+  if (io_sys_addr(host, port, (struct sockaddr_in*)at) == 0) {
+    *len = sizeof(struct sockaddr_in);
+    return AF_INET;
+  }
+  struct sockaddr_in6* a6 = (struct sockaddr_in6*)at;
+  memset(at, 0, sizeof(*at));
+  // macOS inet_pton takes a "%zone" suffix; no zone is accepted here
+  if (port > 65535 || strchr(host, '%') != NULL
+    || inet_pton(AF_INET6, host, &a6->sin6_addr) != 1) {
+    return -1;
+  }
+  a6->sin6_family = AF_INET6;
+  a6->sin6_port   = htons((uint16_t)port);
+#ifdef SIN6_LEN
+  a6->sin6_len = sizeof(*a6);
+#endif
+  *len = sizeof(*a6);
+  return AF_INET6;
+}
+
+#endif
+
 #ifdef CID(wire_connect_timeout)
 
 // TCP.connect with a deadline: the connect parks on POLLOUT and the clock;
@@ -378,19 +408,21 @@ static Term gw_conn_more(Env e, IoWork* w) {
 }
 
 Term gw_conn_run(Env e, Term* f, IoWork* w) {
-  struct sockaddr_in at;
+  struct sockaddr_storage at;
+  socklen_t at_len = 0;
   w->data = io_cstr(e, f[0], &w->size);
   int fd  = -1;
+  int fam = io_nul(w->data, w->size) ? -1 : gw_addr(w->data, (u32)f[1], &at, &at_len);
   errno   = EINVAL;
-  if (!io_nul(w->data, w->size) && io_sys_addr(w->data, (u32)f[1], &at) == 0) {
-    fd = socket(AF_INET, SOCK_STREAM, 0);
+  if (fam >= 0) {
+    fd = socket(fam, SOCK_STREAM, 0);
   }
   if (fd >= 0 && fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) < 0) {
     close(fd);
     fd = -1;
   }
   w->made = fd;
-  io_sys_end(w, fd < 0 ? fd : connect(fd, (struct sockaddr*)&at, sizeof(at)));
+  io_sys_end(w, fd < 0 ? fd : connect(fd, (struct sockaddr*)&at, at_len));
   return w->code == EINPROGRESS
     ? io_wait_on(w, fd, POLLOUT, io_tick() + (u64)f[2] * 1000000ull, gw_conn_more) : gw_conn_more(e, w);
 }
@@ -533,6 +565,188 @@ Term gw_resolve_run(Env e, Term* f, IoWork* w) {
 
 static void __attribute__((constructor)) gw_resolve_use(void) {
   io_eff(CID(wire_resolve), gw_resolve_run);
+}
+
+#endif
+
+#ifdef CID(wire_listen_on)
+
+// TCP.listen on an IPv4 or IPv6 literal. An IPv6 listener is IPV6_V6ONLY,
+// so "::" and "0.0.0.0" are separate listeners on every host.
+Term gw_listen_run(Env e, Term* f, IoWork* w) {
+  struct sockaddr_storage at;
+  socklen_t len = 0;
+  u64   n;
+  char* host = io_cstr(e, f[0], &n);
+  int   fam  = io_nul(host, n) ? -1 : gw_addr(host, (u32)f[1], &at, &len);
+  free(host);
+  if (fam < 0) {
+    return io_fail(e, EINVAL, NULL);
+  }
+  int fd = socket(fam, SOCK_STREAM, 0);
+  if (fd < 0) {
+    return io_fail(e, (u32)errno, NULL);
+  }
+  int one = 1;
+  setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
+  if ((fam == AF_INET6 && setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &one, sizeof(one)) < 0)
+    || bind(fd, (struct sockaddr*)&at, len) < 0 || listen(fd, 512) < 0
+    || fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) < 0) {
+    u32 code = (u32)errno;
+    close(fd);
+    return io_fail(e, code, NULL);
+  }
+  return io_done(e, io_hand(fd));
+}
+
+static void __attribute__((constructor)) gw_listen_use(void) {
+  io_eff(CID(wire_listen_on), gw_listen_run);
+}
+
+#endif
+
+#ifdef CID(wire_resolve_timeout)
+
+#include <netdb.h>
+#include <pthread.h>
+#include <stdatomic.h>
+
+// Every address of a host name (A and AAAA, in getaddrinfo's order: RFC
+// 6724 on macOS and glibc), each as text, within ms. getaddrinfo cannot be
+// cancelled, so it runs on a detached thread of its own, not the runtime's
+// helper pool, and writes one byte to a pipe the event loop parks on with
+// the deadline. Past the deadline the caller gets ETIMEDOUT at once and the
+// lookup finishes on its own: whichever side lets go of the record last
+// frees it and closes the pipe. A link-local result carries its scope as
+// "%index" so Bend can drop it (Bend URLs have no zone IDs). At most
+// GW_LOOKUP_MAX addresses and GW_LOOKUP_LIVE unfinished lookups.
+#define GW_LOOKUP_MAX  32
+#define GW_LOOKUP_LIVE 64
+
+typedef struct {
+  atomic_int refs;
+  atomic_int done;
+  int        pipe[2];
+  char*      host;
+  u32        code;
+  u32        count;
+  char       text[GW_LOOKUP_MAX][INET6_ADDRSTRLEN + 12];
+} GwLookup;
+
+static atomic_int gw_lookups;
+
+static void gw_lookup_drop(GwLookup* q) {
+  if (atomic_fetch_sub(&q->refs, 1) == 1) {
+    close(q->pipe[0]);
+    close(q->pipe[1]);
+    free(q->host);
+    free(q);
+    atomic_fetch_sub(&gw_lookups, 1);
+  }
+}
+
+static void* gw_lookup_main(void* arg) {
+  GwLookup*        q = arg;
+  struct addrinfo  hint;
+  struct addrinfo* got = NULL;
+  memset(&hint, 0, sizeof(hint));
+  hint.ai_family   = AF_UNSPEC;
+  hint.ai_socktype = SOCK_STREAM;
+  int r = getaddrinfo(q->host, NULL, &hint, &got);
+  if (r != 0 || got == NULL) {
+    q->code = r == EAI_SYSTEM ? (u32)errno : EHOSTUNREACH;
+  } else {
+    for (struct addrinfo* a = got; a != NULL && q->count < GW_LOOKUP_MAX; a = a->ai_next) {
+      char* out = q->text[q->count];
+      if (a->ai_family == AF_INET
+        && inet_ntop(AF_INET, &((struct sockaddr_in*)a->ai_addr)->sin_addr, out, INET6_ADDRSTRLEN)) {
+        q->count += 1;
+      } else if (a->ai_family == AF_INET6
+        && inet_ntop(AF_INET6, &((struct sockaddr_in6*)a->ai_addr)->sin6_addr, out, INET6_ADDRSTRLEN)) {
+        u32 scope = ((struct sockaddr_in6*)a->ai_addr)->sin6_scope_id;
+        if (scope != 0) {
+          snprintf(out + strlen(out), 12, "%%%u", scope);
+        }
+        q->count += 1;
+      }
+    }
+    freeaddrinfo(got);
+    q->code = q->count ? 0 : EHOSTUNREACH;
+  }
+  atomic_store_explicit(&q->done, 1, memory_order_release);
+  char one = 1;
+  while (write(q->pipe[1], &one, 1) < 0 && errno == EINTR) {
+  }
+  gw_lookup_drop(q);
+  return NULL;
+}
+
+static Term gw_lookup_more(Env e, IoWork* w) {
+  GwLookup* q = (GwLookup*)w->data;
+  Term      r;
+  if (atomic_load_explicit(&q->done, memory_order_acquire)) {
+    if (q->code) {
+      r = io_fail(e, q->code, NULL);
+    } else {
+      Term xs = term_pak(CID(Nil), 0);
+      for (u32 i = q->count; i > 0; i -= 1) {
+        xs = io_node(e, CID(Con), io_str(e, q->text[i - 1], strlen(q->text[i - 1])), xs);
+      }
+      r = io_done(e, xs);
+    }
+  } else if (io_tick() < w->time) {
+    return io_wait_on(w, q->pipe[0], POLLIN, w->time, gw_lookup_more);
+  } else {
+    r = io_fail(e, ETIMEDOUT, NULL);
+  }
+  gw_lookup_drop(q);
+  return r;
+}
+
+Term gw_lookup_run(Env e, Term* f, IoWork* w) {
+  u64   n;
+  char* host = io_cstr(e, f[0], &n);
+  if (io_nul(host, n) || n == 0 || n > 1024) {
+    free(host);
+    return io_fail(e, EINVAL, NULL);
+  }
+  if (atomic_fetch_add(&gw_lookups, 1) >= GW_LOOKUP_LIVE) {
+    atomic_fetch_sub(&gw_lookups, 1);
+    free(host);
+    return io_fail(e, EAGAIN, NULL);
+  }
+  GwLookup* q = io_mem(calloc(1, sizeof(GwLookup)));
+  q->host = host;
+  atomic_init(&q->refs, 2);
+  atomic_init(&q->done, 0);
+  pthread_attr_t attr;
+  pthread_t      tid;
+  int            made = -1;
+  if (pipe(q->pipe) == 0) {
+    fcntl(q->pipe[0], F_SETFD, FD_CLOEXEC);
+    fcntl(q->pipe[1], F_SETFD, FD_CLOEXEC);
+    pthread_attr_init(&attr);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+    made = pthread_create(&tid, &attr, gw_lookup_main, q);
+    pthread_attr_destroy(&attr);
+    if (made != 0) {
+      close(q->pipe[0]);
+      close(q->pipe[1]);
+    }
+  }
+  if (made != 0) {
+    u32 code = made > 0 ? (u32)made : (u32)errno;
+    free(host);
+    free(q);
+    atomic_fetch_sub(&gw_lookups, 1);
+    return io_fail(e, code, NULL);
+  }
+  w->data = (char*)q;
+  return io_wait_on(w, q->pipe[0], POLLIN, io_tick() + (u64)f[1] * 1000000ull, gw_lookup_more);
+}
+
+static void __attribute__((constructor)) gw_lookup_use(void) {
+  io_eff(CID(wire_resolve_timeout), gw_lookup_run);
 }
 
 #endif

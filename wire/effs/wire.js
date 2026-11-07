@@ -408,6 +408,57 @@ function wire_resolve(host) {
   }
 }
 
+// every address of a host name, in order, as a list. Blocking: ms is not
+// applied on Bun. getent (glibc) is the only resolver used, as above; an
+// address comes back as it is
+function wire_resolve_timeout(host, ms) {
+  const list = (xs) => {
+    let out = { $: CID(Nil) };
+    for (let i = xs.length; i > 0; i -= 1) {
+      out = { $: CID(Con), head: xs[i - 1], tail: out };
+    }
+    return out;
+  };
+  if (/^\d+\.\d+\.\d+\.\d+$/.test(host) || host.includes(":")) {
+    return io_done(list([host]));
+  }
+  try {
+    const r = Bun.spawnSync(["getent", "ahosts", host]);
+    const seen = [];
+    for (const line of new TextDecoder().decode(r.stdout).split("\n")) {
+      const ip = line.split(/\s+/)[0];
+      if (ip && !seen.includes(ip) && seen.length < 32) {
+        seen.push(ip);
+      }
+    }
+    return seen.length ? io_done(list(seen)) : io_fail(65);
+  } catch (e) {
+    return io_fail(65);
+  }
+}
+
+// TCP.listen on a literal: IPv4 only on Bun (an IPv6 literal fails EINVAL)
+function wire_listen_on(host, port) {
+  const at = io_addr(host, Number(port));
+  if (at === null) {
+    return io_fail(22);
+  }
+  const sys = io_sys();
+  const fd = sys.socket(2, 1, 0);
+  if (fd < 0) {
+    return io_fail(sys.errno());
+  }
+  const one = new Int32Array([1]);
+  sys.setsockopt(fd, sys.mac ? 0xffff : 1, sys.mac ? 4 : 2, sys.ptr(one), 4);
+  if (sys.bind(fd, sys.ptr(at), 16) < 0 || sys.listen(fd, 512) < 0
+    || sys.fcntl(fd, 4, sys.fcntl(fd, 3, 0) | (sys.mac ? 4 : 0x800)) < 0) {
+    const code = sys.errno();
+    sys.close(fd);
+    return io_fail(code);
+  }
+  return io_done(fd);
+}
+
 function wire_close(socket) {
   io_sys().close(socket);
   return { $: CID(Unit) };
@@ -423,6 +474,8 @@ io_eff(CID(wire_on_stop), wire_on_stop);
 io_eff(CID(wire_stopping), wire_stopping);
 io_eff(CID(wire_live), wire_live);
 io_eff(CID(wire_resolve), wire_resolve);
+io_eff(CID(wire_resolve_timeout), wire_resolve_timeout);
+io_eff(CID(wire_listen_on), wire_listen_on);
 io_eff(CID(wire_close), wire_close);
 io_eff(CID(wire_udp_bind), wire_udp_bind);
 io_eff(CID(wire_udp_local_address), wire_udp_local_address);

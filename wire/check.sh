@@ -156,6 +156,14 @@ bend udp.bend -o "$tmp/udp" > /dev/null
 bend udp_address.bend -o "$tmp/udp_address" > /dev/null
 python3 udp_address_check.py "$tmp/udp_address"
 announce end wire/native-transport 0
+# IPv6: address text, ordering and budgets in Bend (ip_test.bend); then
+# native IPv6 transport, A/AAAA lookups, dual-stack dialing with fallback and
+# a lookup deadline (ipv6_check.py)
+announce start wire/native-ipv6
+bend ip_test.bend
+bend ipv6.bend -o "$tmp/ipv6" > /dev/null
+python3 ipv6_check.py "$tmp/ipv6"
+announce end wire/native-ipv6 0
 if command -v bun > /dev/null 2>&1; then
   announce start wire/bun-udp
   bend udp.bend -o "$tmp/udp.js" > /dev/null

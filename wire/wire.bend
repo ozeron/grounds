@@ -55,7 +55,8 @@ def connect(host: String, port: U32) -> IO(Result<&1, &1, U32 & String, Socket>)
   TCP.connect(host, port)
 
 # as connect, but fails ETIMEDOUT when the connection is not made within ms
-# milliseconds: an address that drops packets would wait for the OS
+# milliseconds: an address that drops packets would wait for the OS. host
+# is an IPv4 or (native only) IPv6 literal, never a name
 def wire_connect_timeout(host: String, port: U32, ms: U32) -> IO(Result<&1, &1, U32 & String, Socket>):
   import "./effs/wire.c"
   import "./effs/wire.js"
@@ -88,6 +89,21 @@ def wire_live(d: U32) -> IO(U32):
 # a host name to its first IPv4 address, dotted, for connect; "localhost"
 # gives "127.0.0.1", and an address comes back as it is
 def wire_resolve(host: String) -> IO(Result<&1, &1, U32 & String, String>):
+  import "./effs/wire.c"
+  import "./effs/wire.js"
+
+# every address of a host name, A and AAAA, as text in the resolver's order
+# (RFC 6724 on macOS and glibc), within ms milliseconds: ETIMEDOUT past
+# them, and the lookup is left to finish on its own thread. A link-local
+# IPv6 address carries "%scope". On Bun the lookup blocks and ms is not
+# applied. dial.bend decides what to do with the list
+def wire_resolve_timeout(host: String, ms: U32) -> IO(Result<&1, &1, U32 & String, List<&2, String>>):
+  import "./effs/wire.c"
+  import "./effs/wire.js"
+
+# as listen, on one IPv4 or IPv6 literal ("::1", "127.0.0.1", "::"); an
+# IPv6 listener takes IPv6 only. Bun: IPv4 only
+def wire_listen_on(host: String, port: U32) -> IO(Result<&1, &1, U32 & String, Listener>):
   import "./effs/wire.c"
   import "./effs/wire.js"
 
