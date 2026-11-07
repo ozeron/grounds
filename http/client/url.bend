@@ -2,6 +2,7 @@ import Base
 import ../wire/http1.bend as H1
 import ../core/method.bend as M
 import ../../utf8/utf8.bend as U
+import ../../wire/ip.bend as I
 
 # What a request is aimed at, as plain values: its verb, its URL, and form
 # fields. Apart from client.bend, whose sockets would void these laws
@@ -78,36 +79,44 @@ def s.copy(s: String, acc: String) -> String:
     case SCon{Chr{x}, t}:
       s.copy(t, SCon{Chr{(x + 0 : U32)}, acc})
 
-def url.auth(given: Bool, port: U32, h: String) -> String:
-  match given:
+# an IPv6 host goes in brackets in the authority (RFC 3986 section 3.2.2)
+def url.br(br: Bool, h: String) -> String:
+  match br:
     case True{}:
-      h ++ ":" ++ U32.show(port)
+      "[" ++ h ++ "]"
     case False{}:
       h
+
+def url.auth(given: Bool, br: Bool, port: U32, h: String) -> String:
+  match given:
+    case True{}:
+      url.br(br, h) ++ ":" ++ U32.show(port)
+    case False{}:
+      url.br(br, h)
 
 def url.make(tls: Bool, auth: String, host: String, port: U32, target: String) -> Url:
   Url{tls, host, port, target, auth}
 
-def url.done(ok: Bool, tls: Bool, +host: String, +port: U32, given: Bool, target: String) -> Url:
+def url.done(ok: Bool, tls: Bool, br: Bool, +host: String, +port: U32, given: Bool, target: String) -> Url:
   match ok:
     case True{}:
-      url.make(tls, url.auth(given, port, s.copy(host, "")), host, port, target)
+      url.make(tls, url.auth(given, br, port, s.copy(host, "")), host, port, target)
     case False{}:
       UBad{}
 
-def url.tgt(g: Tgt, tls: Bool, host: String, port: U32, given: Bool) -> Url:
+def url.tgt(g: Tgt, tls: Bool, br: Bool, host: String, port: U32, given: Bool) -> Url:
   match g:
     case Tgt{t, ok}:
-      url.done(ok, tls, host, port, given, t)
+      url.done(ok, tls, br, host, port, given, t)
 
-def url.target(+tls: Bool, host: String, +port: U32, +given: Bool, t: String) -> Url:
+def url.target(+tls: Bool, +br: Bool, host: String, +port: U32, +given: Bool, t: String) -> Url:
   match t:
     case SNil{}:
-      url.done(True{}, tls, host, port, given, "/")
+      url.done(True{}, tls, br, host, port, given, "/")
     case SCon{Chr{63}, r}:
-      url.tgt(target.go(r, "?/", True{}), tls, host, port, given)
+      url.tgt(target.go(r, "?/", True{}), tls, br, host, port, given)
     case SCon{Chr{47}, r}:
-      url.tgt(target.go(r, "/", True{}), tls, host, port, given)
+      url.tgt(target.go(r, "/", True{}), tls, br, host, port, given)
     case _:
       UBad{}
 
@@ -118,54 +127,111 @@ def port.num(s: String, +n: Nat, ok: Bool, any: Bool) -> Maybe<&2, U32>:
     case SCon{Chr{+x}, t}:
       port.num(t, Nat.add(Nat.mul(10n, n), Nat.sub(U32.to_nat(x), 48n)), Bool.and(ok, Bool.and(U32.is_ge(x, 48), Bool.and(U32.is_le(x, 57), Nat.is_le(n, 65535n)))), True{})
 
-def url.port.end(m: Maybe<&2, U32>, tls: Bool, host: String, t: String) -> Url:
+def url.port.end(m: Maybe<&2, U32>, tls: Bool, br: Bool, host: String, t: String) -> Url:
   match m:
     case Some{p}:
-      url.target(tls, host, p, True{}, t)
+      url.target(tls, br, host, p, True{}, t)
     case None{}:
       UBad{}
 
 # the port's digits, up to / or ? or the end: 1 to 65535
-def url.port(s: String, +tls: Bool, host: String, acc: String) -> Url:
+def url.port(s: String, +tls: Bool, +br: Bool, host: String, acc: String) -> Url:
   match s:
     case SNil{}:
-      url.port.end(port.num(String.reverse(acc), 0n, True{}, False{}), tls, host, "")
+      url.port.end(port.num(String.reverse(acc), 0n, True{}, False{}), tls, br, host, "")
     case SCon{Chr{47}, t}:
-      url.port.end(port.num(String.reverse(acc), 0n, True{}, False{}), tls, host, SCon{Chr{47}, t})
+      url.port.end(port.num(String.reverse(acc), 0n, True{}, False{}), tls, br, host, SCon{Chr{47}, t})
     case SCon{Chr{63}, t}:
-      url.port.end(port.num(String.reverse(acc), 0n, True{}, False{}), tls, host, SCon{Chr{63}, t})
+      url.port.end(port.num(String.reverse(acc), 0n, True{}, False{}), tls, br, host, SCon{Chr{63}, t})
     case SCon{c, t}:
-      url.port(t, tls, host, SCon{c, acc})
+      url.port(t, tls, br, host, SCon{c, acc})
 
-def url.host.end(ok: Bool, +tls: Bool, host: String, s: String) -> Url:
+def url.host.end(ok: Bool, +tls: Bool, +br: Bool, host: String, s: String) -> Url:
   match ok s:
     case False{} _:
       UBad{}
     case True{} SCon{Chr{58}, t}:
-      url.port(t, tls, host, "")
+      url.port(t, tls, br, host, "")
     case True{} rest:
-      url.target(tls, host, Bool.pick(U32, tls, 443, 80), False{}, rest)
+      url.target(tls, br, host, Bool.pick(U32, tls, 443, 80), False{}, rest)
 
 # the host, reversed in acc, up to : or / or ? or the end
 def url.host(s: String, +tls: Bool, acc: String, ok: Bool, any: Bool) -> Url:
   match s:
     case SNil{}:
-      url.host.end(Bool.and(ok, any), tls, String.reverse(acc), "")
+      url.host.end(Bool.and(ok, any), tls, False{}, String.reverse(acc), "")
     case SCon{Chr{58}, t}:
-      url.host.end(Bool.and(ok, any), tls, String.reverse(acc), SCon{Chr{58}, t})
+      url.host.end(Bool.and(ok, any), tls, False{}, String.reverse(acc), SCon{Chr{58}, t})
     case SCon{Chr{47}, t}:
-      url.host.end(Bool.and(ok, any), tls, String.reverse(acc), SCon{Chr{47}, t})
+      url.host.end(Bool.and(ok, any), tls, False{}, String.reverse(acc), SCon{Chr{47}, t})
     case SCon{Chr{63}, t}:
-      url.host.end(Bool.and(ok, any), tls, String.reverse(acc), SCon{Chr{63}, t})
+      url.host.end(Bool.and(ok, any), tls, False{}, String.reverse(acc), SCon{Chr{63}, t})
     case SCon{Chr{+x}, t}:
       url.host(t, tls, SCon{Chr{x}, acc}, Bool.and(ok, host.char(x)), True{})
+
+# an IPv6 literal in brackets: its canonical text (RFC 5952) is the host,
+# and in brackets the authority's, so equal addresses written differently
+# are one origin. Then ":port", a target, or the end
+def url.v6.lit(m: Maybe<&2, String>, +tls: Bool, rest: String) -> Url:
+  match m:
+    case Some{h}:
+      url.host.end(True{}, tls, True{}, h, rest)
+    case None{}:
+      UBad{}
+
+# a char onto a reversed side, when it belongs there
+def url.v6.put(here: Bool, +c: U32, acc: String) -> String:
+  match here:
+    case True{}:
+      SCon{Chr{c}, acc}
+    case False{}:
+      acc
+
+# the text between "[" and the first "]" (inner) and after it (rest), both
+# reversed; after: whether the "]" came
+type Br is Data:
+  Br{inner: String, rest: String, after: Bool}
+
+def url.v6.scan(s: String, +after: Bool, inner: String, rest: String) -> Br:
+  match s:
+    case SNil{}:
+      Br{inner, rest, after}
+    case SCon{Chr{+c}, t}:
+      url.v6.scan(t, Bool.or(after, U32.is_eq(c, 93)), url.v6.put(Bool.and(Bool.not(after), U32.is_ne(c, 93)), c, inner), url.v6.put(after, c, rest))
+
+def url.v6.br(b: Br, +tls: Bool) -> Url:
+  match b:
+    case Br{inner, rest, True{}}:
+      url.v6.lit(I.v6.canon(String.reverse(inner)), tls, String.reverse(rest))
+    case Br{_, _, False{}}:
+      UBad{}
+
+# after "[": an IPv6 literal up to "]"; a "%" zone, an IPvFuture "v1.x" or
+# a dotted IPv4 tail is not IPv6 text and fails
+def url.v6(s: String, +tls: Bool) -> Url:
+  url.v6.br(url.v6.scan(s, False{}, "", ""), tls)
+
+def url.start.c(br: Bool, +c: U32, t: String, +tls: Bool) -> Url:
+  match br:
+    case True{}:
+      url.v6(t, tls)
+    case False{}:
+      url.host(SCon{Chr{c}, t}, tls, "", True{}, False{})
+
+# the authority: "[" starts an IPv6 literal, anything else a name or IPv4
+def url.start(s: String, +tls: Bool) -> Url:
+  match s:
+    case SNil{}:
+      UBad{}
+    case SCon{Chr{+c}, t}:
+      url.start.c(U32.is_eq(c, 91), c, t, tls)
 
 def url.raw(s: String) -> Url:
   match s:
     case SCon{'h', SCon{'t', SCon{'t', SCon{'p', SCon{':', SCon{'/', SCon{'/', rest}}}}}}}:
-      url.host(rest, False{}, "", True{}, False{})
+      url.start(rest, False{})
     case SCon{'h', SCon{'t', SCon{'t', SCon{'p', SCon{'s', SCon{':', SCon{'/', SCon{'/', rest}}}}}}}}:
-      url.host(rest, True{}, "", True{}, False{})
+      url.start(rest, True{})
     case _:
       UBad{}
 
@@ -185,8 +251,10 @@ def url.check(u: Url) -> Url:
     case UBad{}:
       UBad{}
 
-# http[s]://host[:port][/path][?query], the scheme in lowercase. No user
-# info, no IPv6 literal, no fragment
+# http[s]://host[:port][/path][?query], the scheme in lowercase; host is a
+# name, an IPv4 address, or an IPv6 address in brackets ("[2001:db8::1]",
+# kept as its canonical text without the brackets; no zone ID). No user
+# info, no fragment
 def url(s: String) -> Url:
   url.check(url.raw(s))
 # a char a form writes as it is (RFC 3986 §2.3)

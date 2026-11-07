@@ -35,6 +35,74 @@ def port_big() -> {C.url("http://h:65536/") == C.UBad{} : C.Url}:
 def port_empty() -> {C.url("http://h:/") == C.UBad{} : C.Url}:
   {==}
 
+# IPv6 literals: the host is the canonical text (RFC 5952) without the
+# brackets; the authority (the Host header) keeps the brackets
+def v6_port() -> {C.url("https://[2001:db8::1]:8443/path") == C.Url{True{}, "2001:db8::1", 8443, "/path", "[2001:db8::1]:8443"} : C.Url}:
+  {==}
+
+def v6_default_port() -> {C.url("http://[::1]/") == C.Url{False{}, "::1", 80, "/", "[::1]"} : C.Url}:
+  {==}
+
+def v6_no_target() -> {C.url("https://[::1]") == C.Url{True{}, "::1", 443, "/", "[::1]"} : C.Url}:
+  {==}
+
+def v6_query() -> {C.url("https://[::1]:9?q") == C.Url{True{}, "::1", 9, "/?q", "[::1]:9"} : C.Url}:
+  {==}
+
+def v6_canonical() -> {C.url("https://[2001:DB8:0:0:0:0:0:1]/") == C.Url{True{}, "2001:db8::1", 443, "/", "[2001:db8::1]"} : C.Url}:
+  {==}
+
+def v6_canonical_zeros() -> {C.url("https://[0:0:0:0:0:0:0:1]:8443/") == C.Url{True{}, "::1", 8443, "/", "[::1]:8443"} : C.Url}:
+  {==}
+
+def v6_unclosed() -> {C.url("https://[::1/") == C.UBad{} : C.Url}:
+  {==}
+
+def v6_after_bracket() -> {C.url("https://[::1]x/") == C.UBad{} : C.Url}:
+  {==}
+
+def v6_two_closing() -> {C.url("https://[::1]]/") == C.UBad{} : C.Url}:
+  {==}
+
+def v6_two_opening() -> {C.url("https://[[::1]/") == C.UBad{} : C.Url}:
+  {==}
+
+def v6_zone() -> {C.url("https://[fe80::1%25en0]/") == C.UBad{} : C.Url}:
+  {==}
+
+def v6_zone_raw() -> {C.url("https://[fe80::1%en0]/") == C.UBad{} : C.Url}:
+  {==}
+
+def v6_future() -> {C.url("https://[v1.x]/") == C.UBad{} : C.Url}:
+  {==}
+
+def v6_dotted_tail() -> {C.url("https://[::ffff:192.0.2.1]/") == C.UBad{} : C.Url}:
+  {==}
+
+def v6_empty() -> {C.url("https://[]/") == C.UBad{} : C.Url}:
+  {==}
+
+def v6_nine_groups() -> {C.url("https://[1:2:3:4:5:6:7:8:9]/") == C.UBad{} : C.Url}:
+  {==}
+
+def v6_port_zero() -> {C.url("https://[::1]:0/") == C.UBad{} : C.Url}:
+  {==}
+
+def v6_port_empty() -> {C.url("https://[::1]:/") == C.UBad{} : C.Url}:
+  {==}
+
+def v6_unbracketed() -> {C.url("https://::1/") == C.UBad{} : C.Url}:
+  {==}
+
+def v6_bracket_inside_name() -> {C.url("https://a[::1]/") == C.UBad{} : C.Url}:
+  {==}
+
+def v6_location_net() -> {P.resolve("//[0::1]:8443/a/../b#f", True{}, "/") == P.RAbs{"https://[0::1]:8443/b"} : P.Ref}:
+  {==}
+
+def v6_same_origin() -> {P.origin.same(True{}, "::1", 8443, True{}, "::1", 8443) == True{} : Bool}:
+  {==}
+
 def space_in_target() -> {C.url("http://h/a b") == C.UBad{} : C.Url}:
   {==}
 
