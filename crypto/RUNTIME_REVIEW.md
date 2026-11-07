@@ -255,6 +255,9 @@ Trust comes from explicit caller-supplied bytes/path, not anchor self-signatures
 Anchor framing accepts unknown/SHA-1 self-signature algorithms without enabling
 those algorithms on any peer signature edge; exact inner/outer identifiers,
 canonical OIDs, DER and signature BIT STRING framing remain checked.
+Bundle entries also pass the chain owners' structural SPKI, Name and
+extension decoders before load (2026-11-07); key/Name profile admission
+stays on the path.
 The 2 MiB/256-anchor/4096-examination bounds do not expand peer/path bounds.
 Malformed/duplicate/overflow inputs reject the complete load. File loading
 bounds size and read, including growth after the size check.

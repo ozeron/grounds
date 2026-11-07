@@ -53,8 +53,9 @@ clock sample are still explicit caller inputs. `from_pem` remains available.
 The PEM bundle is bounded to 2 MiB and 256 anchors; each certificate retains
 its 65,535-byte DER limit. File loading bounds both size and read. Explanatory
 text outside exact CERTIFICATE delimiters is allowed; malformed blocks or
-DER/OID framing, duplicate entries and overflow reject the entire load,
-without partial trust. Empty stores fail. File IO errors use normal File effects.
+DER/OID framing (including nested SPKI, Name and extension framing),
+duplicate entries and overflow reject the entire load, without partial
+trust. Well-framed keys/Names outside the supported profile still load. Empty stores fail. File IO errors use normal File effects.
 A trust anchor's self-signature never establishes trust: structurally valid
 SHA-1 self-signatures can be stored, but SHA-1 peer signatures remain refused.
 Key admission, Name matching and CA/extension policies still apply on the path.

@@ -4,6 +4,45 @@ Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and 
 
 The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
 
+- 2026-11-07 (M5 review fix, P2 nested anchor framing): an independent
+  review found that `crypto/pem_bundle.bend` admitted entries on
+  `C.anchor`'s shallow certificate framing only. A valid root plus a
+  certificate whose SPKI is `30 01 06` (truncated OID) loaded as `ok:2`,
+  which contradicted the whole-load rejection in TLS_PROFILE.md. Reproduced
+  red on macwork: 16 new mixed rows failed on `819efc2`, while the snapshot
+  and profile-outside rows already passed. Fix `22128d7`: before admitting any
+  entry, the bundle now runs the chain owners' structural decoders. These
+  cover SPKI AlgorithmIdentifier and BIT STRING, `x509_name` collection with
+  canonical attribute OIDs, and `x509_extensions`. Key, Name and
+  self-signature profile admission stays lazy on the path, as before:
+  well-framed unknown key OIDs and unsupported Name attributes still load,
+  and SHA-1 self-signed Mozilla roots still load. Bounds are unchanged.
+  `pem_bundle_check.py` adds 10 nested cases. Each runs in both orders next
+  to a valid root, and the `--policy` run covers both the bytes and file APIs.
+  The defects are a truncated SPKI OID, bad BIT STRING padding, a trailing
+  SPKI element, an RDN that is not a SET, an attribute without an OID, a
+  non-canonical attribute OID, a truncated extension, and an extension
+  without a value. Two must-load cases are an unknown key algorithm and an
+  unsupported Name attribute.
+  Fresh macwork gates on `22128d7`, unchanged 4096 MiB / 120 s guard:
+  - `crypto:check --force`: **1,793/1,793**, 3277.3 MiB peak (in
+    `pem_bundle_cli`, previously 3214.4), 1683.2 s.
+  - `http_client:check --force`: run 01 hit `memory-cutoff` (4096.3 MiB) in
+    `bend_frontend_native` after 3 passed phases. Run 02 passed
+    **35/35**, 4091.0 MiB, 416.5 s. Bundle policy passed 86/86 with the
+    snapshot at `ok:118` for both bytes and file. All 65 public-chain cases
+    passed (13 chains x 5) with 118 anchors.
+  A/B guard runs of the `bend_frontend_native` command alone
+  (8192 MiB guard, measurement only) show no measurable change. Before
+  the fix: 4029.8 and 3978.3 MiB. After: 3950.3 and 4043.0 MiB. That phase
+  already sits within ~50 MiB of the limit, and frontend noise is larger
+  than that, so the gate is flaky at the unchanged limit. This is a
+  pre-existing open risk; the limit was not changed. Artifacts are in
+  `~/.codex/artifacts/grounds/2026-11-07/m5/review-fix/`: `crypto-01`,
+  `http_client-01`/`-02` `.json/.log/.inputs.txt/-artifacts`, `gates.out`,
+  `gates.sh`, `red-pre-fix-results.txt`, `frontend-measure-*.json` and
+  `gr-measure.sh`.
+
 - 2026-11-07 (**M5 ACCEPTED** on fresh macwork gates; M3 boxes ticked):
   Host `macwork`: Apple M4 Pro, 12 cores, 24 GiB, macOS 26.7.1 (25G241),
   otherwise idle (normal memory pressure throughout). Revision `819efc2`
