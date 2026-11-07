@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import socket
 import subprocess
 import time
 
@@ -13,9 +14,23 @@ HOSTS = ['example.com', 'www.google.com', 'letsencrypt.org', 'github.com', 'www.
 # plain-HTTP origins that redirect to HTTPS: the client follows the redirect
 # (http to https is allowed; the reverse never is) and verifies the target
 REDIRECTS = ['http://github.com/']
+# an IPv6-only origin (AAAA, no A): fetched only when the host has a global
+# IPv6 route, else recorded as unavailable (never counted as a failure)
+IPV6_ONLY = ['ipv6.google.com']
 SUITES = {4865: 'TLS_AES_128_GCM_SHA256', 4866: 'TLS_AES_256_GCM_SHA384', 4867: 'TLS_CHACHA20_POLY1305_SHA256'}
 GROUPS = {29: 'x25519', 23: 'secp256r1'}
 SIGNATURES = {1027: 'ecdsa_secp256r1_sha256', 1283: 'ecdsa_secp384r1_sha384', 2052: 'rsa_pss_rsae_sha256', 2053: 'rsa_pss_rsae_sha384', 2054: 'rsa_pss_rsae_sha512'}
+
+
+def global_ipv6():
+    """Whether the OS has a route to a global IPv6 address: a UDP connect
+    sends nothing, it only selects a route and a source address."""
+    try:
+        with socket.socket(socket.AF_INET6, socket.SOCK_DGRAM) as s:
+            s.connect(('2001:4860:4860::8888', 53))
+            return not s.getsockname()[0].startswith(('fe80', 'fd', 'fc', '::1'))
+    except OSError:
+        return False
 
 
 def main():
@@ -40,6 +55,11 @@ def main():
             report.update(bundle=str(a.bundle.resolve()), bundle_sha256=hashlib.sha256(a.bundle.read_bytes()).hexdigest())
         argument = '@system' if a.system else str(a.bundle.resolve())
         targets = [(host, 'https://' + host + '/', []) for host in HOSTS] + [(url, url, ['follow']) for url in REDIRECTS]
+        report['global_ipv6'] = global_ipv6()
+        if report['global_ipv6']:
+            targets += [(host, 'https://' + host + '/', ['follow']) for host in IPV6_ONLY]
+        else:
+            report['ipv6_only'] = [dict(host=host, unavailable='no global IPv6 route on this host') for host in IPV6_ONLY]
         for host, url, extra in targets:
             civil = int(time.time()) + 62135596800
             cmd = [str(a.binary.resolve()), str(ROOT / 'crypto/unicode32_nfkc.bin'), str(ROOT / 'crypto/unicode32_prepare.bin'), argument, str(civil), url] + extra
