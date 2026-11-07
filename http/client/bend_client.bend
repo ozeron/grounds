@@ -85,7 +85,9 @@ def with_connect_timeout(c: Config, ms: U32) -> Config:
 # each read of a response, head or body, must bring bytes within ms (and
 # the whole call stays within timeout_ms): a server that stalls fails fast
 # while a slow download that keeps coming is not cut short. 0 turns it
-# off. stream and events already apply timeout_ms per read
+# off. stream and events apply it per read too, with timeout_ms. Writes
+# are bounded by timeout_ms only, so a slow upload that keeps going is
+# not cut short
 def with_read_timeout(c: Config, ms: U32) -> Config:
   match c:
     case Config{t, mh, mb, rt, bo, rd, id, policy, cm, _}:
@@ -350,9 +352,17 @@ def open.lim(tls: Bool, +host: String, port: U32, l: Lim) -> IO(Opened):
   match l:
     case Lim{dl,_,_,_,_,_,policy,ph}: open.ph(tls, host, port, dl, ph, policy)
 
+# a read's deadline: read_ms from now, within the total deadline or, when
+# streaming, within timeout_ms from now
 def lim.at(l: Lim, +now: Nat) -> Nat:
   match l:
-    case Lim{+dl,ms,stream,_,_,_,_,Ph{_,+rd}}: Bool.pick(Nat,stream,Nat.add(now,U32.to_nat(ms)),phase.at(dl,now,rd))
+    case Lim{+dl,+ms,+stream,_,_,_,_,Ph{_,+rd}}: phase.at(Bool.pick(Nat,stream,Nat.add(now,U32.to_nat(ms)),dl),now,rd)
+
+# a write's deadline: the total deadline or, when streaming, timeout_ms
+# from now; read_ms never bounds a write
+def lim.send(l: Lim, +now: Nat) -> Nat:
+  match l:
+    case Lim{+dl,+ms,+stream,_,_,_,_,_}: Bool.pick(Nat,stream,Nat.add(now,U32.to_nat(ms)),dl)
 
 def lim.left(l: Lim, now: Nat) -> U32:
   match l:
@@ -1022,7 +1032,7 @@ def ex.polled(tls, lim, o, m):
 def exchange(s: Tr.Connection, +tls: Bool, req: B.Bytes, +lim: Lim, o: Out) -> IO(Ex):
   do IO<Ex>:
     +now : Nat <- IO.now()
-    m : RU() <- send.of(tls, s, B.to_list(req), lim.at(lim, now))
+    m : RU() <- send.of(tls, s, B.to_list(req), lim.send(lim, now))
     ex.polled(tls, lim, o, m)
 
 # Requests
@@ -1121,8 +1131,10 @@ def redirect(+c: U32) -> Bool:
 def retry.code(+c: U32) -> Bool:
   Bool.or(U32.is_eq(c, 502), Bool.or(U32.is_eq(c, 503), U32.is_eq(c, 504)))
 
+# tries and redirects left, the next backoff, whether redirects are
+# followed at all, and the total deadline
 type Left is Data:
-  Left{tries: U32, redirs: U32, wait: U32, follow: Bool}
+  Left{tries: U32, redirs: U32, wait: U32, follow: Bool, dl: Nat}
 
 def DK() -> Type:
   Spec -> Left -> IO(RR())
@@ -1130,10 +1142,22 @@ def DK() -> Type:
 def wait.more(+w: U32) -> U32:
   Bool.pick(U32, U32.is_lt(w, 2500), (w * 2 : U32), 5000)
 
-def retry(sp: Spec, l: Left, k: DK()) -> IO(RR()):
+def retry.go(late: Bool, sp: Spec, l: Left, k: DK(), give: RR()) -> IO(RR()):
+  match late l:
+    case True{} _:
+      IO.pure(RR(), give)
+    case False{} Left{t, r, +w, f, dl}:
+      IO.bind(Unit, RR(), IO.sleep(w), u => k(sp, Left{(t - 1 : U32), r, wait.more(w), f, dl}))
+
+# after the backoff, the request again; but when the backoff would reach
+# the total deadline, no try could finish in time: give, the last
+# outcome, is the answer at once
+def retry(sp: Spec, l: Left, k: DK(), give: RR()) -> IO(RR()):
   match l:
-    case Left{t, r, +w, f}:
-      IO.bind(Unit, RR(), IO.sleep(w), u => k(sp, Left{(t - 1 : U32), r, wait.more(w), f}))
+    case Left{t, r, +w, f, +dl}:
+      do IO<RR()>:
+        +now : Nat <- IO.now()
+        retry.go(Nat.is_le(dl, Nat.add(now, U32.to_nat(w))), sp, Left{t, r, w, f, dl}, k, give)
 
 # an error, and whether a retry may help it: a connection that failed or
 # timed out
@@ -1153,13 +1177,13 @@ def retry.err(e: Err) -> ErrQ:
 
 def can.retry(again: Bool, l: Left) -> Bool:
   match l:
-    case Left{t, _, _, _}:
+    case Left{t, _, _, _, _}:
       Bool.and(again, U32.is_gt(t, 0))
 
 def lost.go(go: Bool, e: Err, sp: Spec, l: Left, k: DK()) -> IO(RR()):
   match go:
     case True{}:
-      retry(sp, l, k)
+      retry(sp, l, k, Fail{e})
     case False{}:
       IO.pure(RR(), Fail{e})
 
@@ -1264,8 +1288,8 @@ def hs.kept(same: Bool, hs: List<&2, H.Header>) -> List<&2, H.Header>:
 
 def redirs.dec(l: Left) -> Left:
   match l:
-    case Left{t, r, w, f}:
-      Left{t, (r - 1 : U32), w, f}
+    case Left{t, r, w, f, dl}:
+      Left{t, (r - 1 : U32), w, f, dl}
 
 def spec.get(to_get: Bool, v: Ur.Verb, u: Ur.Url, hs: List<&2, H.Header>, b: B.Bytes, pl: Bool) -> Spec:
   match to_get:
@@ -1299,9 +1323,9 @@ def followed(n: Next, sp: Spec, +c: U32, l: Left, m: Meta, o: Out, k: DK()) -> I
   match n l:
     case Stay{} _:
       IO.pure(RR(), Done{response(m, o)})
-    case _ Left{_, 0, _, True{}}:
+    case _ Left{_, 0, _, True{}, _}:
       IO.pure(RR(), Fail{Legacy.Redirects{}})
-    case _ Left{_, 0, _, False{}}:
+    case _ Left{_, 0, _, False{}, _}:
       IO.pure(RR(), Done{response(m, o)})
     case Same{t} other:
       k(spec.same(sp, t, c), redirs.dec(other))
@@ -1344,8 +1368,8 @@ def got.redirect(hit: Bool, m: Meta, o: Out, sp: Spec, l: Left, k: DK()) -> IO(R
 
 def got.go(re: Bool, m: Meta, o: Out, sp: Spec, +l: Left, k: DK()) -> IO(RR()):
   match re m:
-    case True{} _:
-      retry(sp, l, k)
+    case True{} m2:
+      retry(sp, l, k, Done{response(m2, o)})
     case False{} Meta{+c, hs, r}:
       got.redirect(redirect(c), Meta{c, hs, r}, o, sp, l, k)
 
@@ -1366,16 +1390,26 @@ def drive.go(sp2: Spec2, l: Left, +lim: Lim, k: DK()) -> IO(RR()):
     case Spec2{a, b}:
       IO.bind(Hop, RR(), once(a, lim), h => hopped(h, verb.again(b), l, k))
 
+# no try, retry or redirect starts past the total deadline
+def drive.at(late: Bool, sp: Spec, l: Left, +lim: Lim, k: DK()) -> IO(RR()):
+  match late:
+    case True{}:
+      IO.pure(RR(), Fail{Legacy.Timeout{}})
+    case False{}:
+      drive.go(spec.dup(sp), l, lim, k)
+
 # a request, then its redirects and retries; fuel bounds them
 def drive(fuel: Nat, sp: Spec, l: Left, +lim: Lim) -> IO(RR()):
   match fuel:
     case 0n:
       IO.pure(RR(), Fail{Legacy.Redirects{}})
     case 1n+p:
-      drive.go(spec.dup(sp), l, lim, s => l2 => drive(p, s, l2, lim))
+      do IO<RR()>:
+        +now : Nat <- IO.now()
+        drive.at(Nat.is_le(lim.dl(lim), now), sp, l, lim, s => l2 => drive(p, s, l2, lim))
 
-def left.of(+rt: U32, +rd: U32, bo: U32) -> Left:
-  Left{rt, rd, bo, U32.is_gt(rd, 0)}
+def left.of(+rt: U32, +rd: U32, bo: U32, dl: Nat) -> Left:
+  Left{rt, rd, bo, U32.is_gt(rd, 0), dl}
 
 def lim.of(+now: Nat, +ms: U32, mh: U32, mb: U32, policy: Tr.Policy, ph: Ph) -> Lim:
   Lim{Nat.add(now, U32.to_nat(ms)), ms, False{}, mh, U32.to_nat(mb), False{}, policy, ph}
@@ -1388,7 +1422,7 @@ def start(cfg: Config, sp: Spec) -> IO(RR()):
     case Config{+ms, mh, mb, +rt, bo, +rd, _, policy, cm, rm}:
       do IO<RR()>:
         +now : Nat <- IO.now()
-        drive(fuel.of(rt, rd), sp, left.of(rt, rd, bo), lim.of(now, ms, mh, mb, policy, Ph{cm, rm}))
+        drive(fuel.of(rt, rd), sp, left.of(rt, rd, bo, Nat.add(now, U32.to_nat(ms))), lim.of(now, ms, mh, mb, policy, Ph{cm, rm}))
 
 def url.tls(u: Ur.Url) -> Bool:
   match u:
@@ -1399,8 +1433,8 @@ def url.tls(u: Ur.Url) -> Bool:
 
 def tries.dec(l: Left) -> Left:
   match l:
-    case Left{t, r, w, f}:
-      Left{(t - 1 : U32), r, wait.more(w), f}
+    case Left{t, r, w, f, dl}:
+      Left{(t - 1 : U32), r, wait.more(w), f, dl}
 
 # Sending
 # -------
@@ -1541,7 +1575,7 @@ def stream.hx(~f: List<&2, U32> -> IO(Bool), h: Hd, +lim: Lim) -> IO(Ex):
 def stream.x(~f: List<&2, U32> -> IO(Bool), s: Tr.Connection, +tls: Bool, req: B.Bytes, +lim: Lim) -> IO(Ex):
   do IO<Ex>:
     +now : Nat <- IO.now()
-    m : RU() <- send.of(tls, s, B.to_list(req), lim.at(lim, now))
+    m : RU() <- send.of(tls, s, B.to_list(req), lim.send(lim, now))
     h : Hd <- stream.polled(tls, lim, m)
     stream.hx(~f, h, lim)
 
@@ -1755,7 +1789,7 @@ def ev.hx(~on: Ev.Message -> IO(Bool), h: Hd, +lim: Lim) -> IO(Ex):
 def ev.x(~on: Ev.Message -> IO(Bool), s: Tr.Connection, +tls: Bool, req: B.Bytes, +lim: Lim) -> IO(Ex):
   do IO<Ex>:
     +now : Nat <- IO.now()
-    m : RU() <- send.of(tls, s, B.to_list(req), lim.at(lim, now))
+    m : RU() <- send.of(tls, s, B.to_list(req), lim.send(lim, now))
     h : Hd <- stream.polled(tls, lim, m)
     ev.hx(~on, h, lim)
 

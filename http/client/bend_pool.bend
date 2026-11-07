@@ -143,11 +143,13 @@ def decide(p: Pick, +free: Nat, +waiting: Nat, closing: Bool) -> Dec:
     case Pick{None{}, r, d, +n} False{}:
       decide.free(Bool.not(Nat.is_eq(Nat.add(free, n), 0n)), r, Nat.add(free, n), waiting, d)
 
-# what a request got: a kept connection, room to open one, or nothing
+# what a request got: a kept connection, room to open one, nothing (the
+# pool is closing), or none before the request's deadline
 type Taken is Type:
   Kept{sock: Tr.Connection, tls: Bool}
   Room{}
   Shut{}
+  Late{}
 
 def evicted(m: Maybe<&1, Idle>) -> IO(Unit):
   match m:
@@ -156,35 +158,54 @@ def evicted(m: Maybe<&1, Idle>) -> IO(Unit):
     case None{}:
       IO.pure(Unit, Unit{})
 
-def acted(plan: Plan, +p: Pool, +key: String, +fuel: Nat, again: Unit -> IO(Taken)) -> IO(Taken):
+def woke(r: Poll<&1, &1, Maybe<&1, Unit>, Unit>, again: Unit -> IO(Taken)) -> IO(Taken):
+  match r:
+    case Ready{_}:
+      again(Unit{})
+    case Wait{_}:
+      IO.pure(Taken, Late{})
+
+# wait for a connection to come back, but not past the deadline. A waiter
+# that gives up stays counted in waiting: the wake meant for it is then
+# taken by another waiter, or by close, which look at the state again
+def awaited(late: Bool, +w: Chan(Unit), ms: U32, again: Unit -> IO(Taken)) -> IO(Taken):
+  match late:
+    case True{}:
+      IO.pure(Taken, Late{})
+    case False{}:
+      IO.bind(Poll<&1, &1, Maybe<&1, Unit>, Unit>, Taken, Chan.try_recv(Unit, w, ms), r => woke(r, again))
+
+def acted(plan: Plan, +p: Pool, +key: String, +fuel: Nat, +dl: Nat, again: Unit -> IO(Taken)) -> IO(Taken):
   match plan p:
     case Use{Idle{s, tls, _, _}} _:
       IO.pure(Taken, Kept{s, tls})
     case New{ev} _:
       IO.bind(Unit, Taken, evicted(ev), u => IO.pure(Taken, Room{}))
     case Await{} Pool{_, _, +w, _}:
-      IO.bind(Maybe<&1, Unit>, Taken, Chan.recv(Unit, w), u => again(Unit{}))
+      do IO<Taken>:
+        +now : Nat <- IO.now()
+        awaited(Nat.is_le(dl, now), w, C.left(dl, now), again)
     case Gone{} _:
       IO.pure(Taken, Shut{})
 
-def act(d: Dec, +p: Pool, +key: String, +fuel: Nat, again: Unit -> IO(Taken)) -> IO(Taken):
+def act(d: Dec, +p: Pool, +key: String, +fuel: Nat, +dl: Nat, again: Unit -> IO(Taken)) -> IO(Taken):
   match d p:
     case Dec{plan, st, dead} Pool{_, +ch, _, _}:
       do IO<Taken>:
         x : Unit <- put(ch, st)
         y : Unit <- shut.all(dead)
-        acted(plan, p, key, fuel, again)
+        acted(plan, p, key, fuel, dl, again)
 
-def taken.st(m: Maybe<&1, St>, +p: Pool, +key: String, +fuel: Nat, +now: Nat, again: Unit -> IO(Taken)) -> IO(Taken):
+def taken.st(m: Maybe<&1, St>, +p: Pool, +key: String, +fuel: Nat, +now: Nat, +dl: Nat, again: Unit -> IO(Taken)) -> IO(Taken):
   match m p:
     case Some{St{idle, +free, +waiting, closing}} Pool{C.Config{_, _, _, _, _, _, +ms, policy, _, _}, _, _, _}:
-      act(decide(pick(idle, key, now, ms, Pick{None{}, [], [], 0n}), free, waiting, closing), p, key, fuel, again)
+      act(decide(pick(idle, key, now, ms, Pick{None{}, [], [], 0n}), free, waiting, closing), p, key, fuel, dl, again)
     case None{} _:
       IO.pure(Taken, Shut{})
 
 # a connection for key's origin: kept, or room to open one; waiting while
-# every connection is in use
-def take(+fuel: Nat, +p: Pool, +key: String) -> IO(Taken):
+# every connection is in use, until dl
+def take(+fuel: Nat, +p: Pool, +key: String, +dl: Nat) -> IO(Taken):
   match fuel p:
     case 0n _:
       IO.pure(Taken, Shut{})
@@ -192,7 +213,7 @@ def take(+fuel: Nat, +p: Pool, +key: String) -> IO(Taken):
       do IO<Taken>:
         m : Maybe<&1, St> <- Chan.recv(St, ch)
         +now : Nat <- IO.now()
-        taken.st(m, p, key, n, now, u => take(n, p, key))
+        taken.st(m, p, key, n, now, dl, u => take(n, p, key, dl))
 
 # Giving it back
 # --------------
@@ -288,11 +309,13 @@ def used(t: Taken, sp: C.Spec, +key: String, +p: Pool, +lim: C.Lim) -> IO(C.Hop)
       fresh(sp, key, p, lim)
     case Shut{}:
       IO.pure(C.Hop, C.HopLost{Legacy.Closed{}})
+    case Late{}:
+      IO.pure(C.Hop, C.HopLost{Legacy.Timeout{}})
 
 def hop.of(o: C.Orig, +p: Pool, +lim: C.Lim) -> IO(C.Hop):
   match o:
     case C.Orig{+key, sp}:
-      IO.bind(Taken, C.Hop, take(4294967295n, p, key), t => used(t, sp, key, p, lim))
+      IO.bind(Taken, C.Hop, take(4294967295n, p, key, C.lim.dl(lim)), t => used(t, sp, key, p, lim))
 
 # one try through the pool
 def hop(sp: C.Spec, +p: Pool, +lim: C.Lim) -> IO(C.Hop):
@@ -306,20 +329,30 @@ def drive.go(sp2: C.Spec2, l: C.Left, +p: Pool, +lim: C.Lim, k: C.DK()) -> IO(C.
     case C.Spec2{a, b}:
       IO.bind(C.Hop, C.RR(), hop(a, p, lim), h => C.hopped(h, C.verb.again(b), l, k))
 
+# no try, retry or redirect starts past the total deadline
+def drive.at(late: Bool, sp: C.Spec, l: C.Left, +p: Pool, +lim: C.Lim, k: C.DK()) -> IO(C.RR()):
+  match late:
+    case True{}:
+      IO.pure(C.RR(), Fail{Legacy.Timeout{}})
+    case False{}:
+      drive.go(C.spec.dup(sp), l, p, lim, k)
+
 # a request, then its redirects and retries, through the pool
 def drive(fuel: Nat, sp: C.Spec, l: C.Left, +p: Pool, +lim: C.Lim) -> IO(C.RR()):
   match fuel:
     case 0n:
       IO.pure(C.RR(), Fail{Legacy.Redirects{}})
     case 1n+n:
-      drive.go(C.spec.dup(sp), l, p, lim, s => l2 => drive(n, s, l2, p, lim))
+      do IO<C.RR()>:
+        +now : Nat <- IO.now()
+        drive.at(Nat.is_le(C.lim.dl(lim), now), sp, l, p, lim, s => l2 => drive(n, s, l2, p, lim))
 
 def start(sp: C.Spec, +p: Pool) -> IO(C.RR()):
   match p:
     case Pool{C.Config{+ms, mh, mb, +rt, bo, +rd, _, policy, cm, rm}, _, _, _}:
       do IO<C.RR()>:
         +now : Nat <- IO.now()
-        drive(C.fuel.of(rt, rd), sp, C.left.of(rt, rd, bo), p, C.lim.of(now, ms, mh, mb, policy, C.Ph{cm, rm}))
+        drive(C.fuel.of(rt, rd), sp, C.left.of(rt, rd, bo, Nat.add(now, U32.to_nat(ms))), p, C.lim.of(now, ms, mh, mb, policy, C.Ph{cm, rm}))
 
 def send.go(+p: Pool, s: Result<&2, &2, C.Err, C.Spec>) -> IO(C.RR()):
   match s:
@@ -371,11 +404,13 @@ def stream.taken(~f: List<&2, U32> -> IO(Bool), t: Taken, req: B.Bytes, tls0: Bo
       IO.bind(C.Opened, C.R(C.Head), C.open.lim(tls0, host, port, lim), o => stream.opened(~f, o, req, key, p, lim))
     case Shut{}:
       IO.pure(C.R(C.Head), Fail{Legacy.Closed{}})
+    case Late{}:
+      IO.pure(C.R(C.Head), Fail{Legacy.Timeout{}})
 
 def stream.spec(~f: List<&2, U32> -> IO(Bool), o: C.Orig, +p: Pool, +dl: Nat) -> IO(C.R(C.Head)):
   match o p:
     case C.Orig{+key, C.Spec{Ur.Verb{name, +head, sized, _}, Ur.Url{+tls, host, +port, target, auth}, hs, b, _}} Pool{C.Config{+ms, mh, _, _, _, _, _, policy, cm, rm}, _, _, _}:
-      IO.bind(Taken, C.R(C.Head), take(4294967295n, p, key), t => stream.taken(~f, t, H1.write_request(name, target, auth, C.hs.clean(hs, []), b, sized, False{}), tls, host, port, key, p, C.lim.stream(dl, ms, mh, head, policy, C.Ph{cm, rm})))
+      IO.bind(Taken, C.R(C.Head), take(4294967295n, p, key, dl), t => stream.taken(~f, t, H1.write_request(name, target, auth, C.hs.clean(hs, []), b, sized, False{}), tls, host, port, key, p, C.lim.stream(dl, ms, mh, head, policy, C.Ph{cm, rm})))
     case C.Orig{_, C.Spec{_, Ur.UBad{}, _, _, _}} _:
       IO.pure(C.R(C.Head), Fail{Legacy.BadUrl{}})
 
@@ -477,12 +512,14 @@ def ev.taken(~on: Ev.Message -> IO(Bool), t: Taken, req: B.Bytes, tls0: Bool, ho
       IO.bind(C.Opened, C.Try, C.open.lim(tls0, host, port, lim), o => ev.opened(~on, o, req, key, p, lim))
     case Shut{}:
       IO.pure(C.Try, C.Try{Some{Legacy.Closed{}}, None{}, None{}, False{}})
+    case Late{}:
+      IO.pure(C.Try, C.Try{Some{Legacy.Timeout{}}, None{}, None{}, False{}})
 
 # one try at an event stream through the pool
 def ev.try(~on: Ev.Message -> IO(Bool), o: C.Orig, last: Maybe<&2, String>, +p: Pool, +dl: Nat) -> IO(C.Try):
   match o p:
     case C.Orig{+key, C.Spec{Ur.Verb{name, +head, sized, _}, Ur.Url{+tls, host, +port, target, auth}, hs, b, _}} Pool{C.Config{+ms, mh, _, _, _, _, _, policy, cm, rm}, _, _, _}:
-      IO.bind(Taken, C.Try, take(4294967295n, p, key), t => ev.taken(~on, t, H1.write_request(name, target, auth, List.append(&2, H.Header, C.hs.clean(hs, []), C.ev.hs(last)), b, sized, False{}), tls, host, port, key, p, C.lim.stream(dl, ms, mh, head, policy, C.Ph{cm, rm})))
+      IO.bind(Taken, C.Try, take(4294967295n, p, key, dl), t => ev.taken(~on, t, H1.write_request(name, target, auth, List.append(&2, H.Header, C.hs.clean(hs, []), C.ev.hs(last)), b, sized, False{}), tls, host, port, key, p, C.lim.stream(dl, ms, mh, head, policy, C.Ph{cm, rm})))
     case C.Orig{_, C.Spec{_, Ur.UBad{}, _, _, _}} _:
       IO.pure(C.Try, C.Try{Some{Legacy.BadUrl{}}, None{}, None{}, False{}})
 
