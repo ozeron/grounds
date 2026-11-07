@@ -285,6 +285,17 @@ class GuardTests(unittest.TestCase):
                     memory.stop_tree(100)
                 kill.assert_called_once_with(200, signal.SIGKILL)
 
+    def test_procfs_exit_race_reads_as_exited(self):
+        memory = Memory()
+        memory.lib = None  # Exercise the Linux procfs path on any host.
+        for error in (FileNotFoundError(), ProcessLookupError(errno.ESRCH, 'No such process')):
+            with self.subTest(error=type(error).__name__):
+                with mock.patch.object(Path, 'read_text', side_effect=error):
+                    self.assertEqual(memory.read(123, 100), 0)
+        with mock.patch.object(Path, 'read_text', side_effect=PermissionError(errno.EACCES, 'denied')):
+            with self.assertRaises(PermissionError):
+                memory.read(123, 100)
+
     @unittest.skipUnless(sys.platform == "darwin", "macOS sysctl only")
     def test_memory_eperm_requires_exited_or_zombie_evidence(self):
         memory = Memory()

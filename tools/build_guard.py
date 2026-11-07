@@ -165,7 +165,8 @@ class Memory:
                 fields = stat.rsplit(')', 1)[1].split()
                 self.starts[pid] = int(fields[19])
                 self.names[pid] = stat.split('(', 1)[1].rsplit(')', 1)[0]
-            except FileNotFoundError:
+            # An exiting task can vanish after open: procfs then reports ESRCH.
+            except (FileNotFoundError, ProcessLookupError):
                 return 0
             return max(rss, int(fields[21]) * os.sysconf('SC_PAGE_SIZE'))
         try:
