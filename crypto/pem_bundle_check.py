@@ -32,6 +32,12 @@ def nested(raw, field, value):
     # framing stays valid so only nested SPKI/Name/extension parsing can reject.
     tbs, algorithm, signature = D.elements(A.complete(raw, 48))
     fields = D.elements(tbs[1])
+    if field == 'signature':
+        # Inner and outer AlgorithmIdentifier stay identical (C.anchor binds them).
+        at = (1 if fields[0][0] == 0xa0 else 0) + 1
+        encoded = [f[2] for f in fields]
+        encoded[at] = value
+        return A.tlv(48, A.tlv(48, b''.join(encoded)) + value + signature[2])
     if field == 'extensions':
         at = len(fields) - 1
         assert fields[at][0] == 0xa3
@@ -55,6 +61,20 @@ NESTED = [
     ('extension-without-value', 'extensions', 'a309300730050603551d13', 'malformed-bundle'),
     ('unknown-key-algorithm', 'spki', '300c300506032a03040303000000', 'ok:2'),
     ('unsupported-name-attribute', 'subject', '300d310b300906032a030516024142', 'ok:2'),
+    # AlgorithmIdentifier parameters: every nested OID canonical and complete,
+    # rsaEncryption takes NULL, id-ecPublicKey a namedCurve OID.
+    ('ec-unterminated-curve-oid', 'spki', '3013300c06072a8648ce3d02010601800303000000', 'malformed-bundle'),
+    ('ec-noncanonical-curve-oid', 'spki', '3014300d06072a8648ce3d0201060280010303000000', 'malformed-bundle'),
+    ('ec-null-parameters', 'spki', '3012300b06072a8648ce3d020105000303000000', 'malformed-bundle'),
+    ('ec-absent-parameters', 'spki', '3010300906072a8648ce3d02010303000000', 'malformed-bundle'),
+    ('rsa-oid-parameters', 'spki', '3017301006092a864886f70d01010106032a03040303000000', 'malformed-bundle'),
+    ('rsa-absent-parameters', 'spki', '3012300b06092a864886f70d0101010303000000', 'malformed-bundle'),
+    ('key-nested-unterminated-oid', 'spki', '3011300a06032a030430030601800303000000', 'malformed-bundle'),
+    ('key-nested-noncanonical-oid', 'spki', '3012300b06032a03043004060280010303000000', 'malformed-bundle'),
+    ('key-nested-parameters', 'spki', '3016300f06032a0304300806032a03050201050303000000', 'ok:2'),
+    ('signature-nested-noncanonical-oid', 'signature', '300b06032a0304300406028001', 'malformed-bundle'),
+    ('signature-unterminated-parameter-oid', 'signature', '300806032a0304060180', 'malformed-bundle'),
+    ('signature-nested-parameters', 'signature', '301006032a03043009a00506032a03050500', 'ok:2'),
 ]
 
 

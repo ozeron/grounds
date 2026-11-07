@@ -108,10 +108,82 @@ def framed.bits(value: Maybe<&1,List<&2,U32>>) -> Bool:
     case Some{bits}: C.bit_string(bits)
     case None{}: False{}
 
+# AlgorithmIdentifier parameters are walked to the leaves: every element is
+# DER-framed, constructed ones recursively, and every OID is canonical.
+# Unknown algorithms with well-formed parameters still load.
+def deep.pop(stack: List<&2,List<&2,U32>>, more: List<&2,U32> -> List<&2,List<&2,U32>> -> Bool) -> Bool:
+  match stack:
+    case Nil{}: True{}
+    case Con{bytes,rest}: more(bytes,rest)
+
+def deep.kind(oid: Bool, constructed: Bool, body: List<&2,U32>, rest: List<&2,U32>,
+  stack: List<&2,List<&2,U32>>, more: List<&2,U32> -> List<&2,List<&2,U32>> -> Bool) -> Bool:
+  match oid constructed:
+    case True{} _: Bool.and(O.contents(body),more(rest,stack))
+    case False{} True{}: more(body,Con{rest,stack})
+    case False{} False{}: more(rest,stack)
+
+def deep.element(value: Maybe<&1,D.Element>, stack: List<&2,List<&2,U32>>,
+  more: List<&2,U32> -> List<&2,List<&2,U32>> -> Bool) -> Bool:
+  match value:
+    case Some{D.Element{+tag,body,rest,_}}:
+      deep.kind(U32.is_eq(tag,6),U32.is_ne(U32.and(tag,32),0),body,rest,stack,more)
+    case None{}: False{}
+
+def deep.step(bytes: List<&2,U32>, stack: List<&2,List<&2,U32>>,
+  more: List<&2,U32> -> List<&2,List<&2,U32>> -> Bool) -> Bool:
+  match bytes:
+    case Nil{}: deep.pop(stack,more)
+    case bytes: deep.element(D.read(bytes),stack,more)
+
+# Siblings left at each enclosing level wait on the stack. Every element read
+# and every pop spends fuel; elements are at least two bytes, so 2n+2 suffices.
+def deep(fuel: Nat, bytes: List<&2,U32>, stack: List<&2,List<&2,U32>>) -> Bool:
+  match fuel:
+    case 0n: False{}
+    case 1n+p: deep.step(bytes,stack,b => s => deep(p,b,s))
+
+def parameters(+parameters: List<&2,U32>) -> Bool:
+  deep(Nat.add(Nat.add(B.length(parameters),B.length(parameters)),2n),parameters,[])
+
+def deep.identifier(value: Maybe<&1,A.Identifier>) -> Bool:
+  match value:
+    case Some{A.Identifier{oid,rest}}: Bool.and(O.contents(oid),parameters(rest))
+    case None{}: False{}
+
+def algorithm(encoded: List<&2,U32>) -> Bool:
+  deep.identifier(A.identifier(encoded))
+
+# RFC 3279/5480: rsaEncryption takes NULL, id-ecPublicKey a namedCurve OID.
+def key.null(parameters: List<&2,U32>) -> Bool:
+  match parameters:
+    case Con{5,Con{0,Nil{}}}: True{}
+    case _: False{}
+
+def key.curve(value: Maybe<&1,D.Element>) -> Bool:
+  match value:
+    case Some{D.Element{6,_,Nil{},_}}: True{}
+    case _: False{}
+
+def key.kind(rsa: Bool, ec: Bool, parameters: List<&2,U32>) -> Bool:
+  match rsa ec:
+    case True{} _: key.null(parameters)
+    case False{} True{}: key.curve(D.read(parameters))
+    case False{} False{}: True{}
+
+def key.parameters(+kind: U32, parameters: List<&2,U32>) -> Bool:
+  key.kind(U32.is_eq(kind,1),U32.is_eq(kind,21),parameters)
+
+def key.identifier(value: Maybe<&1,A.Identifier>) -> Bool:
+  match value:
+    case Some{A.Identifier{+oid,+rest}}:
+      Bool.and(Bool.and(O.contents(oid),parameters(rest)),key.parameters(A.oid.kind(oid),rest))
+    case None{}: False{}
+
 def framed.key(value: Maybe<&1,D.Element>) -> Bool:
   match value:
     case Some{D.Element{48,_,rest,algorithm}}:
-      Bool.and(C.anchor.identifier(A.identifier(algorithm)),framed.bits(D.complete(3,rest)))
+      Bool.and(key.identifier(A.identifier(algorithm)),framed.bits(D.complete(3,rest)))
     case _: False{}
 
 def framed.spki(value: Maybe<&1,List<&2,U32>>) -> Bool:
@@ -126,9 +198,10 @@ def framed.extensions(value: Maybe<&1,List<&1,E.Extension>>) -> Bool:
 
 def framed(value: Maybe<&1,C.Tbs>) -> Bool:
   match value:
-    case Some{C.Tbs{_,C.Identity{issuer,_,subject,spki},C.Tail{_,_,extensions}}}:
-      Bool.and(Bool.and(framed.name(N.collected(D.complete(48,issuer),True{})),
-          framed.name(N.collected(D.complete(48,subject),True{}))),
+    # C.anchor already bound the outer signature algorithm to this one.
+    case Some{C.Tbs{C.Header{_,_,_,signature},C.Identity{issuer,_,subject,spki},C.Tail{_,_,extensions}}}:
+      Bool.and(Bool.and(Bool.and(framed.name(N.collected(D.complete(48,issuer),True{})),
+          framed.name(N.collected(D.complete(48,subject),True{}))),algorithm(signature)),
         Bool.and(framed.spki(D.complete(48,spki)),framed.extensions(E.optional(extensions))))
     case None{}: False{}
 
