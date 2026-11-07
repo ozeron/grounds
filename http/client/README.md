@@ -168,25 +168,34 @@ live in `policy.bend`, which `test.bend` checks without sockets.
 - **Deadlines:** `timeout_ms` still bounds the whole call. Two new
   options are off (0) by default. `C.with_connect_timeout(cfg, ms)` bounds
   each TCP connect and TLS handshake, per new connection.
-  `C.with_read_timeout(cfg, ms)` bounds each read of a head or body, so a
-  stalled server fails fast while a slow download that keeps arriving is
-  not cut short. `C.with_max_head(cfg, n)` sets the head limit. DNS
-  resolution is not bounded; it is a blocking `wire_resolve`.
+  `C.with_read_timeout(cfg, ms)` bounds each read of a head or body, in
+  `send`, `stream` and `events`, pooled or not, so a stalled server fails
+  fast while a slow download that keeps arriving is not cut short. It
+  never bounds a write: a slow upload that keeps going is bounded by
+  `timeout_ms` only. Waiting for a connection of a full pool ends at the
+  total deadline (`Timeout`), and a retry whose backoff would reach it
+  is not made: the last outcome is returned at once.
+  `C.with_max_head(cfg, n)` sets the head limit. DNS resolution is not
+  bounded; it is a blocking `wire_resolve`.
 - **Requests:** a header whose name is not a token (for example
   `Transfer-Encoding ` with a trailing space, or `X:Y`), or whose value
   holds a control character other than tab, is dropped, like one with
   CR, LF or NUL. A URL's `#fragment` is never sent. No `Accept-Encoding`
-  or `User-Agent` is added.
+  is added. `user-agent: grounds-bend` is added unless the caller sets a
+  User-Agent; `C.with_user_agent(cfg, s)` changes it and
+  `C.without_user_agent(cfg)` sends none.
 - **Responses:** the final status must be 200–599. A 101, a 9th 1xx, or
   a code outside that range is `BadResponse`, and its connection is
   closed. A response with both Content-Length and Transfer-Encoding is
   framed by chunked coding and its connection is never reused (RFC 9112
-  §6.3). Conflicting or non-digit Content-Length values,
+  §6.3). A Content-Length list of one value (`5, 5`) is that length.
+  Conflicting or non-digit Content-Length values,
   Transfer-Encodings other than one `chunked`, obs-fold, bare LF, bad
   chunk sizes and oversized heads are refused. Each case is a live test.
 - **Redirects:** a Location may be absolute, network-path (`//host/p`),
   absolute-path, relative (`b?x=1`, `../d`) or query-only. It is resolved
-  per RFC 3986 with dot segments removed and the fragment dropped. A
+  per RFC 3986 with dot segments removed (for absolute and network-path
+  Locations too) and the fragment dropped. A
   scheme other than http(s), or an empty Location, is not followed.
   Authorization, Cookie and Proxy-Authorization are dropped when the
   origin (scheme, host ignoring ASCII case, port) changes, and kept on the
@@ -204,7 +213,8 @@ live in `policy.bend`, which `test.bend` checks without sockets.
 
 The affine TLS owner travels through HTTP framing and the pool. Ordinary calls
 retain one absolute deadline through DNS, connect, handshake, writes, reads,
-redirects and retries. Streaming/SSE retain the existing per-read deadline policy.
+redirects and retries, pool waits and retry backoff included. Streaming/SSE
+apply `timeout_ms`, and `read_ms` when set, per read.
 Authenticated close_notify can terminate a close-delimited body; bare EOF and
 partial records fail as truncation. Pooled safe requests can reconnect once after
 a stale connection. Rebuilding affine Unicode tables on new connections adds
