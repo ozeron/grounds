@@ -4,6 +4,61 @@ Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and 
 
 The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
 
+- 2026-11-07 (M6 started; build-memory headroom done): the four HTTP
+  client compile phases peaked at 3.7–4.0 GiB against the unchanged
+  4096 MiB guard, so `http_client:check` failed at random.
+  - Diagnosis: the Bend checker, not codegen or clang, drove the cost.
+    `pem_bundle_cli --check-only` alone peaked at 3039 MiB.
+    `x509_chain_cli`, a larger import graph, peaked at 528 MiB.
+  - A checker copy instrumented per definition (v2.0.38 source, diagnosis
+    only) found the same outliers in every client entry:
+    `pem_bundle:body.line` (+700–790 MiB) and `pem_bundle:start.line`
+    (+460–500 MiB). Each matched a 25–27 character PEM delimiter
+    string-literal pattern with a large default row.
+  - Cause: in 2.0.38, `parse_patt` unfolds a literal to SCon/Chr/U32 and 32
+    bit constructors per character. `match_flatten` copies the default rows
+    at each of these roughly 1,800 levels.
+  - Fix `2bd395d`: compare the delimiters with `String.eq` in helpers. The
+    admitted and rejected lines are identical. No guard, test, entry or
+    compiler setting changed.
+  - Details and guidance are in `http/client/BUILD_MEMORY.md`. M6
+    ("Real-world HTTPS") is added to STACK_PLAN.md with this as its first
+    ticked item.
+
+  Fresh macwork gates on `2bd395d`, clean tree, unchanged
+  4096 MiB / 120 s guard:
+  - `http_client:check --force` run 01: **35/35**, 1796.6 MiB peak, 317 s.
+  - `http_client:check --force` run 02: **35/35**, 1807 MiB peak, 318 s.
+  - `crypto:check --force`: **1,793/1,793**, 931 MiB peak
+    (`rsa_private_cli`), 1678 s.
+
+  Case counts are the same as on `22128d7`:
+  - http_client: live scenarios 11/9/8/1/1, bundle policy 86 passed, and
+    65 public-chain cases (13 x 5) with 118 anchors.
+  - crypto: bundle admission 43 passed.
+
+  Per-phase peaks, before (root-01 on `819efc2`) and after (the higher of
+  the two http_client runs, plus crypto-01):
+
+  | Phase | Before (MiB) | After (MiB) |
+  | --- | --- | --- |
+  | `bend_public_frontend` | 4008 | 1558 |
+  | `bend_frontend_native` | 4007 | 1807 |
+  | `bend_public_chain_build` | 3869 | 1382 |
+  | `bend_bundle_build` | 3717 | 1386 |
+  | `crypto/native/build/pem_bundle_cli` | 3238 | 857 |
+
+  Every other http_client phase was already at or below 1765 MiB
+  (`bend_server_frontend`) and is unchanged. No Bend upstream work is
+  needed. Folding literal rows into one equality test with a shared
+  default would remove this trap upstream.
+
+  Artifacts are in `~/.codex/artifacts/grounds/2026-11-07/m6/build-memory/`
+  (gate json/log/inputs, plus `diag/` with the measurement-only runs and
+  per-definition profiles).
+
+  Next: the remaining unticked M6 items.
+
 - 2026-11-07 (M5 review fix, P2 nested anchor framing): an independent
   review found that `crypto/pem_bundle.bend` admitted entries on
   `C.anchor`'s shallow certificate framing only. A valid root plus a

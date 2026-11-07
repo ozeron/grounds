@@ -292,6 +292,30 @@ fresh. Live-secret use stays blocked by `crypto/ERASURE.md`.
   http_server 48/48 and root `:check --force` 2,286/2,286 in one uninterrupted
   run under the unchanged 4096 MiB / 120 s guard. See STACK_PROGRESS.md.
 
+### M6 — Real-world HTTPS
+
+Added 2026-11-07, after M5. Goal: make the M5 client dependable for ordinary
+real-world HTTPS use without widening the frozen exclusions.
+
+- [x] Build-memory headroom: every `http_client` compile phase and
+  `crypto/native/build/pem_bundle_cli` peaks at or below 3.3 GiB (about 20%
+  headroom) under the unchanged 4096 MiB / 120 s guard. Tests, coverage and
+  runtime behavior stay the same. Done 2026-11-07 (`2bd395d`; see
+  `http/client/BUILD_MEMORY.md` and STACK_PROGRESS.md).
+- [ ] HTTP/1.1 client completeness audit: redirects, chunked and streaming
+  bodies, keep-alive and pooling, timeouts, proxies.
+- [ ] Opt-in system CA bundle loading. It stays an explicit caller choice,
+  never ambient trust.
+- [ ] IPv6: TCP connections, AAAA resolution and bracketed IPv6 URL literals.
+- [ ] Server SNI multi-certificate selection.
+- [ ] Broaden the finite Name profile for common EV certificates (for example
+  www.digicert.com).
+- [ ] Optional X25519MLKEM768 hybrid key share.
+
+Exclusions stay: HTTP/2 and HTTP/3, OCSP/CRL revocation, and key and
+certificate generation. Live-secret use stays blocked by `crypto/ERASURE.md`.
+That secret-erasure work is out of scope for M6.
+
 ## Execution order and continuation
 
 1. Establish M0 acceptance and preserve the current dirty work.
