@@ -56,14 +56,21 @@ def body.more(bad: Bool, rest: List<&2,U32>, collected: List<&2,U32>,
     case True{}: Fail{Malformed{}}
     case False{}: more(rest,collected)
 
+# Delimiters are compared with String.eq, not string-literal match patterns:
+# under Bend 2.0.38 those two literal matches cost ~1.2 GiB of checker memory
+# in every program importing this module (see http/client/BUILD_MEMORY.md).
+def body.end(ended: Bool, +text: String, rest: List<&2,U32>, collected: List<&2,U32>,
+  more: List<&2,U32> -> List<&2,U32> -> Result<&2,&2,Error,Parsed>) -> Result<&2,&2,Error,Parsed>:
+  match ended:
+    case True{}:
+      Done{Parsed{List.reverse(&2,U32,List.reverse.go(&2,U32,Utf.encode(text),collected)),rest}}
+    case False{}:
+      body.more(delimiter(text),rest,Con{10,List.reverse.go(&2,U32,Utf.encode(text),collected)},more)
+
 def body.line(pair: String & List<&2,U32>, collected: List<&2,U32>,
   more: List<&2,U32> -> List<&2,U32> -> Result<&2,&2,Error,Parsed>) -> Result<&2,&2,Error,Parsed>:
   (+text,+rest) = pair
-  match text:
-    case "-----END CERTIFICATE-----":
-      Done{Parsed{List.reverse(&2,U32,List.reverse.go(&2,U32,Utf.encode(text),collected)),rest}}
-    case text:
-      body.more(delimiter(text),rest,Con{10,List.reverse.go(&2,U32,Utf.encode(text),collected)},more)
+  body.end(String.eq(text,"-----END CERTIFICATE-----"),text,rest,collected,more)
 
 def body(left: Nat, bytes: List<&2,U32>, collected: List<&2,U32>) -> Result<&2,&2,Error,Parsed>:
   match left bytes:
@@ -149,15 +156,19 @@ def start.more(bad: Bool, rest: List<&2,U32>, roots: List<&2,List<&2,U32>>,
     case True{}: Fail{Malformed{}}
     case False{}: next(rest,roots)
 
+def start.begin(begun: Bool, +text: String, +rest: List<&2,U32>, +left: U32, roots: List<&2,List<&2,U32>>,
+  next: U32 -> List<&2,U32> -> List<&2,List<&2,U32>> -> Result<&2,&2,Error,List<&2,List<&2,U32>>>) -> Result<&2,&2,Error,List<&2,List<&2,U32>>>:
+  match begun left:
+    case True{} 0: Fail{Limit{}}
+    case True{} left:
+      parsed(body(Nat.add(B.length(rest),1n),rest,Con{10,List.reverse(&2,U32,Utf.encode(text))}),roots,r => acc => next(U32.sub(left,1),r,acc))
+    case False{} _:
+      start.more(delimiter(text),rest,roots,r => acc => next(left,r,acc))
+
 def start.line(pair: String & List<&2,U32>, +left: U32, roots: List<&2,List<&2,U32>>,
   next: U32 -> List<&2,U32> -> List<&2,List<&2,U32>> -> Result<&2,&2,Error,List<&2,List<&2,U32>>>) -> Result<&2,&2,Error,List<&2,List<&2,U32>>>:
   (+text,+rest) = pair
-  match text left:
-    case "-----BEGIN CERTIFICATE-----" 0: Fail{Limit{}}
-    case "-----BEGIN CERTIFICATE-----" left:
-      parsed(body(Nat.add(B.length(rest),1n),rest,Con{10,List.reverse(&2,U32,Utf.encode(text))}),roots,r => acc => next(U32.sub(left,1),r,acc))
-    case text _:
-      start.more(delimiter(text),rest,roots,r => acc => next(left,r,acc))
+  start.begin(String.eq(text,"-----BEGIN CERTIFICATE-----"),text,rest,left,roots,next)
 
 def start(fuel: Nat, +left: U32, bytes: List<&2,U32>, roots: List<&2,List<&2,U32>>) -> Result<&2,&2,Error,List<&2,List<&2,U32>>>:
   match fuel bytes:
