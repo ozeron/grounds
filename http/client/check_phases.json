@@ -82,6 +82,10 @@
       "optional": false
     },
     {
+      "name": "http_client/bend_live_ipv6",
+      "optional": false
+    },
+    {
       "name": "http_client/bend_bundle_build",
       "optional": false
     },

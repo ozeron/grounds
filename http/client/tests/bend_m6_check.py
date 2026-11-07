@@ -599,19 +599,185 @@ def stream(binary, directory, rows):
         print("/big-chunked small passed", flush=True)
 
 
+# IPv6 (M6 item 3): a peer bound on ::1 with an IPv6 iPAddress SAN, URLs with
+# bracketed literals in compressed and expanded forms, no SNI for a literal,
+# Host with brackets, a missing IPv6 SAN refused, pooled reuse by canonical
+# origin, redirects (same origin written differently keeps credentials; a
+# redirect to a name is cross-origin and re-verified with SNI), and the
+# dual-stack name localhost reaching an IPv6-only and an IPv4-only peer (the
+# second after ::1 refuses). On macOS, a .local name that multicast DNS
+# takes about 5 s to give up on is cut off by the connect deadline.
+LEAF6 = "ipv6.pem"
+SLOW_NAME = "grounds-nonexistent-q7.local"
+
+
+def ipv6_leaf(directory):
+    """A synthetic leaf for the same synthetic CA and key: DNS:localhost,
+    IP:127.0.0.1 and IP:::1. Never a production key."""
+    if (directory / LEAF6).exists():
+        return
+    openssl = os.environ.get("OPENSSL", "openssl")
+    ext = directory / "leaf6.cnf"
+    ext.write_text("basicConstraints=critical,CA:FALSE\nkeyUsage=critical,digitalSignature\n"
+                   "extendedKeyUsage=serverAuth\nsubjectAltName=DNS:localhost,IP:127.0.0.1,IP:::1\n"
+                   "subjectKeyIdentifier=hash\nauthorityKeyIdentifier=keyid\n")
+    subprocess.run([openssl, "req", "-new", "-key", str(directory / "ecdsa.key"), "-out", str(directory / "ipv6.csr"),
+                    "-subj", "/CN=synthetic IPv6 SAN-only test leaf", "-sha256"], check=True, capture_output=True)
+    subprocess.run([openssl, "x509", "-req", "-in", str(directory / "ipv6.csr"), "-CA", str(directory / "ca.pem"),
+                    "-CAkey", str(directory / "ca.key"), "-set_serial", "106", "-days", "7", "-sha256",
+                    "-extfile", str(ext), "-out", str(directory / LEAF6)], check=True, capture_output=True)
+
+
+class V6Peer(base.Peer):
+    def do_GET(self):
+        port = self.server.server_port
+        if self.path in ("/v6-redirect", "/v6-cross"):
+            self.rfile.read(int(self.headers.get("content-length", "0")))
+            self.server.requests.append(dict(path=self.path, headers=dict(self.headers), connection=self.client_address,
+                                             sni=self.server.sni.get(self.connection.fileno())))
+            target = f"https://[0:0:0:0:0:0:0:1]:{port}/v6-final" if self.path == "/v6-redirect" \
+                else f"https://localhost:{port}/v6-final"
+            self.send_response(302)
+            self.send_header("Location", target)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        super().do_GET()
+
+
+class Server6(base.Server):
+    address_family = socket.AF_INET6
+
+
+@contextmanager
+def peer_on(directory, host, credential):
+    server = (Server6 if ":" in host else base.Server)((host, 0), V6Peer)
+    server.requests, server.errors, server.sni = [], [], {}
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    context.minimum_version = context.maximum_version = ssl.TLSVersion.TLSv1_3
+    context.load_cert_chain(directory / credential, directory / "ecdsa.key")
+    context.set_alpn_protocols(["http/1.1"])
+    context.set_servername_callback(lambda sock, name, _: server.sni.__setitem__(sock.fileno(), name))
+    server.context = context
+    thread = threading.Thread(target=server.serve_forever)
+    thread.start()
+    try:
+        yield server
+        assert not server.errors, server.errors
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(3)
+        assert not thread.is_alive()
+
+
+def free_on(host, port):
+    """Whether nothing listens on host:port (so a connect there is refused)."""
+    family = socket.AF_INET6 if ":" in host else socket.AF_INET
+    with socket.socket(family) as s:
+        try:
+            s.bind((host, port))
+            return True
+        except OSError:
+            return False
+
+
+def ipv6(binary, directory, rows):
+    ipv6_leaf(directory)
+    names = sorted({a[4][0] for a in socket.getaddrinfo("localhost", 443, 0, socket.SOCK_STREAM)})
+    assert "::1" in names and "127.0.0.1" in names, ("localhost must be dual-stack for these cases", names)
+
+    def case(name, url, mode, check, server=None):
+        start = len(server.requests) if server else 0
+        output, elapsed, _ = run(binary, directory, url, mode)
+        seen = server.requests[start:] if server else []
+        check(output, seen)
+        rows.append(dict(name=name, url=url, mode=mode, output=output, requests=len(seen),
+                         peers=[r["connection"][0] for r in seen], sni=[r.get("sni") for r in seen],
+                         elapsed_seconds=elapsed))
+        print(name, "passed", flush=True)
+
+    def host_is(value):
+        return lambda r: [hdr(x, "host") for x in r] == [value]
+
+    with peer_on(directory, "::1", LEAF6) as s6:
+        port = s6.server_port
+        lit = f"https://[::1]:{port}"
+        case("literal", lit + "/", "get", lambda o, r: (o == ["ok:200:5"] and host_is(f"[::1]:{port}")(r)
+             and r[0]["sni"] is None and r[0]["connection"][0] == "::1") or fail(o, r), s6)
+        case("literal-expanded", f"https://[0:0:0:0:0:0:0:1]:{port}/", "get",
+             lambda o, r: (o == ["ok:200:5"] and host_is(f"[::1]:{port}")(r) and r[0]["sni"] is None) or fail(o, r), s6)
+        case("literal-uppercase-zeros", f"https://[0000:0:0::0001]:{port}/?q=1", "get",
+             lambda o, r: (o == ["ok:200:5"] and r[0]["path"] == "/?q=1" and host_is(f"[::1]:{port}")(r)) or fail(o, r), s6)
+        case("pool-reuse", lit + "/", "pool2",
+             lambda o, r: (o == ["ok:200:5", "ok:200:5"] and len({x["connection"] for x in r}) == 1) or fail(o, r), s6)
+        case("redirect-same-origin-canonical", lit + "/v6-redirect", "auth",
+             lambda o, r: (o == ["ok:200:5"] and [x["path"] for x in r] == ["/v6-redirect", "/v6-final"]
+                           and hdr(r[1], "authorization") == "secret"
+                           and hdr(r[1], "host") == f"[::1]:{port}") or fail(o, r), s6)
+        case("redirect-to-name-cross-origin", lit + "/v6-cross", "auth",
+             lambda o, r: (o == ["ok:200:5"] and [x["path"] for x in r] == ["/v6-cross", "/v6-final"]
+                           and hdr(r[1], "authorization") is None and r[1]["sni"] == "localhost"
+                           and hdr(r[1], "host") == f"localhost:{port}") or fail(o, r), s6)
+        case("dual-stack-name-to-v6-only", f"https://localhost:{port}/", "get",
+             lambda o, r: (o == ["ok:200:5"] and r[0]["connection"][0] == "::1" and r[0]["sni"] == "localhost") or fail(o, r), s6)
+        assert free_on("127.0.0.1", port), port
+
+    with peer_on(directory, "::1", "ecdsa.pem") as s6:
+        case("literal-without-ipv6-san", f"https://[::1]:{s6.server_port}/", "get",
+             lambda o, r: (o == ["error:tls:certificate:identity-mismatch"] and r == []) or fail(o, r), s6)
+
+    with peer_on(directory, "127.0.0.1", LEAF6) as s4:
+        port = s4.server_port
+        assert free_on("::1", port), port
+        case("dual-stack-name-to-v4-only-falls-back", f"https://localhost:{port}/", "connect-timeout",
+             lambda o, r: (o[0] == "ok:200:5" and r[0]["connection"][0] == "127.0.0.1" and elapsed_ms(o) < 1500) or fail(o, r), s4)
+        case("literal-v4-still", f"https://127.0.0.1:{port}/", "get",
+             lambda o, r: (o == ["ok:200:5"] and r[0]["sni"] is None) or fail(o, r), s4)
+
+    for name, url in [("zone-id", "https://[fe80::1%25lo0]:443/"), ("zone-id-raw", "https://[::1%lo0]:443/"),
+                      ("unbracketed", "https://::1/"), ("unclosed", "https://[::1/"), ("dotted-tail", "https://[::ffff:127.0.0.1]/")]:
+        case("malformed-" + name, url, "get",
+             lambda o, r: o == ["error:bad url: want http[s]://host[:port][/path]"] or fail(o, r))
+
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        closed = probe.getsockname()[1]
+    if free_on("::1", closed):
+        case("dual-stack-name-nothing-listening", f"https://localhost:{closed}/", "get",
+             lambda o, r: (len(o) == 1 and o[0].startswith("error:connection failed: errno ")) or fail(o, r))
+
+    if sys.platform == "darwin":
+        case("dns-deadline", f"https://{SLOW_NAME}/", "connect-timeout",
+             lambda o, r: (o[0] == "error:timeout" and 400 <= elapsed_ms(o) <= 1500) or fail(o, r))
+        assert rows[-1]["elapsed_seconds"] < 3.0, rows[-1]
+    else:
+        rows.append(dict(name="dns-deadline", skipped="needs macOS multicast DNS for a slow lookup"))
+
+
+def hdr(request, name):
+    values = [v for k, v in request["headers"].items() if k.lower() == name]
+    assert len(values) <= 1, (name, request)
+    return values[0] if values else None
+
+
+def fail(output, seen):
+    raise AssertionError((output, seen))
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--binary", type=Path, required=True)
     p.add_argument("--fixtures", type=Path, required=True)
     p.add_argument("--report", type=Path, required=True)
-    p.add_argument("--mode", choices=["framing", "redirects", "pool", "deadlines", "stream"], required=True)
+    p.add_argument("--mode", choices=["framing", "redirects", "pool", "deadlines", "stream", "ipv6"], required=True)
     args = p.parse_args()
     rows = []
     started = time.monotonic()
     report = dict(target="native", mode=args.mode, results=rows, synthetic_keys_only=True,
                   client_sha256=hashlib.sha256(args.binary.read_bytes()).hexdigest())
     try:
-        dict(framing=framing, redirects=redirects, pool=pool, deadlines=deadlines, stream=stream)[args.mode](
+        dict(framing=framing, redirects=redirects, pool=pool, deadlines=deadlines, stream=stream, ipv6=ipv6)[args.mode](
             args.binary, args.fixtures, rows)
         report["passed"] = True
     except BaseException as error:

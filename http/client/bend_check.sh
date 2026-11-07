@@ -58,9 +58,10 @@ for mode in ordinary negative bend openssl go; do
   python3 tests/bend_tls_check.py --mode "$mode" --binary "$artifacts/client" --fixtures "$artifacts/fixtures" --server "$artifacts/server" --go "$artifacts/go-peer" --report "$artifacts/$mode.json"
   end
 done
-# M6: framing, redirects, keep-alive reuse, deadlines and streamed bodies,
-# against independent Python TLS peers (native only).
-for mode in framing redirects pool deadlines stream; do
+# M6: framing, redirects, keep-alive reuse, deadlines, streamed bodies and
+# IPv6 (literals, IP SANs, dual-stack fallback, the DNS deadline), against
+# independent Python TLS peers (native only).
+for mode in framing redirects pool deadlines stream ipv6; do
   begin "bend_live_$mode"
   python3 tests/bend_m6_check.py --mode "$mode" --binary "$artifacts/client" --fixtures "$artifacts/fixtures" --report "$artifacts/m6-$mode.json"
   end
