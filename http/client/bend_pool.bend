@@ -177,7 +177,7 @@ def act(d: Dec, +p: Pool, +key: String, +fuel: Nat, again: Unit -> IO(Taken)) ->
 
 def taken.st(m: Maybe<&1, St>, +p: Pool, +key: String, +fuel: Nat, +now: Nat, again: Unit -> IO(Taken)) -> IO(Taken):
   match m p:
-    case Some{St{idle, +free, +waiting, closing}} Pool{C.Config{_, _, _, _, _, _, +ms, policy}, _, _, _}:
+    case Some{St{idle, +free, +waiting, closing}} Pool{C.Config{_, _, _, _, _, _, +ms, policy, _, _}, _, _, _}:
       act(decide(pick(idle, key, now, ms, Pick{None{}, [], [], 0n}), free, waiting, closing), p, key, fuel, again)
     case None{} _:
       IO.pure(Taken, Shut{})
@@ -257,7 +257,7 @@ def fresh.opened(o: C.Opened, req: B.Bytes, +key: String, +p: Pool, +lim: C.Lim)
 def fresh(sp: C.Spec, +key: String, +p: Pool, +lim: C.Lim) -> IO(C.Hop):
   match sp:
     case C.Spec{Ur.Verb{name, +head, sized, _}, Ur.Url{+tls, host, +port, target, auth}, hs, b, _}:
-      IO.bind(C.Opened, C.Hop, C.open(tls, host, port, C.lim.dl(lim), C.lim.policy(lim)), o => fresh.opened(o, H1.write_request(name, target, auth, C.hs.clean(hs, []), b, sized, False{}), key, p, C.lim.with_head(lim, head)))
+      IO.bind(C.Opened, C.Hop, C.open.lim(tls, host, port, lim), o => fresh.opened(o, H1.write_request(name, target, auth, C.hs.clean(hs, []), b, sized, False{}), key, p, C.lim.with_head(lim, head)))
     case C.Spec{_, Ur.UBad{}, _, _, _}:
       IO.bind(Unit, C.Hop, release(p), u => IO.pure(C.Hop, C.HopLost{Legacy.BadUrl{}}))
 
@@ -316,10 +316,10 @@ def drive(fuel: Nat, sp: C.Spec, l: C.Left, +p: Pool, +lim: C.Lim) -> IO(C.RR())
 
 def start(sp: C.Spec, +p: Pool) -> IO(C.RR()):
   match p:
-    case Pool{C.Config{+ms, mh, mb, +rt, bo, +rd, _, policy}, _, _, _}:
+    case Pool{C.Config{+ms, mh, mb, +rt, bo, +rd, _, policy, cm, rm}, _, _, _}:
       do IO<C.RR()>:
         +now : Nat <- IO.now()
-        drive(C.fuel.of(rt, rd), sp, C.left.of(rt, rd, bo), p, C.lim.of(now, ms, mh, mb, policy))
+        drive(C.fuel.of(rt, rd), sp, C.left.of(rt, rd, bo), p, C.lim.of(now, ms, mh, mb, policy, C.Ph{cm, rm}))
 
 def send.go(+p: Pool, s: Result<&2, &2, C.Err, C.Spec>) -> IO(C.RR()):
   match s:
@@ -368,14 +368,14 @@ def stream.taken(~f: List<&2, U32> -> IO(Bool), t: Taken, req: B.Bytes, tls0: Bo
     case Kept{s, +tls}:
       IO.bind(C.Ex, C.R(C.Head), C.stream.x(~f, s, tls, req, lim), e => stream.end(C.stream.part(e), key, p))
     case Room{}:
-      IO.bind(C.Opened, C.R(C.Head), C.open(tls0, host, port, C.lim.dl(lim), C.lim.policy(lim)), o => stream.opened(~f, o, req, key, p, lim))
+      IO.bind(C.Opened, C.R(C.Head), C.open.lim(tls0, host, port, lim), o => stream.opened(~f, o, req, key, p, lim))
     case Shut{}:
       IO.pure(C.R(C.Head), Fail{Legacy.Closed{}})
 
 def stream.spec(~f: List<&2, U32> -> IO(Bool), o: C.Orig, +p: Pool, +dl: Nat) -> IO(C.R(C.Head)):
   match o p:
-    case C.Orig{+key, C.Spec{Ur.Verb{name, +head, sized, _}, Ur.Url{+tls, host, +port, target, auth}, hs, b, _}} Pool{C.Config{+ms, mh, _, _, _, _, _, policy}, _, _, _}:
-      IO.bind(Taken, C.R(C.Head), take(4294967295n, p, key), t => stream.taken(~f, t, H1.write_request(name, target, auth, C.hs.clean(hs, []), b, sized, False{}), tls, host, port, key, p, C.lim.stream(dl, ms, mh, head, policy)))
+    case C.Orig{+key, C.Spec{Ur.Verb{name, +head, sized, _}, Ur.Url{+tls, host, +port, target, auth}, hs, b, _}} Pool{C.Config{+ms, mh, _, _, _, _, _, policy, cm, rm}, _, _, _}:
+      IO.bind(Taken, C.R(C.Head), take(4294967295n, p, key), t => stream.taken(~f, t, H1.write_request(name, target, auth, C.hs.clean(hs, []), b, sized, False{}), tls, host, port, key, p, C.lim.stream(dl, ms, mh, head, policy, C.Ph{cm, rm})))
     case C.Orig{_, C.Spec{_, Ur.UBad{}, _, _, _}} _:
       IO.pure(C.R(C.Head), Fail{Legacy.BadUrl{}})
 
@@ -390,7 +390,7 @@ def stream.go(~f: List<&2, U32> -> IO(Bool), s: Result<&2, &2, C.Err, C.Spec>, +
 # ends, then kept if it may be
 def stream(~f: List<&2, U32> -> IO(Bool), +p: Pool, r: C.Req) -> IO(C.R(C.Head)):
   match p:
-    case Pool{C.Config{+ms, _, _, _, _, _, _, policy}, _, _, _}:
+    case Pool{C.Config{+ms, _, _, _, _, _, _, policy, _, _}, _, _, _}:
       do IO<C.R(C.Head)>:
         +now : Nat <- IO.now()
         stream.go(~f, C.spec.of(r), p, Nat.add(now, U32.to_nat(ms)))
@@ -474,21 +474,21 @@ def ev.taken(~on: Ev.Message -> IO(Bool), t: Taken, req: B.Bytes, tls0: Bool, ho
     case Kept{s, +tls}:
       IO.bind(C.Ex, C.Try, C.ev.x(~on, s, tls, req, lim), e => ev.back(C.ev.part(e), key, p))
     case Room{}:
-      IO.bind(C.Opened, C.Try, C.open(tls0, host, port, C.lim.dl(lim), C.lim.policy(lim)), o => ev.opened(~on, o, req, key, p, lim))
+      IO.bind(C.Opened, C.Try, C.open.lim(tls0, host, port, lim), o => ev.opened(~on, o, req, key, p, lim))
     case Shut{}:
       IO.pure(C.Try, C.Try{Some{Legacy.Closed{}}, None{}, None{}, False{}})
 
 # one try at an event stream through the pool
 def ev.try(~on: Ev.Message -> IO(Bool), o: C.Orig, last: Maybe<&2, String>, +p: Pool, +dl: Nat) -> IO(C.Try):
   match o p:
-    case C.Orig{+key, C.Spec{Ur.Verb{name, +head, sized, _}, Ur.Url{+tls, host, +port, target, auth}, hs, b, _}} Pool{C.Config{+ms, mh, _, _, _, _, _, policy}, _, _, _}:
-      IO.bind(Taken, C.Try, take(4294967295n, p, key), t => ev.taken(~on, t, H1.write_request(name, target, auth, List.append(&2, H.Header, C.hs.clean(hs, []), C.ev.hs(last)), b, sized, False{}), tls, host, port, key, p, C.lim.stream(dl, ms, mh, head, policy)))
+    case C.Orig{+key, C.Spec{Ur.Verb{name, +head, sized, _}, Ur.Url{+tls, host, +port, target, auth}, hs, b, _}} Pool{C.Config{+ms, mh, _, _, _, _, _, policy, cm, rm}, _, _, _}:
+      IO.bind(Taken, C.Try, take(4294967295n, p, key), t => ev.taken(~on, t, H1.write_request(name, target, auth, List.append(&2, H.Header, C.hs.clean(hs, []), C.ev.hs(last)), b, sized, False{}), tls, host, port, key, p, C.lim.stream(dl, ms, mh, head, policy, C.Ph{cm, rm})))
     case C.Orig{_, C.Spec{_, Ur.UBad{}, _, _, _}} _:
       IO.pure(C.Try, C.Try{Some{Legacy.BadUrl{}}, None{}, None{}, False{}})
 
 def ev.now(~on: Ev.Message -> IO(Bool), sp: C.Spec, last: Maybe<&2, String>, +p: Pool) -> IO(C.Try):
   match p:
-    case Pool{C.Config{+ms, _, _, _, _, _, _, policy}, _, _, _}:
+    case Pool{C.Config{+ms, _, _, _, _, _, _, policy, _, _}, _, _, _}:
       do IO<C.Try>:
         +now : Nat <- IO.now()
         ev.try(~on, C.spec.origin(sp), last, p, Nat.add(now, U32.to_nat(ms)))
@@ -518,7 +518,7 @@ def ev.retry.go(~on: Ev.Message -> IO(Bool), fuel: Nat, sp: C.Spec, rt: C.Rt, +l
 
 def ev.retry(~on: Ev.Message -> IO(Bool), s: Result<&2, &2, C.Err, C.Spec>, +n: U32, +p: Pool) -> IO(C.R(C.Ended)):
   match s p:
-    case Done{sp} Pool{C.Config{_, _, _, _, +bo, _, _, policy}, _, _, _}:
+    case Done{sp} Pool{C.Config{_, _, _, _, +bo, _, _, policy, _, _}, _, _, _}:
       ev.retry.go(~on, Nat.add(U32.to_nat(n), 1n), sp, C.Rt{None{}, 0, bo}, n, p)
     case Fail{e} _:
       IO.pure(C.R(C.Ended), Fail{e})

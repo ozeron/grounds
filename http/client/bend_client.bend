@@ -14,6 +14,7 @@ import ../../json/json.bend as J
 import ../core/event.bend as Ev
 import ../core/multipart.bend as Mp
 import ./url.bend as Ur
+import ./policy.bend as Pol
 
 # Opt-in native Bend TLS entry graph. The HTTP framing/retry/redirect/SSE
 # implementation mirrors client.bend so legacy programs stay cold. Shared
@@ -26,44 +27,69 @@ import ./url.bend as Ur
 # A Pool keeps connections to one origin open between requests. Each
 # request, redirects and retries included, has timeout_ms; a response
 # past max_head_bytes or max_body_bytes is refused. download streams a
-# body through a channel instead.
+# body through a channel instead. connect_ms bounds each connect and TLS
+# handshake, read_ms each read; 0 leaves them to timeout_ms alone.
 
 type Config is Data:
-  Config{timeout_ms: U32, max_head_bytes: U32, max_body_bytes: U32, retries: U32, backoff_ms: U32, redirects: U32, idle_ms: U32, policy: Tr.Policy}
+  Config{timeout_ms: U32, max_head_bytes: U32, max_body_bytes: U32, retries: U32, backoff_ms: U32, redirects: U32, idle_ms: U32, policy: Tr.Policy, connect_ms: U32, read_ms: U32}
 
 # 10 s, 16 KiB of head, 8 MiB of body, no retries (100 ms apart once
-# turned on), up to 5 redirects, and pooled connections idle up to 4 s
+# turned on), up to 5 redirects, pooled connections idle up to 4 s, and no
+# connect or read deadline of their own
 def default(policy: Tr.Policy) -> Config:
-  Config{10000, 16384, 8388608, 0, 100, 5, 4000, policy}
+  Config{10000, 16384, 8388608, 0, 100, 5, 4000, policy, 0, 0}
 
 def with_timeout(c: Config, ms: U32) -> Config:
   match c:
-    case Config{_, mh, mb, rt, bo, rd, id, policy}:
-      Config{ms, mh, mb, rt, bo, rd, id, policy}
+    case Config{_, mh, mb, rt, bo, rd, id, policy, cm, rm}:
+      Config{ms, mh, mb, rt, bo, rd, id, policy, cm, rm}
 
 def with_max_body(c: Config, n: U32) -> Config:
   match c:
-    case Config{ms, mh, _, rt, bo, rd, id, policy}:
-      Config{ms, mh, n, rt, bo, rd, id, policy}
+    case Config{ms, mh, _, rt, bo, rd, id, policy, cm, rm}:
+      Config{ms, mh, n, rt, bo, rd, id, policy, cm, rm}
+
+# a response head of at most n bytes; a longer one is TooLarge
+def with_max_head(c: Config, n: U32) -> Config:
+  match c:
+    case Config{ms, _, mb, rt, bo, rd, id, policy, cm, rm}:
+      Config{ms, n, mb, rt, bo, rd, id, policy, cm, rm}
 
 # retry a request that is safe to repeat up to n more times, on a failed
 # connection or a 502, 503 or 504: backoff_ms first, doubling up to 5 s
 def with_retries(c: Config, n: U32, backoff_ms: U32) -> Config:
   match c:
-    case Config{ms, mh, mb, _, _, rd, id, policy}:
-      Config{ms, mh, mb, n, backoff_ms, rd, id, policy}
+    case Config{ms, mh, mb, _, _, rd, id, policy, cm, rm}:
+      Config{ms, mh, mb, n, backoff_ms, rd, id, policy, cm, rm}
 
 # follow up to n redirects; 0 hands a 3xx back as it is
 def with_redirects(c: Config, n: U32) -> Config:
   match c:
-    case Config{ms, mh, mb, rt, bo, _, id, policy}:
-      Config{ms, mh, mb, rt, bo, n, id, policy}
+    case Config{ms, mh, mb, rt, bo, _, id, policy, cm, rm}:
+      Config{ms, mh, mb, rt, bo, n, id, policy, cm, rm}
 
 # how long a pooled connection may sit idle before it is closed, not used
 def with_idle(c: Config, ms: U32) -> Config:
   match c:
-    case Config{t, mh, mb, rt, bo, rd, _, policy}:
-      Config{t, mh, mb, rt, bo, rd, ms, policy}
+    case Config{t, mh, mb, rt, bo, rd, _, policy, cm, rm}:
+      Config{t, mh, mb, rt, bo, rd, ms, policy, cm, rm}
+
+# resolving the host's address aside, connecting and the TLS handshake
+# must end within ms of their start (and within timeout_ms); each new
+# connection, after a redirect or retry too, gets its own ms. 0 turns it off
+def with_connect_timeout(c: Config, ms: U32) -> Config:
+  match c:
+    case Config{t, mh, mb, rt, bo, rd, id, policy, _, rm}:
+      Config{t, mh, mb, rt, bo, rd, id, policy, ms, rm}
+
+# each read of a response, head or body, must bring bytes within ms (and
+# the whole call stays within timeout_ms): a server that stalls fails fast
+# while a slow download that keeps coming is not cut short. 0 turns it
+# off. stream and events already apply timeout_ms per read
+def with_read_timeout(c: Config, ms: U32) -> Config:
+  match c:
+    case Config{t, mh, mb, rt, bo, rd, id, policy, cm, _}:
+      Config{t, mh, mb, rt, bo, rd, id, policy, cm, ms}
 
 # Requests and replies
 # --------------------
@@ -213,7 +239,7 @@ def spec.make(v: Maybe<&2, Ur.Verb>, u: Ur.Url, mk: Mk, bd: Bd, k: Key2) -> Resu
 def spec.of(r: Req) -> Result<&2, &2, Err, Spec>:
   match r:
     case Req{m, u, kv, b, k}:
-      spec.make(Ur.verb.check(Ur.verb(m)), Ur.url(u), kv.hs(kv, False{}, False{}, []), body.of(b), key.of(k))
+      spec.make(Ur.verb.check(Ur.verb(m)), Ur.url(Pol.frag.cut(u)), kv.hs(kv, False{}, False{}, []), body.of(b), key.of(k))
 
 # a connection, or why there is none
 type Opened is Type:
@@ -268,10 +294,28 @@ def resolved(r: Result<&1,&1,U32 & String,String>, tls: Bool, host: String, port
 def open(tls: Bool, +host: String, port: U32, dl: Nat, policy: Tr.Policy) -> IO(Opened):
   IO.bind(Result<&1,&1,U32 & String,String>,Opened,W.wire_resolve(host),r => resolved(r,tls,host,port,dl,policy))
 
+# the connect and read deadlines of their own, in ms; 0 is none
+type Ph is Data:
+  Ph{connect: U32, read: U32}
+
+# a phase's deadline: ms from now, but never past dl; 0 leaves dl
+def phase.at(+dl: Nat, +now: Nat, +ms: U32) -> Nat:
+  Bool.pick(Nat, Bool.or(U32.is_eq(ms, 0), Nat.is_le(dl, Nat.add(now, U32.to_nat(ms)))), dl, Nat.add(now, U32.to_nat(ms)))
+
+# open, with the connect deadline counted from now
+def open.ph(tls: Bool, +host: String, port: U32, +dl: Nat, ph: Ph, policy: Tr.Policy) -> IO(Opened):
+  match ph:
+    case Ph{+c, _}:
+      do IO<Opened>:
+        +now : Nat <- IO.now()
+        open(tls, host, port, phase.at(dl, now, c), policy)
+
 # Reading a response
 # ------------------
 
-# the caller's headers without Host, which the client writes from the url
+# the caller's headers without Host, which the client writes from the url,
+# and without one whose name is not a token or whose value has a control
+# char (policy.bend: header.ok)
 def hs.clean.one(host: Bool, h: H.Header, acc: List<&2, H.Header>) -> List<&2, H.Header>:
   match host:
     case True{}:
@@ -283,30 +327,36 @@ def hs.clean(hs: List<&2, H.Header>, acc: List<&2, H.Header>) -> List<&2, H.Head
   match hs:
     case Nil{}:
       List.reverse(&2, H.Header, acc)
-    case Con{H.Header{+n, v}, t}:
-      hs.clean(t, hs.clean.one(T.same_ci(n, "host", True{}), H.Header{n, v}, acc))
+    case Con{H.Header{+n, +v}, t}:
+      hs.clean(t, hs.clean.one(Bool.or(T.same_ci(n, "host", True{}), Bool.not(Pol.header.ok(n, v))), H.Header{n, v}, acc))
 
 # One try
 # -------
 
 # what a read may do: the deadline, or ms per read when streaming; the
-# head's limit, the body's, and whether the request was a HEAD
+# head's limit, the body's, whether the request was a HEAD, and the
+# connect and read deadlines of their own
 type Lim is Data:
-  Lim{dl: Nat, ms: U32, stream: Bool, mh: U32, max: Nat, head: Bool, policy: Tr.Policy}
+  Lim{dl: Nat, ms: U32, stream: Bool, mh: U32, max: Nat, head: Bool, policy: Tr.Policy, ph: Ph}
 
 # The policy is retained through every redirect/retry; identity comes from each
 # destination URL, never from the originally resolved IP or a previous peer.
 def lim.policy(l: Lim) -> Tr.Policy:
   match l:
-    case Lim{_,_,_,_,_,_,policy}: policy
+    case Lim{_,_,_,_,_,_,policy,_}: policy
+
+# open, for a request with these limits
+def open.lim(tls: Bool, +host: String, port: U32, l: Lim) -> IO(Opened):
+  match l:
+    case Lim{dl,_,_,_,_,_,policy,ph}: open.ph(tls, host, port, dl, ph, policy)
 
 def lim.at(l: Lim, +now: Nat) -> Nat:
   match l:
-    case Lim{dl,ms,stream,_,_,_,_}: Bool.pick(Nat,stream,Nat.add(now,U32.to_nat(ms)),dl)
+    case Lim{+dl,ms,stream,_,_,_,_,Ph{_,+rd}}: Bool.pick(Nat,stream,Nat.add(now,U32.to_nat(ms)),phase.at(dl,now,rd))
 
 def lim.left(l: Lim, now: Nat) -> U32:
   match l:
-    case Lim{dl, ms, stream, _, _, _, policy}:
+    case Lim{dl, ms, stream, _, _, _, policy, _}:
       Bool.pick(U32, stream, ms, left(dl, now))
 
 def send.of(tls: Bool, s: Tr.Connection, bs: List<&2,U32>, at: Nat) -> IO(RU()):
@@ -330,8 +380,8 @@ type Ex is Type:
 
 def lim.with_max(l: Lim, max: Nat) -> Lim:
   match l:
-    case Lim{dl, ms, st, mh, _, h, policy}:
-      Lim{dl, ms, st, mh, max, h, policy}
+    case Lim{dl, ms, st, mh, _, h, policy, ph}:
+      Lim{dl, ms, st, mh, max, h, policy, ph}
 
 # data to a kept body
 def keep.go(o: Out, bs: B.Bytes) -> IO(Out):
@@ -422,7 +472,7 @@ def ok.of(r: RR()) -> RR():
 
 def lim.max(l: Lim) -> Nat:
   match l:
-    case Lim{_, _, _, _, max, _, policy}:
+    case Lim{_, _, _, _, max, _, policy, _}:
       max
 
 # where a body's framing is: bytes left, a chunked decoder, or to the close
@@ -482,7 +532,7 @@ def is_cut.keep(o: Out) -> Cutq:
 
 def lim.over(l: Lim, now: Nat) -> Bool:
   match l:
-    case Lim{dl, _, stream, _, _, _, policy}:
+    case Lim{dl, _, stream, _, _, _, policy, _}:
       Bool.and(Bool.not(stream), Nat.is_le(dl, now))
 
 def RP() -> Type:
@@ -633,12 +683,12 @@ def hd.lost(tls: Bool, s: Tr.Connection, e: Err, stale: Bool) -> IO(Hd):
 
 def lim.mh(l: Lim) -> U32:
   match l:
-    case Lim{_, _, _, mh, _, _, policy}:
+    case Lim{_, _, _, mh, _, _, policy, _}:
       mh
 
 def lim.head(l: Lim) -> Bool:
   match l:
-    case Lim{_, _, _, _, _, h, policy}:
+    case Lim{_, _, _, _, _, h, policy, _}:
       h
 
 def hd.parse(h: H1.Head, buf: B.Bytes, s: Tr.Connection, +tls: Bool, again: Tr.Connection -> B.Bytes -> IO(Hd)) -> IO(Hd):
@@ -718,13 +768,33 @@ def heads(n: Nat, s: Tr.Connection, +tls: Bool, +buf: B.Bytes, +lim: Lim) -> IO(
     case 1n+p:
       IO.bind(Hd, Hd, hd.try(buf, s, tls, lim, sk => b => hd(Nat.add(U32.to_nat(lim.mh(lim)), 2n), sk, tls, b, lim)), h => heads.go(h, sk => b => heads(p, sk, tls, b, lim)))
 
+# the head that ends the exchange: a 1xx past the ones skipped, a 101
+# (this client never asks to switch), or a status outside 100..599 is a
+# bad response, and the connection is closed
+def heads.check(ok: Bool, s: Tr.Connection, tls: Bool, h: H1.Head) -> IO(Hd):
+  match ok:
+    case True{}:
+      IO.pure(Hd, HGot{s, tls, h})
+    case False{}:
+      hd.lost(tls, s, Legacy.BadResponse{}, False{})
+
+def heads.final(h: Hd) -> IO(Hd):
+  match h:
+    case HGot{s, tls, H1.Head{+code, hs, fr, reuse, rest}}:
+      heads.check(Pol.final(code), s, tls, H1.Head{code, hs, fr, reuse, rest})
+    case other:
+      IO.pure(Hd, other)
+
+def heads.end(n: Nat, s: Tr.Connection, +tls: Bool, +buf: B.Bytes, +lim: Lim) -> IO(Hd):
+  IO.bind(Hd, Hd, heads(n, s, tls, buf, lim), h => heads.final(h))
+
 # Bodies
 # ------
 
 def stream.sent(r: Result<&1, &1, U32 & String, Unit>, s: Tr.Connection, +tls: Bool, +lim: Lim) -> IO(Hd):
   match r:
     case Done{_}:
-      heads(8n, s, tls, B.BNil{}, lim)
+      heads.end(8n, s, tls, B.BNil{}, lim)
     case Fail{(+c, reason)}:
       hd.lost(tls, s, Tr.error(c,reason), False{})
 
@@ -913,13 +983,13 @@ def url.dup(u: Ur.Url) -> Url2:
 
 def lim.dl(l: Lim) -> Nat:
   match l:
-    case Lim{dl, _, _, _, _, _, policy}:
+    case Lim{dl, _, _, _, _, _, policy, _}:
       dl
 
 def lim.with_head(l: Lim, h: Bool) -> Lim:
   match l:
-    case Lim{dl, ms, st, mh, max, _, policy}:
-      Lim{dl, ms, st, mh, max, h, policy}
+    case Lim{dl, ms, st, mh, max, _, policy, ph}:
+      Lim{dl, ms, st, mh, max, h, policy, ph}
 
 def ex.head(h: Hd, lim: Lim, o: Out) -> IO(Ex):
   match h:
@@ -933,7 +1003,7 @@ def ex.head(h: Hd, lim: Lim, o: Out) -> IO(Ex):
 def ex.sent(r: Result<&1, &1, U32 & String, Unit>, s: Tr.Connection, +tls: Bool, +lim: Lim, o: Out) -> IO(Ex):
   match r:
     case Done{_}:
-      IO.bind(Hd, Ex, heads(8n, s, tls, B.BNil{}, lim), h => ex.head(h, lim, o))
+      IO.bind(Hd, Ex, heads.end(8n, s, tls, B.BNil{}, lim), h => ex.head(h, lim, o))
     case Fail{(+c, +reason)}:
       lost(tls, s, Tr.error(c,reason), Tr.stale(c,reason), o)
 
@@ -1004,7 +1074,7 @@ def once.opened(o: Opened, req: B.Bytes, lim: Lim) -> IO(Hop):
       IO.pure(Hop, HopLost{e})
 
 def once.go(req: B.Bytes, tls: Bool, host: String, port: U32, +lim: Lim) -> IO(Hop):
-  IO.bind(Opened, Hop, open(tls, host, port, lim.dl(lim), lim.policy(lim)), o => once.opened(o, req, lim))
+  IO.bind(Opened, Hop, open.lim(tls, host, port, lim), o => once.opened(o, req, lim))
 
 # a request on a connection of its own, closed after
 def once(sp: Spec, +lim: Lim) -> IO(Hop):
@@ -1102,28 +1172,41 @@ def lost.check(q: ErrQ, again: Bool, sp: Spec, +l: Left, k: DK()) -> IO(RR()):
 type Loc is Data:
   Loc{hs: List<&2, H.Header>, at: Maybe<&2, String>}
 
+# a request's spec, with its origin and target copied out: where a
+# Location is resolved from
 type TSpec is Data:
-  TSpec{tls: Bool, spec: Spec}
+  TSpec{tls: Bool, host: String, port: U32, target: String, spec: Spec}
+
+def spec.tls.go(+t: Bool, h: Str2, +p: U32, tg: Str2, v: Ur.Verb, au: String, hs: List<&2, H.Header>, b: B.Bytes, pl: Bool) -> TSpec:
+  match h tg:
+    case Str2{h1, h2} Str2{g1, g2}:
+      TSpec{t, h1, p, g1, Spec{v, Ur.Url{t, h2, p, g2, au}, hs, b, pl}}
 
 def spec.tls(sp: Spec) -> TSpec:
   match sp:
-    case Spec{v, Ur.Url{+t, h, p, tg, au}, hs, b, pl}:
-      TSpec{t, Spec{v, Ur.Url{t, h, p, tg, au}, hs, b, pl}}
+    case Spec{v, Ur.Url{+t, h, +p, tg, au}, hs, b, pl}:
+      spec.tls.go(t, s.dup(h), p, s.dup(tg), v, au, hs, b, pl)
     case other:
-      TSpec{False{}, other}
+      TSpec{False{}, "", 0, "/", other}
 
-# where a redirect goes: a path on the same origin, a url of its own, or
-# nowhere the client follows: from https to http, which would send the
-# next request in clear text, or not a url
+# where a redirect goes: a target on the same origin, a url of its own
+# (same: on the same origin all the same), or nowhere the client follows:
+# from https to http, which would send the next request in clear text, a
+# scheme other than http(s), or not a url
 type Next is Data:
   Same{target: String}
-  Away{url: Ur.Url}
+  Away{url: Ur.Url, same: Bool}
   Stay{}
 
-def next.away(u: Ur.Url, +tls: Bool) -> Next:
+def next.away.go(+t: Bool, h: Str2, +p: U32, tg: String, au: String, +tls: Bool, host: String, +port: U32) -> Next:
+  match h:
+    case Str2{h1, h2}:
+      Bool.pick(Next, Bool.and(tls, Bool.not(t)), Stay{}, Away{Ur.Url{t, h1, p, tg, au}, Pol.origin.same(tls, host, port, t, h2, p)})
+
+def next.away(u: Ur.Url, +tls: Bool, host: String, +port: U32) -> Next:
   match u:
-    case Ur.Url{+t, h, p, tg, au}:
-      Bool.pick(Next, Bool.and(tls, Bool.not(t)), Stay{}, Away{Ur.Url{t, h, p, tg, au}})
+    case Ur.Url{+t, h, +p, tg, au}:
+      next.away.go(t, s.dup(h), p, tg, au, tls, host, port)
     case Ur.UBad{}:
       Stay{}
 
@@ -1134,32 +1217,20 @@ def next.same(g: Ur.Tgt) -> Next:
     case Ur.Tgt{_, False{}}:
       Stay{}
 
-def next.of(loc: String, tls: Bool) -> Next:
-  match loc:
-    case SCon{Chr{47}, SCon{Chr{47}, _}}:
+def next.ref(r: Pol.Ref, +tls: Bool, host: String, +port: U32) -> Next:
+  match r:
+    case Pol.RSame{t}:
+      next.same(Ur.target.go(t, "", True{}))
+    case Pol.RAbs{u}:
+      next.away(Ur.url(u), tls, host, port)
+    case Pol.RNone{}:
       Stay{}
-    case SCon{Chr{47}, r}:
-      next.same(Ur.target.go(r, "/", True{}))
-    case other:
-      next.away(Ur.url(other), tls)
 
-def body.after(sized: Bool, b: B.Bytes) -> B.Bytes:
-  match sized:
-    case True{}:
-      b
-    case False{}:
-      B.BNil{}
+# a Location, resolved against the request's url (policy.bend: resolve)
+def next.of(loc: String, +tls: Bool, host: String, +port: U32, base: String) -> Next:
+  next.ref(Pol.resolve(loc, tls, base), tls, host, port)
 
-def spec.shaped(v: Ur.Verb, u: Ur.Url, hs: List<&2, H.Header>, b: B.Bytes, pl: Bool) -> Spec:
-  match v:
-    case Ur.Verb{n, h, +z, g}:
-      Spec{Ur.Verb{n, h, z, g}, u, hs, body.after(z, b), pl}
-
-# Authorization and Cookie are for the host they were sent to; a redirect
-# to a url of its own drops them
-def hs.private(+n: String) -> Bool:
-  Bool.or(T.same_ci(n, "authorization", True{}), T.same_ci(n, "cookie", True{}))
-
+# the headers without the ones a predicate picks
 def hs.drop.one(p: Bool, h: H.Header, acc: List<&2, H.Header>) -> List<&2, H.Header>:
   match p:
     case True{}:
@@ -1167,43 +1238,62 @@ def hs.drop.one(p: Bool, h: H.Header, acc: List<&2, H.Header>) -> List<&2, H.Hea
     case False{}:
       Con{h, acc}
 
+# Authorization, Cookie and Proxy-Authorization are for the origin they
+# were sent to: a redirect to another origin drops them
 def hs.public(hs: List<&2, H.Header>, acc: List<&2, H.Header>) -> List<&2, H.Header>:
   match hs:
     case Nil{}:
       List.reverse(&2, H.Header, acc)
     case Con{H.Header{+n, v}, t}:
-      hs.public(t, hs.drop.one(hs.private(n), H.Header{n, v}, acc))
+      hs.public(t, hs.drop.one(Pol.private(n), H.Header{n, v}, acc))
+
+# the headers without those that describe a body
+def hs.bodiless(hs: List<&2, H.Header>, acc: List<&2, H.Header>) -> List<&2, H.Header>:
+  match hs:
+    case Nil{}:
+      List.reverse(&2, H.Header, acc)
+    case Con{H.Header{+n, v}, t}:
+      hs.bodiless(t, hs.drop.one(Pol.content(n), H.Header{n, v}, acc))
+
+def hs.kept(same: Bool, hs: List<&2, H.Header>) -> List<&2, H.Header>:
+  match same:
+    case True{}:
+      hs
+    case False{}:
+      hs.public(hs, [])
 
 def redirs.dec(l: Left) -> Left:
   match l:
     case Left{t, r, w, f}:
       Left{t, (r - 1 : U32), w, f}
 
-def verb.after.go(to_get: Bool, n: String, h: Bool, z: Bool, g: Bool) -> Ur.Verb:
+def spec.get(to_get: Bool, v: Ur.Verb, u: Ur.Url, hs: List<&2, H.Header>, b: B.Bytes, pl: Bool) -> Spec:
   match to_get:
     case True{}:
-      Ur.Verb{"GET", False{}, False{}, True{}}
+      Spec{Ur.Verb{"GET", False{}, False{}, True{}}, u, hs.bodiless(hs, []), B.BNil{}, pl}
     case False{}:
-      Ur.Verb{n, h, z, g}
+      Spec{v, u, hs, b, pl}
 
-# the method after a redirect: a 303 turns any method but HEAD into GET, as
-# does a 301 or 302 a POST, dropping the body; 307 and 308 keep both
-def verb.after(+c: U32, v: Ur.Verb) -> Ur.Verb:
+# the request after a redirect: a 303 turns any method but HEAD into GET,
+# as does a 301 or 302 a POST, dropping the body and the headers that
+# describe it; otherwise (307, 308, and 301 or 302 for other methods) the
+# method and body stay
+def spec.shaped(+c: U32, v: Ur.Verb, u: Ur.Url, hs: List<&2, H.Header>, b: B.Bytes, pl: Bool) -> Spec:
   match v:
     case Ur.Verb{+n, +h, z, g}:
-      verb.after.go(Bool.and(Bool.not(h), Bool.or(U32.is_eq(c, 303), Bool.and(Bool.or(U32.is_eq(c, 301), U32.is_eq(c, 302)), T.same(n, "POST", True{})))), n, h, z, g)
+      spec.get(Pol.to_get(c, n, h), Ur.Verb{n, h, z, g}, u, hs, b, pl)
 
-def spec.same(sp: Spec, t: String, c: U32) -> Spec:
+def spec.same(sp: Spec, t: String, +c: U32) -> Spec:
   match sp:
     case Spec{v, Ur.Url{tls, h, p, _, au}, hs, b, pl}:
-      spec.shaped(verb.after(c, v), Ur.url.check(Ur.Url{tls, h, p, t, au}), hs, b, pl)
+      spec.shaped(c, v, Ur.url.check(Ur.Url{tls, h, p, t, au}), hs, b, pl)
     case other:
       other
 
-def spec.away(sp: Spec, u: Ur.Url, c: U32) -> Spec:
+def spec.away(sp: Spec, u: Ur.Url, +c: U32, same: Bool) -> Spec:
   match sp:
     case Spec{v, _, hs, b, _}:
-      spec.shaped(verb.after(c, v), u, hs.public(hs, []), b, False{})
+      spec.shaped(c, v, u, hs.kept(same, hs), b, False{})
 
 def followed(n: Next, sp: Spec, +c: U32, l: Left, m: Meta, o: Out, k: DK()) -> IO(RR()):
   match n l:
@@ -1215,13 +1305,13 @@ def followed(n: Next, sp: Spec, +c: U32, l: Left, m: Meta, o: Out, k: DK()) -> I
       IO.pure(RR(), Done{response(m, o)})
     case Same{t} other:
       k(spec.same(sp, t, c), redirs.dec(other))
-    case Away{u} other:
-      k(spec.away(sp, u, c), redirs.dec(other))
+    case Away{u, same} other:
+      k(spec.away(sp, u, c, same), redirs.dec(other))
 
 def located(lc: Loc, sp: TSpec, +c: U32, l: Left, rest: Meta, o: Out, k: DK()) -> IO(RR()):
   match lc sp rest:
-    case Loc{hs, Some{at}} TSpec{tls, s} Meta{_, _, r}:
-      followed(next.of(at, tls), s, c, l, Meta{c, hs, r}, o, k)
+    case Loc{hs, Some{at}} TSpec{tls, h, p, tg, s} Meta{_, _, r}:
+      followed(next.of(at, tls, h, p, tg), s, c, l, Meta{c, hs, r}, o, k)
     case Loc{hs, None{}} _ Meta{_, _, r}:
       IO.pure(RR(), Done{response(Meta{c, hs, r}, o)})
 
@@ -1287,18 +1377,18 @@ def drive(fuel: Nat, sp: Spec, l: Left, +lim: Lim) -> IO(RR()):
 def left.of(+rt: U32, +rd: U32, bo: U32) -> Left:
   Left{rt, rd, bo, U32.is_gt(rd, 0)}
 
-def lim.of(+now: Nat, +ms: U32, mh: U32, mb: U32, policy: Tr.Policy) -> Lim:
-  Lim{Nat.add(now, U32.to_nat(ms)), ms, False{}, mh, U32.to_nat(mb), False{}, policy}
+def lim.of(+now: Nat, +ms: U32, mh: U32, mb: U32, policy: Tr.Policy, ph: Ph) -> Lim:
+  Lim{Nat.add(now, U32.to_nat(ms)), ms, False{}, mh, U32.to_nat(mb), False{}, policy, ph}
 
 def fuel.of(rt: U32, rd: U32) -> Nat:
   Nat.add(U32.to_nat(rt), Nat.add(U32.to_nat(rd), 2n))
 
 def start(cfg: Config, sp: Spec) -> IO(RR()):
   match cfg:
-    case Config{+ms, mh, mb, +rt, bo, +rd, _, policy}:
+    case Config{+ms, mh, mb, +rt, bo, +rd, _, policy, cm, rm}:
       do IO<RR()>:
         +now : Nat <- IO.now()
-        drive(fuel.of(rt, rd), sp, left.of(rt, rd, bo), lim.of(now, ms, mh, mb, policy))
+        drive(fuel.of(rt, rd), sp, left.of(rt, rd, bo), lim.of(now, ms, mh, mb, policy, Ph{cm, rm}))
 
 def url.tls(u: Ur.Url) -> Bool:
   match u:
@@ -1475,13 +1565,13 @@ def stream.opened(~f: List<&2, U32> -> IO(Bool), o: Opened, req: B.Bytes, +lim: 
       IO.pure(R(Head), Fail{e})
 
 # a streamed request's limits: timeout_ms per read, no body limit
-def lim.stream(+dl: Nat, +ms: U32, mh: U32, +head: Bool, policy: Tr.Policy) -> Lim:
-  Lim{dl, ms, True{}, mh, Nat.mul(256n, 4294967295n), head, policy}
+def lim.stream(+dl: Nat, +ms: U32, mh: U32, +head: Bool, policy: Tr.Policy, ph: Ph) -> Lim:
+  Lim{dl, ms, True{}, mh, Nat.mul(256n, 4294967295n), head, policy, ph}
 
-def stream.spec(~f: List<&2, U32> -> IO(Bool), s: Result<&2, &2, Err, Spec>, +ms: U32, mh: U32, +dl: Nat, +policy: Tr.Policy) -> IO(R(Head)):
+def stream.spec(~f: List<&2, U32> -> IO(Bool), s: Result<&2, &2, Err, Spec>, +ms: U32, mh: U32, +dl: Nat, +policy: Tr.Policy, +ph: Ph) -> IO(R(Head)):
   match s:
     case Done{Spec{Ur.Verb{name, +head, sized, _}, Ur.Url{+tls, host, +port, target, auth}, hs, b, _}}:
-      IO.bind(Opened, R(Head), open(tls, host, port, dl, policy), o => stream.opened(~f, o, H1.write_request(name, target, auth, hs.clean(hs, []), b, sized, True{}), lim.stream(dl, ms, mh, head, policy)))
+      IO.bind(Opened, R(Head), open.ph(tls, host, port, dl, ph, policy), o => stream.opened(~f, o, H1.write_request(name, target, auth, hs.clean(hs, []), b, sized, True{}), lim.stream(dl, ms, mh, head, policy, ph)))
     case Done{Spec{_, Ur.UBad{}, _, _, _}}:
       IO.pure(R(Head), Fail{Legacy.BadUrl{}})
     case Fail{e}:
@@ -1493,10 +1583,10 @@ def stream.spec(~f: List<&2, U32> -> IO(Bool), s: Result<&2, &2, Err, Spec>, +ms
 # body limit; timeout_ms is per read, and redirects are not followed
 def stream(~f: List<&2, U32> -> IO(Bool), c: Config, r: Req) -> IO(R(Head)):
   match c:
-    case Config{+ms, mh, _, _, _, _, _, policy}:
+    case Config{+ms, mh, _, _, _, _, _, policy, cm, rm}:
       do IO<R(Head)>:
         +now : Nat <- IO.now()
-        stream.spec(~f, spec.of(r), ms, mh, Nat.add(now, U32.to_nat(ms)), policy)
+        stream.spec(~f, spec.of(r), ms, mh, Nat.add(now, U32.to_nat(ms)), policy, Ph{cm, rm})
 
 # a spec's origin, as a pool keys its connections, and the spec back
 type Orig is Data:
@@ -1721,10 +1811,10 @@ def ev.hs(last: Maybe<&2, String>) -> List<&2, H.Header>:
     case None{}:
       [H.Header{"accept", "text/event-stream"}, H.Header{"cache-control", "no-cache"}]
 
-def ev.spec(~on: Ev.Message -> IO(Bool), sp: Spec, last: Maybe<&2, String>, +ms: U32, mh: U32, +dl: Nat, +policy: Tr.Policy) -> IO(Try):
+def ev.spec(~on: Ev.Message -> IO(Bool), sp: Spec, last: Maybe<&2, String>, +ms: U32, mh: U32, +dl: Nat, +policy: Tr.Policy, +ph: Ph) -> IO(Try):
   match sp:
     case Spec{Ur.Verb{name, +head, sized, _}, Ur.Url{+tls, host, +port, target, auth}, hs, b, _}:
-      IO.bind(Opened, Try, open(tls, host, port, dl, policy), o => ev.opened(~on, o, H1.write_request(name, target, auth, List.append(&2, H.Header, hs.clean(hs, []), ev.hs(last)), b, sized, True{}), lim.stream(dl, ms, mh, head, policy)))
+      IO.bind(Opened, Try, open.ph(tls, host, port, dl, ph, policy), o => ev.opened(~on, o, H1.write_request(name, target, auth, List.append(&2, H.Header, hs.clean(hs, []), ev.hs(last)), b, sized, True{}), lim.stream(dl, ms, mh, head, policy, ph)))
     case Spec{_, Ur.UBad{}, _, _, _}:
       IO.pure(Try, Try{Some{Legacy.BadUrl{}}, None{}, None{}, False{}})
 
@@ -1735,12 +1825,12 @@ def ev.end(t: Try, +n: U32) -> R(Ended):
     case Try{Some{e}, _, _, _}:
       Fail{e}
 
-def ev.once(~on: Ev.Message -> IO(Bool), s: Result<&2, &2, Err, Spec>, +ms: U32, mh: U32, +policy: Tr.Policy) -> IO(R(Ended)):
+def ev.once(~on: Ev.Message -> IO(Bool), s: Result<&2, &2, Err, Spec>, +ms: U32, mh: U32, +policy: Tr.Policy, +ph: Ph) -> IO(R(Ended)):
   match s:
     case Done{sp}:
       do IO<R(Ended)>:
         +now : Nat <- IO.now()
-        t : Try <- ev.spec(~on, sp, None{}, ms, mh, Nat.add(now, U32.to_nat(ms)), policy)
+        t : Try <- ev.spec(~on, sp, None{}, ms, mh, Nat.add(now, U32.to_nat(ms)), policy, ph)
         return ev.end(t, 0)
     case Fail{e}:
       IO.pure(R(Ended), Fail{e})
@@ -1751,8 +1841,8 @@ def ev.once(~on: Ev.Message -> IO(Bool), s: Result<&2, &2, Err, Spec>, +ms: U32,
 # then. timeout_ms is per read
 def events(~on: Ev.Message -> IO(Bool), c: Config, r: Req) -> IO(R(Ended)):
   match c:
-    case Config{+ms, mh, _, _, _, _, _, policy}:
-      ev.once(~on, spec.of(r), ms, mh, policy)
+    case Config{+ms, mh, _, _, _, _, _, policy, cm, rm}:
+      ev.once(~on, spec.of(r), ms, mh, policy, Ph{cm, rm})
 
 def keep.last(new: Maybe<&2, String>, old: Maybe<&2, String>) -> Maybe<&2, String>:
   match new:
@@ -1864,25 +1954,25 @@ def rt.tried(q: TryQ, +left: U32, rt: Rt, again: Rt -> IO(R(Ended))) -> IO(R(End
     case TryQ{go, t}:
       rt.decide(t, Bool.and(go, U32.is_gt(left, 0)), left, rt, again)
 
-def ev.retry.try(~on: Ev.Message -> IO(Bool), sp2: Spec2, k: RtK, +left: U32, +ms: U32, +mh: U32, again: Spec -> Rt -> IO(R(Ended)), +policy: Tr.Policy) -> IO(R(Ended)):
+def ev.retry.try(~on: Ev.Message -> IO(Bool), sp2: Spec2, k: RtK, +left: U32, +ms: U32, +mh: U32, again: Spec -> Rt -> IO(R(Ended)), +policy: Tr.Policy, +ph: Ph) -> IO(R(Ended)):
   match sp2 k:
     case Spec2{a, b} RtK{rt, last}:
       do IO<R(Ended)>:
         +now : Nat <- IO.now()
-        t : Try <- ev.spec(~on, a, last, ms, mh, Nat.add(now, U32.to_nat(ms)), policy)
+        t : Try <- ev.spec(~on, a, last, ms, mh, Nat.add(now, U32.to_nat(ms)), policy, ph)
         rt.tried(try.go(t), left, rt, r => again(b, r))
 
-def ev.retry.go(~on: Ev.Message -> IO(Bool), fuel: Nat, sp: Spec, rt: Rt, +left: U32, +ms: U32, +mh: U32, +policy: Tr.Policy) -> IO(R(Ended)):
+def ev.retry.go(~on: Ev.Message -> IO(Bool), fuel: Nat, sp: Spec, rt: Rt, +left: U32, +ms: U32, +mh: U32, +policy: Tr.Policy, +ph: Ph) -> IO(R(Ended)):
   match fuel:
     case 0n:
       IO.pure(R(Ended), Done{Ended{rt.last(rt), 0}})
     case 1n+f:
-      ev.retry.try(~on, spec.dup(sp), rt.split(rt), left, ms, mh, s => r => ev.retry.go(~on, f, s, r, (left - 1 : U32), ms, mh, policy), policy)
+      ev.retry.try(~on, spec.dup(sp), rt.split(rt), left, ms, mh, s => r => ev.retry.go(~on, f, s, r, (left - 1 : U32), ms, mh, policy, ph), policy, ph)
 
-def ev.retry(~on: Ev.Message -> IO(Bool), s: Result<&2, &2, Err, Spec>, +n: U32, +ms: U32, mh: U32, +bo: U32, +policy: Tr.Policy) -> IO(R(Ended)):
+def ev.retry(~on: Ev.Message -> IO(Bool), s: Result<&2, &2, Err, Spec>, +n: U32, +ms: U32, mh: U32, +bo: U32, +policy: Tr.Policy, +ph: Ph) -> IO(R(Ended)):
   match s:
     case Done{sp}:
-      ev.retry.go(~on, Nat.add(U32.to_nat(n), 1n), sp, Rt{None{}, 0, bo}, n, ms, mh, policy)
+      ev.retry.go(~on, Nat.add(U32.to_nat(n), 1n), sp, Rt{None{}, 0, bo}, n, ms, mh, policy, ph)
     case Fail{e}:
       IO.pure(R(Ended), Fail{e})
 
@@ -1892,5 +1982,5 @@ def ev.retry(~on: Ev.Message -> IO(Bool), s: Result<&2, &2, Err, Spec>, +n: U32,
 # status, or a wrong Content-Type
 def events_retry(~on: Ev.Message -> IO(Bool), c: Config, r: Req, +n: U32) -> IO(R(Ended)):
   match c:
-    case Config{+ms, mh, _, _, +bo, _, _, policy}:
-      ev.retry(~on, spec.of(r), n, ms, mh, bo, policy)
+    case Config{+ms, mh, _, _, +bo, _, _, policy, cm, rm}:
+      ev.retry(~on, spec.of(r), n, ms, mh, bo, policy, Ph{cm, rm})
