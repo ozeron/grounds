@@ -118,6 +118,39 @@ def idle(+p: Pool.Pool, +url: String) -> IO(Unit):
     y : C.R(C.Reply) <- Pool.send(p,C.get(url))
     reply(y)
 
+def timed.head(act: IO(C.R(C.Head))) -> IO(Unit):
+  do IO<Unit>:
+    t0 : Nat <- IO.now()
+    r : C.R(C.Head) <- act
+    streamed(r)
+    t1 : Nat <- IO.now()
+    IO.print("elapsed:" ++ Nat.show(Nat.sub(t1,t0)))
+
+def quiet(bytes: List<&2,U32>) -> IO(Bool):
+  IO.pure(Bool,True{})
+
+# n bytes, the i-th being i mod 251, for an upload the peer can check
+def fill(n: Nat, +i: U32, acc: List<&2,U32>) -> List<&2,U32>:
+  match n:
+    case 0n: List.reverse(&2,U32,acc)
+    case 1n+k: fill(k,U32.inc(i),Con{U32.mod(i,251),acc})
+
+def upload(url: String) -> C.Req:
+  C.post(url,C.bytes("application/octet-stream",fill(2097152n,0,[])))
+
+# a pool of one held by a 2 s stream while a GET with a short total
+# deadline waits for it
+def saturated(+p: Pool.Pool, +url: String) -> IO(Unit):
+  do IO<Unit>:
+    ch : Chan(C.R(C.Head)) <- IO.fork(C.R(C.Head),Pool.stream(~quiet,p,C.get(url)))
+    u : Unit <- IO.sleep(150)
+    timed(Pool.send(p,C.get(url ++ "?fast")))
+    h : C.R(C.Head) <- IO.join(C.R(C.Head),ch)
+    streamed(h)
+
+def auth3(url: String) -> C.Req:
+  C.with(C.get(url),[("Authorization","secret"),("Cookie","secret"),("Proxy-Authorization","secret")])
+
 type Mode is Data:
   MPool{}
   MJson{}
@@ -148,14 +181,31 @@ type Mode is Data:
   MTotalTimeout{}
   MTimed{}
   MAuth{}
+  MStreamRead{}
+  MPoolStreamRead{}
+  MEventsRead{}
+  MPoolEventsRead{}
+  MUpload{}
+  MPoolUpload{}
+  MPoolSaturated{}
+  MRetryBudget{}
+  MRetryFits{}
+  MPoolRetryBudget{}
+  MProxyAuth{}
+  MUaCustom{}
+  MUaNone{}
+  MUaSet{}
 
 def mode.pick(hit: Bool, m: Mode, rest: Mode) -> Mode:
   match hit:
     case True{}: m
     case False{}: rest
 
+def mode.more(+mode: String) -> Mode:
+  mode.pick(String.eq(mode,"stream-read"),MStreamRead{},mode.pick(String.eq(mode,"pool-stream-read"),MPoolStreamRead{},mode.pick(String.eq(mode,"events-read"),MEventsRead{},mode.pick(String.eq(mode,"pool-events-read"),MPoolEventsRead{},mode.pick(String.eq(mode,"upload"),MUpload{},mode.pick(String.eq(mode,"pool-upload"),MPoolUpload{},mode.pick(String.eq(mode,"pool-saturated"),MPoolSaturated{},mode.pick(String.eq(mode,"retry-budget"),MRetryBudget{},mode.pick(String.eq(mode,"retry-fits"),MRetryFits{},mode.pick(String.eq(mode,"pool-retry-budget"),MPoolRetryBudget{},mode.pick(String.eq(mode,"proxy-auth"),MProxyAuth{},mode.pick(String.eq(mode,"ua-custom"),MUaCustom{},mode.pick(String.eq(mode,"ua-none"),MUaNone{},mode.pick(String.eq(mode,"ua-set"),MUaSet{},MAuth{}))))))))))))))
+
 def mode.of(+mode: String) -> Mode:
-  mode.pick(String.eq(mode,"pool"),MPool{},mode.pick(String.eq(mode,"json"),MJson{},mode.pick(String.eq(mode,"form"),MForm{},mode.pick(String.eq(mode,"stream"),MStream{},mode.pick(String.eq(mode,"pool-stream"),MPoolStream{},mode.pick(String.eq(mode,"events"),MEvents{},mode.pick(String.eq(mode,"events-retry"),MEventsRetry{},mode.pick(String.eq(mode,"pool-events"),MPoolEvents{},mode.pick(String.eq(mode,"timeout"),MTimeout{},mode.pick(String.eq(mode,"head"),MHead{},mode.pick(String.eq(mode,"small"),MSmall{},mode.pick(String.eq(mode,"small-head"),MSmallHead{},mode.pick(String.eq(mode,"sum"),MSum{},mode.pick(String.eq(mode,"stream-sum"),MStreamSum{},mode.pick(String.eq(mode,"headers"),MHeaders{},mode.pick(String.eq(mode,"post"),MPost{},mode.pick(String.eq(mode,"delete"),MDelete{},mode.pick(String.eq(mode,"noredirect"),MNoRedirect{},mode.pick(String.eq(mode,"pool10"),MPool10{},mode.pick(String.eq(mode,"pool2"),MPool2{},mode.pick(String.eq(mode,"pool3w"),MPool3w{},mode.pick(String.eq(mode,"pool-idle"),MPoolIdle{},mode.pick(String.eq(mode,"pool-head"),MPoolHead{},mode.pick(String.eq(mode,"pool-post"),MPoolPost{},mode.pick(String.eq(mode,"connect-timeout"),MConnectTimeout{},mode.pick(String.eq(mode,"read-timeout"),MReadTimeout{},mode.pick(String.eq(mode,"total-timeout"),MTotalTimeout{},mode.pick(String.eq(mode,"timed"),MTimed{},MAuth{}))))))))))))))))))))))))))))
+  mode.pick(String.eq(mode,"pool"),MPool{},mode.pick(String.eq(mode,"json"),MJson{},mode.pick(String.eq(mode,"form"),MForm{},mode.pick(String.eq(mode,"stream"),MStream{},mode.pick(String.eq(mode,"pool-stream"),MPoolStream{},mode.pick(String.eq(mode,"events"),MEvents{},mode.pick(String.eq(mode,"events-retry"),MEventsRetry{},mode.pick(String.eq(mode,"pool-events"),MPoolEvents{},mode.pick(String.eq(mode,"timeout"),MTimeout{},mode.pick(String.eq(mode,"head"),MHead{},mode.pick(String.eq(mode,"small"),MSmall{},mode.pick(String.eq(mode,"small-head"),MSmallHead{},mode.pick(String.eq(mode,"sum"),MSum{},mode.pick(String.eq(mode,"stream-sum"),MStreamSum{},mode.pick(String.eq(mode,"headers"),MHeaders{},mode.pick(String.eq(mode,"post"),MPost{},mode.pick(String.eq(mode,"delete"),MDelete{},mode.pick(String.eq(mode,"noredirect"),MNoRedirect{},mode.pick(String.eq(mode,"pool10"),MPool10{},mode.pick(String.eq(mode,"pool2"),MPool2{},mode.pick(String.eq(mode,"pool3w"),MPool3w{},mode.pick(String.eq(mode,"pool-idle"),MPoolIdle{},mode.pick(String.eq(mode,"pool-head"),MPoolHead{},mode.pick(String.eq(mode,"pool-post"),MPoolPost{},mode.pick(String.eq(mode,"connect-timeout"),MConnectTimeout{},mode.pick(String.eq(mode,"read-timeout"),MReadTimeout{},mode.pick(String.eq(mode,"total-timeout"),MTotalTimeout{},mode.pick(String.eq(mode,"timed"),MTimed{},mode.more(mode)))))))))))))))))))))))))))))
 
 def cup() -> J.Json:
   J.JObj{[J.Field{"name",J.JStr{"cup"}}]}
@@ -191,6 +241,20 @@ def run(m: Mode, +cfg: C.Config, +url: String) -> IO(Unit):
     case MTotalTimeout{}: timed(C.send(C.with_read_timeout(C.with_timeout(cfg,800),500),C.get(url)))
     case MTimed{}: timed(C.send(cfg,C.get(url)))
     case MAuth{}: IO.bind(C.R(C.Reply),Unit,C.send(cfg,C.with(C.get(url),[("Authorization","secret"),("Cookie","secret")])),reply)
+    case MStreamRead{}: timed.head(C.stream(~quiet,C.with_read_timeout(cfg,300),C.get(url)))
+    case MPoolStreamRead{}: Pool.with(Unit,C.with_read_timeout(cfg,300),1,p => timed.head(Pool.stream(~quiet,p,C.get(url))))
+    case MEventsRead{}: IO.bind(C.R(C.Ended),Unit,C.events(~event,C.with_read_timeout(cfg,300),C.get(url)),ended)
+    case MPoolEventsRead{}: Pool.with(Unit,C.with_read_timeout(cfg,300),1,p => IO.bind(C.R(C.Ended),Unit,Pool.events(~event,p,C.get(url)),ended))
+    case MUpload{}: timed(C.send(C.with_read_timeout(C.with_timeout(cfg,10000),300),upload(url)))
+    case MPoolUpload{}: Pool.with(Unit,C.with_read_timeout(C.with_timeout(cfg,10000),300),1,p => timed(Pool.send(p,upload(url))))
+    case MPoolSaturated{}: Pool.with(Unit,C.with_timeout(cfg,400),1,p => saturated(p,url))
+    case MRetryBudget{}: timed(C.send(C.with_retries(C.with_timeout(cfg,800),3,5000),C.get(url)))
+    case MRetryFits{}: timed(C.send(C.with_retries(cfg,2,100),C.get(url)))
+    case MPoolRetryBudget{}: Pool.with(Unit,C.with_retries(C.with_timeout(cfg,800),3,5000),1,p => timed(Pool.send(p,C.get(url))))
+    case MProxyAuth{}: IO.bind(C.R(C.Reply),Unit,C.send(cfg,auth3(url)),reply)
+    case MUaCustom{}: IO.bind(C.R(C.Reply),Unit,C.send(cfg,C.with(C.get(url),[("User-Agent","mine/1")])),reply)
+    case MUaNone{}: IO.bind(C.R(C.Reply),Unit,C.send(C.without_user_agent(cfg),C.get(url)),reply)
+    case MUaSet{}: IO.bind(C.R(C.Reply),Unit,C.send(C.with_user_agent(cfg,"probe/2"),C.get(url)),reply)
 
 def execute(+cfg: C.Config, +url: String, +mode: String) -> IO(Unit):
   run(mode.of(mode),cfg,url)

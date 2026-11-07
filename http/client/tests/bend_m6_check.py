@@ -34,6 +34,8 @@ def big_body():
 
 
 BODY = big_body()
+# the slow upload: 2 MiB, the i-th byte i mod 251 (tests/bend_tls.bend: fill)
+UPLOAD = bytes(i % 251 for i in range(2 * 1024 * 1024))
 
 
 def chunked(data, sizes=CHUNKS):
@@ -59,6 +61,10 @@ RAW = {
     "/te-cl": head("200 OK", "Content-Length: 3", "Transfer-Encoding: chunked") + b"5\r\nhello\r\n0\r\n\r\n",
     "/cl-conflict": head("200 OK", "Content-Length: 5", "Content-Length: 6") + b"hello!",
     "/cl-list": head("200 OK", "Content-Length: 5, 5") + b"hello",
+    "/cl-list-conflict": head("200 OK", "Content-Length: 5, 6") + b"hello!",
+    "/cl-dup": head("200 OK", "Content-Length: 5", "Content-Length: 5") + b"hello",
+    "/cl-list-dup": head("200 OK", "Content-Length: 5,5", "Content-Length: 5") + b"hello",
+    "/cl-list-empty": head("200 OK", "Content-Length: 5,,5") + b"hello",
     "/cl-bad": head("200 OK", "Content-Length: 5x") + b"hello",
     "/cl-plus": head("200 OK", "Content-Length: +5") + b"hello",
     "/te-gzip": head("200 OK", "Transfer-Encoding: gzip, chunked") + b"5\r\nhello\r\n0\r\n\r\n",
@@ -124,7 +130,28 @@ class M6Peer(base.Peer):
     def redirect(self, status, location):
         self.send(status, [("Location", location)])
 
+    def slow_upload(self):
+        # read the first MiB slowly (64 KiB per 50 ms, so at least 800 ms):
+        # the client's writes block on a full window while each read still
+        # makes progress. The rest is read at once, so the response follows
+        # the end of the upload well within read_ms
+        digest, left, slow = hashlib.sha256(), int(self.headers.get("content-length", "0")), 1024 * 1024
+        while left:
+            piece = self.rfile.read(min(65536, left))
+            if not piece:
+                break
+            digest.update(piece)
+            left -= len(piece)
+            slow -= len(piece)
+            if slow > 0:
+                time.sleep(0.05)
+        self.server.requests.append(dict(path=self.path, method=self.command, body_sha256=digest.hexdigest(),
+                                         headers=list(self.headers.items()), connection=self.client_address))
+        self.send(200, [], b"hello")
+
     def do_GET(self):
+        if self.path == "/upload-slow":
+            return self.slow_upload()
         body = self.rfile.read(int(self.headers.get("content-length", "0")))
         self.record(body)
         path, server = self.path, self.server
@@ -159,6 +186,16 @@ class M6Peer(base.Peer):
                 for _ in range(20):
                     time.sleep(0.1)
                     self.connection.sendall(b"d")
+            elif path == "/sse-stall":
+                self.connection.sendall(head("200 OK", "Content-Type: text/event-stream", "Transfer-Encoding: chunked")
+                                        + b"9\r\ndata: a\n\n\r\n")
+                # the client gives up during the stall: never wait for
+                # another request on this connection
+                self.close_connection = True
+                time.sleep(1.0)
+                self.connection.sendall(b"9\r\ndata: b\n\n\r\n0\r\n\r\n")
+            elif path == "/503":
+                self.send(503, [], b"")
             elif path == "/headers":
                 items = self.headers.items()
                 lowered = [k.lower() for k, _ in items]
@@ -220,6 +257,20 @@ class M6Peer(base.Peer):
             elif path == "/xo":
                 self.redirect(302, f"https://localhost:{server.other_port}/xo-final")
             elif path == "/xo-final":
+                self.send(200, [], b"hello")
+            # credentials across origins, through network-path and absolute
+            # Locations with dot segments
+            elif path == "/pa":
+                self.redirect(302, f"//localhost:{server.other_port}/x/../pa-final")
+            elif path == "/pa-abs":
+                self.redirect(302, f"https://localhost:{server.other_port}/y/./z/../../pa-final?q=/../k")
+            elif path in {"/pa-final", "/pa-final?q=/../k"}:
+                assert not ({"authorization", "cookie", "proxy-authorization"} & names), self.headers.items()
+                self.send(200, [], b"hello")
+            elif path == "/pa-same":
+                self.redirect(302, "/pa-same-final")
+            elif path == "/pa-same-final":
+                assert {"authorization", "cookie", "proxy-authorization"} <= names, self.headers.items()
                 self.send(200, [], b"hello")
             else:
                 return self.fallback(body)
@@ -301,7 +352,12 @@ def framing(binary, directory, rows):
         ("/te-cl", "get", ["ok:200:5"]),
         ("/te-cl", "pool2", ["ok:200:5"] * 2),
         ("/cl-conflict", "get", ["error:bad response"]),
-        ("/cl-list", "get", ["error:bad response"]),
+        ("/cl-list", "get", ["ok:200:5"]),
+        ("/cl-list", "pool2", ["ok:200:5"] * 2),
+        ("/cl-list-conflict", "get", ["error:bad response"]),
+        ("/cl-dup", "get", ["ok:200:5"]),
+        ("/cl-list-dup", "get", ["ok:200:5"]),
+        ("/cl-list-empty", "get", ["error:bad response"]),
         ("/cl-bad", "get", ["error:bad response"]),
         ("/cl-plus", "get", ["error:bad response"]),
         ("/te-gzip", "get", ["error:bad response"]),
@@ -340,9 +396,19 @@ def framing(binary, directory, rows):
         ("/close-hdr", "pool2", ["ok:200:5"] * 2),
         ("/headers", "headers", ["ok:200:5"]),
         ("/frag#section?x", "get", ["ok:200:5"]),
+        ("/ua", "get", ["ok:200:5"]),
+        ("/ua", "pool2", ["ok:200:5"] * 2),
+        ("/ua", "stream", ["part:68656c6c6f", "ok:200"]),
+        ("/ua", "ua-custom", ["ok:200:5"]),
+        ("/ua", "ua-none", ["ok:200:5"]),
+        ("/ua", "ua-set", ["ok:200:5"]),
     ]
     # how many connections a pooled case must use: reuse only when allowed
-    reuse = {"/te-cl": 2, "/204-cl": 1, "/head-cl": 1, "/extra-bytes": 2, "/close-hdr": 2}
+    reuse = {"/te-cl": 2, "/204-cl": 1, "/head-cl": 1, "/extra-bytes": 2, "/close-hdr": 2, "/cl-list": 1, "/ua": 1}
+    # the User-Agent values each request carried: the default unless the
+    # caller set one or turned it off
+    agents = {"get": ["grounds-bend"], "pool2": ["grounds-bend"], "stream": ["grounds-bend"],
+              "ua-custom": ["mine/1"], "ua-none": [], "ua-set": ["probe/2"]}
     with peer(directory) as server:
         url = f"https://localhost:{server.server_port}"
         for path, mode, expected in cases:
@@ -354,6 +420,10 @@ def framing(binary, directory, rows):
                 assert connections(server, start) == reuse[path], (path, seen)
             if path.startswith("/frag"):
                 assert [r["path"] for r in seen] == ["/frag"], seen
+            if path == "/ua":
+                for r in seen:
+                    got = [v for k, v in r["headers"] if k.lower() == "user-agent"]
+                    assert got == agents[mode], (mode, r["headers"])
             rows.append(dict(name=path + ":" + mode, output=output, requests=len(seen),
                              connections=connections(server, start), elapsed_seconds=elapsed))
             print(path, mode, "passed", flush=True)
@@ -376,6 +446,9 @@ def redirects(binary, directory, rows):
             ("/down", "get", ["ok:302:0"], ["/down"], []),
             ("/mailto", "get", ["ok:302:0"], ["/mailto"], []),
             ("/xo", "noredirect", ["ok:302:0"], ["/xo"], []),
+            ("/pa", "proxy-auth", ["ok:200:5"], ["/pa"], ["/pa-final"]),
+            ("/pa-abs", "proxy-auth", ["ok:200:5"], ["/pa-abs"], ["/pa-final?q=/../k"]),
+            ("/pa-same", "proxy-auth", ["ok:200:5"], ["/pa-same", "/pa-same-final"], []),
         ]
         for path, mode, expected, on_a, on_b in cases:
             sa, sb = len(a.requests), len(b.requests)
@@ -441,13 +514,52 @@ def deadlines(binary, directory, rows):
                 ("head-stall-total-only", url + "/slow-head", "timed", "ok:200:5", 900, 2900),
                 ("drip-total", url + "/drip", "total-timeout", "error:timeout", 700, 1400),
                 ("drip-ok", url + "/drip", "read-timeout", "ok:200:20", 1900, 2950),
+                # read_ms applies to streamed reads, one-shot and pooled
+                ("stream-head-stall", url + "/slow-head", "stream-read", "error:timeout", 250, 900),
+                ("stream-body-stall", url + "/slow-body", "stream-read", "error:timeout", 250, 900),
+                ("pool-stream-body-stall", url + "/slow-body", "pool-stream-read", "error:timeout", 250, 900),
+                ("stream-drip-ok", url + "/drip", "stream-read", "ok:200", 1900, 2950),
+                # read_ms never bounds a write: a 2 MiB upload the peer reads
+                # slowly takes well over 300 ms and still succeeds
+                ("upload-slow", url + "/upload-slow", "upload", "ok:200:5", 700, 9000),
+                ("pool-upload-slow", url + "/upload-slow", "pool-upload", "ok:200:5", 700, 9000),
+                # backoff never runs past the total deadline: 5 s backoff,
+                # 800 ms total, so the 503 is the answer at once; with room,
+                # both retries run (100 + 200 ms)
+                ("retry-budget", url + "/503", "retry-budget", "ok:503:0", 0, 500),
+                ("pool-retry-budget", url + "/503", "pool-retry-budget", "ok:503:0", 0, 500),
+                ("retry-fits", url + "/503", "retry-fits", "ok:503:0", 280, 1500),
+                # a pool of one held by a 2 s stream: a GET with a 400 ms
+                # total deadline gives up waiting for it
+                ("pool-saturated", url + "/drip", "pool-saturated", "error:timeout", 300, 900),
             ]
+            # the peer's receive window stays small, so a slow reader makes
+            # the client's writes wait
+            server.socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 65536)
+            tries = {"retry-budget": 1, "pool-retry-budget": 1, "retry-fits": 3}
             for name, target, mode, expected, low, high in cases:
+                start = len(server.requests)
                 output, elapsed, _ = run(binary, directory, target, mode)
                 ms = elapsed_ms(output)
                 assert output[0] == expected and low <= ms <= high, (name, output, low, high)
+                seen = server.requests[start:]
+                if name in tries:
+                    assert [r["path"] for r in seen] == ["/503"] * tries[name], (name, seen)
+                if name.endswith("upload-slow"):
+                    assert [r.get("body_sha256") for r in seen] == [hashlib.sha256(UPLOAD).hexdigest()], (name, seen)
+                if name == "pool-saturated":
+                    # the stream that held the connection still ends well,
+                    # and the GET that gave up was never sent
+                    assert output[-1] == "ok:200" and [r["path"] for r in seen] == ["/drip"], (output, seen)
                 rows.append(dict(name=name, output=output, elapsed_ms=ms, bounds_ms=[low, high], process_seconds=elapsed))
                 print(name, "passed", ms, "ms", flush=True)
+            # events: the first event, then the 1 s stall is a read timeout
+            for mode in ("events-read", "pool-events-read"):
+                output, elapsed, _ = run(binary, directory, url + "/sse-stall", mode)
+                assert len(output) == 2 and output[0].startswith("event:") and output[0].split(":")[2] == "a" \
+                    and output[1] == "error:timeout", (mode, output)
+                rows.append(dict(name="sse-stall:" + mode, output=output, process_seconds=elapsed))
+                print("sse-stall", mode, "passed", flush=True)
     finally:
         silent.close()
 
