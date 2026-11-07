@@ -174,10 +174,14 @@ class M6Peer(base.Peer):
                 self.connection.sendall(head("200 OK", "Transfer-Encoding: chunked") + chunked(BODY))
             elif path == "/big-cl":
                 self.send(200, [], BODY)
+            # the stalls: a client with a read deadline hangs up during
+            # them, so never wait for another request on the connection
             elif path == "/slow-head":
+                self.close_connection = True
                 time.sleep(1.0)
                 self.send(200, [], b"hello")
             elif path == "/slow-body":
+                self.close_connection = True
                 self.connection.sendall(head("200 OK", "Content-Length: 5") + b"he")
                 time.sleep(1.0)
                 self.connection.sendall(b"llo")
@@ -187,11 +191,9 @@ class M6Peer(base.Peer):
                     time.sleep(0.1)
                     self.connection.sendall(b"d")
             elif path == "/sse-stall":
+                self.close_connection = True
                 self.connection.sendall(head("200 OK", "Content-Type: text/event-stream", "Transfer-Encoding: chunked")
                                         + b"9\r\ndata: a\n\n\r\n")
-                # the client gives up during the stall: never wait for
-                # another request on this connection
-                self.close_connection = True
                 time.sleep(1.0)
                 self.connection.sendall(b"9\r\ndata: b\n\n\r\n0\r\n\r\n")
             elif path == "/503":
