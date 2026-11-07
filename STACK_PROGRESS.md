@@ -4,6 +4,88 @@ Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and 
 
 The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
 
+- 2026-11-07 (M6 item 1 done: HTTP/1.1 client completeness): the native
+  Bend TLS client (`bend_client.bend`, `bend_pool.bend`) was audited
+  against RFC 9110/9112. The gap table, with baseline `file:line` refs, is
+  in `http/client/CLIENT_AUDIT.md`.
+  - Commits: `1e6ffcd`, `43839dc`, `260edd9`, `9564fa3`, `df0211c` and
+    `b47f459`, on top of `45b1014`.
+  - Framing (`http/wire/http1.bend`): a response with both CL and TE is
+    still framed by chunked coding, but its connection is never reused.
+    The connection was reusable before.
+  - New `http/client/policy.bend` (pure, unit-tested). Caller headers with
+    a non-token name or a control-char value are dropped. A 101, a 9th
+    1xx, or a status outside 100..599 is `BadResponse`. URL fragments are
+    never sent.
+  - Redirects: RFC 3986 resolution of network-path, relative, query-only
+    and dot-segment Locations, and an uppercase scheme. Credentials are
+    kept on the same origin (host compared ASCII case-insensitively),
+    Proxy-Authorization is dropped across origins, and body headers are
+    dropped when the method becomes GET. 307/308 keep the body of every
+    method; before, a DELETE body was lost.
+  - Deadlines: new `with_connect_timeout` (TCP connect and TLS handshake,
+    per connection) and `with_read_timeout` (per read), both off by
+    default, plus `with_max_head`. They apply to send, pool, stream and
+    events. `Config` gained two trailing fields; the existing setters and
+    `default` are unchanged in behaviour.
+  - Already present and now covered by live tests: CL/TE conflict
+    rejection, obs-fold, chunk limits, close-delimited bodies with
+    close_notify, HEAD/204/304, max hops, https→http refusal, per-origin
+    pool, idle timeout, and stale retry for idempotent requests only.
+  - Deferred, with rationale in the audit: chunked or streamed uploads,
+    gzip/deflate (no `Accept-Encoding` is sent), CONNECT proxies, and a DNS
+    timeout (`wire_resolve` is a blocking effect).
+  - Tests: 46 policy unit cases (`http/client/test.bend`) and 17 framing
+    unit cases (`http/wire/test.bend`, now 95). Five new native live phases
+    in `tests/bend_m6_check.py` run 74 scenarios against two independent
+    Python `ssl` origins: framing 42, redirects 13, pool 6, deadlines 8,
+    stream 5.
+    - Pool cases count the peer's TCP connections, for example 10 GETs on
+      1 connection and a cross-origin redirect chain reusing 1 connection
+      per origin.
+    - Deadline cases check the elapsed time the client reports: connect
+      stall 514 ms (500 set), head and body stall 385/415 ms (300 set),
+      a drip under the total 810 ms (800 set).
+    - Stream cases check Adler-32 per piece of 4 MiB chunked and CL
+      bodies. Client peak RSS was 10128 KiB against a 10096 KiB baseline;
+      buffered, it was 106400 KiB.
+  - Build memory: a test dispatch that called `String.eq` from a
+    string-literal match's default row cost +1.1 GiB at check time. All
+    test modes now map to a constructor first (rule added to
+    `http/client/BUILD_MEMORY.md`).
+
+  Fresh macwork gates at `b47f459`, clean tree, unchanged
+  4096 MiB / 120 s guard:
+  - `http_client:check --force`: **40/40** phases, peak 1804.3 MiB, 341 s.
+    Live scenarios 11/9/8/1/1 plus the M6 74; bundle and public-chain
+    phases unchanged; legacy fuzz 2000/2000, fuzz_events 1000/1000.
+  - `http_server:check --force`: **48/48**, peak 1859.1 MiB, 362 s.
+  - `wire:check --force`: **240/240**, peak 1206.6 MiB, 601 s.
+  - `http_wire:check --force`: **1/1**, peak 322.9 MiB.
+
+  Compile peaks, M6 build-memory run (on `2bd395d`) → now:
+
+  | Phase | Before (MiB) | Now (MiB) |
+  | --- | --- | --- |
+  | `bend_frontend_native` | 1807 | 1766 |
+  | `bend_server_frontend` | 1765 | 1804 |
+  | `bend_public_frontend` | 1558 | 1569 |
+
+  Every phase stays below the 3.3 GiB target.
+
+  Opt-in public diagnostic (`GROUNDS_PUBLIC_HTTPS_LIVE=1`, non-gating,
+  pinned Mozilla 2026-10-20 bundle, gate-built `public-http`): 6/6
+  verified, HTTP 200, all TLS_AES_128_GCM_SHA256/x25519. The rows are
+  example.com, www.google.com, letsencrypt.org, github.com,
+  www.cloudflare.com, and the new `http://github.com/` row. That row
+  followed a 301 to https over a single Bend TLS handshake.
+
+  Artifacts: `~/.codex/artifacts/grounds/2026-11-07/m6/client/`
+  (`<gate>-01.json/.log/.inputs.txt`, `gates.out`, `public-live.json`, and
+  `http_client-01-artifacts/http-client/m6-*.json`).
+
+  Next: the remaining unticked M6 items.
+
 - 2026-11-07 (M6 started; build-memory headroom done): the four HTTP
   client compile phases peaked at 3.7–4.0 GiB against the unchanged
   4096 MiB guard, so `http_client:check` failed at random.

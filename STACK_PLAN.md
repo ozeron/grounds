@@ -302,8 +302,11 @@ real-world HTTPS use without widening the frozen exclusions.
   headroom) under the unchanged 4096 MiB / 120 s guard. Tests, coverage and
   runtime behavior stay the same. Done 2026-11-07 (`2bd395d`; see
   `http/client/BUILD_MEMORY.md` and STACK_PROGRESS.md).
-- [ ] HTTP/1.1 client completeness audit: redirects, chunked and streaming
-  bodies, keep-alive and pooling, timeouts, proxies.
+- [x] HTTP/1.1 client completeness audit: redirects, chunked and streaming
+  bodies, keep-alive and pooling, timeouts, proxies. Done 2026-11-07
+  (`1e6ffcd`..`b47f459`; gap table in `http/client/CLIENT_AUDIT.md`).
+  Deferred with rationale: chunked or streamed uploads, gzip/deflate,
+  CONNECT proxies, and a DNS timeout.
 - [ ] Opt-in system CA bundle loading. It stays an explicit caller choice,
   never ambient trust.
 - [ ] IPv6: TCP connections, AAAA resolution and bracketed IPv6 URL literals.
