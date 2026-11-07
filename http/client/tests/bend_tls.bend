@@ -63,18 +63,137 @@ def json_result(r: C.R(String)) -> IO(Unit):
     case Done{value}: IO.print("json:" ++ value)
     case Fail{why}: IO.print(error(why))
 
-def execute(+cfg: C.Config, +url: String, mode: String) -> IO(Unit):
-  match mode:
-    case "pool": Pool.with(Unit,cfg,1,p => pooled(cfg,url,p))
-    case "json": IO.bind(C.R(String),Unit,C.send_json(String,cfg,C.post(url,C.json(J.JObj{[J.Field{"name",J.JStr{"cup"}}]})),decode),json_result)
-    case "form": IO.bind(C.R(C.Reply),Unit,C.send(cfg,C.post(url,C.form([("q","a b"),("n","2")]))),reply)
-    case "stream": IO.bind(C.R(C.Head),Unit,C.stream(~tally,cfg,C.get(url)),streamed)
-    case "pool-stream": Pool.with(Unit,cfg,1,p => IO.bind(C.R(C.Head),Unit,Pool.stream(~tally,p,C.get(url)),streamed))
-    case "events": IO.bind(C.R(C.Ended),Unit,C.events(~event,cfg,C.get(url)),ended)
-    case "events-retry": IO.bind(C.R(C.Ended),Unit,C.events_retry(~event,cfg,C.get(url),1),ended)
-    case "pool-events": Pool.with(Unit,cfg,1,p => IO.bind(C.R(C.Ended),Unit,Pool.events_retry(~event,p,C.get(url),1),ended))
-    case "timeout": IO.bind(C.R(C.Reply),Unit,C.send(C.with_timeout(cfg,200),C.get(url)),reply)
-    case _: IO.bind(C.R(C.Reply),Unit,C.send(cfg,C.with(C.get(url),[("Authorization","secret"),("Cookie","secret")])),reply)
+# M6 modes. Dispatched with String.eq, never long literal patterns with a
+# large default (see BUILD_MEMORY.md).
+type Sum is Data:
+  Sum{n: U32, a: U32, b: U32}
+
+# a count and Adler-32's two halves, so a checker can compare pieces
+def sum.step(s: Sum, +x: U32) -> Sum:
+  match s:
+    case Sum{+n,+a,+b}: Sum{U32.inc(n),U32.mod(U32.add(a,x),65521),U32.mod(U32.add(b,U32.mod(U32.add(a,x),65521)),65521)}
+
+def sum.go(bytes: List<&2,U32>, s: Sum) -> Sum:
+  match bytes:
+    case Nil{}: s
+    case Con{+x,rest}: sum.go(rest,sum.step(s,x))
+
+def sum.show(s: Sum) -> String:
+  match s:
+    case Sum{n,a,b}: U32.show(n) ++ ":" ++ U32.show(a) ++ ":" ++ U32.show(b)
+
+def summed(r: C.R(C.Reply)) -> IO(Unit):
+  match r:
+    case Done{C.Reply{status,_,body}}: IO.print("ok:" ++ U32.show(status) ++ ":" ++ sum.show(sum.go(body,Sum{0,1,0})))
+    case Fail{why}: IO.print(error(why))
+
+def piece(bytes: List<&2,U32>) -> IO(Bool):
+  IO.bind(Unit,Bool,IO.print("sum:" ++ sum.show(sum.go(bytes,Sum{0,1,0}))),u => IO.pure(Bool,True{}))
+
+def timed(act: IO(C.R(C.Reply))) -> IO(Unit):
+  do IO<Unit>:
+    t0 : Nat <- IO.now()
+    r : C.R(C.Reply) <- act
+    reply(r)
+    t1 : Nat <- IO.now()
+    IO.print("elapsed:" ++ Nat.show(Nat.sub(t1,t0)))
+
+def again(n: Nat, +p: Pool.Pool, +url: String) -> IO(Unit):
+  match n:
+    case 0n: IO.pure(Unit,Unit{})
+    case 1n+k: IO.bind(C.R(C.Reply),Unit,Pool.send(p,C.get(url)),r => IO.bind(Unit,Unit,reply(r),u => again(k,p,url)))
+
+def pair(+p: Pool.Pool, a: C.Req, b: C.Req) -> IO(Unit):
+  do IO<Unit>:
+    x : C.R(C.Reply) <- Pool.send(p,a)
+    reply(x)
+    y : C.R(C.Reply) <- Pool.send(p,b)
+    reply(y)
+
+def idle(+p: Pool.Pool, +url: String) -> IO(Unit):
+  do IO<Unit>:
+    x : C.R(C.Reply) <- Pool.send(p,C.get(url))
+    reply(x)
+    u : Unit <- IO.sleep(400)
+    y : C.R(C.Reply) <- Pool.send(p,C.get(url))
+    reply(y)
+
+type Mode is Data:
+  MPool{}
+  MJson{}
+  MForm{}
+  MStream{}
+  MPoolStream{}
+  MEvents{}
+  MEventsRetry{}
+  MPoolEvents{}
+  MTimeout{}
+  MHead{}
+  MSmall{}
+  MSmallHead{}
+  MSum{}
+  MStreamSum{}
+  MHeaders{}
+  MPost{}
+  MDelete{}
+  MNoRedirect{}
+  MPool10{}
+  MPool2{}
+  MPool3w{}
+  MPoolIdle{}
+  MPoolHead{}
+  MPoolPost{}
+  MConnectTimeout{}
+  MReadTimeout{}
+  MTotalTimeout{}
+  MTimed{}
+  MAuth{}
+
+def mode.pick(hit: Bool, m: Mode, rest: Mode) -> Mode:
+  match hit:
+    case True{}: m
+    case False{}: rest
+
+def mode.of(+mode: String) -> Mode:
+  mode.pick(String.eq(mode,"pool"),MPool{},mode.pick(String.eq(mode,"json"),MJson{},mode.pick(String.eq(mode,"form"),MForm{},mode.pick(String.eq(mode,"stream"),MStream{},mode.pick(String.eq(mode,"pool-stream"),MPoolStream{},mode.pick(String.eq(mode,"events"),MEvents{},mode.pick(String.eq(mode,"events-retry"),MEventsRetry{},mode.pick(String.eq(mode,"pool-events"),MPoolEvents{},mode.pick(String.eq(mode,"timeout"),MTimeout{},mode.pick(String.eq(mode,"head"),MHead{},mode.pick(String.eq(mode,"small"),MSmall{},mode.pick(String.eq(mode,"small-head"),MSmallHead{},mode.pick(String.eq(mode,"sum"),MSum{},mode.pick(String.eq(mode,"stream-sum"),MStreamSum{},mode.pick(String.eq(mode,"headers"),MHeaders{},mode.pick(String.eq(mode,"post"),MPost{},mode.pick(String.eq(mode,"delete"),MDelete{},mode.pick(String.eq(mode,"noredirect"),MNoRedirect{},mode.pick(String.eq(mode,"pool10"),MPool10{},mode.pick(String.eq(mode,"pool2"),MPool2{},mode.pick(String.eq(mode,"pool3w"),MPool3w{},mode.pick(String.eq(mode,"pool-idle"),MPoolIdle{},mode.pick(String.eq(mode,"pool-head"),MPoolHead{},mode.pick(String.eq(mode,"pool-post"),MPoolPost{},mode.pick(String.eq(mode,"connect-timeout"),MConnectTimeout{},mode.pick(String.eq(mode,"read-timeout"),MReadTimeout{},mode.pick(String.eq(mode,"total-timeout"),MTotalTimeout{},mode.pick(String.eq(mode,"timed"),MTimed{},MAuth{}))))))))))))))))))))))))))))
+
+def cup() -> J.Json:
+  J.JObj{[J.Field{"name",J.JStr{"cup"}}]}
+
+def run(m: Mode, +cfg: C.Config, +url: String) -> IO(Unit):
+  match m:
+    case MPool{}: Pool.with(Unit,cfg,1,p => pooled(cfg,url,p))
+    case MJson{}: IO.bind(C.R(String),Unit,C.send_json(String,cfg,C.post(url,C.json(J.JObj{[J.Field{"name",J.JStr{"cup"}}]})),decode),json_result)
+    case MForm{}: IO.bind(C.R(C.Reply),Unit,C.send(cfg,C.post(url,C.form([("q","a b"),("n","2")]))),reply)
+    case MStream{}: IO.bind(C.R(C.Head),Unit,C.stream(~tally,cfg,C.get(url)),streamed)
+    case MPoolStream{}: Pool.with(Unit,cfg,1,p => IO.bind(C.R(C.Head),Unit,Pool.stream(~tally,p,C.get(url)),streamed))
+    case MEvents{}: IO.bind(C.R(C.Ended),Unit,C.events(~event,cfg,C.get(url)),ended)
+    case MEventsRetry{}: IO.bind(C.R(C.Ended),Unit,C.events_retry(~event,cfg,C.get(url),1),ended)
+    case MPoolEvents{}: Pool.with(Unit,cfg,1,p => IO.bind(C.R(C.Ended),Unit,Pool.events_retry(~event,p,C.get(url),1),ended))
+    case MTimeout{}: IO.bind(C.R(C.Reply),Unit,C.send(C.with_timeout(cfg,200),C.get(url)),reply)
+    case MHead{}: IO.bind(C.R(C.Reply),Unit,C.send(cfg,C.head(url)),reply)
+    case MSmall{}: IO.bind(C.R(C.Reply),Unit,C.send(C.with_max_body(cfg,1024),C.get(url)),reply)
+    case MSmallHead{}: IO.bind(C.R(C.Reply),Unit,C.send(C.with_max_head(cfg,256),C.get(url)),reply)
+    case MSum{}: IO.bind(C.R(C.Reply),Unit,C.send(cfg,C.get(url)),summed)
+    case MStreamSum{}: IO.bind(C.R(C.Head),Unit,C.stream(~piece,cfg,C.get(url)),streamed)
+    case MHeaders{}: IO.bind(C.R(C.Reply),Unit,C.send(cfg,C.with(C.post(url,C.text("hi")),[("X-Ok","1"),("Bad Name","x"),("X-Ctl","a\u{1}b"),("Transfer-Encoding ","chunked"),("X:Y","z"),("X-Del","\u{7f}"),("Host","evil"),("X-Tab","a\tb")])),reply)
+    case MPost{}: IO.bind(C.R(C.Reply),Unit,C.send(cfg,C.with(C.post(url,C.json(cup())),[("Authorization","secret"),("Cookie","secret"),("Content-Language","en")])),reply)
+    case MDelete{}: IO.bind(C.R(C.Reply),Unit,C.send(cfg,C.with(C.method("DELETE",url,C.text("gone")),[("Authorization","secret")])),reply)
+    case MNoRedirect{}: IO.bind(C.R(C.Reply),Unit,C.send(C.with_redirects(cfg,0),C.get(url)),reply)
+    case MPool10{}: Pool.with(Unit,cfg,1,p => again(10n,p,url))
+    case MPool2{}: Pool.with(Unit,cfg,1,p => again(2n,p,url))
+    case MPool3w{}: Pool.with(Unit,cfg,2,p => again(3n,p,url))
+    case MPoolIdle{}: Pool.with(Unit,C.with_idle(cfg,100),1,p => idle(p,url))
+    case MPoolHead{}: Pool.with(Unit,cfg,1,p => pair(p,C.head(url),C.get(url)))
+    case MPoolPost{}: Pool.with(Unit,cfg,1,p => pair(p,C.get(url),C.post(url,C.text("x"))))
+    case MConnectTimeout{}: timed(C.send(C.with_connect_timeout(cfg,500),C.get(url)))
+    case MReadTimeout{}: timed(C.send(C.with_read_timeout(cfg,300),C.get(url)))
+    case MTotalTimeout{}: timed(C.send(C.with_read_timeout(C.with_timeout(cfg,800),500),C.get(url)))
+    case MTimed{}: timed(C.send(cfg,C.get(url)))
+    case MAuth{}: IO.bind(C.R(C.Reply),Unit,C.send(cfg,C.with(C.get(url),[("Authorization","secret"),("Cookie","secret")])),reply)
+
+def execute(+cfg: C.Config, +url: String, +mode: String) -> IO(Unit):
+  run(mode.of(mode),cfg,url)
 
 def prepared(value: Legacy.R(Tr.Policy), url: String, mode: String) -> IO(Unit):
   match value:

@@ -62,6 +62,26 @@
       "optional": false
     },
     {
+      "name": "http_client/bend_live_framing",
+      "optional": false
+    },
+    {
+      "name": "http_client/bend_live_redirects",
+      "optional": false
+    },
+    {
+      "name": "http_client/bend_live_pool",
+      "optional": false
+    },
+    {
+      "name": "http_client/bend_live_deadlines",
+      "optional": false
+    },
+    {
+      "name": "http_client/bend_live_stream",
+      "optional": false
+    },
+    {
       "name": "http_client/bend_bundle_build",
       "optional": false
     },

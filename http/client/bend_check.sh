@@ -58,6 +58,13 @@ for mode in ordinary negative bend openssl go; do
   python3 tests/bend_tls_check.py --mode "$mode" --binary "$artifacts/client" --fixtures "$artifacts/fixtures" --server "$artifacts/server" --go "$artifacts/go-peer" --report "$artifacts/$mode.json"
   end
 done
+# M6: framing, redirects, keep-alive reuse, deadlines and streamed bodies,
+# against independent Python TLS peers (native only).
+for mode in framing redirects pool deadlines stream; do
+  begin "bend_live_$mode"
+  python3 tests/bend_m6_check.py --mode "$mode" --binary "$artifacts/client" --fixtures "$artifacts/fixtures" --report "$artifacts/m6-$mode.json"
+  end
+done
 
 # M5 is native only. All fixture verification stays offline; the internet
 # diagnostic is merely checked for its default explicit opt-out below.
