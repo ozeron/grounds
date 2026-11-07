@@ -211,21 +211,28 @@ See the dated acceptance ledger and `2026-10-23/m2/` reports.
 
 ### M3 — Live Bend TLS client and server
 
-- [ ] Build bounded handshake message parsing/serialization and transcript state,
+- [x] Build bounded handshake message parsing/serialization and transcript state,
   negotiation, key exchange, TLS HKDF schedule and authenticated Finished checks.
-- [ ] Integrate M1 certificate authentication and selected CertificateVerify
+- [x] Integrate M1 certificate authentication and selected CertificateVerify
   signing/verification, binding the signatures to the correct transcript/context.
-- [ ] Connect existing record/traffic owners to TCP with fragmented/coalesced I/O,
+- [x] Connect existing record/traffic owners to TCP with fragmented/coalesced I/O,
   strict handshake state transitions, alerts, orderly shutdown and deadlines.
-- [ ] Exercise Bend client against an independent server and independent client
+- [x] Exercise Bend client against an independent server and independent client
   against Bend server on native and Bun. Test malformed negotiation/messages,
   altered signatures/Finished/records, fragmentation and cleanup after failure.
-- [ ] Prove the new path performs no OpenSSL cryptography or TLS operations:
+- [x] Prove the new path performs no OpenSSL cryptography or TLS operations:
   audit imports/effect boundaries and run with the compatibility TLS/crypto
   effects unavailable or instrumented to fail if invoked by the new path.
 
 Exit: authenticated application bytes in both roles on both targets, independent
 interop and negative-case reports, plus inspectable no-delegation evidence.
+
+2026-11-07: ticked as accepted prerequisites of accepted M4. M3a/M3b focused
+acceptance (STACK_PROGRESS 2026-10-23: 109/109 wire + 1,994/1,994 root for
+M3a; 230/230 wire, 158 live scenarios per target, legacy TLS/cookie effects
+unavailable, for M3b) is carried by the M4 root evidence accepted 2026-10-24
+and by the fresh 2026-11-07 macwork root pass (2,286/2,286). Synthetic
+credentials only; `crypto/ERASURE.md` still blocks live secrets.
 
 ### M4 — HTTPS/WSS integration and HTTP migration acceptance
 
@@ -279,6 +286,11 @@ This revises the frozen TLS_PROFILE.md; record the new profile version there.
 Exit: the Bend HTTP client fetches over HTTPS from servers presenting common
 public chains with normal verification on native, and the root gate passes
 fresh. Live-secret use stays blocked by `crypto/ERASURE.md`.
+
+- [x] Exit met 2026-11-07 on fresh macwork gates (Apple M4 Pro, macOS 26.7.1,
+  `819efc2`): crypto 1,793/1,793, wire 240/240, http_client 35/35,
+  http_server 48/48 and root `:check --force` 2,286/2,286 in one uninterrupted
+  run under the unchanged 4096 MiB / 120 s guard. See STACK_PROGRESS.md.
 
 ## Execution order and continuation
 

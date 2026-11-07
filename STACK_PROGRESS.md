@@ -4,6 +4,49 @@ Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and 
 
 The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
 
+- 2026-11-07 (**M5 ACCEPTED** on fresh macwork gates; M3 boxes ticked):
+  Host `macwork`: Apple M4 Pro, 12 cores, 24 GiB, macOS 26.7.1 (25G241),
+  otherwise idle (normal memory pressure throughout). Revision `819efc2`
+  (clean clone from a git bundle of `bend-https`, no local changes). Toolchain:
+  Bend 2.0.38, moon 2.5.5, Go 1.26.9, Bun 1.3.14 (mise), Apple clang 21.0.0,
+  Homebrew OpenSSL 3.6.4 first in PATH, Python 3.13.5 venv with cryptography
+  50.0.2, Chrome 157.0.8103.39, Redis 8.10.3 on 6379 and on 6380 with
+  `requirepass s3cret`, hyperfine 1.20.0. Each gate ran as
+  `python3 tools/build_guard.py --memory-mib 4096 --process-memory-mib 4096
+  --timeout 120 --phases <manifest> -- moon --concurrency 1 run <task> --force`
+  with `PYTHONDONTWRITEBYTECODE=1`, `BUN_OPTIONS=--smol`,
+  `BUN_JSC_forceRAMSize=134217728`, sequentially, nice 0, limits unchanged.
+  Every run ended `child-exit` with exit 0, all phases passed, none skipped:
+  - `crypto:check`: **1,793/1,793**, 3214.4 MiB peak, 1709.7 s.
+  - `wire:check`: **240/240**, 1165.9 MiB, 611.3 s.
+  - `http_client:check`: **35/35**, 4010.2 MiB, 415.5 s (peak is in
+    `bend_public_chain_build`, 78.2 s; under the unchanged 4096 MiB limit).
+  - `http_server:check`: **48/48**, 1892.8 MiB, 369.8 s, including Chrome
+    HTTPS/WSS 18/18 per cipher.
+  - root `:check --force`: **2,286/2,286** in one uninterrupted run
+    (crypto 1,793, wire 240, rtc 161, http_server 48, http_client 35, nine
+    single-phase packages), 4008.8 MiB peak, 4721.8 s; slowest phase 76.7 s.
+    Redis live and AUTH tests ran against both servers; the RTC Chrome ICE
+    evaluator ran on both targets. The only non-run item is the opt-in,
+    non-gating public live fetch (`GROUNDS_PUBLIC_HTTPS_LIVE` unset).
+  This is the first single complete root pass covering M4 and M5. It supersedes
+  the split-run M4 root evidence and the pressure-blocked 2026-11-06 round 3.
+  Background: the 2026-11-07 devbox attempt (AMD EPYC VM, NixOS, shared
+  load 9-13) found a guard error (ESRCH reading procfs on process exit), fixed
+  in `819efc2`. It then ran 175 crypto phases with no failure before hitting
+  the 120 s limit in `x509_chain_cli` builds (host CPU contention, 3-5x
+  slower than macOS), so the gate was moved to macwork. Fixes needed on
+  macwork: none in the repo. There was one runner launch mistake (zsh
+  parsed `$t:check` as a history modifier, so no phases ran; kept in
+  `launch-errors/`). M3 boxes are ticked: M3a/M3b focused acceptance (entries
+  below) were prerequisites of the accepted M4, and they are rechecked here.
+  M5 limitations remain: no OCSP/CRL, Ed25519, PQ shares or key/certificate
+  generation; synthetic server credentials only; `crypto/ERASURE.md` still
+  blocks live secrets; Bun scope as in the 2026-10-23 note. Artifacts:
+  `~/.codex/artifacts/grounds/2026-11-07/m5/macwork/` (`<gate>-01.json/.log/
+  .inputs.txt/-artifacts`, `gates.sh`, `gates.out`) and `../devbox/`.
+  Reproduce: `ssh macwork 'zsh ~/grounds-env/gates.sh'` (needs Redis on 6379/6380).
+
 - 2026-11-06 (M5 round 3; **pressure-blocked, M5 OPEN**): review of `eceb5de`
   (bundle limits, atomic rejection, anchor framing, unchanged CA/name policy
   via node fields) and `222e681` (offline corpus phases, opt-in live script
