@@ -11,7 +11,9 @@ import ../utf8/utf8.bend as Utf
 
 # RFC 7468 explanatory text is allowed outside blocks. Every delimiter line
 # must be exact; malformed/duplicate/overflow entries fail the whole bundle.
-# No filtering, partial trust result or ambient trust.
+# No filtering, partial trust result or ambient trust. `decode.system` (system
+# bundles only) drops byte-identical duplicates and skips exactly framed
+# OpenSSL TRUSTED CERTIFICATE blocks, which never become anchors.
 type Error is Data:
   Empty{}
   Malformed{}
@@ -79,11 +81,13 @@ def body(left: Nat, bytes: List<&2,U32>, collected: List<&2,U32>) -> Result<&2,&
     case 1n+p bytes:
       body.line(P.line(bytes,""),collected,r => acc => body(p,r,acc))
 
-def unique(duplicate: Bool, raw: List<&2,U32>, roots: List<&2,List<&2,U32>>,
+# A system bundle keeps the first of byte-identical DER entries.
+def unique(duplicate: Bool, system: Bool, raw: List<&2,U32>, roots: List<&2,List<&2,U32>>,
   next: List<&2,List<&2,U32>> -> Result<&2,&2,Error,List<&2,List<&2,U32>>>) -> Result<&2,&2,Error,List<&2,List<&2,U32>>>:
-  match duplicate:
-    case True{}: Fail{Duplicate{}}
-    case False{}: next(Con{raw,roots})
+  match duplicate system:
+    case True{} True{}: next(roots)
+    case True{} False{}: Fail{Duplicate{}}
+    case False{} _: next(Con{raw,roots})
 
 # Nested framing is checked with the chain owners' structural decoders before
 # any entry is admitted. Valid DER outside the supported key/Name/signature
@@ -205,56 +209,102 @@ def framed(value: Maybe<&1,C.Tbs>) -> Bool:
         Bool.and(framed.spki(D.complete(48,spki)),framed.extensions(E.optional(extensions))))
     case None{}: False{}
 
-def certificate(+raw: List<&2,U32>, valid: Bool, +roots: List<&2,List<&2,U32>>,
+def certificate(+raw: List<&2,U32>, valid: Bool, system: Bool, +roots: List<&2,List<&2,U32>>,
   next: List<&2,List<&2,U32>> -> Result<&2,&2,Error,List<&2,List<&2,U32>>>) -> Result<&2,&2,Error,List<&2,List<&2,U32>>>:
   match valid:
     case False{}: Fail{Malformed{}}
-    case True{}: unique(seen(raw,roots),raw,roots,next)
+    case True{}: unique(seen(raw,roots),system,raw,roots,next)
 
-def block(value: Result<&2,&1,P.Error,P.Block>, roots: List<&2,List<&2,U32>>,
+def block(value: Result<&2,&1,P.Error,P.Block>, system: Bool, roots: List<&2,List<&2,U32>>,
   next: List<&2,List<&2,U32>> -> Result<&2,&2,Error,List<&2,List<&2,U32>>>) -> Result<&2,&2,Error,List<&2,List<&2,U32>>>:
   match value:
-    case Done{P.Block{P.Certificate{},+der}}: certificate(der,framed(C.anchor(der)),roots,next)
+    case Done{P.Block{P.Certificate{},+der}}: certificate(der,framed(C.anchor(der)),system,roots,next)
     case _: Fail{Malformed{}}
 
-def parsed(value: Result<&2,&2,Error,Parsed>, roots: List<&2,List<&2,U32>>,
+def parsed(value: Result<&2,&2,Error,Parsed>, system: Bool, roots: List<&2,List<&2,U32>>,
   next: List<&2,U32> -> List<&2,List<&2,U32>> -> Result<&2,&2,Error,List<&2,List<&2,U32>>>) -> Result<&2,&2,Error,List<&2,List<&2,U32>>>:
   match value:
-    case Done{Parsed{pem,rest}}: block(P.decode(pem),roots,r => next(rest,r))
+    case Done{Parsed{pem,rest}}: block(P.decode(pem),system,roots,r => next(rest,r))
     case Fail{error}: Fail{error}
 
-def start.more(bad: Bool, rest: List<&2,U32>, roots: List<&2,List<&2,U32>>,
-  next: List<&2,U32> -> List<&2,List<&2,U32>> -> Result<&2,&2,Error,List<&2,List<&2,U32>>>) -> Result<&2,&2,Error,List<&2,List<&2,U32>>>:
+# A system bundle's OpenSSL TRUSTED CERTIFICATE block (certificate plus trust
+# settings) is skipped up to its exact END line and never becomes an anchor.
+# Its contents are not decoded; any other delimiter inside it, or a missing
+# END line, fails the whole load.
+def skip.more(bad: Bool, rest: List<&2,U32>,
+  more: List<&2,U32> -> Result<&2,&2,Error,List<&2,U32>>) -> Result<&2,&2,Error,List<&2,U32>>:
   match bad:
     case True{}: Fail{Malformed{}}
-    case False{}: next(rest,roots)
+    case False{}: more(rest)
 
-def start.begin(begun: Bool, +text: String, +rest: List<&2,U32>, +left: U32, roots: List<&2,List<&2,U32>>,
+def skip.end(ended: Bool, text: String, rest: List<&2,U32>,
+  more: List<&2,U32> -> Result<&2,&2,Error,List<&2,U32>>) -> Result<&2,&2,Error,List<&2,U32>>:
+  match ended:
+    case True{}: Done{rest}
+    case False{}: skip.more(delimiter(text),rest,more)
+
+def skip.line(pair: String & List<&2,U32>,
+  more: List<&2,U32> -> Result<&2,&2,Error,List<&2,U32>>) -> Result<&2,&2,Error,List<&2,U32>>:
+  (+text,+rest) = pair
+  skip.end(String.eq(text,"-----END TRUSTED CERTIFICATE-----"),text,rest,more)
+
+def skip(fuel: Nat, bytes: List<&2,U32>) -> Result<&2,&2,Error,List<&2,U32>>:
+  match fuel bytes:
+    case _ Nil{}: Fail{Malformed{}}
+    case 0n _: Fail{Limit{}}
+    case 1n+p bytes: skip.line(P.line(bytes,""),r => skip(p,r))
+
+def skipped(value: Result<&2,&2,Error,List<&2,U32>>, roots: List<&2,List<&2,U32>>,
+  next: List<&2,U32> -> List<&2,List<&2,U32>> -> Result<&2,&2,Error,List<&2,List<&2,U32>>>) -> Result<&2,&2,Error,List<&2,List<&2,U32>>>:
+  match value:
+    case Done{rest}: next(rest,roots)
+    case Fail{error}: Fail{error}
+
+def start.more(trusted: Bool, bad: Bool, +rest: List<&2,U32>, roots: List<&2,List<&2,U32>>,
+  next: List<&2,U32> -> List<&2,List<&2,U32>> -> Result<&2,&2,Error,List<&2,List<&2,U32>>>) -> Result<&2,&2,Error,List<&2,List<&2,U32>>>:
+  match trusted bad:
+    case True{} _: skipped(skip(Nat.add(B.length(rest),1n),rest),roots,next)
+    case False{} True{}: Fail{Malformed{}}
+    case False{} False{}: next(rest,roots)
+
+def start.trusted(system: Bool, text: String) -> Bool:
+  match system:
+    case True{}: String.eq(text,"-----BEGIN TRUSTED CERTIFICATE-----")
+    case False{}: False{}
+
+def start.begin(begun: Bool, +system: Bool, +text: String, +rest: List<&2,U32>, +left: U32, roots: List<&2,List<&2,U32>>,
   next: U32 -> List<&2,U32> -> List<&2,List<&2,U32>> -> Result<&2,&2,Error,List<&2,List<&2,U32>>>) -> Result<&2,&2,Error,List<&2,List<&2,U32>>>:
   match begun left:
     case True{} 0: Fail{Limit{}}
     case True{} left:
-      parsed(body(Nat.add(B.length(rest),1n),rest,Con{10,List.reverse(&2,U32,Utf.encode(text))}),roots,r => acc => next(U32.sub(left,1),r,acc))
+      parsed(body(Nat.add(B.length(rest),1n),rest,Con{10,List.reverse(&2,U32,Utf.encode(text))}),system,roots,r => acc => next(U32.sub(left,1),r,acc))
     case False{} _:
-      start.more(delimiter(text),rest,roots,r => acc => next(left,r,acc))
+      start.more(start.trusted(system,text),delimiter(text),rest,roots,r => acc => next(left,r,acc))
 
-def start.line(pair: String & List<&2,U32>, +left: U32, roots: List<&2,List<&2,U32>>,
+def start.line(pair: String & List<&2,U32>, system: Bool, +left: U32, roots: List<&2,List<&2,U32>>,
   next: U32 -> List<&2,U32> -> List<&2,List<&2,U32>> -> Result<&2,&2,Error,List<&2,List<&2,U32>>>) -> Result<&2,&2,Error,List<&2,List<&2,U32>>>:
   (+text,+rest) = pair
-  start.begin(String.eq(text,"-----BEGIN CERTIFICATE-----"),text,rest,left,roots,next)
+  start.begin(String.eq(text,"-----BEGIN CERTIFICATE-----"),system,text,rest,left,roots,next)
 
-def start(fuel: Nat, +left: U32, bytes: List<&2,U32>, roots: List<&2,List<&2,U32>>) -> Result<&2,&2,Error,List<&2,List<&2,U32>>>:
+def start(fuel: Nat, +system: Bool, +left: U32, bytes: List<&2,U32>, roots: List<&2,List<&2,U32>>) -> Result<&2,&2,Error,List<&2,List<&2,U32>>>:
   match fuel bytes:
     case _ Nil{}: finish(roots)
     case 0n _: Fail{Limit{}}
-    case 1n+p bytes: start.line(P.line(bytes,""),left,roots,l => r => acc => start(p,l,r,acc))
+    case 1n+p bytes: start.line(P.line(bytes,""),system,left,roots,l => r => acc => start(p,system,l,r,acc))
 
-def decode.checked(valid: Bool, +bytes: List<&2,U32>) -> Result<&2,&2,Error,List<&2,List<&2,U32>>>:
+def decode.checked(valid: Bool, system: Bool, +bytes: List<&2,U32>) -> Result<&2,&2,Error,List<&2,List<&2,U32>>>:
   match valid:
-    case True{}: start(Nat.add(B.length(bytes),1n),256,bytes,[])
+    case True{}: start(Nat.add(B.length(bytes),1n),system,256,bytes,[])
     case False{}: Fail{Limit{}}
 
 # 2 MiB text, 256 anchors, 65535 DER bytes/certificate. Key/signature
 # algorithm admission is a separate chain-verification decision.
 def decode(+bytes: List<&2,U32>) -> Result<&2,&2,Error,List<&2,List<&2,U32>>>:
-  decode.checked(within(bytes,2097152),bytes)
+  decode.checked(within(bytes,2097152),False{},bytes)
+
+# Same limits and whole-load rejection of malformed entries, for a host's
+# system bundle only: byte-identical duplicate certificates are dropped (each
+# still counts toward the 256 blocks) and OpenSSL TRUSTED CERTIFICATE blocks
+# are skipped. A distinct certificate always needs its own CERTIFICATE block.
+def decode.system(+bytes: List<&2,U32>) -> Result<&2,&2,Error,List<&2,List<&2,U32>>>:
+  decode.checked(within(bytes,2097152),True{},bytes)
