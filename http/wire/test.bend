@@ -265,7 +265,42 @@ def rh_te_gzip() -> {rh("HTTP/1.1 200 OK\r\nTransfer-Encoding: gzip, chunked\r\n
 def rh_cl_differ() -> {rh("HTTP/1.1 200 OK\r\nContent-Length: 3\r\nContent-Length: 4\r\n\r\n") == H1.HBad{H1.BadLength{}} : H1.Head}:
   {==}
 
-def rh_cl_list() -> {rh("HTTP/1.1 200 OK\r\nContent-Length: 3, 3\r\n\r\n") == H1.HBad{H1.BadLength{}} : H1.Head}:
+# a list of one length, or the same length repeated, is that length (RFC
+# 9110 §8.6, RFC 9112 §6.3); any other value or a conflict is refused
+def rh_cl_list() -> {rh("HTTP/1.1 200 OK\r\nContent-Length: 3, 3\r\n\r\nabc") == H1.Head{200, [H.Header{"Content-Length", "3, 3"}], H1.FLen{3n}, True{}, b("abc")} : H1.Head}:
+  {==}
+
+def rh_cl_list_ows() -> {rh("HTTP/1.1 200 OK\r\nContent-Length: 3,\t3 ,3\r\n\r\n") == H1.Head{200, [H.Header{"Content-Length", "3,\t3 ,3"}], H1.FLen{3n}, True{}, b("")} : H1.Head}:
+  {==}
+
+def rh_cl_repeat() -> {rh("HTTP/1.1 200 OK\r\nContent-Length: 3\r\nContent-Length: 3\r\n\r\n") == H1.Head{200, [H.Header{"Content-Length", "3"}, H.Header{"Content-Length", "3"}], H1.FLen{3n}, True{}, b("")} : H1.Head}:
+  {==}
+
+def rh_cl_list_repeat() -> {rh("HTTP/1.1 200 OK\r\nContent-Length: 3, 3\r\nContent-Length: 3\r\n\r\n") == H1.Head{200, [H.Header{"Content-Length", "3, 3"}, H.Header{"Content-Length", "3"}], H1.FLen{3n}, True{}, b("")} : H1.Head}:
+  {==}
+
+def rh_cl_list_differ() -> {rh("HTTP/1.1 200 OK\r\nContent-Length: 3, 4\r\n\r\n") == H1.HBad{H1.BadLength{}} : H1.Head}:
+  {==}
+
+def rh_cl_list_then_differ() -> {rh("HTTP/1.1 200 OK\r\nContent-Length: 3, 3\r\nContent-Length: 4\r\n\r\n") == H1.HBad{H1.BadLength{}} : H1.Head}:
+  {==}
+
+def rh_cl_list_empty() -> {rh("HTTP/1.1 200 OK\r\nContent-Length: 3,,3\r\n\r\n") == H1.HBad{H1.BadLength{}} : H1.Head}:
+  {==}
+
+def rh_cl_list_trailing() -> {rh("HTTP/1.1 200 OK\r\nContent-Length: 3,\r\n\r\n") == H1.HBad{H1.BadLength{}} : H1.Head}:
+  {==}
+
+def rh_cl_list_inner_space() -> {rh("HTTP/1.1 200 OK\r\nContent-Length: 3 3, 33\r\n\r\n") == H1.HBad{H1.BadLength{}} : H1.Head}:
+  {==}
+
+def rh_cl_list_sign() -> {rh("HTTP/1.1 200 OK\r\nContent-Length: 3, +3\r\n\r\n") == H1.HBad{H1.BadLength{}} : H1.Head}:
+  {==}
+
+def list_length_request() -> {p("POST / HTTP/1.1\r\nHost: x\r\nContent-Length: 1, 1\r\n\r\na") == H1.Parsed{Req.Request{M.MPost{}, "/", [H.Header{"Host", "x"}, H.Header{"Content-Length", "1, 1"}], [97]}, False{}, b("")} : P()}:
+  {==}
+
+def list_length_request_differ() -> {p("POST / HTTP/1.1\r\nHost: x\r\nContent-Length: 1, 2\r\n\r\nab") == H1.Bad{H1.BadLength{}} : P()}:
   {==}
 
 def rh_fold() -> {rh("HTTP/1.1 200 OK\r\nX: a\r\n b\r\n\r\n") == H1.HBad{H1.ObsFold{}} : H1.Head}:

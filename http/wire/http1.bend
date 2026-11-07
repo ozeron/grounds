@@ -282,6 +282,76 @@ def cl_merge(cl: CL, m: Maybe<&2, Nat>) -> CL:
     case _ _:
       LenBad{}
 
+# a list of Content-Lengths in one field, "5, 5" (RFC 9110 §8.6, RFC 9112
+# §6.3): split at commas, each element without the SP/HTAB around it; the
+# length when every element is digits and all are the same, else None
+type ClCut is Data:
+  ClCut{cur: String, done: List<&2, String>}
+
+def cl_ows(+x: U32) -> Bool:
+  Bool.or(U32.is_eq(x, 32), U32.is_eq(x, 9))
+
+def cl_cut.step(comma: Bool, +x: U32, cur: String, done: List<&2, String>) -> ClCut:
+  match comma:
+    case True{}:
+      ClCut{"", Con{String.reverse(cur), done}}
+    case False{}:
+      ClCut{SCon{Chr{x}, cur}, done}
+
+def cl_cut(s: String, c: ClCut) -> List<&2, String>:
+  match s c:
+    case SNil{} ClCut{cur, done}:
+      List.reverse(&2, String, Con{String.reverse(cur), done})
+    case SCon{Chr{+x}, t} ClCut{cur, done}:
+      cl_cut(t, cl_cut.step(U32.is_eq(x, 44), x, cur, done))
+
+def cl_lead.keep(drop: Bool, +x: U32, rest: String) -> String:
+  match drop:
+    case True{}:
+      rest
+    case False{}:
+      SCon{Chr{x}, rest}
+
+# s without the SP/HTAB it starts with (start: still at the start)
+def cl_lead(s: String, +start: Bool) -> String:
+  match s:
+    case SNil{}:
+      ""
+    case SCon{Chr{+x}, t}:
+      cl_lead.keep(Bool.and(start, cl_ows(x)), x, cl_lead(t, Bool.and(start, cl_ows(x))))
+
+def cl_trim(s: String) -> String:
+  String.reverse(cl_lead(String.reverse(cl_lead(s, True{})), True{}))
+
+def cl_all(els: List<&2, String>, cl: CL) -> CL:
+  match els:
+    case Nil{}:
+      cl
+    case Con{e, t}:
+      cl_all(t, cl_merge(cl, cl_digits.go(cl_trim(e), 0n, True{}, False{})))
+
+def cl_list.of(cl: CL) -> Maybe<&2, Nat>:
+  match cl:
+    case Len{n}:
+      Some{n}
+    case _:
+      None{}
+
+def cl_list(v: String) -> Maybe<&2, Nat>:
+  cl_list.of(cl_all(cl_cut(v, ClCut{"", []}), NoLen{}))
+
+def cl_value.or(m: Maybe<&2, Nat>, v: String) -> Maybe<&2, Nat>:
+  match m:
+    case Some{n}:
+      Some{n}
+    case None{}:
+      cl_list(v)
+
+# a Content-Length field's value: plain digits, or a list of the same
+# digits
+def cl_value(+v: String) -> Maybe<&2, Nat>:
+  cl_value.or(cl_digits.go(v, 0n, True{}, False{}), v)
+
 def lower(+b: U32) -> U32:
   Bool.pick(U32, Bool.and(U32.is_ge(b, 65), U32.is_le(b, 90)), (b + 32 : U32), b)
 
@@ -344,7 +414,7 @@ def kind(+n: String) -> HKind:
 def frame.step(k: HKind, fr: Frame, +v: String) -> Frame:
   match k fr:
     case KLen{} Frame{cl, te, h, c, kp}:
-      Frame{cl_merge(cl, cl_digits.go(v, 0n, True{}, False{})), te, h, c, kp}
+      Frame{cl_merge(cl, cl_value(v)), te, h, c, kp}
     case KTe{} Frame{cl, _, h, c, kp}:
       Frame{cl, True{}, h, c, kp}
     case KHost{} Frame{cl, te, +h, c, kp}:

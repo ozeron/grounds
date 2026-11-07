@@ -43,9 +43,10 @@ def is_bad(p: H1.Parsed) -> Bool:
     case _:
       False{}
 
-# the Content-Length a header value gives, as the scan reads it
+# the Content-Length a header value gives, as the scan reads it: digits,
+# or a list of the same digits
 def digits(v: String) -> Maybe<&2, Nat>:
-  H1.cl_digits.go(v, 0n, True{}, False{})
+  H1.cl_value(v)
 
 # Smuggling (RFC 9112 §6.1, §6.3)
 # ----------
@@ -524,6 +525,13 @@ law body_length:
   for +bs: B.Bytes
   for e: {Nat.is_le(blen(bs), 4294967295n) == True{} : Bool}
   {H1.cl_digits.go(H1.dec.show(H1.dec.count(bs, H1.DNil{})), 0n, True{}, False{}) == Some{blen(bs)} : Maybe<&2, Nat>}
+
+# and so does the whole field the parser reads (cl_value, which also
+# takes a list of the same length)
+law body_length_read:
+  for +bs: B.Bytes
+  for e: {Nat.is_le(blen(bs), 4294967295n) == True{} : Bool}
+  {H1.cl_value(H1.dec.show(H1.dec.count(bs, H1.DNil{}))) == Some{blen(bs)} : Maybe<&2, Nat>}
 
 # a request's head counts the very bytes that follow it: the body
 law writes_count:

@@ -185,8 +185,8 @@ law step_bad:
 def step_bad(k, fr, v, e):
   match k fr:
     case H1.KLen{} H1.Frame{cl, te, h, c, kp}:
-      %Equal.sym(H1.CL, cl, H1.LenBad{}, e) : {H1.cl_merge(_, H1.cl_digits.go(v, 0n, True{}, False{})) == H1.LenBad{} : H1.CL}
-      merge_bad(H1.cl_digits.go(v, 0n, True{}, False{}))
+      %Equal.sym(H1.CL, cl, H1.LenBad{}, e) : {H1.cl_merge(_, H1.cl_value(v)) == H1.LenBad{} : H1.CL}
+      merge_bad(H1.cl_value(v))
     case H1.KTe{} H1.Frame{cl, te, h, c, kp}:
       e
     case H1.KHost{} H1.Frame{cl, te, h, c, kp}:
@@ -246,7 +246,7 @@ law step_has:
 def step_has(k, fr, v, e):
   match k fr:
     case H1.KLen{} H1.Frame{cl, te, h, c, kp}:
-      merge_has(cl, H1.cl_digits.go(v, 0n, True{}, False{}))
+      merge_has(cl, H1.cl_value(v))
     case H1.KTe{} H1.Frame{cl, te, h, c, kp}:
       e
     case H1.KHost{} H1.Frame{cl, te, h, c, kp}:
@@ -280,7 +280,7 @@ law has_head:
 def has_head(post, fr, v, acc):
   match fr:
     case H1.Frame{cl, te, h, c, kp}:
-      has_sticky(post, H1.Frame{H1.cl_merge(cl, H1.cl_digits.go(v, 0n, True{}, False{})), te, h, c, kp}, acc, merge_has(cl, H1.cl_digits.go(v, 0n, True{}, False{})))
+      has_sticky(post, H1.Frame{H1.cl_merge(cl, H1.cl_value(v)), te, h, c, kp}, acc, merge_has(cl, H1.cl_value(v)))
 
 def Laws.cl_seen(pre, n, v, post, fr, acc, e):
   match pre:
@@ -359,7 +359,7 @@ law step_lenish:
 def step_lenish(k, fr, v, a, e):
   match k fr:
     case H1.KLen{} H1.Frame{cl, te, h, c, kp}:
-      merge_lenish(cl, H1.cl_digits.go(v, 0n, True{}, False{}), a, e)
+      merge_lenish(cl, H1.cl_value(v), a, e)
     case H1.KTe{} H1.Frame{cl, te, h, c, kp}:
       e
     case H1.KHost{} H1.Frame{cl, te, h, c, kp}:
@@ -1845,6 +1845,10 @@ def Laws.body_length(bs, e):
           %Equal.sym(Nat, Laws.dval(H1.dec.count(B.BCon{x, t}, H1.DNil{})), Laws.blen(B.BCon{x, t}), dlen(B.BCon{x, t})) : {Nat.is_le(_, 4294967295n) == True{} : Bool}
           e)),
         body_length.end(H1.dec.count(B.BCon{x, t}, H1.DNil{}), Laws.blen(B.BCon{x, t}), cntd(t, H1.DCon{H1.D1{}, H1.DNil{}}, {==}), dlen(B.BCon{x, t})))
+
+def Laws.body_length_read(bs, e):
+  %Equal.sym(Maybe<&2, Nat>, H1.cl_digits.go(H1.dec.show(H1.dec.count(bs, H1.DNil{})), 0n, True{}, False{}), Some{Laws.blen(bs)}, Laws.body_length(bs, e)) : {H1.cl_value.or(_, H1.dec.show(H1.dec.count(bs, H1.DNil{}))) == Some{Laws.blen(bs)} : Maybe<&2, Nat>}
+  {==}
 
 def Laws.writes_count(m, t, h, hs, bs, sized, close):
   {==}
