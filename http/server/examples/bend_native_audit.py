@@ -22,7 +22,7 @@ def main():
     self_check()
     source = a.c.read_text()
     required = {"wire_random_bytes", "wire_recv_timeout", "wire_send_timeout"}
-    required |= {"wire_connect_timeout", "wire_resolve"} if a.role == "client" else {"wire_accept_timeout", "TCP.listen", "http_readable"}
+    required |= {"wire_connect_timeout", "wire_resolve_timeout"} if a.role == "client" else {"wire_accept_timeout", "TCP.listen", "http_readable"}
     results = dict(c=c_effects(source, required), native=native_imports(a.native, c_defined_names(source)))
     problems = [f"{target} {key}: {value}" for target, result in results.items()
                 for key, value in result.items()
