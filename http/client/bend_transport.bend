@@ -62,15 +62,21 @@ def bundle_prepared(normalization: List<&2,U32>, profile: List<&2,U32>, clock: C
 def from_bundle(normalization: List<&2,U32>, profile: List<&2,U32>, bytes: List<&2,U32>, clock: Clock) -> Legacy.R(Policy):
   bundle_prepared(normalization,profile,clock,Bundle.decode(bytes))
 
-def bundle_read(normalization: List<&2,U32>, profile: List<&2,U32>, clock: Clock,
+# The explicit APIs reject duplicates; the system API uses decode.system.
+def bundle_decode(system: Bool, +bytes: List<&2,U32>) -> Result<&2,&2,Bundle.Error,List<&2,List<&2,U32>>>:
+  match system:
+    case True{}: Bundle.decode.system(bytes)
+    case False{}: Bundle.decode(bytes)
+
+def bundle_read(system: Bool, normalization: List<&2,U32>, profile: List<&2,U32>, clock: Clock,
   pair: File & Result<&1,&1,U32 & String,List<&2,U32>>) -> IO(Legacy.R(Policy)):
   (file,result) = pair
   do IO<Legacy.R(Policy)>:
     bytes : List<&2,U32> <- IO.pass(List<&2,U32>,result)
     File.close(file)
-    IO.pure(Legacy.R(Policy),from_bundle(normalization,profile,bytes,clock))
+    IO.pure(Legacy.R(Policy),bundle_prepared(normalization,profile,clock,bundle_decode(system,bytes)))
 
-def bundle_bounded(large: Bool, file: File, normalization: List<&2,U32>, profile: List<&2,U32>, clock: Clock) -> IO(Legacy.R(Policy)):
+def bundle_bounded(large: Bool, system: Bool, file: File, normalization: List<&2,U32>, profile: List<&2,U32>, clock: Clock) -> IO(Legacy.R(Policy)):
   match large:
     case True{}:
       do IO<Legacy.R(Policy)>:
@@ -79,14 +85,14 @@ def bundle_bounded(large: Bool, file: File, normalization: List<&2,U32>, profile
     case False{}:
       do IO<Legacy.R(Policy)>:
         pair : File & Result<&1,&1,U32 & String,List<&2,U32>> <- File.read_bytes(file,2097153)
-        bundle_read(normalization,profile,clock,pair)
+        bundle_read(system,normalization,profile,clock,pair)
 
-def bundle_size(normalization: List<&2,U32>, profile: List<&2,U32>, clock: Clock,
+def bundle_size(system: Bool, normalization: List<&2,U32>, profile: List<&2,U32>, clock: Clock,
   pair: File & Result<&1,&1,U32 & String,U32>) -> IO(Legacy.R(Policy)):
   (file,result) = pair
   do IO<Legacy.R(Policy)>:
     size : U32 <- IO.pass(U32,result)
-    bundle_bounded(U32.is_gt(size,2097152),file,normalization,profile,clock)
+    bundle_bounded(U32.is_gt(size,2097152),system,file,normalization,profile,clock)
 
 # A caller can pass /etc/ssl/cert.pem or certifi's cacert.pem here. No path is
 # chosen implicitly; open/read failures follow the ordinary File IO effects.
@@ -95,7 +101,70 @@ def from_bundle_file(normalization: List<&2,U32>, profile: List<&2,U32>, path: S
   do IO<Legacy.R(Policy)>:
     file : File <- IO.try(File,File.open(path,"r"))
     pair : File & Result<&1,&1,U32 & String,U32> <- File.size(file)
-    bundle_size(normalization,profile,clock,pair)
+    bundle_size(False{},normalization,profile,clock,pair)
+
+# Opt-in host trust. Only from_system_bundle* read a host CA bundle, and only
+# when called; nothing else (from_pem, from_bundle*, the default config) ever
+# discovers trust. The loaded file's path is returned with the policy.
+type System is Data:
+  System{path: String, policy: Policy}
+
+# Fixed, platform-independent order; the first file that opens wins:
+# Debian/Ubuntu/Alpine/NixOS (and Fedora's compat link), RHEL/Fedora,
+# Fedora/RHEL extracted, openSUSE, then macOS/BSD/Alpine /etc/ssl/cert.pem.
+def system_paths() -> List<String>:
+  ["/etc/ssl/certs/ca-certificates.crt","/etc/pki/tls/certs/ca-bundle.crt",
+   "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem","/etc/ssl/ca-bundle.pem","/etc/ssl/cert.pem"]
+
+def system_override(value: Result<&1,&1,U32 & String,String>) -> String:
+  match value:
+    case Done{path}: path
+    case Fail{_}: ""
+
+# A non-empty SSL_CERT_FILE replaces the list (as in OpenSSL): if it cannot be
+# opened the load fails; it never falls back to another file.
+def system_candidates(override: String, paths: List<String>) -> List<String>:
+  match override:
+    case SNil{}: paths
+    case path: [path]
+
+def system_named(path: String, value: Legacy.R(Policy)) -> Legacy.R(System):
+  match value:
+    case Done{policy}: Done{System{path,policy}}
+    case Fail{error}: Fail{error}
+
+# A candidate that cannot be opened is skipped. Once one opens, it is the
+# bundle: a size, read or admission failure fails the load, without falling
+# through to a later candidate. Read errors follow the File IO effects.
+def system_opened(value: Result<&1,&1,U32 & String,File>, path: String,
+  normalization: List<&2,U32>, profile: List<&2,U32>, clock: Clock,
+  next: Unit -> IO(Legacy.R(System))) -> IO(Legacy.R(System)):
+  match value:
+    case Fail{_}: next(Unit{})
+    case Done{file}:
+      do IO<Legacy.R(System)>:
+        pair : File & Result<&1,&1,U32 & String,U32> <- File.size(file)
+        loaded : Legacy.R(Policy) <- bundle_size(True{},normalization,profile,clock,pair)
+        IO.pure(Legacy.R(System),system_named(path,loaded))
+
+# Explicit candidates, tried in order, with system-bundle admission
+# (Bundle.decode.system): same 2 MiB / 256-block limits and whole-load
+# rejection of malformed entries; byte-identical duplicates are dropped and
+# OpenSSL TRUSTED CERTIFICATE blocks are skipped, never trusted.
+def from_system_bundle_paths(+normalization: List<&2,U32>, +profile: List<&2,U32>, candidates: List<String>, +clock: Clock) -> IO(Legacy.R(System)):
+  match candidates:
+    case Nil{}: IO.pure(Legacy.R(System),Fail{Legacy.Tls{"no-system-bundle"}})
+    case Con{+path,rest}:
+      do IO<Legacy.R(System)>:
+        opened : Result<&1,&1,U32 & String,File> <- File.open(path,"r")
+        system_opened(opened,path,normalization,profile,clock,u => from_system_bundle_paths(normalization,profile,rest,clock))
+
+# SSL_CERT_FILE if set and non-empty, else system_paths(). macOS Keychain
+# trust settings and user-added roots are not consulted (/etc/ssl/cert.pem).
+def from_system_bundle(normalization: List<&2,U32>, profile: List<&2,U32>, clock: Clock) -> IO(Legacy.R(System)):
+  do IO<Legacy.R(System)>:
+    found : Result<&1,&1,U32 & String,String> <- IO.get_env("SSL_CERT_FILE")
+    from_system_bundle_paths(normalization,profile,system_candidates(system_override(found),system_paths()),clock)
 
 def ipv4_next(valid: Bool, next: Unit -> Ip) -> Ip:
   match valid:
