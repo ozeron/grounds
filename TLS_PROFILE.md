@@ -70,6 +70,58 @@ linear scanning is retained on measured performance (dated ledger receipts).
 The bundle SHA-256 is
 `796f1389bfea13c0ed78f663b765baaff54a508e5483786bd6ece73c5e3e3cbe`.
 
+### Version 3 opt-in system trust (M6, 2026-11-07)
+
+Version 3 adds one explicit call and changes nothing else: `from_pem`,
+`from_bundle`, `from_bundle_file` and every default stay as in version 2,
+and no program reads a host CA file unless it calls
+`bend_transport.from_system_bundle(normalization, profile, clock)` (or
+`from_system_bundle_paths` with its own candidate list). The result is
+`System{path, policy}`, naming the file that was loaded.
+
+- Path: a non-empty `SSL_CERT_FILE` replaces the candidate list, as in
+  OpenSSL; if it cannot be opened the load fails (`no-system-bundle`)
+  without falling back. Otherwise the fixed, platform-independent order is
+  `/etc/ssl/certs/ca-certificates.crt` (Debian/Ubuntu/Alpine/NixOS, and
+  Fedora's compat link), `/etc/pki/tls/certs/ca-bundle.crt` (RHEL, older
+  Fedora), `/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem` (Fedora/RHEL),
+  `/etc/ssl/ca-bundle.pem` (openSUSE), `/etc/ssl/cert.pem` (macOS, BSD).
+  The first file that opens is the bundle. A size, read or admission failure
+  of that file fails the load; it never falls through to a later file.
+  `SSL_CERT_DIR` and hashed certificate directories are not read.
+- Admission (`pem_bundle.decode.system`): the 2 MiB, 256-block and
+  65,535-byte DER limits and whole-load rejection of malformed entries,
+  unknown labels and bad delimiters stay. Two differences, for system files
+  only: byte-identical duplicate certificates are dropped (each still counts
+  toward the 256 blocks), and exactly framed OpenSSL `TRUSTED CERTIFICATE`
+  blocks are skipped up to their `END` line without decoding. They never
+  become anchors, so a root must also appear as a plain `CERTIFICATE`. The
+  NixOS bundle has 172 such blocks: 118 copies of its plain roots marked
+  serverAuth, 48 email-only and 6 with no trust bits, so its plain roots
+  are exactly its serverAuth set. No measured block carries a rejection
+  (distrust) entry; such entries would not be honoured, only skipped. A file of only `TRUSTED CERTIFICATE` blocks (Fedora's
+  `ca-bundle.trust.crt`) fails as `empty-bundle`.
+- macOS: `/etc/ssl/cert.pem` is the system's exported root set. Keychain
+  trust settings, user- or MDM-added roots and distrust decisions are not
+  reflected; Security.framework is not called.
+
+Measured on 2026-11-07 with the gate-built `http/client/tests/bundle.bend`
+(`from_system_bundle_paths`, one candidate):
+
+| Bundle | Bytes | Roots | Load | Peak RSS |
+| --- | --- | --- | --- | --- |
+| macOS 26.6/26.7 `/etc/ssl/cert.pem` | 333,483 | 128 | 0.16 s | 15.0 MiB |
+| Debian 13 `ca-certificates.crt` | 222,073 | 148 | 0.16 s | 10.7 MiB |
+| NixOS 26.05 `ca-certificates.crt` | 471,106 | 118 (+172 skipped) | 0.25 s | 20.4 MiB |
+| Fedora 45 `tls-ca-bundle.pem` | 182,304 | 118 | 0.11 s | 9.1 MiB |
+| Alpine 3.24 `ca-certificates.crt` | 178,791 | 118 | 0.11 s | 9.0 MiB |
+| openSUSE Leap 16 `ca-bundle.pem` | 179,271 | 118 | 0.11 s | 9.0 MiB |
+
+Times and RSS are on the Apple M4 Pro; the NixOS host itself (x86_64) loads
+its own bundle in 0.54 s at 20.5 MiB. No measured bundle has duplicates,
+CRLF or more than 148 roots, so the version 2 limits stay. The explicit
+`from_bundle_file` still rejects the NixOS file (`malformed-bundle`).
+
 Offline checks use fixed times, SAN-only hostname verification and recorded
 roots. Unknown certificate signatures return `unsupported-algorithm`.
 The finite Name profile remains: some EV Names are unsupported, and removed
@@ -362,7 +414,8 @@ This is synthetic-key qualification only. The physical-erasure blocker in
 [crypto/ERASURE.md](crypto/ERASURE.md), ECDSA nonce/retry timing and the broader
 runtime dispositions in [crypto/RUNTIME_REVIEW.md](crypto/RUNTIME_REVIEW.md)
 remain. Version 2 supersedes the M4 16-anchor limit with explicit bundle
-loading; no ambient trust discovery, the wall-clock refresh obligation,
+loading; version 3 adds caller-requested system bundle loading only. No
+ambient trust discovery, the wall-clock refresh obligation,
 unsupported IPv6 URL literals, resumption/0-RTT/client authentication and other
 frozen exclusions remain. Version 2 above adds native public-internet
 algorithms and explicit trust-bundle admission; RTC/DTLS/SCTP/TURN/media

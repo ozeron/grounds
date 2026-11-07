@@ -145,6 +145,26 @@ wall-clock sample (UTC seconds since 0001-01-01) with the corresponding `IO.now(
 millisecond sample. Each handshake advances that sample by elapsed monotonic
 seconds. Resample when wall-clock corrections matter for a long-lived process.
 
+For larger trust stores, `from_bundle(normalization, profile, pem_bytes, clock)`
+and `from_bundle_file(normalization, profile, path, clock)` admit 1..256 roots
+from one PEM bundle of at most 2 MiB; a malformed or duplicate entry fails the
+whole load.
+
+To trust the host's CA bundle, call it explicitly:
+`from_system_bundle(normalization, profile, clock)` returns
+`IO(R(System{path, policy}))`. It reads `SSL_CERT_FILE` if set and non-empty
+(no fallback if that file is missing), else the first of
+`/etc/ssl/certs/ca-certificates.crt`, `/etc/pki/tls/certs/ca-bundle.crt`,
+`/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem`, `/etc/ssl/ca-bundle.pem`
+and `/etc/ssl/cert.pem` that opens, and reports that `path`.
+`from_system_bundle_paths(normalization, profile, candidates, clock)` takes
+the list from the caller. System files keep the bundle limits and whole-load
+rejection, but byte-identical duplicates are dropped and OpenSSL
+`TRUSTED CERTIFICATE` blocks are skipped, never trusted (NixOS ships them).
+On macOS this is `/etc/ssl/cert.pem`: Keychain trust settings and user-added
+roots are not seen. Nothing else, including `default`, reads host trust.
+Details and measurements: [TLS_PROFILE.md](../../TLS_PROFILE.md), version 3.
+
 `from_pem` returns the existing legacy `R(Policy)` / `Err`. Pass a successful
 policy to `C.default(policy)`, then use the usual builders, Config setters,
 send/send_ok/send_json, stream, events/events_retry and pool calls. The convenience
@@ -156,7 +176,7 @@ TLS 1.3 uses the frozen [profile](../../TLS_PROFILE.md), always offers ALPN
 and maps verification/protocol errors to the **same** legacy `Err` type
 (`Tls{why}`, preserving `certificate:` + `x509_chain.show(reason)`). IPv4 literals
 use IP SANs without SNI. The existing URL parser supports DNS and IPv4, not IPv6
-URL literals. No ambient roots, verification bypass or TLS fallback is provided.
+URL literals. No ambient roots (host roots only through `from_system_bundle`), verification bypass or TLS fallback is provided.
 An HTTPS-to-HTTPS redirect opens/reuses only that destination's origin and
 re-verifies every new connection; private headers are stripped as before.
 
