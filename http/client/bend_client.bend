@@ -2,6 +2,7 @@ import Base
 import ./bend_transport.bend as Tr
 import ./client.bend as Legacy
 import ../../wire/wire.bend as W
+import ../../wire/dial.bend as D
 import ../wire/http1.bend as H1
 import ../wire/bytes.bend as B
 import ../core/method.bend as M
@@ -75,8 +76,8 @@ def with_idle(c: Config, ms: U32) -> Config:
     case Config{t, mh, mb, rt, bo, rd, _, policy, cm, rm, ua}:
       Config{t, mh, mb, rt, bo, rd, ms, policy, cm, rm, ua}
 
-# resolving the host's address aside, connecting and the TLS handshake
-# must end within ms of their start (and within timeout_ms); each new
+# looking up the host's addresses, connecting and the TLS handshake must
+# end within ms of their start (and within timeout_ms); each new
 # connection, after a redirect or retry too, gets its own ms. 0 turns it off
 def with_connect_timeout(c: Config, ms: U32) -> Config:
   match c:
@@ -310,17 +311,17 @@ def connected(r: Result<&1,&1,U32 & String,Socket>, tls: Bool, host: String, dl:
     case Done{socket} False{}: IO.pure(Opened,Opened{Tr.Raw{socket},False{}})
     case Fail{(code,_)} _: IO.pure(Opened,NotOpened{failed(code)})
 
-def resolved(r: Result<&1,&1,U32 & String,String>, tls: Bool, host: String, port: U32, +dl: Nat, policy: Tr.Policy) -> IO(Opened):
-  match r:
-    case Done{ip}:
-      do IO<Opened>:
-        now : Nat <- IO.now()
-        socket : Result<&1,&1,U32 & String,Socket> <- W.wire_connect_timeout(ip,port,left(dl,now))
-        connected(socket,tls,host,dl,policy)
-    case Fail{_}: IO.pure(Opened,NotOpened{Legacy.NoHost{}})
+# a TCP connection by D.dial: a literal at once, a name through an A/AAAA
+# lookup bounded by dl, then its addresses one after another (wire/dial.bend)
+def dialed(d: D.Dialed, tls: Bool, host: String, dl: Nat, policy: Tr.Policy) -> IO(Opened):
+  match d:
+    case D.Dialed{socket}: connected(Done{socket},tls,host,dl,policy)
+    case D.Unresolved{+code}: IO.pure(Opened,NotOpened{Bool.pick(Err,etimedout(code),Legacy.Timeout{},Legacy.NoHost{})})
+    case D.Unreached{code}: IO.pure(Opened,NotOpened{failed(code)})
+    case D.Late{}: IO.pure(Opened,NotOpened{Legacy.Timeout{}})
 
-def open(tls: Bool, +host: String, port: U32, dl: Nat, policy: Tr.Policy) -> IO(Opened):
-  IO.bind(Result<&1,&1,U32 & String,String>,Opened,W.wire_resolve(host),r => resolved(r,tls,host,port,dl,policy))
+def open(tls: Bool, +host: String, port: U32, +dl: Nat, policy: Tr.Policy) -> IO(Opened):
+  IO.bind(D.Dialed,Opened,D.dial(host,port,dl),d => dialed(d,tls,host,dl,policy))
 
 # the connect and read deadlines of their own, in ms; 0 is none
 type Ph is Data:

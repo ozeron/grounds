@@ -1,6 +1,7 @@
 import Base
 import ../../wire/wire.bend as W
 import ../../wire/bend_tls_client.bend as TLS
+import ../../wire/ip.bend as IP
 import ../../crypto/unicode32_prepare.bend as U
 import ../../crypto/x509_chain.bend as X
 import ../../crypto/pem.bend as PEM
@@ -177,10 +178,19 @@ def ipv4(s: String, +part: U32, digit: Bool, reversed: List<&2,U32>, +count: U32
     case SCon{Chr{46},rest}: ipv4_next(Bool.and(digit,U32.is_lt(count,3)),u => ipv4(rest,0,False{},Con{part,reversed},U32.inc(count)))
     case SCon{Chr{+c},rest}: ipv4_next(Bool.and(Bool.and(U32.is_ge(c,48),U32.is_le(c,57)),U32.is_le(U32.add(U32.mul(part,10),U32.sub(c,48)),255)),u => ipv4(rest,U32.add(U32.mul(part,10),U32.sub(c,48)),True{},reversed,count))
 
-def identity(ip: Ip, host: String) -> X.Identity:
+def identity.v6(octets: Maybe<&2,List<&2,U32>>, host: String) -> X.Identity:
+  match octets:
+    case Some{bytes}: X.Ip{bytes}
+    case None{}: X.Dns{Utf.encode(host)}
+
+# An IPv4 or IPv6 literal (a URL's bracketed host, without the brackets) is
+# an iPAddress identity of 4 or 16 bytes, matched against iPAddress SANs
+# byte for byte, so every text form of one address is the same identity; no
+# SNI is sent for it. Anything else is a DNS identity.
+def identity(ip: Ip, +host: String) -> X.Identity:
   match ip:
     case Ip{bytes}: X.Ip{bytes}
-    case NotIp{}: X.Dns{Utf.encode(host)}
+    case NotIp{}: identity.v6(IP.v6.octets(host),host)
 
 def tls_error(+reason: String) -> Legacy.Err:
   Bool.pick(Legacy.Err,String.eq(reason,"deadline"),Legacy.Timeout{},Legacy.Tls{reason})
