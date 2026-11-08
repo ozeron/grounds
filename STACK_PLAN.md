@@ -312,7 +312,11 @@ real-world HTTPS use without widening the frozen exclusions.
   `bend_transport.from_system_bundle` (`SSL_CERT_FILE`, then a fixed path
   list); system files drop identical duplicates and skip OpenSSL TRUSTED
   CERTIFICATE blocks. See TLS_PROFILE.md version 3.
-- [ ] IPv6: TCP connections, AAAA resolution and bracketed IPv6 URL literals.
+- [x] IPv6: TCP connections, AAAA resolution and bracketed IPv6 URL literals.
+  Done 2026-11-07 (`434d6f5`..`ead2e4d`): `wire/dial.bend` and
+  `wire/ip.bend`, IPv6 iPAddress identity without SNI, and a DNS deadline.
+  Fallback is sequential with per-attempt budgets; Happy Eyeballs racing,
+  zone IDs and IPv6 UDP are deferred (see STACK_PROGRESS.md).
 - [ ] Server SNI multi-certificate selection.
 - [ ] Broaden the finite Name profile for common EV certificates (for example
   www.digicert.com).

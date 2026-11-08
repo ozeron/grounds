@@ -4,6 +4,99 @@ Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and 
 
 The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
 
+- 2026-11-07 (M6 item 3 done: IPv6): commits `434d6f5`, `79c7beb`,
+  `3526114`, `7925385`, `83be04d`, `4207430`, `b102b0e`, `ead2e4d` on
+  `91aefa6`.
+  - wire (C/JS only call the OS): `wire_connect_timeout` takes IPv6
+    literals (`gw_addr`: runtime IPv4 parser, else `inet_pton`; `%zone`
+    refused, since macOS `inet_pton` accepts it); new `wire_listen_on(host,
+    port)` binds an IPv4 or IPv6 literal (`IPV6_V6ONLY`); new
+    `wire_resolve_timeout(host, ms)` returns every A and AAAA address in
+    resolver (RFC 6724) order, at most 32. `wire_resolve`, `listen` and
+    `connect` are unchanged. Bun: IPv4 listen only, lookup blocks (`getent
+    ahosts`), no IPv6 connect; recorded unsupported, not gated.
+  - DNS deadline: done. getaddrinfo cannot be cancelled, so it runs on a
+    detached thread of its own (not the runtime helper pool) that writes
+    one byte to a pipe; the event loop parks on the pipe with the deadline.
+    Past it the caller gets `ETIMEDOUT` at once; the thread finishes and
+    the last owner frees the record, so it never holds the program open
+    (`IO.within` would: its losing sleep or lookup keeps the program
+    alive). At most 64 unfinished lookups (`EAGAIN`). The client bounds
+    the lookup by the connect deadline (`connect_ms`, else `timeout_ms`);
+    past it, `Timeout`.
+  - Policy in Bend: `wire/ip.bend` (strict IPv4; RFC 4291 IPv6 hex text,
+    no zone ID or dotted tail; RFC 5952 canonical text; 4/16-byte octets;
+    address order; attempt budget) and `wire/dial.bend` (`dial(host,
+    port, deadline)` gives `Dialed`, `Unresolved`, `Unreached` or `Late`).
+    Literals skip the lookup. Order: resolver order, scoped link-local
+    dropped, families alternating from the first address's (RFC 8305
+    section 4), at most 8.
+  - Connection fallback: sequential, not Happy Eyeballs. Each attempt but
+    the last gets `max(left / n, min(left, 250 ms))`; the last gets all
+    that is left. Refused/unreachable addresses fall through at once;
+    only TCP failures fall through (a TLS failure is the answer). Racing
+    is deferred: a Bend IO computation cannot cancel a pending connect,
+    so a race needs a new multi-socket effect that closes the losers.
+  - URLs (`url.bend`): `https://[2001:db8::1]:8443/path`; the host is the
+    canonical text, the authority (Host header) keeps the brackets, so
+    `[0:0:0:0:0:0:0:1]` and `[::1]` are one origin for pooling and
+    redirects. Zone IDs (`%25` and raw `%`), IPvFuture, dotted IPv4 tails,
+    unclosed or doubled brackets are `BadUrl`. Legacy graphs stay cold.
+  - Identity: x509 already matched 16-byte iPAddress SANs (M1 fixtures
+    `ip6`/`wrong-ip6`); `bend_transport.identity` now builds
+    `X.Ip{16 bytes}` for an IPv6 host, so no SNI is sent. crypto
+    unchanged, so `crypto:check` was not rerun. TLS_PROFILE.md has an
+    "IPv6 identity" section.
+  - Tests: `wire/ip_test.bend` 54 cases; `wire/ipv6_check.py` 12 native
+    cases (new phase `wire/native-ipv6`: bytes over `::1`, IPv4 refused on
+    the same port, localhost gives `::1,127.0.0.1`, dialing localhost to
+    an IPv6-only and an IPv4-only listener, nothing listening, zone IDs
+    refused by the effects, a `.local` lookup cut at 308 ms while multicast
+    DNS takes 5 s, process exit 0.67 s); `http/client/test.bend` +22
+    (URLs, network-path Location, origin); `tests/bend_m6_check.py --mode
+    ipv6` 17 live scenarios (new phase `http_client/bend_live_ipv6`)
+    against Python TLS peers bound on `::1`/`127.0.0.1` with a synthetic
+    leaf (`DNS:localhost, IP:127.0.0.1, IP:::1`, same synthetic CA):
+    literal, expanded and zero-padded literals with no SNI and Host
+    `[::1]:port`; a leaf without the IPv6 SAN is
+    `certificate:identity-mismatch`; pooled reuse (one connection);
+    redirect to `[0:0:0:0:0:0:0:1]` keeps Authorization (same origin), to
+    `localhost` drops it and sends SNI; localhost to an IPv6-only peer and
+    to an IPv4-only peer (fallback after `::1` refused, 107 ms); five
+    malformed literals; nothing listening; and the DNS deadline through
+    the client (`connect_ms` 500: `Timeout` at 513 ms, macOS only).
+  - Public (opt-in, non-gating, `--system`, macwork): 6/6 verified HTTP
+    200 through the new A/AAAA dial path. macwork has only a ULA
+    (`fd6c:…`) and no IPv6 default route, so the new IPv6-only target
+    `ipv6.google.com` is recorded unavailable (`global_ipv6: false`).
+  - Gate fix: `bend_native_audit.py` listed `wire_resolve` as a required
+    client effect; the client now uses `wire_resolve_timeout`
+    (`ead2e4d`). The first `http_client` run (at `b102b0e`) stopped
+    there.
+
+  Fresh macwork gates, `--force`, clean tree, unchanged
+  4096 MiB / 120 s guard (`gates.sh` plus `http_wire`/`rtc` cases):
+  - At `b102b0e` (the only later change, `ead2e4d`, is not an input of
+    either): `wire:check` **241/241** phases, peak 1194.5 MiB, 616 s;
+    `http_wire:check` 1/1, peak 324.5 MiB.
+  - At `ead2e4d`: `http_client:check` **42/42** phases, peak 1801.8 MiB
+    (`bend_frontend_native`; `bend_server_frontend` 1779.3,
+    `bend_public_frontend` 1549.0, `bend_public_chain_build` 1371.4,
+    `bend_bundle_build` 1344.6), 374 s; M6 live groups framing 53,
+    redirects 16, pool 6, deadlines 20, stream 5, ipv6 17.
+    `http_server:check` **48/48**, peak 1850.6 MiB
+    (`bend_wss_frontend_native`), 360 s. `rtc:check` **161/161**, peak
+    2281.0 MiB (`rtc/native/build/ice_nomination_evidence`, which imports
+    neither `ip.bend` nor `dial.bend`), 1582 s.
+  - Artifacts: `~/.codex/artifacts/grounds/2026-11-07/m6/ipv6/` (reports,
+    logs, live reports, public diagnostic); on macwork
+    `~/grounds-artifacts/2026-11-07/m6/ipv6/`.
+  - Deferred: Happy Eyeballs racing; zone IDs; IPv4-embedded IPv6 text;
+    IPv6 UDP (RTC address types unchanged); IPv6 and lookup deadlines on
+    Bun; the legacy client still resolves IPv4 only (an IPv6 URL there is
+    `NoHost`); a live IPv6-only public fetch (needs a host with a global
+    IPv6 route).
+
 - 2026-11-07 (M6 item 2 done: opt-in system CA bundle): commits
   `8694753`, `dfc17d4`, `e2f408a`, `01c8aa1` on `0e0d110`.
   - API (`http/client/bend_transport.bend`): `from_system_bundle(
