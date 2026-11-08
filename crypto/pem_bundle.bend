@@ -122,26 +122,83 @@ def framed.bits(value: Maybe<&1,List<&2,U32>>) -> Bool:
     case Some{bits}: C.bit_string(bits)
     case None{}: False{}
 
-# AlgorithmIdentifier parameters are walked to the leaves: every element is
-# DER-framed, constructed ones recursively, and every OID is canonical.
-# Unknown algorithms with well-formed parameters still load.
+# AlgorithmIdentifier parameters (ANY) are walked to the leaves as DER. Every
+# element is framed (single-octet tags, minimal definite lengths). SEQUENCE
+# and SET must be constructed and are walked; every other universal type must
+# be primitive with valid contents (`leaf`). Context, application and private
+# tags are framing only: constructed ones are walked, primitive ones opaque.
+# Unknown algorithms with valid parameters still load.
+# OpenSSL 3's d2i_X509 / d2i_X509_AUX rejects the same NULL, BOOLEAN length,
+# INTEGER, ENUMERATED, BIT STRING unused-bits, OID, BMPString,
+# UniversalString, UTCTime/GeneralizedTime length and primitive/constructed
+# errors. It is laxer (BER) where this is DER: it accepts any non-zero
+# BOOLEAN octet, masks BIT STRING padding bits, accepts constructed strings
+# and indefinite lengths, and never looks inside SEQUENCE, SET or tagged
+# parameters.
+def leaf.boolean(body: List<&2,U32>) -> Bool:
+  match body:
+    case Con{+byte,Nil{}}: Bool.or(U32.is_eq(byte,0),U32.is_eq(byte,255))
+    case _: False{}
+
+def leaf.null(body: List<&2,U32>) -> Bool:
+  match body:
+    case Nil{}: True{}
+    case _: False{}
+
+# Length a multiple of mask + 1 (BMPString 2, UniversalString 4).
+def leaf.aligned(bytes: List<&2,U32>, +mask: U32, +count: U32) -> Bool:
+  match bytes:
+    case Nil{}: U32.is_eq(U32.and(count,mask),0)
+    case Con{_,rest}: leaf.aligned(rest,mask,U32.add(count,1))
+
+def leaf.is(hit: Bool, check: List<&2,U32> -> Bool, body: List<&2,U32>,
+  next: List<&2,U32> -> Bool) -> Bool:
+  match hit:
+    case True{}: check(body)
+    case False{}: next(body)
+
+# UTCTime and GeneralizedTime: OpenSSL's minimum lengths (13 and 15).
+def leaf(+number: U32, body: List<&2,U32>) -> Bool:
+  leaf.is(U32.is_eq(number,5),b => leaf.null(b),body,b =>
+    leaf.is(U32.is_eq(number,1),c => leaf.boolean(c),b,c =>
+      leaf.is(Bool.or(U32.is_eq(number,2),U32.is_eq(number,10)),d => C.integer(d),c,d =>
+        leaf.is(U32.is_eq(number,3),e => C.bit_string(e),d,e =>
+          leaf.is(U32.is_eq(number,6),f => O.contents(f),e,f =>
+            leaf.is(U32.is_eq(number,30),g => leaf.aligned(g,1,0),f,g =>
+              leaf.is(U32.is_eq(number,28),h => leaf.aligned(h,3,0),g,h =>
+                leaf.is(U32.is_eq(number,23),i => Nat.is_gt(B.length(i),12n),h,i =>
+                  leaf.is(U32.is_eq(number,24),j => Nat.is_gt(B.length(j),14n),i,j => True{})))))))))
+
 def deep.pop(stack: List<&2,List<&2,U32>>, more: List<&2,U32> -> List<&2,List<&2,U32>> -> Bool) -> Bool:
   match stack:
     case Nil{}: True{}
     case Con{bytes,rest}: more(bytes,rest)
 
-def deep.kind(oid: Bool, constructed: Bool, body: List<&2,U32>, rest: List<&2,U32>,
+def deep.walk(constructed: Bool, body: List<&2,U32>, rest: List<&2,U32>,
   stack: List<&2,List<&2,U32>>, more: List<&2,U32> -> List<&2,List<&2,U32>> -> Bool) -> Bool:
-  match oid constructed:
-    case True{} _: Bool.and(O.contents(body),more(rest,stack))
-    case False{} True{}: more(body,Con{rest,stack})
-    case False{} False{}: more(rest,stack)
+  match constructed:
+    case True{}: more(body,Con{rest,stack})
+    case False{}: more(rest,stack)
+
+def deep.universal(structured: Bool, constructed: Bool, +number: U32, body: List<&2,U32>, rest: List<&2,U32>,
+  stack: List<&2,List<&2,U32>>, more: List<&2,U32> -> List<&2,List<&2,U32>> -> Bool) -> Bool:
+  match structured constructed:
+    case True{} True{}: more(body,Con{rest,stack})
+    case False{} False{}: Bool.and(leaf(number,body),more(rest,stack))
+    case _ _: False{}
+
+def deep.kind(universal: Bool, constructed: Bool, +number: U32, body: List<&2,U32>, rest: List<&2,U32>,
+  stack: List<&2,List<&2,U32>>, more: List<&2,U32> -> List<&2,List<&2,U32>> -> Bool) -> Bool:
+  match universal:
+    case True{}:
+      deep.universal(Bool.or(U32.is_eq(number,16),U32.is_eq(number,17)),constructed,number,body,rest,stack,more)
+    case False{}: deep.walk(constructed,body,rest,stack,more)
 
 def deep.element(value: Maybe<&1,D.Element>, stack: List<&2,List<&2,U32>>,
   more: List<&2,U32> -> List<&2,List<&2,U32>> -> Bool) -> Bool:
   match value:
     case Some{D.Element{+tag,body,rest,_}}:
-      deep.kind(U32.is_eq(tag,6),U32.is_ne(U32.and(tag,32),0),body,rest,stack,more)
+      deep.kind(U32.is_eq(U32.and(tag,192),0),U32.is_ne(U32.and(tag,32),0),U32.and(tag,31),body,rest,stack,more)
     case None{}: False{}
 
 def deep.step(bytes: List<&2,U32>, stack: List<&2,List<&2,U32>>,
