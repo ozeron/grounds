@@ -4,6 +4,88 @@ Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and 
 
 The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
 
+- 2026-11-08 (M6 review fix 3: two P2 findings): an independent
+  GPT-6.1-Sol review of the review fix 2 code found two P2 issues. Both
+  were reproduced red on macwork before the fix. Commits `662d5e9` (tests),
+  `5a3215b` (bundle fix), `83cedd1` (pool fix), `37599de` (pool tests),
+  `97b7e24` (docs) on `91e5641`.
+  - P2, pool (`83cedd1`, `http/client/bend_pool.bend`): a waiter that timed
+    out put the state back and then waited on the shared wake channel with
+    an unbounded `Chan.recv` when the count said a wake was owed. A return
+    publishes room and decrements the count before it sends its wake, so a
+    request could take that room and a newcomer register and take the wake
+    first, leaving the expired waiter blocked past its deadline and the
+    count off. Red (`red-pool-pre-fix.txt`, a throwaway mode driving the old
+    internals with the return's wake held 400 ms): a waiter with a 100 ms
+    deadline returned `Late` 483-493 ms late, 3 of 3 runs. Fix: each waiter
+    has its own one-slot box and a numbered ticket in a FIFO queue in the
+    pool state. While anyone waits there is no idle connection and no room,
+    so a return hands what it brings to the oldest waiter under the lock
+    (`GKept` for its origin, `GEvict` for another origin's connection,
+    which the waiter closes before opening its own, or `GRoom`). A waiter
+    past its deadline removes its ticket under the lock, or, if it is gone,
+    takes the grant already in its box and gives it back like any return.
+    A close answers queued waiters with `GShut` and then waits in the queue
+    itself. The shared wake channel and count are gone. `Pool.counts`
+    reads waiting/free/idle under the lock; `enter`, `wait` and `leave` are
+    the steps of `take`, for controlled tests.
+  - P2, system trust (`5a3215b`, `crypto/pem_bundle.bend`): a TRUSTED
+    block's certificate was any leading SEQUENCE (`30 00` passed), and AUX
+    `other` admitted any TLVs (`30 04 a1 02 05 00`). Beside a valid plain
+    root these loaded. The certificate now passes `framed(C.anchor(...))`,
+    the plain-anchor checks, and each `other` element must be a whole
+    AlgorithmIdentifier (canonical OID, at most one parameter, parameters
+    walked to the leaves). Field order, optionality and at-most-once were
+    already enforced. Red (`red-bundle-pre-fix.txt`): 32 of 113 admission
+    rows loaded (`ok:2`). OpenSSL 3.6.4 `d2i_X509_AUX` (ctypes oracle,
+    `openssl-aux-oracle.txt`) rejects every block Bend rejects except four
+    DER-strictness rows that Bend also refuses: primitive `[0]`/`[1]` and
+    malformed contents inside an `other` parameter (opaque ANY to OpenSSL).
+    OpenSSL also accepts an alias that is not valid UTF-8 and constructed
+    (BER) alias/keyid; Bend accepts the first and refuses the second. Real
+    bundles (`real-bundles-load.txt`, same files as 2026-11-07, old and new
+    binaries): NixOS 118 roots (+172 TRUSTED, 0.45 s, 23 MiB), macOS 128,
+    Debian 148, Fedora/Alpine/openSUSE 118, Fedora `ca-bundle.trust.crt`
+    `empty-bundle`; all unchanged.
+  - Tests: `system_bundle_check.py` 53 new admission rows (113, was 60):
+    15 malformed AUX shapes (12 involving `other`, plus an alias tag, a
+    keyid/alias order and a primitive reject), each for the plain root's
+    certificate and for an unrelated one; 9 malformed TRUSTED certificates,
+    after and before the plain roots; 5 valid `other` forms. Live pool scenarios `pool-handoff` (four
+    hand-driven interleavings: a room handed to a waiter that gives up
+    passes to the newcomer behind it; a still-queued waiter leaves with
+    nothing; a kept connection passes on as kept and then to another
+    origin's waiter as room; a close answers a queued waiter at once) and
+    `pool-race` (250 rounds of 8 tasks on a pool of 2 for two origins,
+    deadlines 0-7 ms, holds 0-3 ms: at most 50 ms past any deadline,
+    waiting 0 and all room back; measured 2-3 ms max overshoot, about 715
+    give-ups of 2,000). `pool-waiters` (1,200 expired waiters) unchanged.
+    Live pool total 9 (was 7).
+
+  Fresh macwork gates at `97b7e24`, `--force`, clean tree, unchanged
+  4096 MiB / 120 s guard (`gates.sh http_client http_server crypto`):
+  - `http_client:check`: **50/50**, peak 1822.3 MiB
+    (`bend_server_frontend`; `bend_frontend_native` 1788.8,
+    `bend_public_frontend` 1518.2, `bend_bundle_build` 1464.9), 413 s.
+    pool-race `race:2000:716:1284:3:0:2`; system bundle policy 255 results.
+  - `http_server:check`: **53/53**, peak 1902.5 MiB
+    (`bend_browser_frontend_native`), 422 s.
+  - `crypto:check`: **1,807/1,807**, peak 931.2 MiB (`rsa_private_cli`),
+    1711 s; `pem_bundle_cli` build 838.7 MiB (832.0 at review fix 2).
+  - `wire:check` not run: no wire change. This entry is a docs-only commit
+    after the gated revision.
+
+  Artifacts: `~/.codex/artifacts/grounds/2026-11-08/m6/review-fix-3/`
+  (`<gate>-01.json/.log/.inputs.txt/-artifacts`, `gates.out`, `gates.sh`,
+  `peaks.txt`, `red-pool-pre-fix.txt`, `red-bundle-pre-fix.txt`,
+  `green-pre-gate/`, `openssl-aux-oracle.{txt,json}`,
+  `real-bundles-load.txt`, `tools/` with the oracle, the admission matrix
+  and the throwaway red mode `bend_tls_rf3_red.bend`). On macwork:
+  `~/grounds-artifacts/2026-11-08/m6/review-fix-3/`.
+
+  Follow-up recorded in STACK_PLAN.md M6: buffered 4 MiB chunked responses
+  take about 3 s (~1.3 MB/s). Not worked on here.
+
 - 2026-11-08 (M6 item 5: EV Name profile): commits `a9005a0` (schema,
   emailAddress equality, unit tests, oracles), `4bb8cdb` (seven EV chains,
   phases, live hosts) and `420db82` (Bun batch phases), on `8efff93`.
