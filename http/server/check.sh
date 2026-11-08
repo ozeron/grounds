@@ -163,6 +163,25 @@ for suite in aes chacha; do
   end
 done
 
+# M6 server SNI multi-certificate selection (native only): exact, wildcard and
+# default precedence, P-256/RSA choice by signature_algorithms, 112 refusals,
+# startup refusals, WSS, Python ssl/OpenSSL/Go and real Chrome verification.
+begin bend_sni_frontend_native
+BUN_OPTIONS="$bend_bun_options --smol" BUN_JSC_forceRAMSize=134217728 python3 examples/bend_tls_build.py --program sni "$m4b/sni.c" "$m4b/sni-build.json"
+end
+begin bend_sni_compile_native
+native "$m4b/sni.c" "$m4b/sni"
+end
+begin bend_sni_go_peer
+mise exec go@1.26.9 -- go build -o "$tmp/sni-go" examples/bend_sni_peer.go
+end
+begin bend_sni_no_delegation
+python3 examples/bend_native_audit.py --role server --native "$m4b/sni" --c "$m4b/sni.c" --probe-dir "$tmp/probes" --report "$m4b/sni-audit.json"
+end
+begin bend_sni_native
+python3 examples/bend_sni_check.py --binary "$m4b/sni" --fixtures "$artifacts/sni-fixtures" --go "$tmp/sni-go" --chrome --report "$m4b/sni.json"
+end
+
 begin context_native
 native examples/context.bend "$tmp/context" > /dev/null
 python3 examples/context_check.py "$tmp/context"

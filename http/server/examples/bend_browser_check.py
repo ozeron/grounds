@@ -111,14 +111,14 @@ def chrome_binary():
 
 
 @contextmanager
-def chrome(binary, der, report):
+def chrome(binary, der, report, rules='MAP mismatch.test 127.0.0.1'):
     with tempfile.TemporaryDirectory(prefix='grounds-chrome-verified-') as td:
         directory = Path(td)
         profile_trust(directory, der)
         flags = ['--headless=new', '--no-first-run', '--no-default-browser-check', '--disable-background-networking',
                  '--disable-component-update', '--disable-sync', '--disable-gpu', '--no-proxy-server',
                  '--remote-debugging-port=0', '--user-data-dir=' + td,
-                 '--host-resolver-rules=MAP mismatch.test 127.0.0.1', 'about:blank']
+                 '--host-resolver-rules=' + rules, 'about:blank']
         report['chrome_flags'].append(flags)
         with (directory / 'stderr').open('w+') as log:
             process = subprocess.Popen([binary, *flags], stdout=subprocess.DEVNULL, stderr=log)
