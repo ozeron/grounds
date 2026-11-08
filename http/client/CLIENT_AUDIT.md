@@ -83,7 +83,7 @@ that name at the end.
 | Area | Baseline | Where (45b1014) | M6 |
 | --- | --- | --- | --- |
 | Pool per origin (scheme, host, port), size bound, eviction | present | `bend_pool.bend:85`, `:137`; `bend_client.bend:1505` | — |
-| Waiting for a connection of a full pool | **partial** | `bend_pool.bend:166`: `Chan.recv` with no deadline | review fix: `Chan.try_recv` until the request's deadline, then `Timeout` |
+| Waiting for a connection of a full pool | **partial** | `bend_pool.bend:166`: `Chan.recv` with no deadline | review fix: `Chan.try_recv` until the request's deadline, then `Timeout`; review fix 2: a waiter that gives up leaves the waiting count (1,025 expired waits used to deadlock later returns) |
 | Idle timeout (`idle_ms`, 4 s) | present | `bend_pool.bend:68` | live test |
 | `Connection: close`, HTTP/1.0, close-delimited → not reused | present | H1 `http1.bend:1268` | live test |
 | Stale kept connection retried once, idempotent only | present | `bend_pool.bend:266`; `bend_transport.bend:165` | live POST test |
@@ -158,9 +158,9 @@ client; all four were reproduced red on macwork before the fix.
   440 ms.
 - Pool waits and retry backoff ignored the total deadline. Before: a GET
   with a 400 ms total waited 2.1 s for a pool of one; three 5 s backoffs
-  under an 800 ms total took 15.1 s. Now 0.41 s and 0.08 s. A waiter that
-  gives up stays counted in `waiting`, so the wake meant for it causes one
-  spurious re-check by another waiter or by `close`, never a lost wake.
+  under an 800 ms total took 15.1 s. Now 0.41 s and 0.08 s. (A waiter
+  that gave up stayed counted in `waiting`; that was wrong, see review
+  fix 2.)
 - Network-path and absolute Locations kept dot segments
   (`//other/a/../b` sent `/a/../b`). `policy.bend` `net` removes them
   after the authority and keeps the query.
@@ -173,6 +173,43 @@ Tests: 14 policy unit cases (8 Locations, 6 User-Agent), 11 framing unit
 cases (and `rh_cl_list` inverted) with the law `body_length_read`, and 26
 live scenarios. Live totals are framing 53, redirects 16, pool 6,
 deadlines 20 and stream 5 (100, was 74).
+
+## Review fix 2 (2026-11-08)
+
+An independent review of `4ea30b7..e7e40ae` found one P1 and three P2
+issues; each was reproduced red on macwork before its fix.
+
+- P1, system trust (`crypto/pem_bundle.bend`): `TRUSTED CERTIFICATE`
+  blocks were skipped undecoded, so a plain root stayed trusted when the
+  same bundle's TRUSTED copy rejected serverAuth. Their `X509_CERT_AUX`
+  trust settings are now parsed and honoured, failing closed (rules in
+  TLS_PROFILE.md version 3). Before, the pinned github.com chain verified
+  against a bundle whose TRUSTED copies of its roots reject serverAuth
+  (OpenSSL 3.6 refuses it when those copies come first); now it is
+  refused in either order.
+- P2, bundle framing: an AlgorithmIdentifier with two parameters (`NULL,
+  NULL` after an unknown OID) loaded; now at most one element may follow
+  the OID (SPKI and TBS signature).
+- P2, pool (`bend_pool.bend`): a waiter that gave up stayed counted in
+  `waiting`, so every later return sent a wake for it into the 1,024-slot
+  channel. After 1,025 expired waits the next return blocked in
+  `Chan.send` (`bend: deadlock: every computation waits on a channel`;
+  with other tasks alive, later requests hang past their deadlines). A
+  waiter that gives up now decrements `waiting` under the lock; if it was
+  0, a wake was already sent for it and it takes that wake. The channel
+  never holds more wakes than there are waiters.
+- P2, bundle files (`bend_transport.bend`): `from_bundle_file` and the
+  system loader parsed one `read(2)`. A FIFO or pipe in `SSL_CERT_FILE`
+  gave its first chunk only; the rest (more roots, or trailing garbage)
+  was ignored. Both now read to end of file, at most 2 MiB in all, else
+  `bundle-limit`.
+
+Tests: 35 system admission rows and a changed one (33 red before), 2
+explicit rows (1 red; the signature form was already refused by
+`C.anchor`), 12 FIFO cases (9 red), the live scenario `pool-waiters`
+(1,200 expired waiters, then 1,100 returns and two GETs; red: deadlock),
+and the new phase `bend_system_bundle_chain` (6 github.com cases beside
+OpenSSL; 4 red). Live pool total 7 (was 6).
 
 ## IPv6 (M6 item 3, 2026-11-07)
 

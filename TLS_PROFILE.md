@@ -88,18 +88,41 @@ and no program reads a host CA file unless it calls
   `/etc/ssl/ca-bundle.pem` (openSUSE), `/etc/ssl/cert.pem` (macOS, BSD).
   The first file that opens is the bundle. A size, read or admission failure
   of that file fails the load; it never falls through to a later file.
-  `SSL_CERT_DIR` and hashed certificate directories are not read.
+  The file is read to end of file (a FIFO or pipe may return it in
+  pieces); more than 2 MiB in all is `bundle-limit`. `from_bundle_file`
+  reads the same way. `SSL_CERT_DIR` and hashed certificate directories
+  are not read.
 - Admission (`pem_bundle.decode.system`): the 2 MiB, 256-block and
   65,535-byte DER limits and whole-load rejection of malformed entries,
   unknown labels and bad delimiters stay. Two differences, for system files
   only: byte-identical duplicate certificates are dropped (each still counts
-  toward the 256 blocks), and exactly framed OpenSSL `TRUSTED CERTIFICATE`
-  blocks are skipped up to their `END` line without decoding. They never
-  become anchors, so a root must also appear as a plain `CERTIFICATE`. The
-  NixOS bundle has 172 such blocks: 118 copies of its plain roots marked
-  serverAuth, 48 email-only and 6 with no trust bits, so its plain roots
-  are exactly its serverAuth set. No measured block carries a rejection
-  (distrust) entry; such entries would not be honoured, only skipped. A file of only `TRUSTED CERTIFICATE` blocks (Fedora's
+  toward the 256 blocks), and OpenSSL `TRUSTED CERTIFICATE` blocks are
+  read for their trust settings but never become anchors, so a root must
+  also appear as a plain `CERTIFICATE`.
+- Trust settings (review fix 2, 2026-11-08): each `TRUSTED CERTIFICATE`
+  block is decoded (strict base64, 65,535-byte DER limit), its certificate
+  is the leading DER SEQUENCE, and the rest must be absent or exactly one
+  OpenSSL `X509_CERT_AUX`: `trust` (SEQUENCE OF OID), `reject` ([0]
+  SEQUENCE OF OID), `alias` (UTF8String), `keyid` (OCTET STRING) and
+  `other` ([1], walked like AlgorithmIdentifier parameters), in that order,
+  each at most once, every OID canonical. A block withholds TLS server
+  trust from its certificate when `reject` names serverAuth
+  (1.3.6.1.5.5.7.3.1) or anyExtendedKeyUsage (2.5.29.37.0), or when a
+  `trust` list (even an empty one) names neither; these are OpenSSL's
+  `X509_TRUST_REJECTED` and `X509_TRUST_UNTRUSTED` for a TLS server. Every
+  plain anchor with the same DER bytes is then dropped, whichever block
+  comes first; a load left with no anchor is `empty-bundle`. A block or
+  trailer that does not parse fails the whole load (`malformed-bundle`).
+  This is stricter than OpenSSL, which keeps the first copy of a
+  certificate it reads and so refuses only when the TRUSTED copy leads:
+  on the pinned github.com chain, with TRUSTED copies of both its roots
+  rejecting serverAuth, OpenSSL 3.6 fails the chain when they come first
+  and accepts it when they come last; Bend refuses both
+  (`http_client/bend_system_bundle_chain`). A block that trusts serverAuth
+  adds nothing. The NixOS bundle has 172 TRUSTED blocks: 118 serverAuth
+  copies of its plain roots, and 54 email-only blocks (4 of them rejecting
+  serverAuth) for certificates that are not plain roots, so it still
+  loads its 118 roots. A file of only `TRUSTED CERTIFICATE` blocks (Fedora's
   `ca-bundle.trust.crt`) fails as `empty-bundle`.
 - macOS: `/etc/ssl/cert.pem` is the system's exported root set. Keychain
   trust settings, user- or MDM-added roots and distrust decisions are not
@@ -112,7 +135,7 @@ Measured on 2026-11-07 with the gate-built `http/client/tests/bundle.bend`
 | --- | --- | --- | --- | --- |
 | macOS 26.6/26.7 `/etc/ssl/cert.pem` | 333,483 | 128 | 0.16 s | 15.0 MiB |
 | Debian 13 `ca-certificates.crt` | 222,073 | 148 | 0.16 s | 10.7 MiB |
-| NixOS 26.05 `ca-certificates.crt` | 471,106 | 118 (+172 skipped) | 0.25 s | 20.4 MiB |
+| NixOS 26.05 `ca-certificates.crt` | 471,106 | 118 (+172 TRUSTED) | 0.25 s | 20.4 MiB |
 | Fedora 45 `tls-ca-bundle.pem` | 182,304 | 118 | 0.11 s | 9.1 MiB |
 | Alpine 3.24 `ca-certificates.crt` | 178,791 | 118 | 0.11 s | 9.0 MiB |
 | openSUSE Leap 16 `ca-bundle.pem` | 179,271 | 118 | 0.11 s | 9.0 MiB |
@@ -121,6 +144,10 @@ Times and RSS are on the Apple M4 Pro; the NixOS host itself (x86_64) loads
 its own bundle in 0.54 s at 20.5 MiB. No measured bundle has duplicates,
 CRLF or more than 148 roots, so the version 2 limits stay. The explicit
 `from_bundle_file` still rejects the NixOS file (`malformed-bundle`).
+With trust settings and reads to end of file (2026-11-08, same machine,
+same files) every bundle gives the same roots; NixOS takes 0.49 s and
+23 MiB (it is the only one with TRUSTED blocks to decode), the others
+0.13–0.19 s and 11–18 MiB.
 
 ### IPv6 identity (M6, 2026-11-07)
 

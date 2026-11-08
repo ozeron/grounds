@@ -160,7 +160,11 @@ and `/etc/ssl/cert.pem` that opens, and reports that `path`.
 `from_system_bundle_paths(normalization, profile, candidates, clock)` takes
 the list from the caller. System files keep the bundle limits and whole-load
 rejection, but byte-identical duplicates are dropped and OpenSSL
-`TRUSTED CERTIFICATE` blocks are skipped, never trusted (NixOS ships them).
+`TRUSTED CERTIFICATE` blocks (NixOS ships them) never become anchors; their
+trust settings are honoured: one that rejects serverAuth, or trusts only
+other purposes, withdraws the plain copy of its certificate, and one that
+does not parse fails the load. Files are read to end of file (a FIFO in
+`SSL_CERT_FILE` works) under the 2 MiB cap.
 On macOS this is `/etc/ssl/cert.pem`: Keychain trust settings and user-added
 roots are not seen. Nothing else, including `default`, reads host trust.
 Details and measurements: [TLS_PROFILE.md](../../TLS_PROFILE.md), version 3.
