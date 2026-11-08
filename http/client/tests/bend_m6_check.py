@@ -494,6 +494,33 @@ def pool(binary, directory, rows):
         assert connections(a, sa) == 1 and elapsed < 10, (a.requests[sa:], elapsed)
         rows.append(dict(name="/:pool-waiters", output=output, connections_a=1, elapsed_seconds=elapsed))
         print("/ pool-waiters passed", round(elapsed, 2), flush=True)
+        # review fix 3: waiters are addressed one by one. Hand-driven
+        # interleavings (enter, then wait or leave): a room handed to a
+        # waiter that then gives up is passed to the newcomer queued behind
+        # it; a waiter still queued leaves with nothing; a kept connection
+        # goes to a waiter that gave up and on to the next as kept, then to a
+        # waiter for another origin, which closes it for room; a close tells
+        # queued waiters at once. Counts are waiting/free/idle.
+        output, elapsed, _ = run(binary, directory, url + "/", "pool-handoff")
+        assert output[1:] == ["handoff-queued:room:late:1/0/0:0/0/0:0/1/0", "handoff-kept:room:late:kept:room:0/0/1",
+                              "handoff-close:room:shut:shut:prompt"], output
+        head, ms = output[0].rsplit(":", 1)
+        assert head == "handoff-passed:room:late:room:1/0/0:0/0/0:0/1/0" and int(ms) < 100, output
+        rows.append(dict(name="/:pool-handoff", output=output, elapsed_seconds=elapsed))
+        print("/ pool-handoff passed", round(elapsed, 2), flush=True)
+        # 250 rounds of 8 tasks on a pool of 2 for two origins, deadlines 0-7
+        # ms away, holds 0-3 ms: returns, give-ups and newcomers interleave.
+        # No task ends more than 50 ms past its deadline (the old shared
+        # wake let one block until some later return), nobody waits at the
+        # end and all room is back.
+        output, elapsed, _ = run(binary, directory, url + "/", "pool-race")
+        assert len(output) == 1 and output[0].startswith("race:"), output
+        total, late, got, over, waiting, room = map(int, output[0].split(":")[1:])
+        assert (total, late + got, waiting, room) == (2000, 2000, 0, 2) and late > 0 and got > 0, output
+        assert over <= 50 and elapsed < 20, (output, elapsed)
+        rows.append(dict(name="/:pool-race", output=output, late=late, got=got, max_overshoot_ms=over,
+                         elapsed_seconds=elapsed))
+        print("/ pool-race passed", output[0], round(elapsed, 2), flush=True)
         # a stale kept connection: GET is fine, and the POST that follows on it
         # fails rather than being sent again, since it is not idempotent
         sa = len(a.requests)

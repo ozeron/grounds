@@ -205,6 +205,179 @@ def waiters(+p: Pool.Pool, +url: String) -> IO(Unit):
 def auth3(url: String) -> C.Req:
   C.with(C.get(url),[("Authorization","secret"),("Cookie","secret"),("Proxy-Authorization","secret")])
 
+# Waiters are addressed one by one (review fix 3). The steps of a take
+# (`enter`, then `wait` or `leave`) are driven by hand here, so each
+# interleaving of a return, a waiter giving up and a newcomer happens in a
+# known order; the counts are read under the pool's lock.
+def counts(c: Pool.Counts) -> String:
+  match c:
+    case Pool.Counts{w,f,i}: Nat.show(w) ++ "/" ++ Nat.show(f) ++ "/" ++ Nat.show(i)
+
+def shown(t: Pool.Taken) -> IO(String):
+  match t:
+    case Pool.Kept{s,_}: IO.bind(Unit,String,Tr.close(s),u => IO.pure(String,"kept"))
+    case Pool.Room{}: IO.pure(String,"room")
+    case Pool.Shut{}: IO.pure(String,"shut")
+    case Pool.Late{}: IO.pure(String,"late")
+
+# a fake kept connection (no socket), for the pool's bookkeeping only
+def kept(+p: Pool.Pool, +key: String) -> IO(Unit):
+  Pool.give(True{},Tr.Closed{},True{},key,p)
+
+def queued(e: Pool.Entry, +p: Pool.Pool, +key: String, +dl: Nat, +quit: Bool) -> IO(String):
+  match e quit:
+    case Pool.Now{t} _: IO.bind(String,String,shown(t),x => IO.pure(String,"now-" ++ x))
+    case Pool.Queued{+id,+box} True{}: IO.bind(Pool.Taken,String,Pool.leave(p,key,id,box),x => shown(x))
+    case Pool.Queued{+id,+box} False{}: IO.bind(Pool.Taken,String,Pool.wait(p,key,id,box,dl),x => shown(x))
+
+# A queued, the room handed to A, newcomer B queued, A gives up holding the
+# grant: A passes it to B, which gets it at once
+def handoff.passed(+p: Pool.Pool) -> IO(String):
+  do IO<String>:
+    +now : Nat <- IO.now()
+    h : Pool.Taken <- Pool.take(8n,p,"w",Nat.add(now,2000n))
+    rh : String <- shown(h)
+    a : Pool.Entry <- Pool.enter(p,"w",Nat.add(now,100n))
+    u : Unit <- Pool.release(p)
+    b : Pool.Entry <- Pool.enter(p,"w",Nat.add(now,2000n))
+    c1 : Pool.Counts <- Pool.counts(p)
+    ra : String <- queued(a,p,"w",0n,True{})
+    rb : String <- queued(b,p,"w",Nat.add(now,2000n),False{})
+    c2 : Pool.Counts <- Pool.counts(p)
+    v : Unit <- Pool.release(p)
+    c3 : Pool.Counts <- Pool.counts(p)
+    +end : Nat <- IO.now()
+    return rh ++ ":" ++ ra ++ ":" ++ rb ++ ":" ++ counts(c1) ++ ":" ++ counts(c2) ++ ":" ++ counts(c3) ++ ":" ++ Nat.show(Nat.sub(end,now))
+
+# A gives up while still queued: nothing was handed to it
+def handoff.queued(+p: Pool.Pool) -> IO(String):
+  do IO<String>:
+    +now : Nat <- IO.now()
+    h : Pool.Taken <- Pool.take(8n,p,"w",Nat.add(now,2000n))
+    rh : String <- shown(h)
+    a : Pool.Entry <- Pool.enter(p,"w",Nat.add(now,100n))
+    c1 : Pool.Counts <- Pool.counts(p)
+    ra : String <- queued(a,p,"w",0n,True{})
+    c2 : Pool.Counts <- Pool.counts(p)
+    v : Unit <- Pool.release(p)
+    c3 : Pool.Counts <- Pool.counts(p)
+    return rh ++ ":" ++ ra ++ ":" ++ counts(c1) ++ ":" ++ counts(c2) ++ ":" ++ counts(c3)
+
+# a kept connection goes to A, which gave up: A passes it on to B as kept;
+# then one goes to a waiter for another origin, which closes it for room
+def handoff.kept(+p: Pool.Pool) -> IO(String):
+  do IO<String>:
+    +now : Nat <- IO.now()
+    h : Pool.Taken <- Pool.take(8n,p,"w",Nat.add(now,2000n))
+    rh : String <- shown(h)
+    a : Pool.Entry <- Pool.enter(p,"w",Nat.add(now,100n))
+    b : Pool.Entry <- Pool.enter(p,"w",Nat.add(now,2000n))
+    u : Unit <- kept(p,"w")
+    ra : String <- queued(a,p,"w",0n,True{})
+    rb : String <- queued(b,p,"w",Nat.add(now,2000n),False{})
+    c : Pool.Entry <- Pool.enter(p,"other",Nat.add(now,2000n))
+    v : Unit <- kept(p,"w")
+    rc : String <- queued(c,p,"other",Nat.add(now,2000n),False{})
+    w : Unit <- kept(p,"other")
+    c1 : Pool.Counts <- Pool.counts(p)
+    return rh ++ ":" ++ ra ++ ":" ++ rb ++ ":" ++ rc ++ ":" ++ counts(c1)
+
+# a waiter queued when the pool starts closing gets nothing at once; the
+# close ends when the held room comes back
+def handoff.close(+p: Pool.Pool) -> IO(String):
+  do IO<String>:
+    +now : Nat <- IO.now()
+    h : Pool.Taken <- Pool.take(8n,p,"w",Nat.add(now,5000n))
+    rh : String <- shown(h)
+    a : Pool.Entry <- Pool.enter(p,"w",Nat.add(now,5000n))
+    ch : Chan(Unit) <- IO.fork(Unit,Pool.close(p))
+    ra : String <- queued(a,p,"w",Nat.add(now,5000n),False{})
+    +mid : Nat <- IO.now()
+    b : Pool.Taken <- Pool.take(8n,p,"w",Nat.add(now,5000n))
+    rb : String <- shown(b)
+    u : Unit <- Pool.release(p)
+    x : Unit <- IO.join(Unit,ch)
+    return rh ++ ":" ++ ra ++ ":" ++ rb ++ ":" ++ Bool.pick(String,Nat.is_le(Nat.sub(mid,now),1000n),"prompt","slow")
+
+def handoff(+cfg: C.Config) -> IO(Unit):
+  do IO<Unit>:
+    a : String <- Pool.with(String,cfg,1,p => handoff.passed(p))
+    IO.print("handoff-passed:" ++ a)
+    b : String <- Pool.with(String,cfg,1,p => handoff.queued(p))
+    IO.print("handoff-queued:" ++ b)
+    c : String <- Pool.with(String,cfg,1,p => handoff.kept(p))
+    IO.print("handoff-kept:" ++ c)
+    d : String <- Pool.with(String,cfg,1,p => handoff.close(p))
+    IO.print("handoff-close:" ++ d)
+
+# Randomized: rounds of 8 tasks on a pool of 2 for two origins, each with a
+# deadline 0-7 ms away and a hold of 0-3 ms, giving back kept or closed.
+# Returns, give-ups and newcomers interleave freely; no task may end
+# materially past its deadline, and at the end nobody waits and all room
+# is back.
+type Race is Data:
+  Race{late: Nat, got: Nat, over: Nat}
+
+def race.add(a: Race, b: Race) -> Race:
+  match a b:
+    case Race{l1,g1,+o1} Race{l2,g2,+o2}: Race{Nat.add(l1,l2),Nat.add(g1,g2),Nat.max(o1,o2)}
+
+def race.back(t: Pool.Taken, +keep: Bool, +key: String, +hold: U32, +p: Pool.Pool, +over: Nat) -> IO(Race):
+  match t:
+    case Pool.Kept{s,+tls}:
+      do IO<Race>:
+        u : Unit <- IO.sleep(hold)
+        v : Unit <- Pool.give(keep,s,tls,key,p)
+        return Race{0n,1n,over}
+    case Pool.Room{}:
+      do IO<Race>:
+        u : Unit <- IO.sleep(hold)
+        v : Unit <- Pool.give(keep,Tr.Closed{},True{},key,p)
+        return Race{0n,1n,over}
+    case Pool.Late{}: IO.pure(Race,Race{1n,0n,over})
+    case Pool.Shut{}: IO.pure(Race,Race{0n,0n,1000000n})
+
+def race.key(+r: U32) -> String:
+  Bool.pick(String,U32.is_eq(U32.mod(U32.div(r,8),2),0),"a","b")
+
+def racer.at(+p: Pool.Pool, +r: U32, +dl: Nat) -> IO(Race):
+  do IO<Race>:
+    t : Pool.Taken <- Pool.take(8n,p,race.key(r),dl)
+    +after : Nat <- IO.now()
+    race.back(t,U32.is_eq(U32.mod(U32.div(r,16),3),0),race.key(r),U32.mod(U32.div(r,64),4),p,Nat.sub(after,dl))
+
+def racer(+p: Pool.Pool, +r: U32) -> IO(Race):
+  IO.bind(Nat,Race,IO.now(),now => racer.at(p,r,Nat.add(now,U32.to_nat(U32.mod(r,8)))))
+
+def lcg(+x: U32) -> U32:
+  U32.add(U32.mul(x,1664525),1013904223)
+
+def race.join(chs: List<&2,Chan(Race)>, acc: Race) -> IO(Race):
+  match chs:
+    case Nil{}: IO.pure(Race,acc)
+    case Con{+c,t}: IO.bind(Race,Race,IO.join(Race,c),r => race.join(t,race.add(acc,r)))
+
+def race.fork(n: Nat, +p: Pool.Pool, +x: U32, chs: List<&2,Chan(Race)>) -> IO(Race):
+  match n:
+    case 0n: race.join(chs,Race{0n,0n,0n})
+    case 1n+k: IO.bind(Chan(Race),Race,IO.fork(Race,racer(p,U32.div(lcg(x),256))),c => race.fork(k,p,lcg(x),Con{c,chs}))
+
+def race.rounds(n: Nat, +p: Pool.Pool, +x: U32, acc: Race) -> IO(Race):
+  match n:
+    case 0n: IO.pure(Race,acc)
+    case 1n+k: IO.bind(Race,Race,race.fork(8n,p,x,[]),r => race.rounds(k,p,lcg(lcg(lcg(x))),race.add(acc,r)))
+
+def race.show(r: Race, c: Pool.Counts) -> String:
+  match r c:
+    case Race{+l,+g,o} Pool.Counts{w,f,i}:
+      "race:" ++ Nat.show(Nat.add(l,g)) ++ ":" ++ Nat.show(l) ++ ":" ++ Nat.show(g) ++ ":" ++ Nat.show(o) ++ ":" ++ Nat.show(w) ++ ":" ++ Nat.show(Nat.add(f,i))
+
+def race(+p: Pool.Pool) -> IO(Unit):
+  do IO<Unit>:
+    r : Race <- race.rounds(250n,p,7,Race{0n,0n,0n})
+    c : Pool.Counts <- Pool.counts(p)
+    IO.print(race.show(r,c))
+
 type Mode is Data:
   MPool{}
   MJson{}
@@ -250,6 +423,8 @@ type Mode is Data:
   MUaNone{}
   MUaSet{}
   MPoolWaiters{}
+  MPoolHandoff{}
+  MPoolRace{}
 
 def mode.pick(hit: Bool, m: Mode, rest: Mode) -> Mode:
   match hit:
@@ -257,7 +432,7 @@ def mode.pick(hit: Bool, m: Mode, rest: Mode) -> Mode:
     case False{}: rest
 
 def mode.more(+mode: String) -> Mode:
-  mode.pick(String.eq(mode,"stream-read"),MStreamRead{},mode.pick(String.eq(mode,"pool-stream-read"),MPoolStreamRead{},mode.pick(String.eq(mode,"events-read"),MEventsRead{},mode.pick(String.eq(mode,"pool-events-read"),MPoolEventsRead{},mode.pick(String.eq(mode,"upload"),MUpload{},mode.pick(String.eq(mode,"pool-upload"),MPoolUpload{},mode.pick(String.eq(mode,"pool-saturated"),MPoolSaturated{},mode.pick(String.eq(mode,"retry-budget"),MRetryBudget{},mode.pick(String.eq(mode,"retry-fits"),MRetryFits{},mode.pick(String.eq(mode,"pool-retry-budget"),MPoolRetryBudget{},mode.pick(String.eq(mode,"proxy-auth"),MProxyAuth{},mode.pick(String.eq(mode,"ua-custom"),MUaCustom{},mode.pick(String.eq(mode,"ua-none"),MUaNone{},mode.pick(String.eq(mode,"ua-set"),MUaSet{},mode.pick(String.eq(mode,"pool-waiters"),MPoolWaiters{},MAuth{})))))))))))))))
+  mode.pick(String.eq(mode,"stream-read"),MStreamRead{},mode.pick(String.eq(mode,"pool-stream-read"),MPoolStreamRead{},mode.pick(String.eq(mode,"events-read"),MEventsRead{},mode.pick(String.eq(mode,"pool-events-read"),MPoolEventsRead{},mode.pick(String.eq(mode,"upload"),MUpload{},mode.pick(String.eq(mode,"pool-upload"),MPoolUpload{},mode.pick(String.eq(mode,"pool-saturated"),MPoolSaturated{},mode.pick(String.eq(mode,"retry-budget"),MRetryBudget{},mode.pick(String.eq(mode,"retry-fits"),MRetryFits{},mode.pick(String.eq(mode,"pool-retry-budget"),MPoolRetryBudget{},mode.pick(String.eq(mode,"proxy-auth"),MProxyAuth{},mode.pick(String.eq(mode,"ua-custom"),MUaCustom{},mode.pick(String.eq(mode,"ua-none"),MUaNone{},mode.pick(String.eq(mode,"ua-set"),MUaSet{},mode.pick(String.eq(mode,"pool-waiters"),MPoolWaiters{},mode.pick(String.eq(mode,"pool-handoff"),MPoolHandoff{},mode.pick(String.eq(mode,"pool-race"),MPoolRace{},MAuth{})))))))))))))))))
 
 def mode.of(+mode: String) -> Mode:
   mode.pick(String.eq(mode,"pool"),MPool{},mode.pick(String.eq(mode,"json"),MJson{},mode.pick(String.eq(mode,"form"),MForm{},mode.pick(String.eq(mode,"stream"),MStream{},mode.pick(String.eq(mode,"pool-stream"),MPoolStream{},mode.pick(String.eq(mode,"events"),MEvents{},mode.pick(String.eq(mode,"events-retry"),MEventsRetry{},mode.pick(String.eq(mode,"pool-events"),MPoolEvents{},mode.pick(String.eq(mode,"timeout"),MTimeout{},mode.pick(String.eq(mode,"head"),MHead{},mode.pick(String.eq(mode,"small"),MSmall{},mode.pick(String.eq(mode,"small-head"),MSmallHead{},mode.pick(String.eq(mode,"sum"),MSum{},mode.pick(String.eq(mode,"stream-sum"),MStreamSum{},mode.pick(String.eq(mode,"headers"),MHeaders{},mode.pick(String.eq(mode,"post"),MPost{},mode.pick(String.eq(mode,"delete"),MDelete{},mode.pick(String.eq(mode,"noredirect"),MNoRedirect{},mode.pick(String.eq(mode,"pool10"),MPool10{},mode.pick(String.eq(mode,"pool2"),MPool2{},mode.pick(String.eq(mode,"pool3w"),MPool3w{},mode.pick(String.eq(mode,"pool-idle"),MPoolIdle{},mode.pick(String.eq(mode,"pool-head"),MPoolHead{},mode.pick(String.eq(mode,"pool-post"),MPoolPost{},mode.pick(String.eq(mode,"connect-timeout"),MConnectTimeout{},mode.pick(String.eq(mode,"read-timeout"),MReadTimeout{},mode.pick(String.eq(mode,"total-timeout"),MTotalTimeout{},mode.pick(String.eq(mode,"timed"),MTimed{},mode.more(mode)))))))))))))))))))))))))))))
@@ -313,6 +488,8 @@ def run(m: Mode, +cfg: C.Config, +url: String) -> IO(Unit):
     case MUaNone{}: IO.bind(C.R(C.Reply),Unit,C.send(C.without_user_agent(cfg),C.get(url)),reply)
     case MUaSet{}: IO.bind(C.R(C.Reply),Unit,C.send(C.with_user_agent(cfg,"probe/2"),C.get(url)),reply)
     case MPoolWaiters{}: Pool.with(Unit,cfg,1,p => waiters(p,url))
+    case MPoolHandoff{}: handoff(cfg)
+    case MPoolRace{}: Pool.with(Unit,cfg,2,p => race(p))
 
 def execute(+cfg: C.Config, +url: String, +mode: String) -> IO(Unit):
   run(mode.of(mode),cfg,url)
