@@ -24,7 +24,7 @@ import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / 'crypto'))
 from pem_bundle_check import BUNDLE, BUNDLE_SHA256, certificates, nested, pem  # noqa: E402
-from x509_algorithm_check import tlv  # noqa: E402
+from x509_algorithm_check import algorithm, tlv  # noqa: E402
 
 DEFAULT_PATHS = ['/etc/ssl/certs/ca-certificates.crt', '/etc/pki/tls/certs/ca-bundle.crt',
                  '/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem', '/etc/ssl/ca-bundle.pem', '/etc/ssl/cert.pem']
@@ -32,11 +32,14 @@ SERVER_AUTH = bytes.fromhex('2b06010505070301')
 EMAIL = bytes.fromhex('2b06010505070304')
 CODE_SIGNING = bytes.fromhex('2b06010505070303')
 ANY_EKU = bytes.fromhex('551d2500')
+UNKNOWN = bytes.fromhex('2a0304')
+RSA = bytes.fromhex('2a864886f70d010101')
 
 
-def aux(trust=None, reject=None, alias=None, keyid=None):
+def aux(trust=None, reject=None, alias=None, keyid=None, other=None):
     """OpenSSL X509_CERT_AUX: trust SEQUENCE OF OID, reject [0] IMPLICIT
-    SEQUENCE OF OID, alias UTF8String, keyid OCTET STRING, all optional."""
+    SEQUENCE OF OID, alias UTF8String, keyid OCTET STRING, other [1]
+    IMPLICIT SEQUENCE OF AlgorithmIdentifier, all optional."""
     body = b''
     if trust is not None:
         body += tlv(0x30, b''.join(tlv(6, o) for o in trust))
@@ -46,6 +49,8 @@ def aux(trust=None, reject=None, alias=None, keyid=None):
         body += tlv(0x0c, alias)
     if keyid is not None:
         body += tlv(0x04, keyid)
+    if other is not None:
+        body += tlv(0xa1, b''.join(other))
     return tlv(0x30, body)
 
 
@@ -87,6 +92,37 @@ def admission_cases():
         ('aux-reject-noncanonical-oid', aux(reject=[bytes.fromhex('8001')])),
         ('aux-reject-not-oid', tlv(0x30, tlv(0xa0, b'\x05\x00'))),
         ('aux-trust-truncated-oid', tlv(0x30, tlv(0x30, b'\x06\x05\x2b\x06'))),
+        # review fix 3: every `other` element is an AlgorithmIdentifier (a
+        # canonical OID, at most one parameter, parameters walked to the
+        # leaves); the review's trailer 30 04 a1 02 05 00 has a bare NULL
+        ('aux-other-null', bytes.fromhex('3004a1020500')),
+        ('aux-other-null-after-trust', aux(trust=[SERVER_AUTH], other=[b'\x05\x00'])),
+        ('aux-other-oid-not-sequence', aux(trust=[SERVER_AUTH], other=[tlv(6, UNKNOWN)])),
+        ('aux-other-empty-algorithm', aux(trust=[SERVER_AUTH], other=[tlv(0x30, b'')])),
+        ('aux-other-no-oid', aux(trust=[SERVER_AUTH], other=[tlv(0x30, b'\x05\x00')])),
+        ('aux-other-two-parameters', aux(trust=[SERVER_AUTH], other=[algorithm(UNKNOWN, b'\x05\x00\x05\x00')])),
+        ('aux-other-noncanonical-oid', aux(trust=[SERVER_AUTH], other=[algorithm(bytes.fromhex('8001'))])),
+        ('aux-other-truncated-parameter', aux(trust=[SERVER_AUTH], other=[algorithm(UNKNOWN, b'\x30\x01\x06')])),
+        ('aux-other-noncanonical-parameter-oid', aux(trust=[SERVER_AUTH], other=[algorithm(UNKNOWN, tlv(0x30, tlv(6, bytes.fromhex('8001'))))])),
+        ('aux-other-good-then-null', aux(trust=[SERVER_AUTH], other=[algorithm(UNKNOWN), b'\x05\x00'])),
+        ('aux-other-primitive', tlv(0x30, tlv(0x30, tlv(6, SERVER_AUTH)) + tlv(0x81, algorithm(UNKNOWN)))),
+        ('aux-alias-not-utf8string', tlv(0x30, tlv(0x30, tlv(6, SERVER_AUTH)) + tlv(0x13, b'Root'))),
+        ('aux-keyid-before-alias', tlv(0x30, tlv(0x04, b'\x01') + tlv(0x0c, b'Root'))),
+        ('aux-other-before-reject', tlv(0x30, tlv(0xa1, b'') + tlv(0xa0, tlv(6, SERVER_AUTH)))),
+        ('aux-reject-primitive', tlv(0x30, tlv(0x80, tlv(6, SERVER_AUTH)))),
+    ]
+    # review fix 3: a TRUSTED block's certificate gets the nested checks a
+    # plain anchor gets (d2i_X509_AUX parses a whole X509 first)
+    bad_trusted = [
+        ('trusted-cert-empty-sequence', b'\x30\x00', SERVER_AUTH_AUX),
+        ('trusted-cert-empty-sequence-no-aux', b'\x30\x00', b''),
+        ('trusted-cert-empty-sequence-reject', b'\x30\x00', REJECT_SERVER_AUTH),
+        ('trusted-cert-integer-only', tlv(0x30, tlv(2, b'\x01')), SERVER_AUTH_AUX),
+        ('trusted-cert-empty-tbs', tlv(0x30, tlv(0x30, b'')), SERVER_AUTH_AUX),
+        ('trusted-cert-malformed-spki', nested(b, 'spki', bytes.fromhex('300106')), SERVER_AUTH_AUX),
+        ('trusted-cert-spki-two-parameters', nested(b, 'spki', bytes.fromhex('3010300906032a0304050005000303000000')), SERVER_AUTH_AUX),
+        ('trusted-cert-subject-rdn-not-set', nested(b, 'subject', bytes.fromhex('30023000')), SERVER_AUTH_AUX),
+        ('trusted-cert-truncated-extension', nested(b, 'extensions', bytes.fromhex('a3053003300106')), REJECT_SERVER_AUTH),
     ]
     bad = good.replace(b'\n', b'\n!', 1)
     malformed_spki = pem(nested(roots[1], 'spki', bytes.fromhex('3013300c06072a8648ce3d02010601800303000000')))
@@ -119,9 +155,18 @@ def admission_cases():
         ('aux-empty', pem(a) + pem(b) + trusted(a, aux()), 'ok:2'),
         ('aux-alias-keyid', pem(a) + pem(b) + trusted(a, aux(trust=[SERVER_AUTH], alias=b'Root', keyid=b'\x01\x02')), 'ok:2'),
         ('aux-alias-reject', pem(a) + pem(b) + trusted(a, aux(reject=[SERVER_AUTH], alias=b'Root')), 'ok:1'),
+        ('aux-other-empty', pem(a) + pem(b) + trusted(a, aux(trust=[SERVER_AUTH], other=[])), 'ok:2'),
+        ('aux-other-algorithm', pem(a) + pem(b) + trusted(a, aux(trust=[SERVER_AUTH], other=[algorithm(UNKNOWN)])), 'ok:2'),
+        ('aux-other-algorithms', pem(a) + pem(b) + trusted(a, aux(trust=[SERVER_AUTH], other=[
+            algorithm(RSA, b'\x05\x00'), algorithm(UNKNOWN, tlv(0x30, tlv(6, RSA) + b'\x05\x00'))])), 'ok:2'),
+        ('aux-other-only', pem(a) + pem(b) + trusted(a, aux(other=[algorithm(UNKNOWN)])), 'ok:2'),
+        ('aux-all-fields-reject', pem(a) + pem(b) + trusted(a, aux(trust=[EMAIL], reject=[SERVER_AUTH], alias=b'Root',
+                                                                    keyid=b'\x01', other=[algorithm(UNKNOWN)])), 'ok:1'),
         *[(name, pem(a) + pem(b) + trusted(a, value), 'malformed-bundle') for name, value in bad_aux],
         *[(name + '-unrelated', pem(a) + pem(b) + trusted(a[:-2] + b'\xee\xee', value), 'malformed-bundle')
           for name, value in bad_aux],
+        *[(name, pem(a) + pem(b) + trusted(cert, value), 'malformed-bundle') for name, cert, value in bad_trusted],
+        *[(name + '-first', trusted(cert, value) + pem(a) + pem(b), 'malformed-bundle') for name, cert, value in bad_trusted],
         ('trusted-missing-end', good + trusted(roots[1]).split(b'-----END')[0], 'malformed-bundle'),
         ('trusted-wrong-end', good + trusted(roots[1]).replace(b'END TRUSTED CERTIFICATE', b'END CERTIFICATE'), 'malformed-bundle'),
         ('trusted-nested-begin', trusted(roots[1]).replace(b'-----END TRUSTED', good + b'-----END TRUSTED') + good, 'malformed-bundle'),
