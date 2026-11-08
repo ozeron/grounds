@@ -310,8 +310,9 @@ real-world HTTPS use without widening the frozen exclusions.
 - [x] Opt-in system CA bundle loading. It stays an explicit caller choice,
   never ambient trust. Done 2026-11-07 (`8694753`..`01c8aa1`):
   `bend_transport.from_system_bundle` (`SSL_CERT_FILE`, then a fixed path
-  list); system files drop identical duplicates and skip OpenSSL TRUSTED
-  CERTIFICATE blocks. See TLS_PROFILE.md version 3.
+  list); system files drop identical duplicates, and OpenSSL TRUSTED
+  CERTIFICATE blocks never become anchors but their trust settings are
+  honoured (review fix 2, 2026-11-08). See TLS_PROFILE.md version 3.
 - [x] IPv6: TCP connections, AAAA resolution and bracketed IPv6 URL literals.
   Done 2026-11-07 (`434d6f5`..`ead2e4d`): `wire/dial.bend` and
   `wire/ip.bend`, IPv6 iPAddress identity without SNI, and a DNS deadline.

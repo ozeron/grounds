@@ -4,6 +4,100 @@ Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and 
 
 The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
 
+- 2026-11-08 (M6 review fix 2: one P1 and three P2 findings): an
+  independent GPT-6.1-Sol review of `4ea30b7..e7e40ae` found four issues.
+  Each was reproduced red on macwork (a build with only the new tests)
+  before its fix. Commits `184f65f`, `f955c2f`, `78fc11b`, `171cf54`,
+  `abc9be7` (docs), `0168ca9` (test deadline, below) on `e7e40ae`.
+  - P1, system trust (`f955c2f`, `crypto/pem_bundle.bend`): `decode.system`
+    skipped `TRUSTED CERTIFICATE` blocks undecoded, so a plain root stayed
+    an anchor when the bundle's TRUSTED copy rejected serverAuth. Red:
+    the pinned github.com chain verified (`success`) against the Mozilla
+    snapshot plus TRUSTED copies of its two roots (indices 31, 93)
+    rejecting serverAuth, where OpenSSL 3.6.4 fails it. Fix: a second
+    pass decodes every TRUSTED block (re-framed as CERTIFICATE through
+    `P.decode`), takes the leading certificate SEQUENCE and parses the
+    `X509_CERT_AUX` trailer with the DER reader (trust, reject [0], alias,
+    keyid, other [1]; in order, at most once each, canonical OIDs). A
+    block whose reject names serverAuth or anyExtendedKeyUsage, or whose
+    trust list names neither (OpenSSL's REJECTED/UNTRUSTED), withdraws
+    every plain anchor with the same DER bytes, in either order. A block
+    or trailer that does not parse fails the load. TRUSTED blocks still
+    never become anchors. OpenSSL keeps the first copy it reads, so it
+    refuses only when the TRUSTED copy leads (measured: reject-first exit
+    2, reject-after exit 0, likewise for email-only trust); Bend refuses
+    both. Real bundles (macwork, same files as 2026-11-07): NixOS 118
+    roots (172 TRUSTED, 4 rejecting serverAuth, none for a plain root),
+    0.49 s, 23 MiB (was 0.25 s); macOS 128, Debian 148, Fedora/Alpine/
+    openSUSE 118, Fedora `ca-bundle.trust.crt` `empty-bundle`; all
+    unchanged.
+  - P2, AlgorithmIdentifier (`184f65f`): a71e4bf's deep parameter walk
+    dropped `C.anchor.identifier`'s singleton check, so SPKI
+    `3010300906032a0304050005000303000000` (unknown OID, `NULL, NULL`)
+    loaded `ok:2`. `parameters` now admits nothing or one element after
+    the OID, for SPKI and the TBS signature. The signature row was
+    already refused (`C.anchor` binds the outer copy and checks it).
+  - P2, pool (`171cf54`, `http/client/bend_pool.bend`): a waiter that gave
+    up stayed in `waiting`, so later returns sent wakes nobody took. Red:
+    1,200 expired waiters on a held pool of one, then returns: the
+    1,025th blocked on the 1,024-slot wake channel, `bend: deadlock:
+    every computation waits on a channel`. Fix: both give-up paths
+    decrement `waiting` under the lock; at 0 a wake is already sent or
+    in flight for this waiter, which takes it. Green: 1,200 give-ups,
+    1,100 return/take cycles and two GETs on one connection in 1.2 s.
+  - P2, bundle reads (`78fc11b`, `http/client/bend_transport.bend`):
+    `from_bundle_file` and the system loader parsed one `read(2)`. Red: a
+    FIFO named by `SSL_CERT_FILE` (or passed to either API) delivering
+    three roots in pieces loaded `ok:1`; trailing garbage and more than
+    2 MiB were ignored (9 of 12 FIFO cases). Fix: read until an empty
+    read, each read asking one byte past what the cap leaves; over 2 MiB
+    is `bundle-limit`. The size pre-check stays.
+  - Tests: `system_bundle_check.py` 35 new admission rows and
+    `trusted-unparsed-body` now `malformed-bundle` (33 rows red), 12 FIFO
+    cases (9 red); `pem_bundle_check.py` 2 rows (1 red); live pool
+    scenario `pool-waiters` (red: deadlock); new phase
+    `http_client/bend_system_bundle_chain` (`tests/public_chain.bend`
+    takes a fifth argument for system loading): 6 github.com cases next
+    to OpenSSL 3 on the same files (4 red). Totals: bundle policy 142,
+    system bundle 149, crypto bundle admission 71, live pool 7.
+  - Gate fix (`0168ca9`, test only): the first two `http_client` runs at
+    `abc9be7` stopped in `bend_live_stream`: the buffered 4 MiB
+    `/big-chunked` case ran under the test client's 3 s total and timed
+    out. It took 2.93 s and 3.03 s in the last two accepted gates.
+    Interleaved runs of the 2026-11-07 IPv6 gate binary, the `abc9be7`
+    gate binary and a test-only build all took 2.96-3.11 s per process
+    (`attempt-01/buffered-timing-macwork.txt`), so the client had not
+    slowed; the case gets the upload case's 10 s. `crypto:check` also
+    passed at `abc9be7` (1,793/1,793, peak 929.6 MiB; `attempt-01/`).
+
+  Fresh macwork gates at `0168ca9`, `--force`, clean tree, unchanged
+  4096 MiB / 120 s guard (`gates.sh http_client http_server crypto`):
+  - `http_client:check`: **43/43** phases (one new), peak 1817.0 MiB
+    (`bend_frontend_native`; `bend_server_frontend` 1774.3,
+    `bend_public_frontend` 1592.2, `bend_public_chain_build` 1412.2,
+    `bend_bundle_build` 1401.6), 388 s. Live pool 7, deadlines 20,
+    stream 5.
+  - `http_server:check`: **48/48**, peak 1833.4 MiB
+    (`bend_browser_frontend_native`), 359 s.
+  - `crypto:check`: **1,793/1,793**, peak 893.4 MiB (`rsa_private_cli`,
+    unchanged), 1704 s; `pem_bundle_cli` build 832.0 MiB (875 at
+    the first review fix), bundle admission 71/71.
+
+  Artifacts: `~/.codex/artifacts/grounds/2026-11-08/m6/review-fix-2/`
+  (`<gate>-01.json/.log/.inputs.txt/-artifacts`, `gates.out`, `gates.sh`,
+  `peaks.txt`, `attempt-01/` with the two stopped client runs and the
+  `abc9be7` crypto run, `red-*-pre-fix.txt`, `green-pre-gate/`,
+  `real-bundles-load.txt`, `trusted-aux-census.txt`,
+  `openssl-order-local.txt`, `tools/`). On macwork:
+  `~/grounds-artifacts/2026-11-08/m6/review-fix-2/`. The scratch clone
+  `macwork:~/code/grounds-m6-rf2` was deleted.
+
+  Limitations: a TRUSTED block that trusts serverAuth still adds no
+  anchor, so a root shipped only in TRUSTED form is not trusted; macOS
+  Keychain trust settings and distrust are still not seen.
+
+  Next: the remaining unticked M6 items.
+
 - 2026-11-07 (M6 item 3 done: IPv6): commits `434d6f5`, `79c7beb`,
   `3526114`, `7925385`, `83be04d`, `4207430`, `b102b0e`, `ead2e4d` on
   `91aefa6`.
