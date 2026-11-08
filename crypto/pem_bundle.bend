@@ -310,11 +310,15 @@ def decode(+bytes: List<&2,U32>) -> Result<&2,&2,Error,List<&2,List<&2,U32>>>:
 #              alias   UTF8String OPTIONAL,
 #              keyid   OCTET STRING OPTIONAL,
 #              other   [1] IMPLICIT SEQUENCE OF AlgorithmIdentifier OPTIONAL }
+# The certificate gets the nested checks a plain anchor gets (`framed`), and
+# each `other` element is an AlgorithmIdentifier checked like a signature
+# algorithm's (`algorithm`).
 # The block withholds TLS server trust from its certificate when reject
 # names serverAuth or anyExtendedKeyUsage, or when a trust list names
 # neither (OpenSSL's X509_TRUST_REJECTED and X509_TRUST_UNTRUSTED). Every
 # plain anchor with the same DER bytes is then dropped, whatever the order
-# of the blocks. A trailer that does not parse fails the whole load.
+# of the blocks. A certificate or trailer that does not parse fails the
+# whole load.
 type Oids is Data:
   Oids{valid: Bool, server: Bool}
 
@@ -347,6 +351,21 @@ def oids(fuel: Nat, bytes: List<&2,U32>, found: Bool) -> Oids:
 def oids.of(+bytes: List<&2,U32>) -> Oids:
   oids(Nat.add(B.length(bytes),1n),bytes,False{})
 
+# other: SEQUENCE OF AlgorithmIdentifier, each element a whole one
+def others.element(value: Maybe<&1,D.Element>, next: List<&2,U32> -> Bool) -> Bool:
+  match value:
+    case Some{D.Element{_,_,rest,encoded}}: Bool.and(algorithm(encoded),next(rest))
+    case None{}: False{}
+
+def others(fuel: Nat, bytes: List<&2,U32>) -> Bool:
+  match fuel bytes:
+    case _ Nil{}: True{}
+    case 0n _: False{}
+    case 1n+p bytes: others.element(D.read(bytes),r => others(p,r))
+
+def others.of(+bytes: List<&2,U32>) -> Bool:
+  others(Nat.add(B.length(bytes),1n),bytes)
+
 def aux.trust(value: Oids, valid: Bool, rejected: Bool) -> Aux:
   match value:
     case Oids{ok,found}: Aux{Bool.and(valid,ok),1,Bool.not(found),rejected}
@@ -368,7 +387,7 @@ def aux.kind(trust: Bool, reject: Bool, other: Bool, +stage: U32, +body: List<&2
     case True{} _ _: aux.trust(oids.of(body),valid,rejected)
     case False{} True{} _: aux.reject(oids.of(body),valid,restricted)
     case False{} False{} True{}:
-      Aux{Bool.and(valid,deep(Nat.add(Nat.add(B.length(body),B.length(body)),2n),body,[])),stage,restricted,rejected}
+      Aux{Bool.and(valid,others.of(body)),stage,restricted,rejected}
     case False{} False{} False{}: Aux{valid,stage,restricted,rejected}
 
 def aux.field(+stage: U32, body: List<&2,U32>, value: Aux) -> Aux:
@@ -399,17 +418,17 @@ def aux(trailer: List<&2,U32>) -> Aux:
     case Nil{}: Aux{True{},0,False{},False{}}
     case bytes: aux.outer(D.read(bytes))
 
-def distrust.aux(value: Aux, cert: List<&2,U32>, rest: List<&2,U32>, out: List<&2,List<&2,U32>>,
+def distrust.aux(valid: Bool, value: Aux, cert: List<&2,U32>, rest: List<&2,U32>, out: List<&2,List<&2,U32>>,
   next: List<&2,U32> -> List<&2,List<&2,U32>> -> Result<&2,&2,Error,List<&2,List<&2,U32>>>) -> Result<&2,&2,Error,List<&2,List<&2,U32>>>:
-  match value:
-    case Aux{True{},_,False{},False{}}: next(rest,out)
-    case Aux{True{},_,_,_}: next(rest,Con{cert,out})
-    case Aux{False{},_,_,_}: Fail{Malformed{}}
+  match valid value:
+    case True{} Aux{True{},_,False{},False{}}: next(rest,out)
+    case True{} Aux{True{},_,_,_}: next(rest,Con{cert,out})
+    case _ _: Fail{Malformed{}}
 
 def distrust.certificate(value: Maybe<&1,D.Element>, rest: List<&2,U32>, out: List<&2,List<&2,U32>>,
   next: List<&2,U32> -> List<&2,List<&2,U32>> -> Result<&2,&2,Error,List<&2,List<&2,U32>>>) -> Result<&2,&2,Error,List<&2,List<&2,U32>>>:
   match value:
-    case Some{D.Element{48,_,trailer,cert}}: distrust.aux(aux(trailer),cert,rest,out,next)
+    case Some{D.Element{48,_,trailer,+cert}}: distrust.aux(framed(C.anchor(cert)),aux(trailer),cert,rest,out,next)
     case _: Fail{Malformed{}}
 
 def distrust.decoded(value: Result<&2,&1,P.Error,P.Block>, rest: List<&2,U32>, out: List<&2,List<&2,U32>>,
