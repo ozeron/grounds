@@ -18,6 +18,16 @@ type Connection is Type:
   Bend{connection: TLS.Connection}
   Closed{}
 
+# What the TLS handshake established, for the request headers: the validated
+# SNI and the selected credential's label. Both are [] on plain/OpenSSL paths.
+type Names is Data:
+  Names{sni: List<&2,U32>, credential: List<&2,U32>}
+
+def names(connection: Connection) -> Connection & Names:
+  match connection:
+    case Bend{TLS.Connection{transport,+sni,+credential}}: (Bend{TLS.Connection{transport,sni,credential}},Names{sni,credential})
+    case other: (other,Names{[],[]})
+
 def Sent() -> Type:
   Connection & Result<&1, &1, U32 & String, Unit>
 
@@ -67,18 +77,18 @@ def readable.result(result: Result<&1,&1,U32 & String,Bool>, connection: TLS.Con
         TLS.close(connection)
         IO.pure(Read(), (Closed{},Fail{error}))
 
-def readable(pair: Socket & Result<&1,&1,U32 & String,Bool>, read: Maybe<&1,Traffic.ReadKey>, write: Maybe<&1,Traffic.WriteKey>, decoder: HS.Decoder, +at: Nat, suite: U32, group: U32, alpn: Bool, closed: Bool, sni: List<&2,U32>) -> IO(Read()):
+def readable(pair: Socket & Result<&1,&1,U32 & String,Bool>, read: Maybe<&1,Traffic.ReadKey>, write: Maybe<&1,Traffic.WriteKey>, decoder: HS.Decoder, +at: Nat, suite: U32, group: U32, alpn: Bool, closed: Bool, sni: List<&2,U32>, credential: List<&2,U32>) -> IO(Read()):
   (socket,result) = pair
-  readable.result(result,TLS.Connection{T.Connection{T.Pipe{socket,read,write,decoder,at},suite,group,alpn,closed},sni})
+  readable.result(result,TLS.Connection{T.Connection{T.Pipe{socket,read,write,decoder,at},suite,group,alpn,closed},sni,credential})
 
 def recv(connection: Connection, max: U32, +ms: U32, +record_ms: U32) -> IO(Read()):
   match connection:
     case Raw{socket}: IO.bind(Socket & Result<&1,&1,U32 & String,Maybe<&1,List<&2,U32>>>,Read(),W.wire_recv_timeout(socket,max,ms),raw_read)
-    case Bend{TLS.Connection{T.Connection{T.Pipe{socket,read,write,decoder,_},suite,group,alpn,closed},sni}}:
+    case Bend{TLS.Connection{T.Connection{T.Pipe{socket,read,write,decoder,_},suite,group,alpn,closed},sni,credential}}:
       do IO<Read()>:
         now : Nat <- IO.now()
         pair : Socket & Result<&1,&1,U32 & String,Bool> <- http_readable(socket,ms)
-        readable(pair,read,write,decoder,Nat.add(now,U32.to_nat(record_ms)),suite,group,alpn,closed,sni)
+        readable(pair,read,write,decoder,Nat.add(now,U32.to_nat(record_ms)),suite,group,alpn,closed,sni,credential)
     case Closed{}: IO.pure(Read(), (Closed{},Fail{(9,"closed transport")}))
 
 def close(connection: Connection) -> IO(Unit):

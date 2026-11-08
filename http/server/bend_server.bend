@@ -33,6 +33,7 @@ import ../core/event.bend as Ev
 type Tls is Data:
   Tls{cert: String, key: String}
   BendTls{chain: List<&2,String>, key: String, suites: List<&2,U32>}
+  BendHosts{hosts: List<&2,BT.Host>, fallback: Maybe<&2,BT.Host>, suites: List<&2,U32>}
 
 type Config is Data:
   Config{port: U32, max_head_bytes: U32, max_body_bytes: U32, max_requests: U32, idle_ms: U32, request_ms: U32, drain_ms: U32, tls: Maybe<&2, Tls>, trust_proxy: Bool}
@@ -53,6 +54,26 @@ def with_bend_tls_chain(cfg: Config, chain: List<&2,String>, key: String, suites
 
 def with_bend_tls(cfg: Config, cert: String, key: String) -> Config:
   with_bend_tls_chain(cfg,[cert],key,[4865,4867,4866])
+
+# SNI multi-certificate Bend TLS. Each host is PEM file paths (leaf first) and
+# its server names; empty names use the leaf's SAN dNSName entries. Selection:
+# exact name > single-label leftmost wildcard > default, ASCII case-insensitive;
+# P-256 is preferred over RSA for one name when the client offers ECDSA. With
+# no default, a ClientHello without SNI or with an unknown name is refused with
+# unrecognized_name (112). At most 64 credentials, validated before listen.
+def tls_host(names: List<&2,String>, chain: List<&2,String>, key: String) -> BT.Host:
+  BT.Host{names,chain,key}
+
+def tls_host_pem(cert: String, key: String) -> BT.Host:
+  BT.Host{[],[cert],key}
+
+def with_bend_tls_hosts_suites(cfg: Config, hosts: List<&2,BT.Host>, fallback: Maybe<&2,BT.Host>, suites: List<&2,U32>) -> Config:
+  match cfg:
+    case Config{port,mh,mb,mr,ims,rms,dms,_,trust}:
+      Config{port,mh,mb,mr,ims,rms,dms,Some{BendHosts{hosts,fallback,suites}},trust}
+
+def with_bend_tls_hosts(cfg: Config, hosts: List<&2,BT.Host>, fallback: Maybe<&2,BT.Host>) -> Config:
+  with_bend_tls_hosts_suites(cfg,hosts,fallback,[4865,4867,4866])
 
 def with_trust_proxy(cfg: Config, trust: Bool) -> Config:
   match cfg:
@@ -102,6 +123,7 @@ def env.u32(name: String, label: String, +d: U32) -> IO(U32):
 def env.credential(cert: String, key: String, fallback: Maybe<&2,Tls>) -> IO(Maybe<&2,Tls>):
   match fallback:
     case Some{BendTls{_,_,suites}}: IO.pure(Maybe<&2,Tls>,Some{BendTls{[cert],key,suites}})
+    case Some{BendHosts{_,_,_}}: IO.die(Maybe<&2,Tls>,1,"HTTP_TLS_CERT and HTTP_TLS_KEY cannot replace Bend TLS hosts")
     case _: IO.pure(Maybe<&2,Tls>,Some{Tls{cert,key}})
 
 def env.tls_pair(cert: Result<&1, &1, U32 & String, String>, key: Result<&1, &1, U32 & String, String>, fallback: Maybe<&2, Tls>) -> IO(Maybe<&2, Tls>):
@@ -124,6 +146,7 @@ def env.engine(value: Result<&1,&1,U32 & String,String>, tls: Maybe<&2,Tls>) -> 
     case Fail{_} tls: IO.pure(Maybe<&2,Tls>,tls)
     case Done{"bend"} Some{Tls{cert,key}}: IO.pure(Maybe<&2,Tls>,Some{BendTls{[cert],key,[4865,4867,4866]}})
     case Done{"bend"} Some{BendTls{chain,key,suites}}: IO.pure(Maybe<&2,Tls>,Some{BendTls{chain,key,suites}})
+    case Done{"bend"} Some{BendHosts{hosts,fallback,suites}}: IO.pure(Maybe<&2,Tls>,Some{BendHosts{hosts,fallback,suites}})
     case Done{"openssl"} Some{Tls{cert,key}}: IO.pure(Maybe<&2,Tls>,Some{Tls{cert,key}})
     case Done{"openssl"} Some{BendTls{[cert],key,_}}: IO.pure(Maybe<&2,Tls>,Some{Tls{cert,key}})
     case _ _: IO.die(Maybe<&2,Tls>,1,"HTTP_TLS_ENGINE must be bend|openssl with a configured credential")
@@ -626,6 +649,40 @@ def secure_proto(proto: Maybe<&2, String>) -> Bool:
 def secure(r: Req.Request) -> Bool:
   secure_proto(Req.header(r, "x-forwarded-proto"))
 
+# Server-owned TLS names. Incoming copies are always removed; on a Bend TLS
+# connection x-tls-server-name is the validated SNI as sent (absent without
+# SNI) and x-tls-credential the selected credential's label ("p256:<name>",
+# "rsa:<name>" or "<kind>:default"; absent for the single-credential API).
+def tls.text(bytes: List<&2, U32>) -> String:
+  match bytes:
+    case Nil{}:
+      SNil{}
+    case Con{byte, rest}:
+      SCon{Chr{byte}, tls.text(rest)}
+
+def tls.header(hs: List<&2, H.Header>, name: String, value: List<&2, U32>) -> List<&2, H.Header>:
+  match value:
+    case Nil{}:
+      hs
+    case Con{byte, rest}:
+      H.add(hs, name, tls.text(Con{byte, rest}))
+
+def tls.headers(hs: List<&2, H.Header>, names: Tr.Names) -> List<&2, H.Header>:
+  match names:
+    case Tr.Names{sni, credential}:
+      tls.header(tls.header(H.remove(H.remove(hs, "x-tls-server-name"), "x-tls-credential"), "x-tls-server-name", sni), "x-tls-credential", credential)
+
+def request_tls(r: Req.Request, names: Tr.Names) -> Req.Request:
+  match r:
+    case Req.Request{m, t, hs, b}:
+      Req.Request{m, t, tls.headers(hs, names), b}
+
+def tls_server_name(r: Req.Request) -> Maybe<&2, String>:
+  Req.header(r, "x-tls-server-name")
+
+def tls_credential(r: Req.Request) -> Maybe<&2, String>:
+  Req.header(r, "x-tls-credential")
+
 # Serve this handler on an HTTP listener to send clients to a canonical HTTPS
 # host. The caller supplies the host rather than trusting the request's Host.
 def redirect_https(host: String, r: Req.Request) -> Res.Response:
@@ -633,14 +690,18 @@ def redirect_https(host: String, r: Req.Request) -> Res.Response:
     case Req.Request{_, target, _, _}:
       Res.new(S.permanent_redirect(), [H.Header{"location", "https://" ++ host ++ target}], [])
 
+def context.named(~C: Data, ~h: C -> Req.Request -> IO(Out), +context: C, req: Req.Request, +close: Bool, rest: B.Bytes, +mh: U32, +acc: B.Bytes, +left: Nat, +rms: U32, next: B.Bytes -> Nat -> Tr.Connection -> IO(Unit), pair: Tr.Connection & Tr.Names) -> IO(Unit):
+  (s, names) = pair
+  do IO<Unit>:
+    out : Out <- h(context, request_tls(req, names))
+    +stop : U32 <- W.wire_stopping()
+    respond(out, closing(close, left, stop), Bool.or(close, Bool.not(U32.is_eq(stop, 0))),
+      s, rms, rest, acc, mh, next)
+
 def context.step(~C: Data, ~h: C -> Req.Request -> IO(Out), +context: C, p: H1.Parsed, +mh: U32, +tls: Bool, +trust: Bool, +acc: B.Bytes, s: Tr.Connection, +left: Nat, +ims: U32, +rms: U32, +dl: Nat, next: B.Bytes -> Nat -> Tr.Connection -> IO(Unit), again: B.Bytes -> Nat -> Tr.Connection -> IO(Unit)) -> IO(Unit):
   match p:
     case H1.Parsed{req, +close, rest}:
-      do IO<Unit>:
-        out : Out <- h(context, request_proto(req, tls, trust))
-        +stop : U32 <- W.wire_stopping()
-        respond(out, closing(close, left, stop), Bool.or(close, Bool.not(U32.is_eq(stop, 0))),
-          s, rms, rest, acc, mh, next)
+      context.named(~C, ~h, context, request_proto(req, tls, trust), close, rest, mh, acc, left, rms, next, Tr.names(s))
     case H1.More{}:
       reading(Bool.not(B.nonempty(acc)), ims, rms, dl, acc, s, again)
     case H1.Bad{e}:
@@ -786,6 +847,10 @@ def serve_bend_out_context(~C: Data, ~h: C -> Req.Request -> IO(Out), context: C
       do IO<Unit>:
         prepared : BT.Prepared <- BT.load(chain,key,suites)
         context.listen(~C,~h,~BT.Prepared,~BT.accept,context,prepared,True{},Config{port,mh,mb,mr,ims,rms,dms,None{},trust})
+    case Config{port,mh,mb,mr,ims,rms,dms,Some{BendHosts{hosts,fallback,suites}},trust}:
+      do IO<Unit>:
+        prepared : BT.Prepared <- BT.load_hosts(hosts,fallback,suites)
+        context.listen(~C,~h,~BT.Prepared,~BT.accept,context,prepared,True{},Config{port,mh,mb,mr,ims,rms,dms,None{},trust})
     case _: IO.die(Unit,1,"http: serve_bend_out_context requires BendTls")
 
 # Runtime selection is confined to this opt-in module. Legacy Server.serve_*
@@ -794,6 +859,8 @@ def serve_out_context(~C: Data, ~h: C -> Req.Request -> IO(Out), context: C, cfg
   match cfg:
     case Config{port,mh,mb,mr,ims,rms,dms,Some{BendTls{chain,key,suites}},trust}:
       serve_bend_out_context(~C,~h,context,Config{port,mh,mb,mr,ims,rms,dms,Some{BendTls{chain,key,suites}},trust})
+    case Config{port,mh,mb,mr,ims,rms,dms,Some{BendHosts{hosts,fallback,suites}},trust}:
+      serve_bend_out_context(~C,~h,context,Config{port,mh,mb,mr,ims,rms,dms,Some{BendHosts{hosts,fallback,suites}},trust})
     case Config{port,mh,mb,mr,ims,rms,dms,tls,trust}:
       do IO<Unit>:
         +on : Bool <- listen_tls(tls)
