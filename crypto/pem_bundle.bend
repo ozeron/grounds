@@ -147,8 +147,21 @@ def deep(fuel: Nat, bytes: List<&2,U32>, stack: List<&2,List<&2,U32>>) -> Bool:
     case 0n: False{}
     case 1n+p: deep.step(bytes,stack,b => s => deep(p,b,s))
 
+# AlgorithmIdentifier ::= SEQUENCE { algorithm OID, parameters ANY OPTIONAL }:
+# nothing, or exactly one element, follows the OID.
+def single.element(value: Maybe<&1,D.Element>) -> Bool:
+  match value:
+    case Some{D.Element{_,_,Nil{},_}}: True{}
+    case _: False{}
+
+def single(parameters: List<&2,U32>) -> Bool:
+  match parameters:
+    case Nil{}: True{}
+    case bytes: single.element(D.read(bytes))
+
 def parameters(+parameters: List<&2,U32>) -> Bool:
-  deep(Nat.add(Nat.add(B.length(parameters),B.length(parameters)),2n),parameters,[])
+  Bool.and(single(parameters),
+    deep(Nat.add(Nat.add(B.length(parameters),B.length(parameters)),2n),parameters,[]))
 
 def deep.identifier(value: Maybe<&1,A.Identifier>) -> Bool:
   match value:

@@ -72,6 +72,9 @@ NESTED = [
     ('key-nested-unterminated-oid', 'spki', '3011300a06032a030430030601800303000000', 'malformed-bundle'),
     ('key-nested-noncanonical-oid', 'spki', '3012300b06032a03043004060280010303000000', 'malformed-bundle'),
     ('key-nested-parameters', 'spki', '3016300f06032a0304300806032a03050201050303000000', 'ok:2'),
+    # AlgorithmIdentifier takes at most one parameters element.
+    ('key-two-parameters', 'spki', '3010300906032a0304050005000303000000', 'malformed-bundle'),
+    ('signature-two-parameters', 'signature', '300906032a030405000500', 'malformed-bundle'),
     ('signature-nested-noncanonical-oid', 'signature', '300b06032a0304300406028001', 'malformed-bundle'),
     ('signature-unterminated-parameter-oid', 'signature', '300806032a0304060180', 'malformed-bundle'),
     ('signature-nested-parameters', 'signature', '301006032a03043009a00506032a03050500', 'ok:2'),
