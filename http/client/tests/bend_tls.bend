@@ -148,6 +148,60 @@ def saturated(+p: Pool.Pool, +url: String) -> IO(Unit):
     h : C.R(C.Head) <- IO.join(C.R(C.Head),ch)
     streamed(h)
 
+# Takes that give up on a pool of one held by another task: a deadline
+# already past (wait 0) or 1 ms away. Each counts as a Late.
+def late(t: Pool.Taken) -> IO(Nat):
+  match t:
+    case Pool.Late{}: IO.pure(Nat,1n)
+    case Pool.Kept{s,_}: IO.bind(Unit,Nat,Tr.close(s),u => IO.pure(Nat,0n))
+    case _: IO.pure(Nat,0n)
+
+def give_up(n: Nat, +p: Pool.Pool, +wait: Nat, +k: Nat) -> IO(Nat):
+  match n:
+    case 0n: IO.pure(Nat,k)
+    case 1n+m:
+      do IO<Nat>:
+        now : Nat <- IO.now()
+        t : Pool.Taken <- Pool.take(8n,p,"waiter",Nat.add(now,wait))
+        x : Nat <- late(t)
+        give_up(m,p,wait,Nat.add(k,x))
+
+def room(t: Pool.Taken) -> IO(Nat):
+  match t:
+    case Pool.Room{}: IO.pure(Nat,1n)
+    case Pool.Kept{s,_}: IO.bind(Unit,Nat,Tr.close(s),u => IO.pure(Nat,0n))
+    case _: IO.pure(Nat,0n)
+
+# give the held room back and take it again, n times
+def cycle(n: Nat, +p: Pool.Pool, +k: Nat) -> IO(Nat):
+  match n:
+    case 0n: IO.pure(Nat,k)
+    case 1n+m:
+      do IO<Nat>:
+        u : Unit <- Pool.give(False{},Tr.Closed{},True{},"waiter",p)
+        now : Nat <- IO.now()
+        t : Pool.Taken <- Pool.take(8n,p,"waiter",Nat.add(now,2000n))
+        x : Nat <- room(t)
+        cycle(m,p,Nat.add(k,x))
+
+# 1,200 waiters give up while the only connection is held (600 at once,
+# 600 after 1 ms), then it goes back and is taken 1,100 times, then two
+# ordinary GETs: none of this may wait on wakes owed to waiters that left.
+def waiters(+p: Pool.Pool, +url: String) -> IO(Unit):
+  do IO<Unit>:
+    now : Nat <- IO.now()
+    held : Pool.Taken <- Pool.take(8n,p,"waiter",Nat.add(now,2000n))
+    r : Nat <- room(held)
+    a : Nat <- give_up(600n,p,0n,0n)
+    b : Nat <- give_up(600n,p,1n,0n)
+    c : Nat <- cycle(1100n,p,0n)
+    IO.print("waiters:" ++ Nat.show(r) ++ ":" ++ Nat.show(Nat.add(a,b)) ++ ":" ++ Nat.show(c))
+    u : Unit <- Pool.give(False{},Tr.Closed{},True{},"waiter",p)
+    x : C.R(C.Reply) <- Pool.send(p,C.get(url))
+    reply(x)
+    y : C.R(C.Reply) <- Pool.send(p,C.get(url))
+    reply(y)
+
 def auth3(url: String) -> C.Req:
   C.with(C.get(url),[("Authorization","secret"),("Cookie","secret"),("Proxy-Authorization","secret")])
 
@@ -195,6 +249,7 @@ type Mode is Data:
   MUaCustom{}
   MUaNone{}
   MUaSet{}
+  MPoolWaiters{}
 
 def mode.pick(hit: Bool, m: Mode, rest: Mode) -> Mode:
   match hit:
@@ -202,7 +257,7 @@ def mode.pick(hit: Bool, m: Mode, rest: Mode) -> Mode:
     case False{}: rest
 
 def mode.more(+mode: String) -> Mode:
-  mode.pick(String.eq(mode,"stream-read"),MStreamRead{},mode.pick(String.eq(mode,"pool-stream-read"),MPoolStreamRead{},mode.pick(String.eq(mode,"events-read"),MEventsRead{},mode.pick(String.eq(mode,"pool-events-read"),MPoolEventsRead{},mode.pick(String.eq(mode,"upload"),MUpload{},mode.pick(String.eq(mode,"pool-upload"),MPoolUpload{},mode.pick(String.eq(mode,"pool-saturated"),MPoolSaturated{},mode.pick(String.eq(mode,"retry-budget"),MRetryBudget{},mode.pick(String.eq(mode,"retry-fits"),MRetryFits{},mode.pick(String.eq(mode,"pool-retry-budget"),MPoolRetryBudget{},mode.pick(String.eq(mode,"proxy-auth"),MProxyAuth{},mode.pick(String.eq(mode,"ua-custom"),MUaCustom{},mode.pick(String.eq(mode,"ua-none"),MUaNone{},mode.pick(String.eq(mode,"ua-set"),MUaSet{},MAuth{}))))))))))))))
+  mode.pick(String.eq(mode,"stream-read"),MStreamRead{},mode.pick(String.eq(mode,"pool-stream-read"),MPoolStreamRead{},mode.pick(String.eq(mode,"events-read"),MEventsRead{},mode.pick(String.eq(mode,"pool-events-read"),MPoolEventsRead{},mode.pick(String.eq(mode,"upload"),MUpload{},mode.pick(String.eq(mode,"pool-upload"),MPoolUpload{},mode.pick(String.eq(mode,"pool-saturated"),MPoolSaturated{},mode.pick(String.eq(mode,"retry-budget"),MRetryBudget{},mode.pick(String.eq(mode,"retry-fits"),MRetryFits{},mode.pick(String.eq(mode,"pool-retry-budget"),MPoolRetryBudget{},mode.pick(String.eq(mode,"proxy-auth"),MProxyAuth{},mode.pick(String.eq(mode,"ua-custom"),MUaCustom{},mode.pick(String.eq(mode,"ua-none"),MUaNone{},mode.pick(String.eq(mode,"ua-set"),MUaSet{},mode.pick(String.eq(mode,"pool-waiters"),MPoolWaiters{},MAuth{})))))))))))))))
 
 def mode.of(+mode: String) -> Mode:
   mode.pick(String.eq(mode,"pool"),MPool{},mode.pick(String.eq(mode,"json"),MJson{},mode.pick(String.eq(mode,"form"),MForm{},mode.pick(String.eq(mode,"stream"),MStream{},mode.pick(String.eq(mode,"pool-stream"),MPoolStream{},mode.pick(String.eq(mode,"events"),MEvents{},mode.pick(String.eq(mode,"events-retry"),MEventsRetry{},mode.pick(String.eq(mode,"pool-events"),MPoolEvents{},mode.pick(String.eq(mode,"timeout"),MTimeout{},mode.pick(String.eq(mode,"head"),MHead{},mode.pick(String.eq(mode,"small"),MSmall{},mode.pick(String.eq(mode,"small-head"),MSmallHead{},mode.pick(String.eq(mode,"sum"),MSum{},mode.pick(String.eq(mode,"stream-sum"),MStreamSum{},mode.pick(String.eq(mode,"headers"),MHeaders{},mode.pick(String.eq(mode,"post"),MPost{},mode.pick(String.eq(mode,"delete"),MDelete{},mode.pick(String.eq(mode,"noredirect"),MNoRedirect{},mode.pick(String.eq(mode,"pool10"),MPool10{},mode.pick(String.eq(mode,"pool2"),MPool2{},mode.pick(String.eq(mode,"pool3w"),MPool3w{},mode.pick(String.eq(mode,"pool-idle"),MPoolIdle{},mode.pick(String.eq(mode,"pool-head"),MPoolHead{},mode.pick(String.eq(mode,"pool-post"),MPoolPost{},mode.pick(String.eq(mode,"connect-timeout"),MConnectTimeout{},mode.pick(String.eq(mode,"read-timeout"),MReadTimeout{},mode.pick(String.eq(mode,"total-timeout"),MTotalTimeout{},mode.pick(String.eq(mode,"timed"),MTimed{},mode.more(mode)))))))))))))))))))))))))))))
@@ -255,6 +310,7 @@ def run(m: Mode, +cfg: C.Config, +url: String) -> IO(Unit):
     case MUaCustom{}: IO.bind(C.R(C.Reply),Unit,C.send(cfg,C.with(C.get(url),[("User-Agent","mine/1")])),reply)
     case MUaNone{}: IO.bind(C.R(C.Reply),Unit,C.send(C.without_user_agent(cfg),C.get(url)),reply)
     case MUaSet{}: IO.bind(C.R(C.Reply),Unit,C.send(C.with_user_agent(cfg,"probe/2"),C.get(url)),reply)
+    case MPoolWaiters{}: Pool.with(Unit,cfg,1,p => waiters(p,url))
 
 def execute(+cfg: C.Config, +url: String, +mode: String) -> IO(Unit):
   run(mode.of(mode),cfg,url)

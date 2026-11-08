@@ -484,6 +484,16 @@ def pool(binary, directory, rows):
             rows.append(dict(name=path + ":" + mode, output=output, requests_a=len(a.requests) - sa,
                              connections_a=ca, connections_b=cb, elapsed_seconds=elapsed))
             print(path, mode, "passed", flush=True)
+        # 1,200 waiters give up behind a held connection (more than the
+        # 1,024 wake slots), then 1,100 returns and takes and two GETs: a
+        # waiter that gave up must not leave a wake owed, or a later return
+        # blocks on the full wake channel and the client hangs
+        sa = len(a.requests)
+        output, elapsed, _ = run(binary, directory, url + "/", "pool-waiters")
+        assert output == ["waiters:1:1200:1100", "ok:200:5", "ok:200:5"], output
+        assert connections(a, sa) == 1 and elapsed < 10, (a.requests[sa:], elapsed)
+        rows.append(dict(name="/:pool-waiters", output=output, connections_a=1, elapsed_seconds=elapsed))
+        print("/ pool-waiters passed", round(elapsed, 2), flush=True)
         # a stale kept connection: GET is fine, and the POST that follows on it
         # fails rather than being sent again, since it is not idempotent
         sa = len(a.requests)

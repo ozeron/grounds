@@ -158,34 +158,59 @@ def evicted(m: Maybe<&1, Idle>) -> IO(Unit):
     case None{}:
       IO.pure(Unit, Unit{})
 
-def woke(r: Poll<&1, &1, Maybe<&1, Unit>, Unit>, again: Unit -> IO(Taken)) -> IO(Taken):
+# A waiter that gives up leaves the count under the lock, so no later
+# return sends a wake for it. `waiting` counts the waiters no wake has been
+# sent for yet; at 0 every waiter, this one included, has one sent or on
+# its way (a return sends it after putting the state back), so this one
+# takes one, and the wakes in the channel never outnumber the waiters.
+def quit.owed(owed: Bool, +w: Chan(Unit)) -> IO(Taken):
+  match owed:
+    case True{}:
+      IO.bind(Maybe<&1, Unit>, Taken, Chan.recv(Unit, w), x => IO.pure(Taken, Late{}))
+    case False{}:
+      IO.pure(Taken, Late{})
+
+def quit.st(m: Maybe<&1, St>, +p: Pool) -> IO(Taken):
+  match m p:
+    case Some{St{idle, free, +waiting, closing}} Pool{_, +ch, +w, _}:
+      do IO<Taken>:
+        x : Unit <- put(ch, St{idle, free, Nat.sub(waiting, 1n), closing})
+        quit.owed(Nat.is_eq(waiting, 0n), w)
+    case None{} _:
+      IO.pure(Taken, Late{})
+
+def gave_up(+p: Pool) -> IO(Taken):
+  match p:
+    case Pool{_, +ch, _, _}:
+      IO.bind(Maybe<&1, St>, Taken, Chan.recv(St, ch), m => quit.st(m, p))
+
+def woke(r: Poll<&1, &1, Maybe<&1, Unit>, Unit>, +p: Pool, again: Unit -> IO(Taken)) -> IO(Taken):
   match r:
     case Ready{_}:
       again(Unit{})
     case Wait{_}:
-      IO.pure(Taken, Late{})
+      gave_up(p)
 
-# wait for a connection to come back, but not past the deadline. A waiter
-# that gives up stays counted in waiting: the wake meant for it is then
-# taken by another waiter, or by close, which look at the state again
-def awaited(late: Bool, +w: Chan(Unit), ms: U32, again: Unit -> IO(Taken)) -> IO(Taken):
-  match late:
-    case True{}:
-      IO.pure(Taken, Late{})
-    case False{}:
-      IO.bind(Poll<&1, &1, Maybe<&1, Unit>, Unit>, Taken, Chan.try_recv(Unit, w, ms), r => woke(r, again))
+# wait for a connection to come back, but not past the deadline; a wake
+# means look at the state again
+def awaited(late: Bool, +p: Pool, ms: U32, again: Unit -> IO(Taken)) -> IO(Taken):
+  match late p:
+    case True{} _:
+      gave_up(p)
+    case False{} Pool{_, _, +w, _}:
+      IO.bind(Poll<&1, &1, Maybe<&1, Unit>, Unit>, Taken, Chan.try_recv(Unit, w, ms), r => woke(r, p, again))
 
 def acted(plan: Plan, +p: Pool, +key: String, +fuel: Nat, +dl: Nat, again: Unit -> IO(Taken)) -> IO(Taken):
-  match plan p:
-    case Use{Idle{s, tls, _, _}} _:
+  match plan:
+    case Use{Idle{s, tls, _, _}}:
       IO.pure(Taken, Kept{s, tls})
-    case New{ev} _:
+    case New{ev}:
       IO.bind(Unit, Taken, evicted(ev), u => IO.pure(Taken, Room{}))
-    case Await{} Pool{_, _, +w, _}:
+    case Await{}:
       do IO<Taken>:
         +now : Nat <- IO.now()
-        awaited(Nat.is_le(dl, now), w, C.left(dl, now), again)
-    case Gone{} _:
+        awaited(Nat.is_le(dl, now), p, C.left(dl, now), again)
+    case Gone{}:
       IO.pure(Taken, Shut{})
 
 def act(d: Dec, +p: Pool, +key: String, +fuel: Nat, +dl: Nat, again: Unit -> IO(Taken)) -> IO(Taken):
