@@ -15,9 +15,15 @@ import x509_extensions_check as E
 ROOT = Path(__file__).parent
 PRINTABLE = set(b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 '()+,-./:=?")
 DIRECTORY = {3: 64, 4: 32768, 7: 128, 8: 128, 10: 64, 11: 64, 12: 64,
-             41: 32768, 42: 32768, 43: 32768, 44: 32768, 65: 128}
+             41: 32768, 42: 32768, 43: 32768, 44: 32768, 65: 128,
+             # M6 EV/OV subjects: street, businessCategory, postalCode
+             # (X.520 1993 / CA/B maxima); organizationIdentifier is unbounded.
+             9: 128, 15: 128, 17: 40, 97: 65535}
 DC = bytes.fromhex('0992268993f22c640119')
 EMAIL = bytes.fromhex('2a864886f70d010901')
+# CA/B EV jurisdictionOfIncorporation{L,ST,C} = 1.3.6.1.4.1.311.60.2.1.{1,2,3}.
+JURISDICTION = bytes.fromhex('2b0601040182373c0201')
+JURISDICTION_L, JURISDICTION_ST, JURISDICTION_C = (JURISDICTION + bytes([arc]) for arc in (1, 2, 3))
 
 
 def string(tag, body):
@@ -46,13 +52,13 @@ def bmp(body):
 
 def value(oid, tag, body):
     directory = oid[:2] == b'\x55\x04' and len(oid) == 3 and oid[2] in DIRECTORY
-    if directory:
+    if directory or oid in (JURISDICTION_L, JURISDICTION_ST):
         if tag == 20:
             if not body: raise ValueError('empty Teletex DirectoryString')
             return False
         if tag not in (12, 19, 28, 30): raise ValueError('DirectoryString tag')
-        minimum, maximum = 1, DIRECTORY[oid[2]]
-    elif oid == b'\x55\x04\x06':
+        minimum, maximum = 1, DIRECTORY[oid[2]] if directory else 128
+    elif oid in (b'\x55\x04\x06', JURISDICTION_C):
         if tag != 19: raise ValueError('country tag')
         minimum = maximum = 2
     elif oid == b'\x55\x04\x05':
@@ -136,9 +142,9 @@ def cases():
     for tag in (12, 19, 20, 22, 28, 30):
         for byte in range(256):
             yield add('all-octets-typed-string', name(attribute(tag=tag, body=bytes([byte]))))
-    for oid in [bytes([85,4,x]) for x in (*DIRECTORY, 5, 6, 46)]+[DC, EMAIL]:
+    for oid in [bytes([85,4,x]) for x in (*DIRECTORY, 5, 6, 46)]+[DC, EMAIL, JURISDICTION_L, JURISDICTION_ST, JURISDICTION_C]:
         for tag in (12, 19, 20, 22, 28, 30, 4, 44, 51):
-            for size in (0, 1, 2, 63, 64, 65, 127, 128, 129, 254, 255, 256):
+            for size in (0, 1, 2, 39, 40, 41, 63, 64, 65, 127, 128, 129, 254, 255, 256):
                 unit = {28: b'\x00\x00\x00a', 30: b'\x00a'}.get(tag, b'a')
                 yield add('attribute-types-and-size-endpoints', name(attribute(oid, tag, unit*size)))
     for byte in range(256):
@@ -150,6 +156,13 @@ def cases():
             data = bytearray(4); data[offset] = byte
             yield add('Universal-scalar-boundaries', name(attribute(tag=28, body=bytes(data))))
         yield add('canonical-arbitrary-OID', name(attribute(oid=bytes([byte]), tag=4, body=b'x')))
+    # Only the exact EV arcs .1-.3 are profiled; parents, siblings, children,
+    # and non-minimal encodings of them are deferred or malformed.
+    for oid in [JURISDICTION, JURISDICTION+b'\x00', JURISDICTION+b'\x04', JURISDICTION+b'\x7f',
+                JURISDICTION_C+b'\x01', JURISDICTION+b'\x81\x03', JURISDICTION_C[:5]+b'\x80'+JURISDICTION_C[5:],
+                JURISDICTION_C[:-2]+b'\x02']:
+        for tag in (12, 19, 20, 22):
+            yield add('EV-jurisdiction-OID-arcs', name(attribute(oid, tag, b'US')))
     for text in ('a', '\u00e9', '\u20ac', '\U0001f600'):
         for size in (1, 63, 64, 65):
             yield add('UTF8-counts-characters-not-octets', name(attribute(body=(text*size).encode())))
@@ -232,7 +245,7 @@ def main():
             else: batch.append(row)
         if batch: evaluate(batch)
     report={'total':sum(counts.values()),'groups':dict(counts),'corpus_sha256':identity.hexdigest(),'binary':binary,
-            'unknown_attributes_and_Teletex_deferred':True,'normalized_Name_comparison_constraints_or_authorization':False}
+            'unknown_attributes_and_Teletex_deferred':True,'EV_attributes':'jurisdiction L/ST/C, street, businessCategory, postalCode, organizationIdentifier','normalized_Name_comparison_constraints_or_authorization':False}
     if args.report: args.report.write_text(json.dumps(report,indent=2)+'\n')
     print(json.dumps(report,sort_keys=True))
 

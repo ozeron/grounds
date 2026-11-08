@@ -55,6 +55,12 @@ def cases():
         (N.EMAIL, 22, b'A@example.test', None),
         (QUALIFIER, 19, b'', [32, 32]),
         (bytes.fromhex('550406'), 19, b'US', [32, 117, 115, 32]),
+        (N.JURISDICTION_C, 19, b'US', [32, 117, 115, 32]),
+        (N.JURISDICTION_C, 12, b'US', None),
+        (N.JURISDICTION_ST, 12, 'Z\u00fcrich'.encode(), [32, 122, 0xfc, 114, 105, 99, 104, 32]),
+        (bytes.fromhex('55040f'), 12, b'Private  Organization', [32, 112, 114, 105, 118, 97, 116, 101, 32, 32, 111, 114, 103, 97, 110, 105, 122, 97, 116, 105, 111, 110, 32]),
+        (bytes.fromhex('550411'), 19, b'1' * 41, None),
+        (bytes.fromhex('550461'), 22, b'VATHU-23584497', None),
     ]
     for oid, tag, data, wanted in literals:
         assert expected(oid, tag, data) == wanted, ('literal oracle', oid, tag, data, wanted)
@@ -68,10 +74,10 @@ def cases():
             if tag == 30 and code > 0xffff:
                 continue
             yield row('published-fold-cross-encoding', NAME, tag, text.encode(codec))
-    for attr in [3, 4, 5, 6, 7, 8, 10, 11, 12, 41, 42, 43, 44, 46, 65]:
-        oid = bytes([85, 4, attr])
+    for oid in [bytes([85, 4, attr]) for attr in [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 15, 17, 41, 42, 43, 44, 46, 65, 97]] + [
+            N.JURISDICTION_L, N.JURISDICTION_ST, N.JURISDICTION_C]:
         for tag in [12, 19, 20, 22, 28, 30, 4]:
-            for count in [0, 1, 2, 63, 64, 65, 127, 128, 129, 255, 256]:
+            for count in [0, 1, 2, 39, 40, 41, 63, 64, 65, 127, 128, 129, 255, 256]:
                 unit = {28: b'\0\0\0A', 30: b'\0A'}.get(tag, b'A')
                 yield row('original-type-and-SIZE', oid, tag, unit * count)
     for oid in [b'', b'\x80\x55\x04\x03', b'\x55\x04\x80\x03',

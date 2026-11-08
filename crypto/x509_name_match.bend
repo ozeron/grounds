@@ -133,6 +133,8 @@ def sort(size: Nat, keys: Keys()) -> Maybe<&1, Keys()>:
 # RFC 5280 7.3 (updated by RFC 9549): stored domainComponent IA5 octets
 # compare exactly except ASCII case. Do not apply DirectoryString whitespace,
 # deletion or Unicode folding. DNS/IDNA label validation has a separate owner.
+# PKCS #9 emailAddress (RFC 2985 pkcs9CaseIgnoreMatch on its IA5String) is the
+# same comparison: equal length, identical octets except ASCII case.
 def domain.words(bytes: List<&2, U32>, buffer: B.Buffer) -> C.Normalized:
   match bytes buffer:
     case Nil{} B.Buffer{values, length, _, _, _, _, _}: C.Normalized{values, length}
@@ -144,9 +146,9 @@ def domain.admitted(tables: U.Tables, bytes: List<&2, U32>, status: Maybe<&1, Bo
     case Some{True{}}: (tables, Some{domain.words(bytes, B.new())})
     case _: (tables, None{})
 
-def attribute.prepare(is_domain: Bool, tables: U.Tables, oid: List<&2, U32>, +tag: U32, +bytes: List<&2, U32>) -> U.Tables & Maybe<&1, C.Normalized>:
-  match is_domain:
-    case True{}: domain.admitted(tables, bytes, S.value(S.Rule{3, 0, 65535}, tag, bytes))
+def attribute.prepare(is_ia5: Bool, tables: U.Tables, oid: List<&2, U32>, +tag: U32, +bytes: List<&2, U32>) -> U.Tables & Maybe<&1, C.Normalized>:
+  match is_ia5:
+    case True{}: domain.admitted(tables, bytes, S.value(S.rule(oid), tag, bytes))
     case False{}: P.prepare(tables, oid, tag, bytes)
 
 def attributes.prepared(oid: List<&2, U32>, result: U.Tables & Maybe<&1, C.Normalized>,
@@ -162,7 +164,7 @@ def attributes(attrs: List<&2, N.Attribute>, tables: U.Tables, reversed: Keys(),
     case Nil{}: (tables, sort(count, reversed))
     case Con{N.Attribute{+oid, tag, bytes, _}, rest}:
       attributes.prepared(oid,
-        attribute.prepare(S.rule.same(oid, [9,146,38,137,147,242,44,100,1,25], True{}), tables, oid, tag, bytes),
+        attribute.prepare(S.ia5(oid), tables, oid, tag, bytes),
         t => key => attributes(rest, t, Con{key, reversed}, Nat.add(count, 1n)))
 
 def rdns.prepared(result: U.Tables & Maybe<&1, Keys()>,

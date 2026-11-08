@@ -24,9 +24,10 @@ def prepared(data):
     for attrs in rdns:
         keys = []
         for oid, tag, body, _ in attrs:
-            if oid == N.DC:
+            if oid in (N.DC, N.EMAIL):
                 # Name parsing has already applied the independent IA5 schema.
                 # No Unicode preparation, space compression or DNS fallback.
+                # emailAddress: RFC 2985 pkcs9CaseIgnoreMatch, ASCII case only.
                 value = list(body.lower())
             else:
                 value = attribute_oracle(oid, tag, body)
@@ -92,7 +93,16 @@ def cases():
         ('domainComponent-no-nonASCII-coercion', name([[(N.DC,22,b'\xc5')]]), name([[(N.DC,22,b'a')]]), 'none'),
         ('domainComponent-RDN-order', name([[(N.DC,22,b'example')],[(N.DC,22,b'com')]]), name([[(N.DC,22,b'com')],[(N.DC,22,b'example')]]), 'different'),
         ('domainComponent-OID-binding', name([[(N.DC,22,b'example')]]), name([[attribute(text='example')]]), 'different'),
-        ('legacy-email-profile-deferred', name([[(N.EMAIL,22,b'A@example.test')]]), name([[(N.EMAIL,22,b'A@example.test')]]), 'none'),
+        ('emailAddress-ASCII-case', name([[(N.EMAIL,22,b'Info@E-Szigno.HU')]]), name([[(N.EMAIL,22,b'info@e-szigno.hu')]]), 'same'),
+        ('emailAddress-no-space-compression', name([[(N.EMAIL,22,b'a  b@x')]]), name([[(N.EMAIL,22,b'a b@x')]]), 'different'),
+        ('emailAddress-no-DirectoryString-coercion', name([[(N.EMAIL,12,b'a@x')]]), name([[(N.EMAIL,22,b'a@x')]]), 'none'),
+        ('emailAddress-OID-binding', name([[(N.EMAIL,22,b'example')]]), name([[(N.DC,22,b'example')]]), 'different'),
+        ('EV-jurisdiction-case-space', name([[(N.JURISDICTION_ST,12,b'  new  YORK ')]]), name([[(N.JURISDICTION_ST,19,b'New York')]]), 'same'),
+        ('EV-jurisdiction-OID-binding', name([[(N.JURISDICTION_ST,19,b'Utah')]]), name([[attribute(bytes.fromhex('550408'),19,'Utah')]]), 'different'),
+        ('EV-jurisdiction-country-case', name([[(N.JURISDICTION_C,19,b'US')]]), name([[(N.JURISDICTION_C,19,b'us')]]), 'same'),
+        ('organizationIdentifier-case-space', name([[(bytes.fromhex('550461'),12,b'VATHU-23584497')]]), name([[(bytes.fromhex('550461'),19,b' vathu-23584497 ')]]), 'same'),
+        ('businessCategory-street-postalCode', name([[(bytes.fromhex('55040f'),12,b'Private Organization')],[(bytes.fromhex('550409'),12,b'Main St 1')],[(bytes.fromhex('550411'),19,b'10115')]]),
+         name([[(bytes.fromhex('55040f'),19,b'PRIVATE ORGANIZATION')],[(bytes.fromhex('550409'),19,b'main st 1')],[(bytes.fromhex('550411'),12,b'10115')]]), 'same'),
         ('Teletex-profile-deferred', name([[(CN,20,b'A')]]), name([[(CN,20,b'A')]]), 'none'),
         ('unknown-rule-deferred', name([[(bytes.fromhex('2a0304'),4,b'x')]]), name([[(bytes.fromhex('2a0304'),4,b'x')]]), 'none'),
         ('malformed-later-attribute', name([[a],[(CN,12,b'\xff')]]), name([[a]]), 'none'),
@@ -109,6 +119,10 @@ def cases():
             yield row('domainComponent-all-ASCII-pairs',
                       name([[(N.DC,22,bytes([x]))]]), name([[(N.DC,22,bytes([y]))]]),
                       'same' if bytes([x]).lower()==bytes([y]).lower() else 'different')
+    for byte in range(256):
+        a = name([[(N.EMAIL,22,b'x'+bytes([byte]))]])
+        b = name([[(N.EMAIL,22,(b'x'+bytes([byte])).upper())]])
+        yield row('emailAddress-all-octets',a,b,'same' if byte<128 else 'none')
     for count in [0,1,63,64,65522,65523,65524,65535,65536]:
         a = name([[(N.DC,22,b'A'*count)]])
         b = name([[(N.DC,22,b'a'*count)]])
@@ -225,7 +239,7 @@ def main():
             'complete_selected_mode':args.limit is None,'complete_corpus':args.limit is None and args.mode=='all',
             'corpus_sha256':identity.hexdigest(),'RDN_multisets_preserve_multiplicity_and_sequence':True,
             'domainComponent':'ASCII case insensitive exact IA5; DNS/IDNA label validity separate',
-            'unknown_Teletex_legacy_email_profiles':'unsupported','chain_constraints_trust_or_issuer_authorization':False}
+            'emailAddress':'PKCS #9 ASCII case insensitive exact IA5','unknown_and_Teletex_profiles':'unsupported','chain_constraints_trust_or_issuer_authorization':False}
     if args.report:args.report.write_text(json.dumps(report,indent=2)+'\n')
     print(json.dumps(report,sort_keys=True))
 

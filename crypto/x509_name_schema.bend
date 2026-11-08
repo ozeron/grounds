@@ -69,14 +69,20 @@ def text(tag: U32, bytes: List<&2, U32>) -> Maybe<&1, U32>:
     case 30: bmp(bytes, 0, True{})
     case _: None{}
 
+# EV/OV subject attributes (CA/B EV Guidelines 9.2): street 9 and
+# businessCategory 15 use ub 128, postalCode 17 ub 40 (X.520 1993 and the
+# CA/B Baseline Requirements maxima); organizationIdentifier 97 is an
+# UnboundedDirectoryString, bounded here only by the DER owner's input limit.
 def standard(+attribute: U32) -> Rule:
   Bool.pick(Rule, U32.is_eq(attribute, 6), Rule{2, 2, 2},
     Bool.pick(Rule, U32.is_eq(attribute, 5), Rule{2, 1, 64},
       Bool.pick(Rule, U32.is_eq(attribute, 46), Rule{2, 0, 65535},
         Bool.pick(Rule, Bool.or(U32.is_eq(attribute, 3), range(attribute, 10, 12)), Rule{1, 1, 64},
           Bool.pick(Rule, Bool.or(U32.is_eq(attribute, 4), range(attribute, 41, 44)), Rule{1, 1, 32768},
-            Bool.pick(Rule, Bool.or(range(attribute, 7, 8), U32.is_eq(attribute, 65)), Rule{1, 1, 128},
-              Rule{0, 0, 0}))))))
+            Bool.pick(Rule, Bool.or(range(attribute, 7, 9), Bool.or(U32.is_eq(attribute, 15), U32.is_eq(attribute, 65))), Rule{1, 1, 128},
+              Bool.pick(Rule, U32.is_eq(attribute, 17), Rule{1, 1, 40},
+                Bool.pick(Rule, U32.is_eq(attribute, 97), Rule{1, 1, 65535},
+                  Rule{0, 0, 0}))))))))
 
 # Compare exact OID contents without expanding each U32 literal into Word cases.
 def rule.same(a: List<&2, U32>, b: List<&2, U32>, equal: Bool) -> Bool:
@@ -85,14 +91,39 @@ def rule.same(a: List<&2, U32>, b: List<&2, U32>, equal: Bool) -> Bool:
     case Con{x, xs} Con{y, ys}: rule.same(xs, ys, Bool.and(equal, U32.is_eq(x, y)))
     case _ _: False{}
 
+# EV jurisdictionOfIncorporation{Locality,StateOrProvince,Country}Name
+# (1.3.6.1.4.1.311.60.2.1.1-3) reuse X520LocalityName, X520StateOrProvinceName
+# and X520countryName syntax: DirectoryString 1..128 and PrintableString SIZE(2).
+def rule.jurisdiction(+arc: U32) -> Rule:
+  Bool.pick(Rule, range(arc, 1, 2), Rule{1, 1, 128},
+    Bool.pick(Rule, U32.is_eq(arc, 3), Rule{2, 2, 2}, Rule{0, 0, 0}))
+
+# Only the final arc may differ from 1.3.6.1.4.1.311.60.2.1; it must be last.
+def rule.ev(a: List<&2, U32>, b: List<&2, U32>, equal: Bool) -> Rule:
+  match a b:
+    case Con{arc, Nil{}} Nil{}: Bool.pick(Rule, equal, rule.jurisdiction(arc), Rule{0, 0, 0})
+    case Con{x, xs} Con{y, ys}: rule.ev(xs, ys, Bool.and(equal, U32.is_eq(x, y)))
+    case _ _: Rule{0, 0, 0}
+
 def rule.other(+oid: List<&2, U32>) -> Rule:
   Bool.pick(Rule, rule.same(oid, [9,146,38,137,147,242,44,100,1,25], True{}), Rule{3, 0, 65535},
-    Bool.pick(Rule, rule.same(oid, [42,134,72,134,247,13,1,9,1], True{}), Rule{3, 1, 255}, Rule{0, 0, 0}))
+    Bool.pick(Rule, rule.same(oid, [42,134,72,134,247,13,1,9,1], True{}), Rule{3, 1, 255},
+      rule.ev(oid, [43,6,1,4,1,130,55,60,2,1], True{})))
 
 def rule(oid: List<&2, U32>) -> Rule:
   match oid:
     case Con{85, Con{4, Con{attribute, Nil{}}}}: standard(attribute)
     case oid: rule.other(oid)
+
+# Both IA5 profiles (domainComponent, PKCS #9 emailAddress) compare exactly
+# except ASCII case; DirectoryString preparation never applies to them.
+def ia5.kind(rule: Rule) -> Bool:
+  match rule:
+    case Rule{3, _, _}: True{}
+    case _: False{}
+
+def ia5(oid: List<&2, U32>) -> Bool:
+  ia5.kind(rule(oid))
 
 def permitted(valid: Bool, processed: Bool) -> Maybe<&1, Bool>:
   match valid:
