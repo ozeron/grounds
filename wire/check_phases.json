@@ -458,6 +458,10 @@
       "optional": false
     },
     {
+      "name": "wire/m6-units/server-names",
+      "optional": false
+    },
+    {
       "name": "wire/m3b-peer/build/go",
       "optional": false
     },

@@ -535,6 +535,11 @@ fi
 announce start wire/m3b-types/server
 python3 tls_server_type_check.py
 announce end wire/m3b-types/server 0
+# M6 server SNI selection: exact > wildcard > default, key-type preference
+# and startup validation (pure proofs; live coverage in http_server).
+announce start wire/m6-units/server-names
+bend tls_server_names_test.bend
+announce end wire/m6-units/server-names 0
 announce start wire/m3b-peer/build/go
 python3 tls_go_peer_build.py --output "$tmp/tls_go_peer" --report "$m3_reports/go-peer-build.json"
 announce end wire/m3b-peer/build/go 0
