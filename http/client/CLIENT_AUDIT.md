@@ -250,6 +250,35 @@ unchanged. Live pool total 9 (was 7). System bundle admission: 113 rows
 (was 60), 32 red before the fix, with OpenSSL 3.6.4 `d2i_X509_AUX`
 agreeing on all but four DER-strictness rows.
 
+## Review fix 4 (2026-11-08)
+
+An independent re-check of review fix 3 found one P2, reproduced red on
+macwork before the fix.
+
+- P2, parameter contents (`crypto/pem_bundle.bend`): the shared
+  AlgorithmIdentifier parameter walker checked TLV framing but not
+  primitive contents. A valid root plus a TRUSTED block with AUX
+  `30 0c a1 0a 30 08 06 03 2a 03 04 05 01 00` (a NULL of length 1, which
+  OpenSSL's `d2i_X509_AUX` refuses) loaded through both system APIs in
+  either order; empty INTEGER and BOOLEAN and bad BIT STRING parameters
+  loaded too, in TRUSTED AUX `other` and in plain anchors' SPKI and
+  signature algorithms alike. The walker now requires DER: SEQUENCE and
+  SET constructed and walked, every other universal type primitive with
+  valid contents, context/application/private tags framing only
+  (TLS_PROFILE.md, bundle section).
+
+Tests: `PARAMETERS` (58 rows, 34 refused) in `crypto/pem_bundle_check.py`,
+each as a plain anchor's SPKI and signature parameters beside a valid root
+in either order (232 explicit rows, every API) and as TRUSTED AUX `other`
+parameters beside a valid root in either order (116 system rows). Before
+the fix 30 of the 34 refused rows loaded (480 runs). OpenSSL 3.6.4
+`d2i_X509` and `d2i_X509_AUX` agree on 48 rows; on the other 10 Bend is
+stricter (DER, not BER): a BOOLEAN octet other than 00/FF, BIT STRING
+padding bits or unused bits without data, constructed strings, an
+indefinite length, and bad elements inside SEQUENCE, SET or `[0]`
+parameters, which OpenSSL keeps as opaque bytes. The bundle check asserts
+the OpenSSL column when OpenSSL 3 is on PATH.
+
 ## IPv6 (M6 item 3, 2026-11-07)
 
 | Area | Before | M6 item 3 |

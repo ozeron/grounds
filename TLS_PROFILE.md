@@ -54,8 +54,13 @@ The PEM bundle is bounded to 2 MiB and 256 anchors; each certificate retains
 its 65,535-byte DER limit. File loading bounds both size and read. Explanatory
 text outside exact CERTIFICATE delimiters is allowed; malformed blocks or
 DER/OID framing (including nested SPKI, Name and extension framing, and
-AlgorithmIdentifier parameters walked to the leaves with every OID
-canonical: NULL for rsaEncryption, a namedCurve OID for id-ecPublicKey),
+AlgorithmIdentifier parameters walked to the leaves as DER: SEQUENCE and
+SET constructed, every other universal type primitive with valid contents
+(NULL empty, BOOLEAN 00/FF, INTEGER/ENUMERATED non-empty and minimal, BIT
+STRING unused bits 0–7 and zero, OID canonical, BMPString/UniversalString
+widths, UTCTime/GeneralizedTime minimum lengths), context/application/
+private tags framing only; NULL for rsaEncryption, a namedCurve OID for
+id-ecPublicKey),
 duplicate entries and overflow reject the entire load, without partial
 trust. Well-framed keys/Names outside the supported profile still load. Empty stores fail. File IO errors use normal File effects.
 A trust anchor's self-signature never establishes trust: structurally valid
@@ -107,14 +112,20 @@ and no program reads a host CA file unless it calls
   exactly one OpenSSL `X509_CERT_AUX`: `trust` (SEQUENCE OF OID), `reject`
   ([0] IMPLICIT SEQUENCE OF OID), `alias` (UTF8String), `keyid` (OCTET
   STRING) and `other` ([1] IMPLICIT SEQUENCE OF AlgorithmIdentifier, each
-  a canonical OID and at most one parameter, walked to the leaves), in that
+  a canonical OID and at most one parameter, walked to the leaves as DER
+  like a plain anchor's parameters), in that
   order, each optional and at most once, constructed where the schema is a
   SEQUENCE OF, every OID canonical. OpenSSL 3.6.4 `d2i_X509_AUX` rejects
-  every such block that Bend rejects, except four DER-strictness cases
-  that Bend also refuses: a primitive `[0]`/`[1]`, and malformed contents
-  inside an `other` parameter (OpenSSL keeps the parameter as an opaque
-  ANY). Trailing bytes after the AUX, which OpenSSL's PEM reader ignores,
-  also fail. A block withholds TLS server
+  every such block that Bend rejects, except DER-strictness cases that Bend
+  also refuses: a primitive `[0]`/`[1]`, and, in any AlgorithmIdentifier
+  parameter (review fix 4, 2026-11-08), a BOOLEAN other than 00/FF, BIT
+  STRING padding bits or unused bits with no data, constructed strings,
+  indefinite lengths, and malformed elements inside a SEQUENCE, SET or
+  tagged parameter (OpenSSL keeps those as opaque bytes). OpenSSL's own
+  primitive checks (NULL, BOOLEAN length, INTEGER/ENUMERATED, BIT STRING
+  unused bits, OID, string widths, time lengths, primitive/constructed
+  form) match Bend's. Trailing bytes after the AUX, which OpenSSL's PEM
+  reader ignores, also fail. A block withholds TLS server
   trust from its certificate when `reject` names serverAuth
   (1.3.6.1.5.5.7.3.1) or anyExtendedKeyUsage (2.5.29.37.0), or when a
   `trust` list (even an empty one) names neither; these are OpenSSL's
