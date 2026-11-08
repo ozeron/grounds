@@ -46,10 +46,10 @@ def accepted_mode(+mode: String, connection: S.Connection) -> IO(Unit):
 def accepted(+mode: String, value: Result<&2,&1,Transport.Error,S.Connection>) -> IO(Unit):
   match value:
     case Fail{why}: error(why)
-    case Done{S.Connection{Transport.Connection{pipe,+suite,+group,+alpn,closed},+sni}}:
+    case Done{S.Connection{Transport.Connection{pipe,+suite,+group,+alpn,closed},+sni,credential}}:
       do IO<Unit>:
         IO.print("accepted:" ++ U32.show(suite) ++ ":" ++ U32.show(group) ++ ":" ++ Bool.pick(String,alpn,"true","false") ++ ":" ++ B.hex(sni))
-        accepted_mode(mode,S.Connection{Transport.Connection{pipe,suite,group,alpn,closed},sni})
+        accepted_mode(mode,S.Connection{Transport.Connection{pipe,suite,group,alpn,closed},sni,credential})
 
 def imported(socket: Socket, +mode: String, value: Result<&2,&1,PEM.Error,S.Config>) -> IO(Unit):
   match value:

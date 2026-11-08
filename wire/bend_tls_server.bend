@@ -22,8 +22,10 @@ import ../crypto/bytes.bend as B
 type Config is Type:
   Config{credential: Cred.Credential, intermediates: List<&2,List<&2,U32>>, policy: N.Policy, deadline: Nat}
 
+# sni is the validated ClientHello host_name ([] when absent). credential is
+# the caller's label for the credential that authenticated ([] for accept).
 type Connection is Type:
-  Connection{transport: Transport.Connection, sni: List<&2,U32>}
+  Connection{transport: Transport.Connection, sni: List<&2,U32>, credential: List<&2,U32>}
 
 type Received is Type:
   Received{connection: Connection, bytes: List<&2,U32>}
@@ -143,7 +145,7 @@ def next_message(pipe: Transport.Pipe, +ccs: Bool) -> IO(MessageWork):
 def finished_valid(+valid: Bool, pipe: Transport.Pipe, read: T.ReadKey, +choice: N.Choice) -> IO(Work):
   match valid pipe choice:
     case True{} Transport.Pipe{socket,_,write,_,at} N.Choice{suite,group,_,sni,alpn}:
-      IO.pure(Work,Complete{Done{Connection{Transport.Connection{Transport.Pipe{socket,Some{read},write,HS.start(),at},suite,group,alpn,False{}},sni}}})
+      IO.pure(Work,Complete{Done{Connection{Transport.Connection{Transport.Pipe{socket,Some{read},write,HS.start(),at},suite,group,alpn,False{}},sni,[]}}})
     case _ pipe _: failure(pipe,Transport.Error{51,"client-finished",True{}})
 
 def finished_parsed(pipe: Transport.Pipe, cf: S.FinishedKey, +hash: List<&2,U32>, read: T.ReadKey, +choice: N.Choice, value: Result<&2,&2,U32,C.Message>) -> IO(Work):
@@ -299,32 +301,105 @@ def accept(socket: Socket, config: Config) -> IO(Result<&2,&1,Transport.Error,Co
   match config:
     case Config{credential,intermediates,+policy,at}: accept_valid(policy_valid(policy),socket,Config{credential,intermediates,policy,at})
 
-def wrapped(+sni: List<&2,U32>, value: Result<&2,&1,Transport.Error,Transport.Connection>) -> IO(Result<&2,&1,Transport.Error,Connection>):
+# Credential selection from the ClientHello (server SNI multi-certificate).
+# select receives the validated host_name ([] when absent or malformed) and the
+# offered signature_algorithms ([] when absent). It runs once, after the first
+# ClientHello and before ServerHello/HRR; an HRR keeps the same credential, and
+# CH2 may not change server_name or signature_algorithms. Certificate and
+# CertificateVerify use only the selected owner. None aborts with
+# unrecognized_name (112) unless the hello is already invalid for another
+# reason, whose existing alert is sent instead.
+type Selected is Type:
+  Selected{credential: Cred.Credential, intermediates: List<&2,List<&2,U32>>, label: List<&2,U32>}
+
+def offer_sni(value: Result<&2,&2,U32,List<&2,U32>>) -> List<&2,U32>:
+  match value:
+    case Done{name}: name
+    case Fail{_}: []
+
+def offer_numbers(value: Maybe<&2,List<&2,U32>>) -> List<&2,U32>:
+  match value:
+    case Some{values}: values
+    case None{}: []
+
+def offer(hello: Result<&2,&2,H.Error,H.Hello>) -> List<&2,U32> & List<&2,U32>:
+  match hello:
+    case Done{H.Client{_,_,_,+extensions}}: (offer_sni(N.sni(Client.find(0,extensions))),offer_numbers(N.numbers(Client.find(13,extensions))))
+    case _: ([],[])
+
+def unmatched(value: Result<&2,&2,U32,N.Choice>) -> U32:
+  match value:
+    case Fail{+code}: Bool.pick(U32,U32.is_eq(code,40),112,code)
+    case Done{_}: 112
+
+def labelled(+label: List<&2,U32>, value: Result<&2,&1,Transport.Error,Connection>) -> IO(Result<&2,&1,Transport.Error,Connection>):
   match value:
     case Fail{error}: IO.pure(Result<&2,&1,Transport.Error,Connection>,Fail{error})
-    case Done{connection}: IO.pure(Result<&2,&1,Transport.Error,Connection>,Done{Connection{connection,sni}})
+    case Done{Connection{connection,sni,_}}: IO.pure(Result<&2,&1,Transport.Error,Connection>,Done{Connection{connection,sni,label}})
+
+def continued(work: IO(Work)) -> IO(Result<&2,&1,Transport.Error,Connection>):
+  IO.bind(Work,Result<&2,&1,Transport.Error,Connection>,work,next => handshake_loop(3n,next))
+
+def unrecognized(pipe: Transport.Pipe, +code: U32) -> IO(Result<&2,&1,Transport.Error,Connection>):
+  continued(failure(pipe,Transport.Error{code,Bool.pick(String,U32.is_eq(code,112),"unrecognized-name","client-hello-negotiation"),True{}}))
+
+def select_chosen(pipe: Transport.Pipe, +policy: N.Policy, +at: Nat, +message: List<&2,U32>, choice: Maybe<&1,Selected>) -> IO(Result<&2,&1,Transport.Error,Connection>):
+  match choice:
+    case None{}: unrecognized(pipe,unmatched(N.negotiate(policy,0,message)))
+    case Some{Selected{credential,intermediates,+label}}:
+      IO.bind(Result<&2,&1,Transport.Error,Connection>,Result<&2,&1,Transport.Error,Connection>,
+        continued(hello_message(Config{credential,intermediates,policy,at},X.start(),[],[],Message{pipe,Done{message}})),value => labelled(label,value))
+
+def select_offer(pipe: Transport.Pipe, +policy: N.Policy, +at: Nat, +message: List<&2,U32>, select: List<&2,U32> -> List<&2,U32> -> Maybe<&1,Selected>, pair: List<&2,U32> & List<&2,U32>) -> IO(Result<&2,&1,Transport.Error,Connection>):
+  (sni,sigs) = pair
+  select_chosen(pipe,policy,at,message,select(sni,sigs))
+
+def select_message(+policy: N.Policy, +at: Nat, select: List<&2,U32> -> List<&2,U32> -> Maybe<&1,Selected>, work: MessageWork) -> IO(Result<&2,&1,Transport.Error,Connection>):
+  match work:
+    case Message{pipe,Fail{error}}: continued(failure(pipe,error))
+    case Message{pipe,Done{+message}}: select_offer(pipe,policy,at,message,select,offer(H.parse(message)))
+    case Reading{pipe}: continued(failure(pipe,Transport.Error{80,"handshake-read-budget",True{}}))
+
+def accept_select_valid(valid: Bool, socket: Socket, +policy: N.Policy, +at: Nat, select: List<&2,U32> -> List<&2,U32> -> Maybe<&1,Selected>) -> IO(Result<&2,&1,Transport.Error,Connection>):
+  match valid:
+    case False{}:
+      do IO<Result<&2,&1,Transport.Error,Connection>>:
+        Socket.close(socket)
+        IO.pure(Result<&2,&1,Transport.Error,Connection>,Fail{Transport.Error{80,"invalid-server-policy",False{}}})
+    case True{}:
+      IO.bind(MessageWork,Result<&2,&1,Transport.Error,Connection>,next_message(Transport.Pipe{socket,None{},None{},HS.start(),at},False{}),work => select_message(policy,at,select,work))
+
+# Like accept, but the credential is chosen per connection by select. All
+# other policy, deadline and failure behaviour is that of accept.
+def accept_select(socket: Socket, +policy: N.Policy, +at: Nat, select: List<&2,U32> -> List<&2,U32> -> Maybe<&1,Selected>) -> IO(Result<&2,&1,Transport.Error,Connection>):
+  accept_select_valid(policy_valid(policy),socket,policy,at,select)
+
+def wrapped(+sni: List<&2,U32>, +credential: List<&2,U32>, value: Result<&2,&1,Transport.Error,Transport.Connection>) -> IO(Result<&2,&1,Transport.Error,Connection>):
+  match value:
+    case Fail{error}: IO.pure(Result<&2,&1,Transport.Error,Connection>,Fail{error})
+    case Done{connection}: IO.pure(Result<&2,&1,Transport.Error,Connection>,Done{Connection{connection,sni,credential}})
 
 def send(connection: Connection, +bytes: List<&2,U32>) -> IO(Result<&2,&1,Transport.Error,Connection>):
   match connection:
-    case Connection{connection,sni}: IO.bind(Result<&2,&1,Transport.Error,Transport.Connection>,Result<&2,&1,Transport.Error,Connection>,Transport.send(connection,bytes),value => wrapped(sni,value))
+    case Connection{connection,sni,credential}: IO.bind(Result<&2,&1,Transport.Error,Transport.Connection>,Result<&2,&1,Transport.Error,Connection>,Transport.send(connection,bytes),value => wrapped(sni,credential,value))
 
 def key_update(connection: Connection, +request: Bool) -> IO(Result<&2,&1,Transport.Error,Connection>):
   match connection:
-    case Connection{connection,sni}: IO.bind(Result<&2,&1,Transport.Error,Transport.Connection>,Result<&2,&1,Transport.Error,Connection>,Transport.key_update(connection,request),value => wrapped(sni,value))
+    case Connection{connection,sni,credential}: IO.bind(Result<&2,&1,Transport.Error,Transport.Connection>,Result<&2,&1,Transport.Error,Connection>,Transport.key_update(connection,request),value => wrapped(sni,credential,value))
 
-def received(+sni: List<&2,U32>, value: Result<&2,&1,Transport.Error,Transport.Received>) -> IO(Result<&2,&1,Transport.Error,Received>):
+def received(+sni: List<&2,U32>, +credential: List<&2,U32>, value: Result<&2,&1,Transport.Error,Transport.Received>) -> IO(Result<&2,&1,Transport.Error,Received>):
   match value:
     case Fail{error}: IO.pure(Result<&2,&1,Transport.Error,Received>,Fail{error})
-    case Done{Transport.Received{connection,bytes}}: IO.pure(Result<&2,&1,Transport.Error,Received>,Done{Received{Connection{connection,sni},bytes}})
+    case Done{Transport.Received{connection,bytes}}: IO.pure(Result<&2,&1,Transport.Error,Received>,Done{Received{Connection{connection,sni,credential},bytes}})
 
 def recv(connection: Connection) -> IO(Result<&2,&1,Transport.Error,Received>):
   match connection:
-    case Connection{connection,sni}: IO.bind(Result<&2,&1,Transport.Error,Transport.Received>,Result<&2,&1,Transport.Error,Received>,Transport.recv_server(connection),value => received(sni,value))
+    case Connection{connection,sni,credential}: IO.bind(Result<&2,&1,Transport.Error,Transport.Received>,Result<&2,&1,Transport.Error,Received>,Transport.recv_server(connection),value => received(sni,credential,value))
 
 def deadline(connection: Connection, +at: Nat) -> Connection:
   match connection:
-    case Connection{connection,sni}: Connection{Transport.deadline(connection,at),sni}
+    case Connection{connection,sni,credential}: Connection{Transport.deadline(connection,at),sni,credential}
 
 def close(connection: Connection) -> IO(Unit):
   match connection:
-    case Connection{connection,_}: Transport.close(connection)
+    case Connection{connection,_,_}: Transport.close(connection)
