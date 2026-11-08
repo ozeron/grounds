@@ -4,6 +4,69 @@ Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and 
 
 The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
 
+- 2026-11-08 (M6 review fix 4: one P2 finding): an independent
+  GPT-6.1-Sol re-check of review fix 3 found that the shared
+  AlgorithmIdentifier parameter walker (`crypto/pem_bundle.bend`) checked
+  TLV framing but not primitive contents. Reproduced red on macwork before
+  the fix. Commits `f5496eb` (tests), `f222973` (fix), `d671f29` (docs)
+  on `aa01b04`.
+  - P2, parameter contents (`f222973`): a valid root plus a TRUSTED block
+    with AUX `30 0c a1 0a 30 08 06 03 2a 03 04 05 01 00` (NULL of length 1;
+    OpenSSL `d2i_X509_AUX`: "null is wrong length") loaded through
+    `system-bytes` and `system` in either order, as did empty INTEGER and
+    BOOLEAN and bad BIT STRING parameters, also in plain anchors' SPKI and
+    signature algorithms. Now SEQUENCE and SET must be constructed and are
+    walked; every other universal type must be primitive with valid
+    contents (NULL empty; BOOLEAN 00/FF; INTEGER/ENUMERATED non-empty and
+    minimal via `C.integer`; BIT STRING via `C.bit_string`; OID via
+    `O.contents`; BMPString even and UniversalString multiple-of-4 length;
+    UTCTime >= 13 and GeneralizedTime >= 15 octets, OpenSSL's own checks).
+    Context/application/private tags stay framing only (constructed ones
+    walked). Indefinite lengths were already refused by `D.read`.
+  - Tests (`f5496eb`): `PARAMETERS` in `crypto/pem_bundle_check.py`, 58 rows
+    (34 refused), each with Bend's and OpenSSL's verdict. Explicit bundle
+    rows 303 (was 71): each row as SPKI and as signature parameters of a
+    plain anchor, after and before a valid root (232); in http_client both
+    `bytes` and `file` run (606 results). System admission rows 229 (was
+    113): each row as AUX `other` parameters (the review's exact trailer
+    is `null-length-1`), after and before a valid root (116); 487 results
+    over `system-bytes`/`system` and the path cases. Red
+    (`red-pre-fix.txt`): 30 of the 34 refused rows loaded, 480 runs
+    (120 each for cli/bytes/file, 60 each for the two system APIs); green
+    (`green-post-fix.txt`): 1,367 runs, 0 mismatches.
+  - OpenSSL 3.6.4 (`d2i_X509` for SPKI/signature, `d2i_X509_AUX` for
+    `other`, ctypes; asserted by the bundle check when OpenSSL 3 is on
+    PATH): agrees on 48 rows. On 10 Bend is stricter (DER, not BER):
+    BOOLEAN 01, BIT STRING with padding bits set or unused bits without
+    data, constructed OCTET STRING/UTF8String, an indefinite-length
+    SEQUENCE, and bad elements inside SEQUENCE, SET or `[0]` parameters
+    (OpenSSL keeps those as opaque bytes). TLS_PROFILE.md's review fix 3
+    claim that OpenSSL treats `other` parameters as opaque ANY was wrong
+    for primitive universal types and is corrected.
+  - Real bundles (`real-bundles-load.txt`, same files as 2026-11-07, old
+    and new binaries, `system-bytes`/`system`/`bytes`): Mozilla snapshot
+    118, macOS 128, Debian 148, NixOS 118 (+172 TRUSTED; explicit `bytes`
+    `malformed-bundle` as before), Fedora/Alpine/openSUSE 118, Fedora
+    `ca-bundle.trust.crt` `empty-bundle`; all unchanged, 0.1-0.45 s.
+
+  Fresh macwork gates at `f222973`, `--force`, clean tree, unchanged
+  4096 MiB / 120 s guard (`gates.sh http_client crypto`):
+  - `http_client:check`: **50/50**, peak 1800.0 MiB
+    (`bend_frontend_native`; aggregate 1887.4), 416 s; `bend_bundle_build`
+    1340.3 MiB.
+  - `crypto:check`: **1,807/1,807**, peak 945.9 MiB (`rsa_private_cli`),
+    1716 s; `pem_bundle_cli` build 873.7 MiB (838.7 at review fix 3).
+  - `http_server:check` and `wire:check` not run: no server or wire
+    change. This entry and `d671f29` are docs-only commits after the gated
+    revision.
+
+  Artifacts: `~/.codex/artifacts/grounds/2026-11-08/m6/review-fix-4/`
+  (`<gate>-01.json/.log/.inputs.txt/-artifacts`, `gates.out`, `gates.sh`,
+  `peaks.txt`, `red-pre-fix.txt`, `green-post-fix.txt`,
+  `openssl-parameter-oracle.json`, `real-bundles-load.txt`, `tools/` with
+  the oracle probe and the admission matrix). On macwork:
+  `~/grounds-artifacts/2026-11-08/m6/review-fix-4/`.
+
 - 2026-11-08 (M6 review fix 3: two P2 findings): an independent
   GPT-6.1-Sol review of the review fix 2 code found two P2 issues. Both
   were reproduced red on macwork before the fix. Commits `662d5e9` (tests),
