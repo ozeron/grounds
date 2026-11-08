@@ -279,7 +279,9 @@ def run(m: Mode, +cfg: C.Config, +url: String) -> IO(Unit):
     case MHead{}: IO.bind(C.R(C.Reply),Unit,C.send(cfg,C.head(url)),reply)
     case MSmall{}: IO.bind(C.R(C.Reply),Unit,C.send(C.with_max_body(cfg,1024),C.get(url)),reply)
     case MSmallHead{}: IO.bind(C.R(C.Reply),Unit,C.send(C.with_max_head(cfg,256),C.get(url)),reply)
-    case MSum{}: IO.bind(C.R(C.Reply),Unit,C.send(cfg,C.get(url)),summed)
+    # a 4 MiB buffered body takes about 2.9 s natively, too close to the
+    # 3 s default here; 10 s as for the 2 MiB upload
+    case MSum{}: IO.bind(C.R(C.Reply),Unit,C.send(C.with_timeout(cfg,10000),C.get(url)),summed)
     case MStreamSum{}: IO.bind(C.R(C.Head),Unit,C.stream(~piece,cfg,C.get(url)),streamed)
     case MHeaders{}: IO.bind(C.R(C.Reply),Unit,C.send(cfg,C.with(C.post(url,C.text("hi")),[("X-Ok","1"),("Bad Name","x"),("X-Ctl","a\u{1}b"),("Transfer-Encoding ","chunked"),("X:Y","z"),("X-Del","\u{7f}"),("Host","evil"),("X-Tab","a\tb")])),reply)
     case MPost{}: IO.bind(C.R(C.Reply),Unit,C.send(cfg,C.with(C.post(url,C.json(cup())),[("Authorization","secret"),("Cookie","secret"),("Content-Language","en")])),reply)
