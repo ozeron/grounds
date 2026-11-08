@@ -80,6 +80,137 @@ NESTED = [
     ('signature-nested-parameters', 'signature', '301006032a03043009a00506032a03050500', 'ok:2'),
 ]
 
+# AlgorithmIdentifier parameters (ANY) are DER to the leaves: SEQUENCE and SET
+# constructed and walked; every other universal type primitive with valid
+# contents; context/application/private tags framing only (constructed ones
+# walked). Shared by SPKI and signature algorithms and TRUSTED AUX `other`.
+# name, parameters (hex), admitted, admitted by OpenSSL 3 d2i_X509 and
+# d2i_X509_AUX. Where they differ, Bend is stricter (DER, not BER): OpenSSL
+# accepts any non-zero BOOLEAN octet, masks BIT STRING padding bits, accepts
+# constructed strings and indefinite lengths, and never looks inside a
+# SEQUENCE, SET or context-tagged parameter.
+PARAMETERS = [
+    ('null', '0500', True, True),
+    ('null-length-1', '050100', False, False),
+    ('null-constructed', '2500', False, False),
+    ('boolean-true', '0101ff', True, True),
+    ('boolean-false', '010100', True, True),
+    ('boolean-empty', '0100', False, False),
+    ('boolean-length-2', '01020000', False, False),
+    ('boolean-not-der', '010101', False, True),
+    ('boolean-constructed', '2100', False, False),
+    ('integer', '020100', True, True),
+    ('integer-high-bit', '02020080', True, True),
+    ('integer-empty', '0200', False, False),
+    ('integer-padded', '02020001', False, False),
+    ('integer-negative-padded', '0202ff80', False, False),
+    ('integer-constructed', '2203020101', False, False),
+    ('enumerated', '0a0101', True, True),
+    ('enumerated-empty', '0a00', False, False),
+    ('enumerated-padded', '0a020001', False, False),
+    ('bit-string-empty-value', '030100', True, True),
+    ('bit-string-padded', '03020780', True, True),
+    ('bit-string-empty', '0300', False, False),
+    ('bit-string-unused-8', '03020800', False, False),
+    ('bit-string-unused-255', '0301ff', False, False),
+    ('bit-string-empty-unused-1', '030101', False, True),
+    ('bit-string-padding-set', '03020101', False, True),
+    ('bit-string-constructed', '2300', False, False),
+    ('oid', '06032a0304', True, True),
+    ('oid-empty', '0600', False, False),
+    ('oid-unterminated', '060180', False, False),
+    ('oid-noncanonical', '06028001', False, False),
+    ('octet-string', '0400', True, True),
+    ('octet-string-constructed', '2403040100', False, True),
+    ('utf8-string', '0c0141', True, True),
+    ('utf8-string-constructed', '2c00', False, True),
+    ('printable-string', '1300', True, True),
+    ('bmp-string', '1e020041', True, True),
+    ('bmp-string-odd', '1e0141', False, False),
+    ('universal-string', '1c0400000041', True, True),
+    ('universal-string-length-3', '1c03000000', False, False),
+    ('utc-time', '170d3236313130383030303030305a', True, True),
+    ('utc-time-short', '170c' + '41' * 12, False, False),
+    ('generalized-time', '180f32303236313130383030303030305a', True, True),
+    ('generalized-time-short', '180e' + '41' * 14, False, False),
+    ('real-empty', '0900', True, True),
+    ('relative-oid', '0d0180', True, True),
+    ('sequence', '30050201010500', True, True),
+    ('set', '31020500', True, True),
+    ('sequence-primitive', '1000', False, False),
+    ('set-primitive', '1100', False, False),
+    ('sequence-indefinite', '308005000000', False, True),
+    ('sequence-bad-null', '3003050100', False, True),
+    ('set-bad-integer', '31020200', False, True),
+    ('sequence-nested-bad-boolean', '300430020100', False, True),
+    ('context-primitive', '8001ff', True, True),
+    ('context-constructed', 'a0038001ff', True, True),
+    ('context-bad-null', 'a003050100', False, True),
+    ('application-primitive', '4001ff', True, True),
+    ('private-constructed', 'e0030101ff', True, True),
+]
+UNKNOWN_KEY = bytes.fromhex('2a0304')
+
+
+def spki(parameters):
+    return A.tlv(48, A.algorithm(UNKNOWN_KEY, parameters) + bytes.fromhex('0303000000'))
+
+
+def libcrypto():
+    """OpenSSL 3 libcrypto next to the `openssl` on PATH, else None."""
+    import ctypes
+    import shutil
+    found = shutil.which('openssl')
+    if not found:
+        return None
+    lib = Path(found).resolve().parent.parent / 'lib'
+    for name in ('libcrypto.3.dylib', 'libcrypto.so.3'):
+        if (lib / name).exists():
+            c = ctypes.CDLL(str(lib / name))
+            c.OpenSSL_version.restype = ctypes.c_char_p
+            for f in ('d2i_X509', 'd2i_X509_AUX'):
+                getattr(c, f).restype = ctypes.c_void_p
+                getattr(c, f).argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_char_p), ctypes.c_long]
+            c.X509_free.argtypes = [ctypes.c_void_p]
+            return c
+    return None
+
+
+def openssl_parses(lib, function, der):
+    """OpenSSL's d2i_X509 or d2i_X509_AUX consumes exactly `der`."""
+    import ctypes
+    buf = ctypes.create_string_buffer(der, len(der))
+    p = ctypes.c_char_p(ctypes.addressof(buf))
+    x = getattr(lib, function)(None, ctypes.byref(p), len(der))
+    if not x:
+        return False
+    used = ctypes.cast(p, ctypes.c_void_p).value - ctypes.addressof(buf)
+    lib.X509_free(x)
+    return used == len(der)
+
+
+def openssl_parameters():
+    """Each PARAMETERS row's OpenSSL column, on the same certificates the
+    bundle cases build (SPKI and signature through d2i_X509, AUX `other`
+    through d2i_X509_AUX). None when no OpenSSL 3 libcrypto is found."""
+    lib = libcrypto()
+    if lib is None:
+        return None
+    version = lib.OpenSSL_version(0).decode()
+    if not version.startswith('OpenSSL 3.'):
+        return None
+    raw = certificates(BUNDLE.read_bytes())[1]
+    rows = []
+    for name, value, _, expected in PARAMETERS:
+        parameters = bytes.fromhex(value)
+        other = A.tlv(48, A.tlv(0xa1, A.algorithm(UNKNOWN_KEY, parameters)))
+        got = dict(spki=openssl_parses(lib, 'd2i_X509', nested(raw, 'spki', spki(parameters))),
+                   signature=openssl_parses(lib, 'd2i_X509', nested(raw, 'signature', A.algorithm(UNKNOWN_KEY, parameters))),
+                   aux=openssl_parses(lib, 'd2i_X509_AUX', raw + other))
+        assert set(got.values()) == {expected}, (name, got, expected)
+        rows.append(dict(name=name, parameters=value, openssl=expected))
+    return dict(version=version, rows=rows)
+
 
 def cases():
     data = BUNDLE.read_bytes()
@@ -112,6 +243,13 @@ def cases():
         *[row for name, field, value, expected in NESTED
           for row in ((name + '-after-valid', good + pem(nested(roots[1], field, bytes.fromhex(value))), expected),
                       (name + '-before-valid', pem(nested(roots[1], field, bytes.fromhex(value))) + good, expected))],
+        # Every PARAMETERS row in the SPKI and signature algorithms of a plain
+        # anchor next to a valid one, in either order.
+        *[row for name, value, admitted, _ in PARAMETERS
+          for field, element in (('spki', spki), ('signature', lambda p: A.algorithm(UNKNOWN_KEY, p)))
+          for raw in (nested(roots[1], field, element(bytes.fromhex(value))),)
+          for row in ((f'{field}-parameter-{name}-after-valid', good + pem(raw), 'ok:2' if admitted else 'malformed-bundle'),
+                      (f'{field}-parameter-{name}-before-valid', pem(raw) + good, 'ok:2' if admitted else 'malformed-bundle'))],
         ('scale-200', b''.join(expanded[:200]), 'ok:200'),
         ('scale-256', b''.join(expanded[:256]), 'ok:256'),
         ('scale-257', b''.join(expanded), 'bundle-limit'),
@@ -144,13 +282,16 @@ def main():
                 assert r.returncode == 0 and actual == expected, (name, mode, r.returncode, answer, expected, r.stderr[-1000:])
                 results.append(dict(name=name, mode=mode, result=actual,
                                     seconds=time.monotonic()-start))
+    oracle = openssl_parameters()
     report = dict(passed=True, cases=len(results), bundle_sha256=BUNDLE_SHA256,
-                  anchors=len(certificates(BUNDLE.read_bytes())), results=results)
+                  anchors=len(certificates(BUNDLE.read_bytes())), openssl_parameters=oracle, results=results)
     destination = a.report or (Path(os.environ['GROUNDS_M5_REPORT_DIR']) / ('bundle-policy.json' if a.policy else 'bundle-parser.json') if os.environ.get('GROUNDS_M5_REPORT_DIR') else None)
     if destination:
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_text(json.dumps(report, indent=2) + '\n')
     print(f'Native explicit bundle admission: {len(results)} passed; malformed entries fail the whole load')
+    print(f"OpenSSL parameter oracle: {len(oracle['rows'])} rows agree ({oracle['version']})" if oracle
+          else 'OpenSSL parameter oracle: no OpenSSL 3 libcrypto, skipped')
 
 
 if __name__ == '__main__':

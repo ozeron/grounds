@@ -23,7 +23,7 @@ import threading
 import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / 'crypto'))
-from pem_bundle_check import BUNDLE, BUNDLE_SHA256, certificates, nested, pem  # noqa: E402
+from pem_bundle_check import BUNDLE, BUNDLE_SHA256, PARAMETERS, certificates, nested, pem  # noqa: E402
 from x509_algorithm_check import algorithm, tlv  # noqa: E402
 
 DEFAULT_PATHS = ['/etc/ssl/certs/ca-certificates.crt', '/etc/pki/tls/certs/ca-bundle.crt',
@@ -165,6 +165,14 @@ def admission_cases():
         *[(name, pem(a) + pem(b) + trusted(a, value), 'malformed-bundle') for name, value in bad_aux],
         *[(name + '-unrelated', pem(a) + pem(b) + trusted(a[:-2] + b'\xee\xee', value), 'malformed-bundle')
           for name, value in bad_aux],
+        # review fix 4: every PARAMETERS row as the parameters of an AUX
+        # `other` algorithm (the review's trailer 30 0c a1 0a 30 08 06 03
+        # 2a 03 04 05 01 00 is null-length-1), next to a valid plain root,
+        # in either order
+        *[row for name, value, admitted, _ in PARAMETERS
+          for block in (trusted(a, aux(other=[algorithm(UNKNOWN, bytes.fromhex(value))])),)
+          for row in ((f'aux-other-parameter-{name}-after-root', pem(a) + block, 'ok:1' if admitted else 'malformed-bundle'),
+                      (f'aux-other-parameter-{name}-before-root', block + pem(a), 'ok:1' if admitted else 'malformed-bundle'))],
         *[(name, pem(a) + pem(b) + trusted(cert, value), 'malformed-bundle') for name, cert, value in bad_trusted],
         *[(name + '-first', trusted(cert, value) + pem(a) + pem(b), 'malformed-bundle') for name, cert, value in bad_trusted],
         ('trusted-missing-end', good + trusted(roots[1]).split(b'-----END')[0], 'malformed-bundle'),
