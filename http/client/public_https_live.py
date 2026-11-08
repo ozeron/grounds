@@ -11,6 +11,9 @@ import time
 
 ROOT = Path(__file__).resolve().parents[2]
 HOSTS = ['example.com', 'www.google.com', 'letsencrypt.org', 'github.com', 'www.cloudflare.com']
+# M6: EV leaves whose subjects carry jurisdiction/businessCategory/serialNumber
+# (and street at GlobalSign); any HTTP status after verification counts.
+HOSTS += ['www.digicert.com', 'www.globalsign.com', 'www.bankofamerica.com']
 # plain-HTTP origins that redirect to HTTPS: the client follows the redirect
 # (http to https is allowed; the reverse never is) and verifies the target
 REDIRECTS = ['http://github.com/']

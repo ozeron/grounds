@@ -39,7 +39,7 @@
           "recorded_from": "le-r10.pem"
         }
       ],
-      "untrusted_result": "unsupported-name",
+      "untrusted_result": "wrong-issuer",
       "removed_anchor_indices": [
         41
       ],
@@ -100,7 +100,7 @@
           "recorded_from": "le-e5.pem"
         }
       ],
-      "untrusted_result": "unsupported-name",
+      "untrusted_result": "wrong-issuer",
       "removed_anchor_indices": [
         77
       ],
@@ -161,7 +161,7 @@
           "recorded_from": "le-e6.pem"
         }
       ],
-      "untrusted_result": "unsupported-name",
+      "untrusted_result": "wrong-issuer",
       "removed_anchor_indices": [
         77
       ],
@@ -234,7 +234,7 @@
           "recorded_from": "valid-isrgrootx1.letsencrypt.org-2.pem"
         }
       ],
-      "untrusted_result": "unsupported-name",
+      "untrusted_result": "wrong-issuer",
       "removed_anchor_indices": [
         41
       ],
@@ -307,7 +307,7 @@
           "recorded_from": "valid-isrgrootx2.letsencrypt.org-2.pem"
         }
       ],
-      "untrusted_result": "unsupported-name",
+      "untrusted_result": "wrong-issuer",
       "removed_anchor_indices": [
         77
       ],
@@ -392,7 +392,7 @@
           "recorded_from": "example.com-3.pem"
         }
       ],
-      "untrusted_result": "unsupported-name",
+      "untrusted_result": "wrong-issuer",
       "removed_anchor_indices": [
         96
       ],
@@ -465,7 +465,7 @@
           "recorded_from": "www.google.com-2.pem"
         }
       ],
-      "untrusted_result": "unsupported-name",
+      "untrusted_result": "wrong-issuer",
       "removed_anchor_indices": [
         82
       ],
@@ -550,7 +550,7 @@
           "recorded_from": "letsencrypt.org-3.pem"
         }
       ],
-      "untrusted_result": "unsupported-name",
+      "untrusted_result": "wrong-issuer",
       "removed_anchor_indices": [
         41,
         77
@@ -625,7 +625,7 @@
           "recorded_from": "github.com-2.pem"
         }
       ],
-      "untrusted_result": "unsupported-name",
+      "untrusted_result": "wrong-issuer",
       "removed_anchor_indices": [
         31,
         93
@@ -700,7 +700,7 @@
           "recorded_from": "www.cloudflare.com-2.pem"
         }
       ],
-      "untrusted_result": "unsupported-name",
+      "untrusted_result": "wrong-issuer",
       "removed_anchor_indices": [
         82
       ],
@@ -773,7 +773,7 @@
           "recorded_from": "www.microsoft.com-2.pem"
         }
       ],
-      "untrusted_result": "unsupported-name",
+      "untrusted_result": "wrong-issuer",
       "removed_anchor_indices": [
         26
       ],
@@ -858,7 +858,7 @@
           "recorded_from": "www.sectigo.com-3.pem"
         }
       ],
-      "untrusted_result": "unsupported-name",
+      "untrusted_result": "untrusted",
       "removed_anchor_indices": [
         30,
         94
@@ -933,7 +933,7 @@
           "recorded_from": "www.amazon.com-2.pem"
         }
       ],
-      "untrusted_result": "unsupported-name",
+      "untrusted_result": "wrong-issuer",
       "removed_anchor_indices": [
         7,
         43
@@ -962,11 +962,736 @@
       ],
       "openssl_exit": 0,
       "openssl_output": "/Users/ozeron/code/grounds/crypto/fixtures/public-chains/www.amazon.com-0.pem: OK\nChain:\ndepth=0: CN=www.amazon.com (untrusted)\ndepth=1: C=US, O=Amazon, CN=Amazon RSA 2048 M04 (untrusted)\ndepth=2: C=US, O=Amazon, CN=Amazon Root CA 1\n"
+    },
+    {
+      "label": "www.digicert.com",
+      "hostname": "www.digicert.com",
+      "now": 1794139200,
+      "expired_now": 1795737600,
+      "source": "OpenSSL 4.1 s_client -showcerts www.digicert.com:443 with SNI and http/1.1",
+      "recorded_at": "2026-11-08",
+      "certificates": [
+        {
+          "file": "www.digicert.com-0.pem",
+          "sha256": "60fd17bf84b17d756ef651603880dfbde298b115eebac504e5b427244b0ebd8b",
+          "der_sha256": "6d92f38618299895c994c5f9d14edeeb52080ae2f1d99861f233bb62a3c2e43c",
+          "subject": "CN=www.digicert.com,O=DigiCert\\, Inc.,L=Lehi,ST=Utah,C=US,2.5.4.5=5299537-0142,2.5.4.15=Private Organization,1.3.6.1.4.1.311.60.2.1.2=Utah,1.3.6.1.4.1.311.60.2.1.3=US",
+          "issuer": "CN=DigiCert EV RSA CA G2,O=DigiCert Inc,C=US",
+          "not_before": "2026-10-11T00:00:00+00:00",
+          "not_after": "2026-11-26T23:59:59+00:00",
+          "signature_oid": "1.2.840.113549.1.1.11",
+          "public_key": "RSAPublicKey",
+          "recorded_from": "www.digicert.com-0.pem"
+        },
+        {
+          "file": "www.digicert.com-1.pem",
+          "sha256": "d7efda02ff375691f34e4bd7423155f3902448b4c84bf9aa0100849113c56a38",
+          "der_sha256": "9588ef74199e45acefcccfc0c47010e9f2a37a1dd44c61a4e1c6b334da5af614",
+          "subject": "CN=DigiCert EV RSA CA G2,O=DigiCert Inc,C=US",
+          "issuer": "CN=DigiCert Global Root G2,OU=www.digicert.com,O=DigiCert Inc,C=US",
+          "not_before": "2020-07-02T12:42:50+00:00",
+          "not_after": "2030-07-02T12:42:50+00:00",
+          "signature_oid": "1.2.840.113549.1.1.11",
+          "public_key": "RSAPublicKey",
+          "recorded_from": "www.digicert.com-1.pem"
+        },
+        {
+          "file": "www.digicert.com-2.pem",
+          "sha256": "5d550643b6400d4341550a9b14aedd0b4fac33ae5deb7d8247b6b4f799c13306",
+          "der_sha256": "cb3ccbb76031e5e0138f8dd39a23f9de47ffc35e43c1144cea27d46a5ab1cb5f",
+          "subject": "CN=DigiCert Global Root G2,OU=www.digicert.com,O=DigiCert Inc,C=US",
+          "issuer": "CN=DigiCert Global Root G2,OU=www.digicert.com,O=DigiCert Inc,C=US",
+          "not_before": "2013-08-01T12:00:00+00:00",
+          "not_after": "2038-01-15T12:00:00+00:00",
+          "signature_oid": "1.2.840.113549.1.1.11",
+          "public_key": "RSAPublicKey",
+          "recorded_from": "www.digicert.com-2.pem"
+        }
+      ],
+      "untrusted_result": "untrusted",
+      "removed_anchor_indices": [
+        26
+      ],
+      "removed_anchor_subjects": [
+        "CN=DigiCert Global Root G2,OU=www.digicert.com,O=DigiCert Inc,C=US"
+      ],
+      "openssl_command": [
+        "openssl",
+        "verify",
+        "-show_chain",
+        "-no-CApath",
+        "-no-CAstore",
+        "-CAfile",
+        "/Users/ozeron/code/grounds-m6-names/crypto/fixtures/public-chains/mozilla-2026-10-20.pem",
+        "-purpose",
+        "sslserver",
+        "-attime",
+        "1794139200",
+        "-verify_hostname",
+        "www.digicert.com",
+        "-untrusted",
+        "<recorded intermediates www.digicert.com-1.pem..www.digicert.com-2.pem>",
+        "/Users/ozeron/code/grounds-m6-names/crypto/fixtures/public-chains/www.digicert.com-0.pem"
+      ],
+      "openssl_exit": 0,
+      "openssl_output": "/Users/ozeron/code/grounds-m6-names/crypto/fixtures/public-chains/www.digicert.com-0.pem: OK\nChain:\ndepth=0: jurisdictionC=US, jurisdictionST=Utah, businessCategory=Private Organization, serialNumber=5299537-0142, C=US, ST=Utah, L=Lehi, O=DigiCert, Inc., CN=www.digicert.com (untrusted)\ndepth=1: C=US, O=DigiCert Inc, CN=DigiCert EV RSA CA G2 (untrusted)\ndepth=2: C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Global Root G2\n",
+      "leaf_subject_attributes": [
+        [
+          "1.3.6.1.4.1.311.60.2.1.3:PrintableString"
+        ],
+        [
+          "1.3.6.1.4.1.311.60.2.1.2:PrintableString"
+        ],
+        [
+          "2.5.4.15:UTF8String"
+        ],
+        [
+          "2.5.4.5:PrintableString"
+        ],
+        [
+          "2.5.4.6:PrintableString"
+        ],
+        [
+          "2.5.4.8:PrintableString"
+        ],
+        [
+          "2.5.4.7:PrintableString"
+        ],
+        [
+          "2.5.4.10:PrintableString"
+        ],
+        [
+          "2.5.4.3:PrintableString"
+        ]
+      ]
+    },
+    {
+      "label": "www.globalsign.com",
+      "hostname": "www.globalsign.com",
+      "now": 1794139200,
+      "expired_now": 1805623886,
+      "source": "OpenSSL 4.1 s_client -showcerts www.globalsign.com:443 with SNI and http/1.1",
+      "recorded_at": "2026-11-08",
+      "certificates": [
+        {
+          "file": "www.globalsign.com-0.pem",
+          "sha256": "b7e8175da8fff74623f6285895504b6356b541516186047f0a3a2c2cdb19c2a4",
+          "der_sha256": "c9b96c38c309befc08f76fd80d88ff77329da12c2300ffc0f22e5bb9504b3bab",
+          "subject": "CN=www.globalsign.com,O=GMO GlobalSign\\, Inc.,STREET=2 International Drive\\, Suite 150,L=Portsmouth,ST=New Hampshire,C=US,1.3.6.1.4.1.311.60.2.1.2=New Hampshire,1.3.6.1.4.1.311.60.2.1.3=US,2.5.4.5=578611,2.5.4.15=Private Organization",
+          "issuer": "CN=GlobalSign GCC R46 EV TLS CA 2025,O=GlobalSign nv-sa,C=BE",
+          "not_before": "2026-09-03T10:11:25+00:00",
+          "not_after": "2027-03-21T10:11:25+00:00",
+          "signature_oid": "1.2.840.113549.1.1.12",
+          "public_key": "RSAPublicKey",
+          "recorded_from": "www.globalsign.com-0.pem"
+        },
+        {
+          "file": "www.globalsign.com-1.pem",
+          "sha256": "f09e2e49cb8f03f31e454c235f2a4d2abe2a7005366d4bfde3920da3d383a309",
+          "der_sha256": "73cb0fd1fe764ce7605f77bce71dfec49e449ed2bb9cc76b6ae7f75691ea6161",
+          "subject": "CN=GlobalSign GCC R46 EV TLS CA 2025,O=GlobalSign nv-sa,C=BE",
+          "issuer": "CN=GlobalSign Root R46,O=GlobalSign nv-sa,C=BE",
+          "not_before": "2025-09-17T02:56:06+00:00",
+          "not_after": "2029-06-23T00:00:00+00:00",
+          "signature_oid": "1.2.840.113549.1.1.12",
+          "public_key": "RSAPublicKey",
+          "recorded_from": "www.globalsign.com-1.pem"
+        },
+        {
+          "file": "www.globalsign.com-2.pem",
+          "sha256": "f1d94d017c173826f2822119a36221f5a1e95b88cb6e2b7ec6b06c0567eaf289",
+          "der_sha256": "a5e33c28e3013a71f5f760ae3b16595090043d2ec5209ec52903c4fbad258dad",
+          "subject": "CN=GlobalSign Root R46,O=GlobalSign nv-sa,C=BE",
+          "issuer": "CN=GlobalSign Root CA,OU=Root CA,O=GlobalSign nv-sa,C=BE",
+          "not_before": "2019-11-20T00:00:00+00:00",
+          "not_after": "2028-01-28T00:00:00+00:00",
+          "signature_oid": "1.2.840.113549.1.1.12",
+          "public_key": "RSAPublicKey",
+          "recorded_from": "www.globalsign.com-2.pem"
+        }
+      ],
+      "untrusted_result": "wrong-issuer",
+      "removed_anchor_indices": [
+        66
+      ],
+      "removed_anchor_subjects": [
+        "CN=GlobalSign Root R46,O=GlobalSign nv-sa,C=BE"
+      ],
+      "openssl_command": [
+        "openssl",
+        "verify",
+        "-show_chain",
+        "-no-CApath",
+        "-no-CAstore",
+        "-CAfile",
+        "/Users/ozeron/code/grounds-m6-names/crypto/fixtures/public-chains/mozilla-2026-10-20.pem",
+        "-purpose",
+        "sslserver",
+        "-attime",
+        "1794139200",
+        "-verify_hostname",
+        "www.globalsign.com",
+        "-untrusted",
+        "<recorded intermediates www.globalsign.com-1.pem..www.globalsign.com-2.pem>",
+        "/Users/ozeron/code/grounds-m6-names/crypto/fixtures/public-chains/www.globalsign.com-0.pem"
+      ],
+      "openssl_exit": 0,
+      "openssl_output": "/Users/ozeron/code/grounds-m6-names/crypto/fixtures/public-chains/www.globalsign.com-0.pem: OK\nChain:\ndepth=0: businessCategory=Private Organization, serialNumber=578611, jurisdictionC=US, jurisdictionST=New Hampshire, C=US, ST=New Hampshire, L=Portsmouth, street=2 International Drive, Suite 150, O=GMO GlobalSign, Inc., CN=www.globalsign.com (untrusted)\ndepth=1: C=BE, O=GlobalSign nv-sa, CN=GlobalSign GCC R46 EV TLS CA 2025 (untrusted)\ndepth=2: C=BE, O=GlobalSign nv-sa, CN=GlobalSign Root R46\n",
+      "leaf_subject_attributes": [
+        [
+          "2.5.4.15:UTF8String"
+        ],
+        [
+          "2.5.4.5:PrintableString"
+        ],
+        [
+          "1.3.6.1.4.1.311.60.2.1.3:PrintableString"
+        ],
+        [
+          "1.3.6.1.4.1.311.60.2.1.2:PrintableString"
+        ],
+        [
+          "2.5.4.6:PrintableString"
+        ],
+        [
+          "2.5.4.8:PrintableString"
+        ],
+        [
+          "2.5.4.7:PrintableString"
+        ],
+        [
+          "2.5.4.9:PrintableString"
+        ],
+        [
+          "2.5.4.10:PrintableString"
+        ],
+        [
+          "2.5.4.3:PrintableString"
+        ]
+      ]
+    },
+    {
+      "label": "www.entrust.com",
+      "hostname": "www.entrust.com",
+      "now": 1794139200,
+      "expired_now": 1795564800,
+      "source": "OpenSSL 4.1 s_client -showcerts www.entrust.com:443 with SNI and http/1.1",
+      "recorded_at": "2026-11-08",
+      "certificates": [
+        {
+          "file": "www.entrust.com-0.pem",
+          "sha256": "522855015efc0f2b44f6a029b32c51cc165bdfd3677cc4dca1628f1facb87e2b",
+          "der_sha256": "c31b22ae55ed8ec63276bd9cccca73096b17be7890204a9354fbd0f79624d9aa",
+          "subject": "CN=entrust.com,O=Entrust Corporation,ST=Minnesota,C=US,2.5.4.15=Private Organization,1.3.6.1.4.1.311.60.2.1.2=Delaware,1.3.6.1.4.1.311.60.2.1.3=US,2.5.4.5=705421",
+          "issuer": "CN=Sectigo Public Server Authentication CA EV R36,O=Sectigo Limited,C=GB",
+          "not_before": "2025-11-24T00:00:00+00:00",
+          "not_after": "2026-11-24T23:59:59+00:00",
+          "signature_oid": "1.2.840.113549.1.1.11",
+          "public_key": "RSAPublicKey",
+          "recorded_from": "www.entrust.com-0.pem"
+        },
+        {
+          "file": "www.entrust.com-1.pem",
+          "sha256": "2d00a74980e26832c36823aa19a0b45f9b00b43a4785581126e7a1ab0bc939d4",
+          "der_sha256": "7a1a24285e25e94df27ce8b344b1bb6b32f0254ff0d7b5ab6e856ae90cfde55c",
+          "subject": "CN=Sectigo Public Server Authentication CA EV R36,O=Sectigo Limited,C=GB",
+          "issuer": "CN=Sectigo Public Server Authentication Root R46,O=Sectigo Limited,C=GB",
+          "not_before": "2021-03-22T00:00:00+00:00",
+          "not_after": "2036-03-21T23:59:59+00:00",
+          "signature_oid": "1.2.840.113549.1.1.12",
+          "public_key": "RSAPublicKey",
+          "recorded_from": "www.entrust.com-1.pem"
+        },
+        {
+          "file": "www.entrust.com-2.pem",
+          "sha256": "3da940d835508b90b20fcd97c9c8fc5906de6cf08a3416d516af7ddab92e0b2d",
+          "der_sha256": "92f351bf3d54164dfa8dd8f9e1139d3150349786485d2b9eecd00e2971c1e6c5",
+          "subject": "CN=Sectigo Public Server Authentication Root R46,O=Sectigo Limited,C=GB",
+          "issuer": "CN=USERTrust RSA Certification Authority,O=The USERTRUST Network,L=Jersey City,ST=New Jersey,C=US",
+          "not_before": "2021-03-22T00:00:00+00:00",
+          "not_after": "2038-01-18T23:59:59+00:00",
+          "signature_oid": "1.2.840.113549.1.1.12",
+          "public_key": "RSAPublicKey",
+          "recorded_from": "www.entrust.com-2.pem"
+        },
+        {
+          "file": "www.entrust.com-3.pem",
+          "sha256": "8a3dbcb92ab1c6277647fe2ab8536b5c982abbfdb1f1df5728e01b906aba953a",
+          "der_sha256": "e793c9b02fd8aa13e21c31228accb08119643b749c898964b1746d46c3d4cbd2",
+          "subject": "CN=USERTrust RSA Certification Authority,O=The USERTRUST Network,L=Jersey City,ST=New Jersey,C=US",
+          "issuer": "CN=USERTrust RSA Certification Authority,O=The USERTRUST Network,L=Jersey City,ST=New Jersey,C=US",
+          "not_before": "2010-02-01T00:00:00+00:00",
+          "not_after": "2038-01-18T23:59:59+00:00",
+          "signature_oid": "1.2.840.113549.1.1.12",
+          "public_key": "RSAPublicKey",
+          "recorded_from": "www.entrust.com-3.pem"
+        }
+      ],
+      "untrusted_result": "untrusted",
+      "removed_anchor_indices": [
+        30,
+        94
+      ],
+      "removed_anchor_subjects": [
+        "CN=USERTrust RSA Certification Authority,O=The USERTRUST Network,L=Jersey City,ST=New Jersey,C=US",
+        "CN=Sectigo Public Server Authentication Root R46,O=Sectigo Limited,C=GB"
+      ],
+      "openssl_command": [
+        "openssl",
+        "verify",
+        "-show_chain",
+        "-no-CApath",
+        "-no-CAstore",
+        "-CAfile",
+        "/Users/ozeron/code/grounds-m6-names/crypto/fixtures/public-chains/mozilla-2026-10-20.pem",
+        "-purpose",
+        "sslserver",
+        "-attime",
+        "1794139200",
+        "-verify_hostname",
+        "www.entrust.com",
+        "-untrusted",
+        "<recorded intermediates www.entrust.com-1.pem..www.entrust.com-3.pem>",
+        "/Users/ozeron/code/grounds-m6-names/crypto/fixtures/public-chains/www.entrust.com-0.pem"
+      ],
+      "openssl_exit": 0,
+      "openssl_output": "/Users/ozeron/code/grounds-m6-names/crypto/fixtures/public-chains/www.entrust.com-0.pem: OK\nChain:\ndepth=0: serialNumber=705421, jurisdictionC=US, jurisdictionST=Delaware, businessCategory=Private Organization, C=US, ST=Minnesota, O=Entrust Corporation, CN=entrust.com (untrusted)\ndepth=1: C=GB, O=Sectigo Limited, CN=Sectigo Public Server Authentication CA EV R36 (untrusted)\ndepth=2: C=GB, O=Sectigo Limited, CN=Sectigo Public Server Authentication Root R46\n",
+      "leaf_subject_attributes": [
+        [
+          "2.5.4.5:PrintableString"
+        ],
+        [
+          "1.3.6.1.4.1.311.60.2.1.3:PrintableString"
+        ],
+        [
+          "1.3.6.1.4.1.311.60.2.1.2:PrintableString"
+        ],
+        [
+          "2.5.4.15:PrintableString"
+        ],
+        [
+          "2.5.4.6:PrintableString"
+        ],
+        [
+          "2.5.4.8:PrintableString"
+        ],
+        [
+          "2.5.4.10:PrintableString"
+        ],
+        [
+          "2.5.4.3:PrintableString"
+        ]
+      ]
+    },
+    {
+      "label": "www.db.com",
+      "hostname": "www.db.com",
+      "now": 1794139200,
+      "expired_now": 1803772800,
+      "source": "OpenSSL 4.1 s_client -showcerts www.db.com:443 with SNI and http/1.1",
+      "recorded_at": "2026-11-08",
+      "certificates": [
+        {
+          "file": "www.db.com-0.pem",
+          "sha256": "40b5926e7dffa67bf985bc940c62fa4de3283cac58dd44895ac0b205783398d5",
+          "der_sha256": "c101b66fed6317873e25053b96b30d6115ddbc7de20cfabac0ac4764487d82f1",
+          "subject": "CN=www.db.com,O=DEUTSCHE BANK AG,STREET=Taunusanlage 12,2.5.4.17=60325,L=Frankfurt am Main,ST=Hessen,C=DE,2.5.4.5=HRB 30000,2.5.4.15=Private Organization,1.3.6.1.4.1.311.60.2.1.1=Frankfurt am Main,1.3.6.1.4.1.311.60.2.1.2=Hessen,1.3.6.1.4.1.311.60.2.1.3=DE",
+          "issuer": "CN=DigiCert EV RSA CA G2,O=DigiCert Inc,C=US",
+          "not_before": "2026-08-13T00:00:00+00:00",
+          "not_after": "2027-02-27T23:59:59+00:00",
+          "signature_oid": "1.2.840.113549.1.1.11",
+          "public_key": "RSAPublicKey",
+          "recorded_from": "www.db.com-0.pem"
+        },
+        {
+          "file": "www.db.com-1.pem",
+          "sha256": "d7efda02ff375691f34e4bd7423155f3902448b4c84bf9aa0100849113c56a38",
+          "der_sha256": "9588ef74199e45acefcccfc0c47010e9f2a37a1dd44c61a4e1c6b334da5af614",
+          "subject": "CN=DigiCert EV RSA CA G2,O=DigiCert Inc,C=US",
+          "issuer": "CN=DigiCert Global Root G2,OU=www.digicert.com,O=DigiCert Inc,C=US",
+          "not_before": "2020-07-02T12:42:50+00:00",
+          "not_after": "2030-07-02T12:42:50+00:00",
+          "signature_oid": "1.2.840.113549.1.1.11",
+          "public_key": "RSAPublicKey",
+          "recorded_from": "www.db.com-1.pem"
+        }
+      ],
+      "untrusted_result": "wrong-issuer",
+      "removed_anchor_indices": [
+        26
+      ],
+      "removed_anchor_subjects": [
+        "CN=DigiCert Global Root G2,OU=www.digicert.com,O=DigiCert Inc,C=US"
+      ],
+      "openssl_command": [
+        "openssl",
+        "verify",
+        "-show_chain",
+        "-no-CApath",
+        "-no-CAstore",
+        "-CAfile",
+        "/Users/ozeron/code/grounds-m6-names/crypto/fixtures/public-chains/mozilla-2026-10-20.pem",
+        "-purpose",
+        "sslserver",
+        "-attime",
+        "1794139200",
+        "-verify_hostname",
+        "www.db.com",
+        "-untrusted",
+        "<recorded intermediates www.db.com-1.pem..www.db.com-1.pem>",
+        "/Users/ozeron/code/grounds-m6-names/crypto/fixtures/public-chains/www.db.com-0.pem"
+      ],
+      "openssl_exit": 0,
+      "openssl_output": "/Users/ozeron/code/grounds-m6-names/crypto/fixtures/public-chains/www.db.com-0.pem: OK\nChain:\ndepth=0: jurisdictionC=DE, jurisdictionST=Hessen, jurisdictionL=Frankfurt am Main, businessCategory=Private Organization, serialNumber=HRB 30000, C=DE, ST=Hessen, L=Frankfurt am Main, postalCode=60325, street=Taunusanlage 12, O=DEUTSCHE BANK AG, CN=www.db.com (untrusted)\ndepth=1: C=US, O=DigiCert Inc, CN=DigiCert EV RSA CA G2 (untrusted)\ndepth=2: C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Global Root G2\n",
+      "leaf_subject_attributes": [
+        [
+          "1.3.6.1.4.1.311.60.2.1.3:PrintableString"
+        ],
+        [
+          "1.3.6.1.4.1.311.60.2.1.2:PrintableString"
+        ],
+        [
+          "1.3.6.1.4.1.311.60.2.1.1:PrintableString"
+        ],
+        [
+          "2.5.4.15:UTF8String"
+        ],
+        [
+          "2.5.4.5:PrintableString"
+        ],
+        [
+          "2.5.4.6:PrintableString"
+        ],
+        [
+          "2.5.4.8:PrintableString"
+        ],
+        [
+          "2.5.4.7:PrintableString"
+        ],
+        [
+          "2.5.4.17:PrintableString"
+        ],
+        [
+          "2.5.4.9:PrintableString"
+        ],
+        [
+          "2.5.4.10:PrintableString"
+        ],
+        [
+          "2.5.4.3:PrintableString"
+        ]
+      ]
+    },
+    {
+      "label": "www.postfinance.ch",
+      "hostname": "www.postfinance.ch",
+      "now": 1794139200,
+      "expired_now": 1808980245,
+      "source": "OpenSSL 4.1 s_client -showcerts www.postfinance.ch:443 with SNI and http/1.1",
+      "recorded_at": "2026-11-08",
+      "certificates": [
+        {
+          "file": "www.postfinance.ch-0.pem",
+          "sha256": "0325a134234816e20555ff8e5751dd391112c617e80ee42c0c258f90d202da7d",
+          "der_sha256": "5761c8cc2bb475b47aa0e806cf3354743862de9d45d98f41896c9bbfba678b84",
+          "subject": "CN=postfinance.ch,2.5.4.5=CHE-114.583.749,O=PostFinance AG,STREET=Mingerstrasse 20,2.5.4.17=3030,L=Bern,ST=BE,C=CH,2.5.4.15=Private Organization,1.3.6.1.4.1.311.60.2.1.2=Bern,1.3.6.1.4.1.311.60.2.1.3=CH",
+          "issuer": "CN=SwissSign RSA TLS EV ICA 2022 - 1,O=SwissSign AG,C=CH",
+          "not_before": "2026-10-13T06:30:44+00:00",
+          "not_after": "2027-04-29T06:30:44+00:00",
+          "signature_oid": "1.2.840.113549.1.1.11",
+          "public_key": "RSAPublicKey",
+          "recorded_from": "www.postfinance.ch-0.pem"
+        },
+        {
+          "file": "www.postfinance.ch-1.pem",
+          "sha256": "ef64357dc55fee1167d576348a0fdeb0c2317094dae2547f360e5a1c9e066bb7",
+          "der_sha256": "6ae61943bf4b4fcc8f08ed5044d1c97aa0ad40e1bcfe1bf1b530bd3b151b364d",
+          "subject": "CN=SwissSign RSA TLS EV ICA 2022 - 1,O=SwissSign AG,C=CH",
+          "issuer": "CN=SwissSign RSA TLS Root CA 2022 - 1,O=SwissSign AG,C=CH",
+          "not_before": "2022-06-29T09:30:47+00:00",
+          "not_after": "2036-06-29T09:30:47+00:00",
+          "signature_oid": "1.2.840.113549.1.1.11",
+          "public_key": "RSAPublicKey",
+          "recorded_from": "www.postfinance.ch-1.pem"
+        },
+        {
+          "file": "www.postfinance.ch-2.pem",
+          "sha256": "4738ae74c4547a43f052c8a7a99459deccd7798461fb188475a35de57c4e85ac",
+          "der_sha256": "288b4a9f605b09b999b215850825c81f9b537dbaf23664aca98bf6ba98edc379",
+          "subject": "CN=SwissSign RSA TLS Root CA 2022 - 1,O=SwissSign AG,C=CH",
+          "issuer": "CN=SwissSign Gold CA - G2,O=SwissSign AG,C=CH",
+          "not_before": "2022-06-28T11:27:11+00:00",
+          "not_after": "2036-09-22T11:27:11+00:00",
+          "signature_oid": "1.2.840.113549.1.1.11",
+          "public_key": "RSAPublicKey",
+          "recorded_from": "www.postfinance.ch-2.pem"
+        }
+      ],
+      "untrusted_result": "wrong-issuer",
+      "removed_anchor_indices": [
+        110
+      ],
+      "removed_anchor_subjects": [
+        "CN=SwissSign RSA TLS Root CA 2022 - 1,O=SwissSign AG,C=CH"
+      ],
+      "openssl_command": [
+        "openssl",
+        "verify",
+        "-show_chain",
+        "-no-CApath",
+        "-no-CAstore",
+        "-CAfile",
+        "/Users/ozeron/code/grounds-m6-names/crypto/fixtures/public-chains/mozilla-2026-10-20.pem",
+        "-purpose",
+        "sslserver",
+        "-attime",
+        "1794139200",
+        "-verify_hostname",
+        "www.postfinance.ch",
+        "-untrusted",
+        "<recorded intermediates www.postfinance.ch-1.pem..www.postfinance.ch-2.pem>",
+        "/Users/ozeron/code/grounds-m6-names/crypto/fixtures/public-chains/www.postfinance.ch-0.pem"
+      ],
+      "openssl_exit": 0,
+      "openssl_output": "/Users/ozeron/code/grounds-m6-names/crypto/fixtures/public-chains/www.postfinance.ch-0.pem: OK\nChain:\ndepth=0: jurisdictionC=CH, jurisdictionST=Bern, businessCategory=Private Organization, C=CH, ST=BE, L=Bern, postalCode=3030, street=Mingerstrasse 20, O=PostFinance AG, serialNumber=CHE-114.583.749, CN=postfinance.ch (untrusted)\ndepth=1: C=CH, O=SwissSign AG, CN=SwissSign RSA TLS EV ICA 2022 - 1 (untrusted)\ndepth=2: C=CH, O=SwissSign AG, CN=SwissSign RSA TLS Root CA 2022 - 1\n",
+      "leaf_subject_attributes": [
+        [
+          "1.3.6.1.4.1.311.60.2.1.3:PrintableString"
+        ],
+        [
+          "1.3.6.1.4.1.311.60.2.1.2:UTF8String"
+        ],
+        [
+          "2.5.4.15:UTF8String"
+        ],
+        [
+          "2.5.4.6:PrintableString"
+        ],
+        [
+          "2.5.4.8:UTF8String"
+        ],
+        [
+          "2.5.4.7:UTF8String"
+        ],
+        [
+          "2.5.4.17:PrintableString"
+        ],
+        [
+          "2.5.4.9:UTF8String"
+        ],
+        [
+          "2.5.4.10:UTF8String"
+        ],
+        [
+          "2.5.4.5:PrintableString"
+        ],
+        [
+          "2.5.4.3:PrintableString"
+        ]
+      ]
+    },
+    {
+      "label": "www.apple.com",
+      "hostname": "www.apple.com",
+      "now": 1794139200,
+      "expired_now": 1797445886,
+      "source": "OpenSSL 4.1 s_client -showcerts www.apple.com:443 with SNI and http/1.1",
+      "recorded_at": "2026-11-08",
+      "certificates": [
+        {
+          "file": "www.apple.com-0.pem",
+          "sha256": "1b55cd922e742222285aa13cb56a0a55fee20f2d9ca97e9e227204c761ca206c",
+          "der_sha256": "cd563f5716c254cc1a574cb9f101a923ca50b2822c94c7c85575fff4b809e760",
+          "subject": "CN=www.apple.com,O=Apple Inc.,L=Cupertino,ST=California,C=US,2.5.4.5=C0806592,1.3.6.1.4.1.311.60.2.1.2=California,1.3.6.1.4.1.311.60.2.1.3=US,2.5.4.15=Private Organization",
+          "issuer": "CN=Apple Public EV Server RSA CA 1 - G1,O=Apple Inc.,C=US",
+          "not_before": "2026-07-02T22:11:57+00:00",
+          "not_after": "2026-12-16T18:31:25+00:00",
+          "signature_oid": "1.2.840.113549.1.1.11",
+          "public_key": "RSAPublicKey",
+          "recorded_from": "www.apple.com-0.pem"
+        },
+        {
+          "file": "www.apple.com-1.pem",
+          "sha256": "a5c9d796c8d28f6bc449a1788e42ad0267ee003b46e6d74d3a95ea42d70e9394",
+          "der_sha256": "340ca5ba402d140b65a2c976e7ae8128a1505c29d190e0e034f59ccae7a92bc2",
+          "subject": "CN=Apple Public EV Server RSA CA 1 - G1,O=Apple Inc.,C=US",
+          "issuer": "CN=DigiCert Global Root G2,OU=www.digicert.com,O=DigiCert Inc,C=US",
+          "not_before": "2020-04-29T12:55:34+00:00",
+          "not_after": "2030-04-10T23:59:59+00:00",
+          "signature_oid": "1.2.840.113549.1.1.11",
+          "public_key": "RSAPublicKey",
+          "recorded_from": "www.apple.com-1.pem"
+        }
+      ],
+      "untrusted_result": "wrong-issuer",
+      "removed_anchor_indices": [
+        26
+      ],
+      "removed_anchor_subjects": [
+        "CN=DigiCert Global Root G2,OU=www.digicert.com,O=DigiCert Inc,C=US"
+      ],
+      "openssl_command": [
+        "openssl",
+        "verify",
+        "-show_chain",
+        "-no-CApath",
+        "-no-CAstore",
+        "-CAfile",
+        "/Users/ozeron/code/grounds-m6-names/crypto/fixtures/public-chains/mozilla-2026-10-20.pem",
+        "-purpose",
+        "sslserver",
+        "-attime",
+        "1794139200",
+        "-verify_hostname",
+        "www.apple.com",
+        "-untrusted",
+        "<recorded intermediates www.apple.com-1.pem..www.apple.com-1.pem>",
+        "/Users/ozeron/code/grounds-m6-names/crypto/fixtures/public-chains/www.apple.com-0.pem"
+      ],
+      "openssl_exit": 0,
+      "openssl_output": "/Users/ozeron/code/grounds-m6-names/crypto/fixtures/public-chains/www.apple.com-0.pem: OK\nChain:\ndepth=0: businessCategory=Private Organization, jurisdictionC=US, jurisdictionST=California, serialNumber=C0806592, C=US, ST=California, L=Cupertino, O=Apple Inc., CN=www.apple.com (untrusted)\ndepth=1: C=US, O=Apple Inc., CN=Apple Public EV Server RSA CA 1 - G1 (untrusted)\ndepth=2: C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Global Root G2\n",
+      "leaf_subject_attributes": [
+        [
+          "2.5.4.15:UTF8String"
+        ],
+        [
+          "1.3.6.1.4.1.311.60.2.1.3:PrintableString"
+        ],
+        [
+          "1.3.6.1.4.1.311.60.2.1.2:UTF8String"
+        ],
+        [
+          "2.5.4.5:PrintableString"
+        ],
+        [
+          "2.5.4.6:PrintableString"
+        ],
+        [
+          "2.5.4.8:UTF8String"
+        ],
+        [
+          "2.5.4.7:UTF8String"
+        ],
+        [
+          "2.5.4.10:UTF8String"
+        ],
+        [
+          "2.5.4.3:UTF8String"
+        ]
+      ]
+    },
+    {
+      "label": "www.pkobp.pl",
+      "hostname": "www.pkobp.pl",
+      "now": 1794139200,
+      "expired_now": 1809257215,
+      "source": "OpenSSL 4.1 s_client -showcerts www.pkobp.pl:443 with SNI and http/1.1",
+      "recorded_at": "2026-11-08",
+      "certificates": [
+        {
+          "file": "www.pkobp.pl-0.pem",
+          "sha256": "923dcd8adb192d697e3ec02903d8c0e5be7eac8a2aff8c57b73c2fcc91b89826",
+          "der_sha256": "c777906508ba178f6291f482ace4c03bf4b7e30309adc356537cd3ec63f2697c",
+          "subject": "CN=pkobp.pl,O=PKO BANK POLSKI SA,L=Warszawa,ST=mazowieckie,C=PL,2.5.4.5=0000026438,1.3.6.1.4.1.311.60.2.1.1=Warszawa,1.3.6.1.4.1.311.60.2.1.2=mazowieckie,1.3.6.1.4.1.311.60.2.1.3=PL,2.5.4.15=Private Organization",
+          "issuer": "CN=Certum EV TLS G2 R39 CA,O=Asseco Data Systems S.A.,C=PL",
+          "not_before": "2026-10-15T11:26:55+00:00",
+          "not_after": "2027-05-02T11:26:54+00:00",
+          "signature_oid": "1.2.840.113549.1.1.11",
+          "public_key": "RSAPublicKey",
+          "recorded_from": "www.pkobp.pl-0.pem"
+        },
+        {
+          "file": "www.pkobp.pl-1.pem",
+          "sha256": "1c60528381c14f39b5836a669ec536cdcbaaeb46c143a8d48b4265acd7c70951",
+          "der_sha256": "4736f1ecf26a043cb4d8f94da8302ea9e45f3d311048f3a400d01aeed1e99444",
+          "subject": "CN=Certum EV TLS G2 R39 CA,O=Asseco Data Systems S.A.,C=PL",
+          "issuer": "CN=Certum Trusted Root CA,OU=Certum Certification Authority,O=Asseco Data Systems S.A.,C=PL",
+          "not_before": "2024-06-18T07:45:09+00:00",
+          "not_after": "2039-06-05T07:45:09+00:00",
+          "signature_oid": "1.2.840.113549.1.1.13",
+          "public_key": "RSAPublicKey",
+          "recorded_from": "www.pkobp.pl-1.pem"
+        },
+        {
+          "file": "www.pkobp.pl-2.pem",
+          "sha256": "aee624dffb63a555f1ac41f56d929278ff0941b64630bd4c008df7d36d70edfc",
+          "der_sha256": "fb13890c7ab14ff7b94b2714503e31123bfdd340fc4d979743166e0469b47a88",
+          "subject": "CN=Certum Trusted Root CA,OU=Certum Certification Authority,O=Asseco Data Systems S.A.,C=PL",
+          "issuer": "CN=Certum Trusted Network CA,OU=Certum Certification Authority,O=Unizeto Technologies S.A.,C=PL",
+          "not_before": "2023-09-19T10:00:00+00:00",
+          "not_after": "2028-09-19T10:00:00+00:00",
+          "signature_oid": "1.2.840.113549.1.1.13",
+          "public_key": "RSAPublicKey",
+          "recorded_from": "www.pkobp.pl-2.pem"
+        }
+      ],
+      "untrusted_result": "wrong-issuer",
+      "removed_anchor_indices": [
+        8,
+        70
+      ],
+      "removed_anchor_subjects": [
+        "CN=Certum Trusted Network CA,OU=Certum Certification Authority,O=Unizeto Technologies S.A.,C=PL",
+        "CN=Certum Trusted Root CA,OU=Certum Certification Authority,O=Asseco Data Systems S.A.,C=PL"
+      ],
+      "openssl_command": [
+        "openssl",
+        "verify",
+        "-show_chain",
+        "-no-CApath",
+        "-no-CAstore",
+        "-CAfile",
+        "/Users/ozeron/code/grounds-m6-names/crypto/fixtures/public-chains/mozilla-2026-10-20.pem",
+        "-purpose",
+        "sslserver",
+        "-attime",
+        "1794139200",
+        "-verify_hostname",
+        "www.pkobp.pl",
+        "-untrusted",
+        "<recorded intermediates www.pkobp.pl-1.pem..www.pkobp.pl-2.pem>",
+        "/Users/ozeron/code/grounds-m6-names/crypto/fixtures/public-chains/www.pkobp.pl-0.pem"
+      ],
+      "openssl_exit": 0,
+      "openssl_output": "/Users/ozeron/code/grounds-m6-names/crypto/fixtures/public-chains/www.pkobp.pl-0.pem: OK\nChain:\ndepth=0: businessCategory=Private Organization, jurisdictionC=PL, jurisdictionST=mazowieckie, jurisdictionL=Warszawa, serialNumber=0000026438, C=PL, ST=mazowieckie, L=Warszawa, O=PKO BANK POLSKI SA, CN=pkobp.pl (untrusted)\ndepth=1: C=PL, O=Asseco Data Systems S.A., CN=Certum EV TLS G2 R39 CA (untrusted)\ndepth=2: C=PL, O=Asseco Data Systems S.A., OU=Certum Certification Authority, CN=Certum Trusted Root CA\n",
+      "leaf_subject_attributes": [
+        [
+          "2.5.4.15:PrintableString"
+        ],
+        [
+          "1.3.6.1.4.1.311.60.2.1.3:PrintableString"
+        ],
+        [
+          "1.3.6.1.4.1.311.60.2.1.2:UTF8String"
+        ],
+        [
+          "1.3.6.1.4.1.311.60.2.1.1:UTF8String"
+        ],
+        [
+          "2.5.4.5:PrintableString"
+        ],
+        [
+          "2.5.4.6:PrintableString"
+        ],
+        [
+          "2.5.4.8:UTF8String"
+        ],
+        [
+          "2.5.4.7:UTF8String"
+        ],
+        [
+          "2.5.4.10:UTF8String"
+        ],
+        [
+          "2.5.4.3:UTF8String"
+        ]
+      ]
     }
   ],
   "notes": [
     "Historical LE chains use fixed 2025-09-01 UTC; current chains use fixed 2026-10-24 12:00 UTC. No wall clock in offline gates.",
     "Public certificate bytes only; no private credentials.",
-    "Root removal deletes every bundle root on any issuer/subject in the recorded path, including direct and cross-signed alternatives."
+    "Root removal deletes every bundle root on any issuer/subject in the recorded path, including direct and cross-signed alternatives.",
+    "M6 (2026-11-08): seven EV/OV chains recorded at fixed 2026-11-08 12:00 UTC; with the broadened Name profile every removed-anchor scan reports a precise wrong-issuer/untrusted diagnosis instead of unsupported-name."
   ]
 }

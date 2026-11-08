@@ -158,6 +158,34 @@
       "optional": false
     },
     {
+      "name": "http_client/bend_public_chain_13",
+      "optional": false
+    },
+    {
+      "name": "http_client/bend_public_chain_14",
+      "optional": false
+    },
+    {
+      "name": "http_client/bend_public_chain_15",
+      "optional": false
+    },
+    {
+      "name": "http_client/bend_public_chain_16",
+      "optional": false
+    },
+    {
+      "name": "http_client/bend_public_chain_17",
+      "optional": false
+    },
+    {
+      "name": "http_client/bend_public_chain_18",
+      "optional": false
+    },
+    {
+      "name": "http_client/bend_public_chain_19",
+      "optional": false
+    },
+    {
       "name": "http_client/bend_public_frontend",
       "optional": false
     },

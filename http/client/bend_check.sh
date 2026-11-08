@@ -129,6 +129,28 @@ end
 begin bend_public_chain_12
 python3 ../../crypto/public_chain_check.py --batch-index 12 "$artifacts/public-chain"
 end
+# M6: EV/OV subject Names (jurisdiction, businessCategory, street, postalCode).
+begin bend_public_chain_13
+python3 ../../crypto/public_chain_check.py --batch-index 13 "$artifacts/public-chain"
+end
+begin bend_public_chain_14
+python3 ../../crypto/public_chain_check.py --batch-index 14 "$artifacts/public-chain"
+end
+begin bend_public_chain_15
+python3 ../../crypto/public_chain_check.py --batch-index 15 "$artifacts/public-chain"
+end
+begin bend_public_chain_16
+python3 ../../crypto/public_chain_check.py --batch-index 16 "$artifacts/public-chain"
+end
+begin bend_public_chain_17
+python3 ../../crypto/public_chain_check.py --batch-index 17 "$artifacts/public-chain"
+end
+begin bend_public_chain_18
+python3 ../../crypto/public_chain_check.py --batch-index 18 "$artifacts/public-chain"
+end
+begin bend_public_chain_19
+python3 ../../crypto/public_chain_check.py --batch-index 19 "$artifacts/public-chain"
+end
 begin bend_public_frontend
 BUN_JSC_useDFGJIT=false BUN_JSC_useFTLJIT=false python3 public_https_build.py --trace "$artifacts/public.c" "$artifacts/public-build.json"
 end
