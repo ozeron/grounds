@@ -24,24 +24,51 @@ import ../core/event.bend as Ev
 type Idle is Type:
   Idle{sock: Tr.Connection, tls: Bool, last: Nat, origin: String}
 
+# what a waiter is handed: a kept connection for its origin; another
+# origin's connection, to close before it opens its own in that room; room
+# to open one; or nothing, the pool is closing
+type Grant is Type:
+  GKept{sock: Tr.Connection, tls: Bool}
+  GEvict{sock: Tr.Connection, tls: Bool}
+  GRoom{}
+  GShut{}
+
+# a waiting task: its number, its origin, and its own one-slot box
+type Ticket is Data:
+  Ticket{id: Nat, key: String, box: Chan(Grant)}
+
 # the pool's state, behind a one-slot channel that serves as its lock: the
-# idle connections, newest first; how many more may be opened; how many
-# tasks wait for one; and whether it is closing
+# idle connections, newest first; how many more may be opened; the tasks
+# waiting for one, oldest first; the next ticket's number; and whether it
+# is closing
+#
+# Waiters are addressed one by one. While any task waits there is no idle
+# connection and no room (it would have taken one), so whatever comes back
+# goes straight to the oldest waiter: its ticket leaves the queue and its
+# grant is put in its box under the lock. A ticket is therefore either in
+# the queue or its grant is in its box, and a waiter that gives up finds
+# out which under the lock: it removes its ticket, or takes its grant and
+# gives it back like any other return. No count of wakes is shared.
 type St is Type:
-  St{idle: List<&1, Idle>, free: Nat, waiting: Nat, closing: Bool}
+  St{idle: List<&1, Idle>, free: Nat, queue: List<&2, Ticket>, next: Nat, closing: Bool}
 
 type Pool is Data:
-  Pool{cfg: C.Config, state: Chan(St), wake: Chan(Unit), size: U32}
+  Pool{cfg: C.Config, state: Chan(St), size: U32}
 
 def put(+ch: Chan(St), s: St) -> IO(Unit):
   IO.bind(Result<&1, &1, St, Unit>, Unit, Chan.send(St, ch, s), x => IO.pure(Unit, Unit{}))
 
-def wake(n: Bool, +w: Chan(Unit)) -> IO(Unit):
-  match n:
-    case True{}:
-      IO.bind(Result<&1, &1, Unit, Unit>, Unit, Chan.send(Unit, w, Unit{}), x => IO.pure(Unit, Unit{}))
-    case False{}:
+# a box takes exactly one grant: its ticket leaves the queue as it is sent
+def grant(+box: Chan(Grant), g: Grant) -> IO(Unit):
+  IO.bind(Result<&1, &1, Grant, Unit>, Unit, Chan.send(Grant, box, g), x => IO.pure(Unit, Unit{}))
+
+# tell every waiter the pool is closing
+def shut.queue(q: List<&2, Ticket>) -> IO(Unit):
+  match q:
+    case Nil{}:
       IO.pure(Unit, Unit{})
+    case Con{Ticket{_, _, +box}, t}:
+      IO.bind(Unit, Unit, grant(box, GShut{}), u => shut.queue(t))
 
 def shut.all(xs: List<&1, Idle>) -> IO(Unit):
   match xs:
@@ -113,19 +140,28 @@ type Plan is Type:
 type Dec is Type:
   Dec{plan: Plan, st: St, dead: List<&1, Idle>}
 
-def decide.full(l: Last, +waiting: Nat, dead: List<&1, Idle>) -> Dec:
+# the waiters and the next ticket's number, carried through a decision
+type Wq is Type:
+  Wq{queue: List<&2, Ticket>, next: Nat}
+
+def st.of(idle: List<&1, Idle>, +free: Nat, wq: Wq, closing: Bool) -> St:
+  match wq:
+    case Wq{q, next}:
+      St{idle, free, q, next, closing}
+
+def decide.full(l: Last, wq: Wq, dead: List<&1, Idle>) -> Dec:
   match l:
     case Last{init, Some{x}}:
-      Dec{New{Some{x}}, St{init, 0n, waiting, False{}}, dead}
+      Dec{New{Some{x}}, st.of(init, 0n, wq, False{}), dead}
     case Last{init, None{}}:
-      Dec{Await{}, St{init, 0n, Nat.add(waiting, 1n), False{}}, dead}
+      Dec{Await{}, st.of(init, 0n, wq, False{}), dead}
 
-def decide.free(room: Bool, rest: List<&1, Idle>, +free: Nat, +waiting: Nat, dead: List<&1, Idle>) -> Dec:
+def decide.free(room: Bool, rest: List<&1, Idle>, +free: Nat, wq: Wq, dead: List<&1, Idle>) -> Dec:
   match room:
     case True{}:
-      Dec{New{None{}}, St{rest, Nat.sub(free, 1n), waiting, False{}}, dead}
+      Dec{New{None{}}, st.of(rest, Nat.sub(free, 1n), wq, False{}), dead}
     case False{}:
-      decide.full(last.go(rest, []), waiting, dead)
+      decide.full(last.go(rest, []), wq, dead)
 
 def maybe.cons(m: Maybe<&1, Idle>, xs: List<&1, Idle>) -> List<&1, Idle>:
   match m:
@@ -134,14 +170,14 @@ def maybe.cons(m: Maybe<&1, Idle>, xs: List<&1, Idle>) -> List<&1, Idle>:
     case None{}:
       xs
 
-def decide(p: Pick, +free: Nat, +waiting: Nat, closing: Bool) -> Dec:
+def decide(p: Pick, +free: Nat, wq: Wq, closing: Bool) -> Dec:
   match p closing:
     case Pick{g, r, d, +n} True{}:
-      Dec{Gone{}, St{r, Nat.add(free, n), waiting, True{}}, maybe.cons(g, d)}
+      Dec{Gone{}, st.of(r, Nat.add(free, n), wq, True{}), maybe.cons(g, d)}
     case Pick{Some{c}, r, d, +n} False{}:
-      Dec{Use{c}, St{r, Nat.add(free, n), waiting, False{}}, d}
+      Dec{Use{c}, st.of(r, Nat.add(free, n), wq, False{}), d}
     case Pick{None{}, r, d, +n} False{}:
-      decide.free(Bool.not(Nat.is_eq(Nat.add(free, n), 0n)), r, Nat.add(free, n), waiting, d)
+      decide.free(Bool.not(Nat.is_eq(Nat.add(free, n), 0n)), r, Nat.add(free, n), wq, d)
 
 # what a request got: a kept connection, room to open one, nothing (the
 # pool is closing), or none before the request's deadline
@@ -151,6 +187,12 @@ type Taken is Type:
   Shut{}
   Late{}
 
+# what a request found under the lock: an answer now, or a place in the
+# queue (its ticket's number and box)
+type Entry is Type:
+  Now{taken: Taken}
+  Queued{id: Nat, box: Chan(Grant)}
+
 def evicted(m: Maybe<&1, Idle>) -> IO(Unit):
   match m:
     case Some{Idle{s, tls, _, _}}:
@@ -158,102 +200,109 @@ def evicted(m: Maybe<&1, Idle>) -> IO(Unit):
     case None{}:
       IO.pure(Unit, Unit{})
 
-# A waiter that gives up leaves the count under the lock, so no later
-# return sends a wake for it. `waiting` counts the waiters no wake has been
-# sent for yet; at 0 every waiter, this one included, has one sent or on
-# its way (a return sends it after putting the state back), so this one
-# takes one, and the wakes in the channel never outnumber the waiters.
-def quit.owed(owed: Bool, +w: Chan(Unit)) -> IO(Taken):
-  match owed:
-    case True{}:
-      IO.bind(Maybe<&1, Unit>, Taken, Chan.recv(Unit, w), x => IO.pure(Taken, Late{}))
-    case False{}:
-      IO.pure(Taken, Late{})
-
-def quit.st(m: Maybe<&1, St>, +p: Pool) -> IO(Taken):
-  match m p:
-    case Some{St{idle, free, +waiting, closing}} Pool{_, +ch, +w, _}:
-      do IO<Taken>:
-        x : Unit <- put(ch, St{idle, free, Nat.sub(waiting, 1n), closing})
-        quit.owed(Nat.is_eq(waiting, 0n), w)
-    case None{} _:
-      IO.pure(Taken, Late{})
-
-def gave_up(+p: Pool) -> IO(Taken):
-  match p:
-    case Pool{_, +ch, _, _}:
-      IO.bind(Maybe<&1, St>, Taken, Chan.recv(St, ch), m => quit.st(m, p))
-
-def woke(r: Poll<&1, &1, Maybe<&1, Unit>, Unit>, +p: Pool, again: Unit -> IO(Taken)) -> IO(Taken):
-  match r:
-    case Ready{_}:
-      again(Unit{})
-    case Wait{_}:
-      gave_up(p)
-
-# wait for a connection to come back, but not past the deadline; a wake
-# means look at the state again
-def awaited(late: Bool, +p: Pool, ms: U32, again: Unit -> IO(Taken)) -> IO(Taken):
-  match late p:
-    case True{} _:
-      gave_up(p)
-    case False{} Pool{_, _, +w, _}:
-      IO.bind(Poll<&1, &1, Maybe<&1, Unit>, Unit>, Taken, Chan.try_recv(Unit, w, ms), r => woke(r, p, again))
-
-def acted(plan: Plan, +p: Pool, +key: String, +fuel: Nat, +dl: Nat, again: Unit -> IO(Taken)) -> IO(Taken):
+def acted(plan: Plan) -> IO(Entry):
   match plan:
     case Use{Idle{s, tls, _, _}}:
-      IO.pure(Taken, Kept{s, tls})
+      IO.pure(Entry, Now{Kept{s, tls}})
     case New{ev}:
-      IO.bind(Unit, Taken, evicted(ev), u => IO.pure(Taken, Room{}))
+      IO.bind(Unit, Entry, evicted(ev), u => IO.pure(Entry, Now{Room{}}))
     case Await{}:
-      do IO<Taken>:
-        +now : Nat <- IO.now()
-        awaited(Nat.is_le(dl, now), p, C.left(dl, now), again)
+      IO.pure(Entry, Now{Late{}})
     case Gone{}:
-      IO.pure(Taken, Shut{})
+      IO.pure(Entry, Now{Shut{}})
 
-def act(d: Dec, +p: Pool, +key: String, +fuel: Nat, +dl: Nat, again: Unit -> IO(Taken)) -> IO(Taken):
-  match d p:
-    case Dec{plan, st, dead} Pool{_, +ch, _, _}:
-      do IO<Taken>:
+# join the queue's end, under the lock; the ticket's number
+def enqueue(st: St, +key: String, +box: Chan(Grant), +ch: Chan(St)) -> IO(Nat):
+  match st:
+    case St{idle, free, q, +next, closing}:
+      IO.bind(Unit, Nat, put(ch, St{idle, free, List.append(&2, Ticket, q, [Ticket{next, key, box}]), Nat.add(next, 1n), closing}), u => IO.pure(Nat, next))
+
+# a request that must wait joins the queue, unless its deadline has passed
+def planned(plan: Plan, late: Bool, st: St, dead: List<&1, Idle>, +ch: Chan(St), +key: String) -> IO(Entry):
+  match plan late:
+    case Await{} False{}:
+      do IO<Entry>:
+        +box : Chan(Grant) <- Chan.new(Grant, 1)
+        +id : Nat <- enqueue(st, key, box, ch)
+        y : Unit <- shut.all(dead)
+        return Queued{id, box}
+    case other _:
+      do IO<Entry>:
         x : Unit <- put(ch, st)
         y : Unit <- shut.all(dead)
-        acted(plan, p, key, fuel, dl, again)
+        acted(other)
 
-def taken.st(m: Maybe<&1, St>, +p: Pool, +key: String, +fuel: Nat, +now: Nat, +dl: Nat, again: Unit -> IO(Taken)) -> IO(Taken):
+def act(d: Dec, +p: Pool, +key: String, late: Bool) -> IO(Entry):
+  match d p:
+    case Dec{plan, st, dead} Pool{_, +ch, _}:
+      planned(plan, late, st, dead, ch, key)
+
+def taken.st(m: Maybe<&1, St>, +p: Pool, +key: String, +now: Nat, +dl: Nat) -> IO(Entry):
   match m p:
-    case Some{St{idle, +free, +waiting, closing}} Pool{C.Config{_, _, _, _, _, _, +ms, policy, _, _, _}, _, _, _}:
-      act(decide(pick(idle, key, now, ms, Pick{None{}, [], [], 0n}), free, waiting, closing), p, key, fuel, dl, again)
+    case Some{St{idle, +free, q, next, closing}} Pool{C.Config{_, _, _, _, _, _, +ms, policy, _, _, _}, _, _}:
+      act(decide(pick(idle, key, now, ms, Pick{None{}, [], [], 0n}), free, Wq{q, next}, closing), p, key, Nat.is_le(dl, now))
     case None{} _:
-      IO.pure(Taken, Shut{})
+      IO.pure(Entry, Now{Shut{}})
 
-# a connection for key's origin: kept, or room to open one; waiting while
-# every connection is in use, until dl
-def take(+fuel: Nat, +p: Pool, +key: String, +dl: Nat) -> IO(Taken):
-  match fuel p:
-    case 0n _:
-      IO.pure(Taken, Shut{})
-    case 1n+n Pool{_, +ch, _, _}:
-      do IO<Taken>:
+# under the lock: a connection for key's origin, room to open one, or a
+# place in the queue
+def enter(+p: Pool, +key: String, +dl: Nat) -> IO(Entry):
+  match p:
+    case Pool{_, +ch, _}:
+      do IO<Entry>:
         m : Maybe<&1, St> <- Chan.recv(St, ch)
         +now : Nat <- IO.now()
-        taken.st(m, p, key, n, now, dl, u => take(n, p, key, dl))
+        taken.st(m, p, key, now, dl)
+
+# a grant, as what the request got
+def granted(g: Grant) -> IO(Taken):
+  match g:
+    case GKept{s, tls}:
+      IO.pure(Taken, Kept{s, tls})
+    case GEvict{s, tls}:
+      IO.bind(Unit, Taken, C.shut(tls, s), u => IO.pure(Taken, Room{}))
+    case GRoom{}:
+      IO.pure(Taken, Room{})
+    case GShut{}:
+      IO.pure(Taken, Shut{})
 
 # Giving it back
 # --------------
 
+# room back: to the oldest waiter if there is one (the closer, while the
+# pool closes: the room then goes back to the pool and the closer looks
+# again), else to the pool
+def room.back(st: St, +ch: Chan(St)) -> IO(Unit):
+  match st:
+    case St{idle, +free, Con{Ticket{_, _, +box}, t}, next, False{}}:
+      IO.bind(Unit, Unit, grant(box, GRoom{}), u => put(ch, St{idle, free, t, next, False{}}))
+    case St{idle, +free, Con{Ticket{_, _, +box}, t}, next, True{}}:
+      IO.bind(Unit, Unit, grant(box, GShut{}), u => put(ch, St{idle, Nat.add(free, 1n), t, next, True{}}))
+    case St{idle, +free, Nil{}, next, closing}:
+      put(ch, St{idle, Nat.add(free, 1n), [], next, closing})
+
+def handed(same: Bool, s: Tr.Connection, +tls: Bool) -> Grant:
+  match same:
+    case True{}:
+      GKept{s, tls}
+    case False{}:
+      GEvict{s, tls}
+
+# a kept connection back: to the oldest waiter (to use, or to close for its
+# own origin's), else idle
+def kept.back(st: St, s: Tr.Connection, +tls: Bool, +key: String, +now: Nat, +ch: Chan(St)) -> IO(Unit):
+  match st:
+    case St{idle, free, Con{Ticket{_, +k, +box}, t}, next, closing}:
+      IO.bind(Unit, Unit, grant(box, handed(T.same(k, key, True{}), s, tls)), u => put(ch, St{idle, free, t, next, closing}))
+    case St{idle, free, Nil{}, next, closing}:
+      put(ch, St{Con{Idle{s, tls, now, key}, idle}, free, [], next, closing})
+
 def gave(m: Maybe<&1, St>, keep: Bool, s: Tr.Connection, +tls: Bool, +key: String, +p: Pool, +now: Nat) -> IO(Unit):
   match m keep p:
-    case Some{St{idle, free, +waiting, False{}}} True{} Pool{_, +ch, +w, _}:
-      do IO<Unit>:
-        x : Unit <- put(ch, St{Con{Idle{s, tls, now, key}, idle}, free, Nat.sub(waiting, 1n), False{}})
-        wake(Bool.not(Nat.is_eq(waiting, 0n)), w)
-    case Some{St{idle, free, +waiting, closing}} _ Pool{_, +ch, +w, _}:
-      do IO<Unit>:
-        x : Unit <- put(ch, St{idle, Nat.add(free, 1n), Nat.sub(waiting, 1n), closing})
-        y : Unit <- C.shut(tls, s)
-        wake(Bool.not(Nat.is_eq(waiting, 0n)), w)
+    case Some{St{idle, free, q, next, False{}}} True{} Pool{_, +ch, _}:
+      kept.back(St{idle, free, q, next, False{}}, s, tls, key, now, ch)
+    case Some{st} _ Pool{_, +ch, _}:
+      IO.bind(Unit, Unit, room.back(st, ch), u => C.shut(tls, s))
     case None{} _ _:
       C.shut(tls, s)
 
@@ -261,7 +310,7 @@ def gave(m: Maybe<&1, St>, keep: Bool, s: Tr.Connection, +tls: Bool, +key: Strin
 # its room given back
 def give(keep: Bool, s: Tr.Connection, +tls: Bool, +key: String, +p: Pool) -> IO(Unit):
   match p:
-    case Pool{_, +ch, _, _}:
+    case Pool{_, +ch, _}:
       do IO<Unit>:
         m : Maybe<&1, St> <- Chan.recv(St, ch)
         +now : Nat <- IO.now()
@@ -269,18 +318,159 @@ def give(keep: Bool, s: Tr.Connection, +tls: Bool, +key: String, +p: Pool) -> IO
 
 def freed(m: Maybe<&1, St>, +p: Pool) -> IO(Unit):
   match m p:
-    case Some{St{idle, free, +waiting, closing}} Pool{_, +ch, +w, _}:
-      do IO<Unit>:
-        x : Unit <- put(ch, St{idle, Nat.add(free, 1n), Nat.sub(waiting, 1n), closing})
-        wake(Bool.not(Nat.is_eq(waiting, 0n)), w)
+    case Some{st} Pool{_, +ch, _}:
+      room.back(st, ch)
     case None{} _:
       IO.pure(Unit, Unit{})
 
 # room back, for a connection that was never opened or is already closed
 def release(+p: Pool) -> IO(Unit):
   match p:
-    case Pool{_, +ch, _, _}:
+    case Pool{_, +ch, _}:
       IO.bind(Maybe<&1, St>, Unit, Chan.recv(St, ch), m => freed(m, p))
+
+# how many tasks wait, how much room is free and how many connections are
+# idle (for tests and diagnostics)
+type Counts is Data:
+  Counts{waiting: Nat, free: Nat, idle: Nat}
+
+type Seen is Type:
+  Seen{idle: List<&1, Idle>, n: Nat}
+
+def seen(xs: List<&1, Idle>, +n: Nat, acc: List<&1, Idle>) -> Seen:
+  match xs:
+    case Nil{}:
+      Seen{List.reverse(&1, Idle, acc), n}
+    case Con{x, t}:
+      seen(t, Nat.add(n, 1n), Con{x, acc})
+
+def tickets(q: List<&2, Ticket>, +n: Nat) -> Nat:
+  match q:
+    case Nil{}:
+      n
+    case Con{_, t}:
+      tickets(t, Nat.add(n, 1n))
+
+def counts.seen(v: Seen, +free: Nat, +q: List<&2, Ticket>, next: Nat, closing: Bool, +ch: Chan(St)) -> IO(Counts):
+  match v:
+    case Seen{idle, +n}:
+      IO.bind(Unit, Counts, put(ch, St{idle, free, q, next, closing}), u => IO.pure(Counts, Counts{tickets(q, 0n), free, n}))
+
+def counts.st(m: Maybe<&1, St>, +p: Pool) -> IO(Counts):
+  match m p:
+    case Some{St{idle, +free, +q, next, closing}} Pool{_, +ch, _}:
+      counts.seen(seen(idle, 0n, []), free, q, next, closing, ch)
+    case None{} _:
+      IO.pure(Counts, Counts{0n, 0n, 0n})
+
+def counts(+p: Pool) -> IO(Counts):
+  match p:
+    case Pool{_, +ch, _}:
+      IO.bind(Maybe<&1, St>, Counts, Chan.recv(St, ch), m => counts.st(m, p))
+
+# Waiting
+# -------
+
+# a grant a waiter that gave up no longer wants, given back like any return
+# (so it goes to the next waiter, if there is one)
+def passed(m: Maybe<&1, Grant>, +key: String, +p: Pool) -> IO(Taken):
+  match m:
+    case Some{GKept{s, +tls}}:
+      IO.bind(Unit, Taken, give(True{}, s, tls, key, p), u => IO.pure(Taken, Late{}))
+    case Some{GEvict{s, +tls}}:
+      do IO<Taken>:
+        u : Unit <- C.shut(tls, s)
+        v : Unit <- release(p)
+        return Late{}
+    case Some{GRoom{}}:
+      IO.bind(Unit, Taken, release(p), u => IO.pure(Taken, Late{}))
+    case _:
+      IO.pure(Taken, Late{})
+
+# a queue without one ticket, and whether it was there
+type Out is Type:
+  Out{found: Bool, rest: List<&2, Ticket>}
+
+def drop.kept(x: Ticket, o: Out) -> Out:
+  match o:
+    case Out{found, rest}:
+      Out{found, Con{x, rest}}
+
+def drop.one(hit: Bool, x: Ticket, t: List<&2, Ticket>, more: Unit -> Out) -> Out:
+  match hit:
+    case True{}:
+      Out{True{}, t}
+    case False{}:
+      drop.kept(x, more(Unit{}))
+
+def drop(q: List<&2, Ticket>, +id: Nat) -> Out:
+  match q:
+    case Nil{}:
+      Out{False{}, []}
+    case Con{Ticket{+i, k, b}, +t}:
+      drop.one(Nat.is_eq(i, id), Ticket{i, k, b}, t, u => drop(t, id))
+
+# Still queued: the ticket is removed and nothing was handed over. Gone from
+# the queue: a return took it out and put its grant in the box before
+# putting the state back, so the grant is there now; it is passed on.
+def left.out(o: Out, idle: List<&1, Idle>, +free: Nat, +next: Nat, closing: Bool, +ch: Chan(St), +key: String, +box: Chan(Grant), +p: Pool) -> IO(Taken):
+  match o:
+    case Out{True{}, q}:
+      do IO<Taken>:
+        x : Unit <- put(ch, St{idle, free, q, next, closing})
+        y : Unit <- Chan.close(Grant, box)
+        return Late{}
+    case Out{False{}, q}:
+      do IO<Taken>:
+        x : Unit <- put(ch, St{idle, free, q, next, closing})
+        m : Maybe<&1, Grant> <- Chan.recv(Grant, box)
+        y : Unit <- Chan.close(Grant, box)
+        passed(m, key, p)
+
+def left.st(m: Maybe<&1, St>, +p: Pool, +key: String, +id: Nat, +box: Chan(Grant)) -> IO(Taken):
+  match m p:
+    case Some{St{idle, +free, q, +next, closing}} Pool{_, +ch, _}:
+      left.out(drop(q, id), idle, free, next, closing, ch, key, box, p)
+    case None{} _:
+      IO.pure(Taken, Late{})
+
+# a waiter past its deadline leaves the queue
+def leave(+p: Pool, +key: String, +id: Nat, +box: Chan(Grant)) -> IO(Taken):
+  match p:
+    case Pool{_, +ch, _}:
+      IO.bind(Maybe<&1, St>, Taken, Chan.recv(St, ch), m => left.st(m, p, key, id, box))
+
+def woke(r: Poll<&1, &1, Maybe<&1, Grant>, Unit>, +p: Pool, +key: String, +id: Nat, +box: Chan(Grant)) -> IO(Taken):
+  match r:
+    case Ready{Some{g}}:
+      IO.bind(Unit, Taken, Chan.close(Grant, box), u => granted(g))
+    case Ready{None{}}:
+      IO.pure(Taken, Shut{})
+    case Wait{_}:
+      leave(p, key, id, box)
+
+# wait in the queue for a grant, but not past the deadline
+def wait(+p: Pool, +key: String, +id: Nat, +box: Chan(Grant), +dl: Nat) -> IO(Taken):
+  do IO<Taken>:
+    +now : Nat <- IO.now()
+    r : Poll<&1, &1, Maybe<&1, Grant>, Unit> <- Chan.try_recv(Grant, box, C.left(dl, now))
+    woke(r, p, key, id, box)
+
+def entered(e: Entry, +p: Pool, +key: String, +dl: Nat) -> IO(Taken):
+  match e:
+    case Now{t}:
+      IO.pure(Taken, t)
+    case Queued{+id, +box}:
+      wait(p, key, id, box, dl)
+
+# a connection for key's origin: kept, or room to open one; waiting while
+# every connection is in use, until dl (fuel 0: none)
+def take(+fuel: Nat, +p: Pool, +key: String, +dl: Nat) -> IO(Taken):
+  match fuel:
+    case 0n:
+      IO.pure(Taken, Shut{})
+    case 1n+n:
+      IO.bind(Entry, Taken, enter(p, key, dl), e => entered(e, p, key, dl))
 
 # One try
 # -------
@@ -374,7 +564,7 @@ def drive(fuel: Nat, sp: C.Spec, l: C.Left, +p: Pool, +lim: C.Lim) -> IO(C.RR())
 
 def start(sp: C.Spec, +p: Pool) -> IO(C.RR()):
   match p:
-    case Pool{C.Config{+ms, mh, mb, +rt, bo, +rd, _, policy, cm, rm, ua}, _, _, _}:
+    case Pool{C.Config{+ms, mh, mb, +rt, bo, +rd, _, policy, cm, rm, ua}, _, _}:
       do IO<C.RR()>:
         +now : Nat <- IO.now()
         drive(C.fuel.of(rt, rd), C.spec.agent(ua, sp), C.left.of(rt, rd, bo, Nat.add(now, U32.to_nat(ms))), p, C.lim.of(now, ms, mh, mb, policy, C.Ph{cm, rm}))
@@ -434,7 +624,7 @@ def stream.taken(~f: List<&2, U32> -> IO(Bool), t: Taken, req: B.Bytes, tls0: Bo
 
 def stream.spec(~f: List<&2, U32> -> IO(Bool), o: C.Orig, +p: Pool, +dl: Nat) -> IO(C.R(C.Head)):
   match o p:
-    case C.Orig{+key, C.Spec{Ur.Verb{name, +head, sized, _}, Ur.Url{+tls, host, +port, target, auth}, hs, b, _}} Pool{C.Config{+ms, mh, _, _, _, _, _, policy, cm, rm, _}, _, _, _}:
+    case C.Orig{+key, C.Spec{Ur.Verb{name, +head, sized, _}, Ur.Url{+tls, host, +port, target, auth}, hs, b, _}} Pool{C.Config{+ms, mh, _, _, _, _, _, policy, cm, rm, _}, _, _}:
       IO.bind(Taken, C.R(C.Head), take(4294967295n, p, key, dl), t => stream.taken(~f, t, H1.write_request(name, target, auth, C.hs.clean(hs, []), b, sized, False{}), tls, host, port, key, p, C.lim.stream(dl, ms, mh, head, policy, C.Ph{cm, rm})))
     case C.Orig{_, C.Spec{_, Ur.UBad{}, _, _, _}} _:
       IO.pure(C.R(C.Head), Fail{Legacy.BadUrl{}})
@@ -450,7 +640,7 @@ def stream.go(~f: List<&2, U32> -> IO(Bool), s: Result<&2, &2, C.Err, C.Spec>, +
 # ends, then kept if it may be
 def stream(~f: List<&2, U32> -> IO(Bool), +p: Pool, r: C.Req) -> IO(C.R(C.Head)):
   match p:
-    case Pool{C.Config{+ms, _, _, _, _, _, _, policy, _, _, ua}, _, _, _}:
+    case Pool{C.Config{+ms, _, _, _, _, _, _, policy, _, _, ua}, _, _}:
       do IO<C.R(C.Head)>:
         +now : Nat <- IO.now()
         stream.go(~f, C.spec.agent.r(ua, C.spec.of(r)), p, Nat.add(now, U32.to_nat(ms)))
@@ -462,9 +652,8 @@ def stream(~f: List<&2, U32> -> IO(Bool), +p: Pool, r: C.Req) -> IO(C.R(C.Head))
 def open(cfg: C.Config, +n: U32) -> IO(Pool):
   do IO<Pool>:
     +ch : Chan(St) <- Chan.new(St, 1)
-    +w : Chan(Unit) <- Chan.new(Unit, 1024)
-    x : Unit <- put(ch, St{[], U32.to_nat(n), 0n, False{}})
-    return Pool{cfg, ch, w, n}
+    x : Unit <- put(ch, St{[], U32.to_nat(n), [], 0n, False{}})
+    return Pool{cfg, ch, n}
 
 def shut.count(xs: List<&1, Idle>, +n: Nat) -> IO(Nat):
   match xs:
@@ -473,25 +662,41 @@ def shut.count(xs: List<&1, Idle>, +n: Nat) -> IO(Nat):
     case Con{Idle{s, tls, _, _}, t}:
       IO.bind(Unit, Nat, C.shut(tls, s), u => shut.count(t, Nat.add(n, 1n)))
 
-def closed.check(all: Bool, +free: Nat, +waiting: Nat, +p: Pool, again: Unit -> IO(Unit)) -> IO(Unit):
+# the closer waits in the queue like a request, with no deadline; whatever
+# comes back while the pool closes is closed and its room returned
+def closer.got(m: Maybe<&1, Grant>) -> IO(Unit):
+  match m:
+    case Some{GKept{s, tls}}:
+      C.shut(tls, s)
+    case Some{GEvict{s, tls}}:
+      C.shut(tls, s)
+    case _:
+      IO.pure(Unit, Unit{})
+
+def closed.check(all: Bool, +free: Nat, +next: Nat, +p: Pool, again: Unit -> IO(Unit)) -> IO(Unit):
   match all p:
-    case True{} Pool{_, +ch, +w, _}:
+    case True{} Pool{_, +ch, _}:
+      Chan.close(St, ch)
+    case False{} Pool{_, +ch, _}:
       do IO<Unit>:
-        y : Unit <- Chan.close(Unit, w)
-        Chan.close(St, ch)
-    case False{} Pool{_, +ch, +w, _}:
-      do IO<Unit>:
-        x : Unit <- put(ch, St{[], free, Nat.add(waiting, 1n), True{}})
-        y : Maybe<&1, Unit> <- Chan.recv(Unit, w)
+        +box : Chan(Grant) <- Chan.new(Grant, 1)
+        x : Unit <- put(ch, St{[], free, [Ticket{next, "", box}], Nat.add(next, 1n), True{}})
+        m : Maybe<&1, Grant> <- Chan.recv(Grant, box)
+        y : Unit <- Chan.close(Grant, box)
+        z : Unit <- closer.got(m)
         again(Unit{})
 
-def closed.k(+free: Nat, +n: U32, +waiting: Nat, +p: Pool, again: Unit -> IO(Unit)) -> IO(Unit):
-  closed.check(Nat.is_le(U32.to_nat(n), free), free, waiting, p, again)
+def closed.k(+free: Nat, +n: U32, +next: Nat, +p: Pool, again: Unit -> IO(Unit)) -> IO(Unit):
+  closed.check(Nat.is_le(U32.to_nat(n), free), free, next, p, again)
 
+# waiters still queued when the pool starts closing get nothing
 def closed.st(m: Maybe<&1, St>, +p: Pool, again: Unit -> IO(Unit)) -> IO(Unit):
   match m p:
-    case Some{St{idle, +free, +waiting, _}} Pool{_, _, _, +n}:
-      IO.bind(Nat, Unit, shut.count(idle, 0n), k => closed.k(Nat.add(free, k), n, waiting, p, again))
+    case Some{St{idle, +free, q, +next, _}} Pool{_, _, +n}:
+      do IO<Unit>:
+        u : Unit <- shut.queue(q)
+        +k : Nat <- shut.count(idle, 0n)
+        closed.k(Nat.add(free, k), n, next, p, again)
     case None{} _:
       IO.pure(Unit, Unit{})
 
@@ -499,7 +704,7 @@ def closing(+fuel: Nat, +p: Pool) -> IO(Unit):
   match fuel p:
     case 0n _:
       IO.pure(Unit, Unit{})
-    case 1n+k Pool{_, +ch, _, _}:
+    case 1n+k Pool{_, +ch, _}:
       IO.bind(Maybe<&1, St>, Unit, Chan.recv(St, ch), m => closed.st(m, p, u => closing(k, p)))
 
 # close the pool and its connections, once each one in use comes back
@@ -543,14 +748,14 @@ def ev.taken(~on: Ev.Message -> IO(Bool), t: Taken, req: B.Bytes, tls0: Bool, ho
 # one try at an event stream through the pool
 def ev.try(~on: Ev.Message -> IO(Bool), o: C.Orig, last: Maybe<&2, String>, +p: Pool, +dl: Nat) -> IO(C.Try):
   match o p:
-    case C.Orig{+key, C.Spec{Ur.Verb{name, +head, sized, _}, Ur.Url{+tls, host, +port, target, auth}, hs, b, _}} Pool{C.Config{+ms, mh, _, _, _, _, _, policy, cm, rm, _}, _, _, _}:
+    case C.Orig{+key, C.Spec{Ur.Verb{name, +head, sized, _}, Ur.Url{+tls, host, +port, target, auth}, hs, b, _}} Pool{C.Config{+ms, mh, _, _, _, _, _, policy, cm, rm, _}, _, _}:
       IO.bind(Taken, C.Try, take(4294967295n, p, key, dl), t => ev.taken(~on, t, H1.write_request(name, target, auth, List.append(&2, H.Header, C.hs.clean(hs, []), C.ev.hs(last)), b, sized, False{}), tls, host, port, key, p, C.lim.stream(dl, ms, mh, head, policy, C.Ph{cm, rm})))
     case C.Orig{_, C.Spec{_, Ur.UBad{}, _, _, _}} _:
       IO.pure(C.Try, C.Try{Some{Legacy.BadUrl{}}, None{}, None{}, False{}})
 
 def ev.now(~on: Ev.Message -> IO(Bool), sp: C.Spec, last: Maybe<&2, String>, +p: Pool) -> IO(C.Try):
   match p:
-    case Pool{C.Config{+ms, _, _, _, _, _, _, policy, _, _, _}, _, _, _}:
+    case Pool{C.Config{+ms, _, _, _, _, _, _, policy, _, _, _}, _, _}:
       do IO<C.Try>:
         +now : Nat <- IO.now()
         ev.try(~on, C.spec.origin(sp), last, p, Nat.add(now, U32.to_nat(ms)))
@@ -565,7 +770,7 @@ def ev.once(~on: Ev.Message -> IO(Bool), s: Result<&2, &2, C.Err, C.Spec>, +p: P
 # a request's spec, with the pool's User-Agent unless the caller set one
 def spec.of(+p: Pool, r: C.Req) -> Result<&2, &2, C.Err, C.Spec>:
   match p:
-    case Pool{C.Config{_, _, _, _, _, _, _, _, _, _, ua}, _, _, _}:
+    case Pool{C.Config{_, _, _, _, _, _, _, _, _, _, ua}, _, _}:
       C.spec.agent.r(ua, C.spec.of(r))
 
 # as C.events, through the pool
@@ -586,7 +791,7 @@ def ev.retry.go(~on: Ev.Message -> IO(Bool), fuel: Nat, sp: C.Spec, rt: C.Rt, +l
 
 def ev.retry(~on: Ev.Message -> IO(Bool), s: Result<&2, &2, C.Err, C.Spec>, +n: U32, +p: Pool) -> IO(C.R(C.Ended)):
   match s p:
-    case Done{sp} Pool{C.Config{_, _, _, _, +bo, _, _, policy, _, _, _}, _, _, _}:
+    case Done{sp} Pool{C.Config{_, _, _, _, +bo, _, _, policy, _, _, _}, _, _}:
       ev.retry.go(~on, Nat.add(U32.to_nat(n), 1n), sp, C.Rt{None{}, 0, bo}, n, p)
     case Fail{e} _:
       IO.pure(C.R(C.Ended), Fail{e})
