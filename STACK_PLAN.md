@@ -318,7 +318,11 @@ real-world HTTPS use without widening the frozen exclusions.
   `wire/ip.bend`, IPv6 iPAddress identity without SNI, and a DNS deadline.
   Fallback is sequential with per-attempt budgets; Happy Eyeballs racing,
   zone IDs and IPv6 UDP are deferred (see STACK_PROGRESS.md).
-- [ ] Server SNI multi-certificate selection.
+- [x] Server SNI multi-certificate selection. Done 2026-11-08
+  (`657e513`..`02ef39e`): `bend_tls_server.accept_select` and
+  `with_bend_tls_hosts`; exact > single-label wildcard > default, P-256
+  preferred over RSA for one name, otherwise unrecognized_name (112). Native
+  only; IO selection callbacks deferred. See TLS_PROFILE.md version 4.
 - [ ] Broaden the finite Name profile for common EV certificates (for example
   www.digicert.com).
 - [ ] Optional X25519MLKEM768 hybrid key share.

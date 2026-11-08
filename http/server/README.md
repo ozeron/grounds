@@ -93,7 +93,47 @@ records. No ciphertext or TLS state enters C/JS. Incomplete HTTP requests get
 408 when the transport is writable; timeout inside an incomplete TLS record
 closes the affine connection. Keep-alive, pipelining, body/head/request limits,
 streaming, health, proxy marking and graceful drain share the existing loop.
-SNI stays on the TLS owner; it is not injected into the request or app context.
+On a Bend TLS connection the server sets `x-tls-server-name` (the validated
+SNI as the client sent it; absent without SNI) and, for multi-host listeners,
+`x-tls-credential` (the selected credential's label). Incoming copies of both
+headers are always removed, as for `x-forwarded-proto`; read them with
+`Server.tls_server_name(req)` and `Server.tls_credential(req)`.
+
+### SNI multi-certificate (native)
+
+`with_bend_tls_hosts(cfg, hosts, default)` serves several synthetic
+credentials on one listener (`with_bend_tls_hosts_suites` takes suites too).
+Each host is `Server.tls_host(names, chain_paths, key_path)` or
+`Server.tls_host_pem(cert, key)`; empty names mean the leaf's SAN dNSName
+entries. `default` is `Some{host}` or `None{}`.
+
+```python
+cfg = Server.with_bend_tls_hosts(Server.default(8443),
+  [Server.tls_host_pem("a-ecdsa.pem", "a-ecdsa.key"),
+   Server.tls_host_pem("a-rsa.pem", "a-rsa.key"),
+   Server.tls_host(["api.example.test"], ["api.pem", "intermediate.pem"], "api.key"),
+   Server.tls_host_pem("wild.pem", "wild.key")],
+  Some{Server.tls_host_pem("fallback.pem", "fallback.key")})
+```
+
+- Selection: exact name, then single-label leftmost wildcard (`*.example.com`
+  matches `a.example.com`, not `example.com` or `a.b.example.com`), then the
+  default; ASCII case-insensitive. When a P-256 and an RSA credential share
+  a name, P-256 is chosen if the client offers ECDSA, else RSA.
+- No SNI (clients connecting by IP) or no match uses the default. Without a
+  default those handshakes fail with the `unrecognized_name` alert (112).
+- Startup (before listen) refuses: zero or more than 64 credentials, more
+  than one default, a non-default host with no names, more than 100 names on
+  one credential, invalid names (`*.com`, `f*.example.com`, IP literals), the
+  same name on two credentials of the same key type, and any credential whose
+  key does not match its leaf. `HTTP_TLS_CERT`/`HTTP_TLS_KEY` cannot replace a
+  host list.
+- `x-tls-credential` is `p256:` or `rsa:` followed by the first name (or
+  `default` for a nameless default), e.g. `p256:*.wild.example.test`.
+- Live-gated on native (`examples/bend_sni.bend`, `examples/bend_sni_check.py`:
+  Python ssl, OpenSSL s_client, Go crypto/tls, WSS and headless Chrome with
+  normal verification). Bun keeps P-256 only and is not gated for this path.
+  Certificates are loaded once; replacing them needs a new listener.
 
 The existing raw-socket `Upgrade` session cannot own a Bend TLS connection.
 On this transport that variant receives 501 before a 101 is sent.

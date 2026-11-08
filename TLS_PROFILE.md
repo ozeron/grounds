@@ -165,6 +165,53 @@ brackets. Zone IDs (`%25`), IPvFuture and the dotted IPv4 tail
 one host and has no certificate identity. A DNS name that resolves to IPv6
 is still a DNS identity with SNI, whichever address family connects.
 
+### Version 4 server SNI credential selection (M6, 2026-11-08)
+
+Version 4 adds server-side credential selection by SNI and changes nothing
+else on the wire: suites, groups, signature schemes, HRR, alerts and every
+client rule stay as in version 3, and `bend_tls_server.accept` with one
+caller-supplied credential behaves as before (its connection's
+`credential` label is empty).
+
+- API: `bend_tls_server.accept_select(socket, policy, deadline, select)`.
+  After the first ClientHello is read, `select(sni, signature_algorithms)`
+  receives the validated host_name (`[]` when absent or malformed) and the
+  offered schemes (`[]` when absent), and returns the credential, its
+  intermediates and a label, or nothing. This happens before
+  ServerHello/HRR, so Certificate and CertificateVerify (and the transcript
+  they sign) use only the selected owner. After an HRR the same credential
+  stays; CH2 may not change server_name or signature_algorithms (the
+  existing invariant check). The HTTP layer uses this for
+  `with_bend_tls_hosts` (`http/server/README.md`).
+- Names (`wire/tls_server_names.bend`): exact ASCII DNS names, or a
+  single-label leftmost wildcard `*.suffix` whose suffix has at least two
+  labels. Matching folds ASCII case. `*.example.com` matches
+  `a.example.com`, not `example.com` or `a.b.example.com`. Partial-label
+  wildcards (`f*.example.com`), `*.com`, all-digit names and IP literals are
+  refused at startup. Names default to the leaf's SAN dNSName entries;
+  callers may list names instead (then SAN names are not used for
+  selection; the client still verifies the certificate).
+- Precedence: exact match, then wildcard, then the default credential.
+  Within the winning tier, a P-256 credential is chosen when the client
+  offers ecdsa_secp256r1_sha256, else an RSA one when it offers
+  rsa_pss_rsae_sha256, else the first candidate (negotiation then fails
+  with handshake_failure 40, as before).
+- No SNI (IP-literal clients) or no match: the default credential if one is
+  configured. Otherwise the handshake is aborted with `unrecognized_name`
+  (112). A ClientHello that already fails the version, required-extension
+  or framing checks gets that existing alert (50, 70, 109, ...) instead;
+  key-share, server_name and ALPN errors are reported as 112.
+- Startup limits: 1–64 credentials, at most 100 names each, at most one
+  default; a non-default credential needs at least one name. The same name
+  (case-folded) on two credentials of the same key type is refused; one
+  P-256 and one RSA credential may share a name. Each credential is
+  imported and its leaf SPKI matched to its key, as for one credential.
+- Not added: selection callbacks with IO, certificate rotation, OCSP
+  stapling, ECH, per-name ALPN or suites, and choosing a credential from
+  `signature_algorithms_cert`. Bun keeps the version 1 server boundary
+  (P-256 only; an RSA host fails before listen); the multi-credential path
+  is gated on native only.
+
 Offline checks use fixed times, SAN-only hostname verification and recorded
 roots. Unknown certificate signatures return `unsupported-algorithm`.
 The finite Name profile remains: some EV Names are unsupported, and removed
@@ -220,7 +267,7 @@ All 16 Verified RFC 8446 entries were checked against this profile:
 | Local credentials | P-256 SEC1/PKCS#8; two-prime RSA PKCS#1/PKCS#8 with rsaEncryption identity. No encrypted PEM, multiprime RSA, compressed points, explicit EC parameters or other curves. RSA n: 2048–4096 bits, p/q: 1024–2048 bits, canonical odd e: 3..2^32−1. Trusted prime generation is a prerequisite, not supplied by import. |
 | Peer certificates | M1 explicit-anchor x509_chain.verify, supported P-256/RSA/PSS-only issuers, SAN-only DNS/IP and caller UTC time. A PSS-only leaf cannot authenticate RSAE CertificateVerify. Existing M1 rejections remain in force. |
 | ALPN | http/1.1 only; never advertise h2/h3. Offered ALPN with no common protocol fails no_application_protocol; absent ALPN permits the HTTP/1.1 default. Reject unsolicited/wrong server selections. |
-| SNI | Client sends one DNS HostName for a DNS identity; server validates and exposes it on the accepted connection. The current caller supplies its credential before accept; dynamic selection callbacks are deferred. Reject empty/duplicate host_name, NUL and IP literals. Verify DNS/IP identity independently. |
+| SNI | Client sends one DNS HostName for a DNS identity; server validates and exposes it on the accepted connection. `accept` uses one caller-supplied credential; `accept_select` (version 4) picks one per connection by exact name > single-label wildcard > default, preferring P-256 when offered, else aborts with unrecognized_name (112). IO selection callbacks are deferred. Reject empty/duplicate host_name, NUL and IP literals. Verify DNS/IP identity independently. |
 
 The M4a HTTP Bend server has the following target/credential support boundary
 (both suites above). This is a server-adapter latency restriction, not a change
@@ -343,7 +390,8 @@ certificate blocks and an unencrypted private key through M2 credential import.
 The affine config owns this credential, DER intermediates, ordered suite/group
 preferences, ALPN policy and an absolute monotonic deadline. A fresh owner is
 required for each accept. SNI is validated and returned to the caller; the
-credential is supplied before the handshake. Application ownership is delivered
+credential is supplied before the handshake (or, with `accept_select`, chosen
+from the first ClientHello; version 4). Application ownership is delivered
 only after verifying client Finished. No client certificate is requested.
 
 Flow: CH → optional HRR/CH2 → SH → EE → Certificate → server CV → server

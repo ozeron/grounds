@@ -4,6 +4,65 @@ Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and 
 
 The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
 
+- 2026-11-08 (M6 item 4: server SNI multi-certificate selection): commits
+  `657e513` (names, proofs), `257532f` (wire `accept_select`), `0c3f012`
+  (HTTP API, headers), `02ef39e` (live check) on `69a8267`.
+  - Scope: `wire/tls_server_names.bend` (pure matching, choice and startup
+    validation); `bend_tls_server.accept_select(socket, policy, deadline,
+    select)` reads the first ClientHello, passes the validated SNI and the
+    offered signature_algorithms to `select`, then runs the unchanged
+    handshake with the chosen owner, so Certificate, CertificateVerify and
+    the signed transcript use it; HRR keeps it (CH2 invariants unchanged).
+    Server connections gain a `credential` label (`[]` for `accept`).
+    HTTP: `with_bend_tls_hosts(cfg, hosts, default)` (and `_suites`),
+    `tls_host(names, chain, key)`, `tls_host_pem(cert, key)`; server-owned
+    `x-tls-server-name` / `x-tls-credential` (incoming copies removed;
+    `Server.tls_server_name`, `Server.tls_credential`).
+  - Decisions: exact > wildcard (`*.a.b`, one leftmost label) > default,
+    ASCII case-folded. Names come from the leaf's SAN dNSName entries
+    unless the caller lists them. Within a tier P-256 wins if the client
+    offers ecdsa_secp256r1_sha256, else RSA if it offers
+    rsa_pss_rsae_sha256, else the first candidate (then 40 as before). No
+    SNI or no match uses the default; without one the handshake ends with
+    unrecognized_name (112), unless earlier version/extension/framing
+    checks already give their own alert. Startup refuses 0 or >64
+    credentials, >1 default, nameless non-default hosts, >100 names,
+    `*.com`/partial wildcards/IP-like names, one name twice for one key
+    type, and any key/leaf mismatch. Single-credential `accept`,
+    `with_bend_tls` and `with_bend_tls_chain` are unchanged on the wire.
+  - Deferred: IO selection callbacks, rotation, OCSP stapling, ECH,
+    per-name ALPN/suites, selection by signature_algorithms_cert. Bun:
+    not gated for the multi-host path (Bun still refuses RSA hosts before
+    listen); existing Bun regressions pass.
+  - Tests: 22 name/choice/validation proofs (`wire/m6-units/server-names`);
+    new phases `http_server/bend_sni_{frontend_native,compile_native,
+    go_peer,no_delegation,native}`. The live check (38 rows) uses six
+    synthetic leaves under one private CA and checks each presented leaf
+    by DER SHA-256: Python ssl 10 (exact, wildcard, explicit names, two
+    non-matching wildcard shapes, unknown name and IP no-SNI to the
+    default, forged headers replaced), OpenSSL s_client 9 (RSA-only,
+    ECDSA-only and both sigalgs on one name; case folding; two rows with
+    an observed HRR, two ClientHellos; no SNI), WSS 2, Go crypto/tls 5,
+    no-default 6 (3 Python and 2 OpenSSL `unrecognized name` refusals,
+    known host still served), startup refusals 3, headless Chrome 157 3
+    (b.sni.test and x.wild.sni.test via host-resolver rules, throwaway
+    profile trust, secure state, SAN, page headers and WSS echo; one
+    environment row).
+
+  Fresh macwork gates at `02ef39e`, `--force`, clean tree, unchanged
+  4096 MiB / 120 s guard (`gates.sh wire http_server http_client`):
+  - `wire:check`: **242/242** phases (one new), peak 1224.8 MiB
+    (`m3b-bun/build/server`).
+  - `http_server:check`: **53/53** (five new), peak 1910.3 MiB
+    (`bend_wss_frontend_native`; was 1833.4: the server graph now imports
+    the names module and SAN reader); `bend_sni_frontend_native` 1371.4,
+    `bend_sni_native` 4.6 s.
+  - `http_client:check`: **43/43**, peak 1840.4 MiB
+    (`bend_server_frontend`).
+  - `crypto:check` not run: no crypto change.
+  Artifacts: `~/.codex/artifacts/grounds/2026-11-08/m6/sni/` (`gates/`
+  reports, logs and inputs; `live/sni.json`, audit and build reports).
+
 - 2026-11-08 (M6 review fix 2: one P1 and three P2 findings): an
   independent GPT-6.1-Sol review of `4ea30b7..e7e40ae` found four issues.
   Each was reproduced red on macwork (a build with only the new tests)
