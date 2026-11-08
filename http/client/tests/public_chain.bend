@@ -40,6 +40,14 @@ def loaded(value: Legacy.R(Tr.Policy), fixture: String) -> IO(Unit):
         bytes : List<&2,U32> <- Io.read_bytes(fixture)
         ready(U.tables(nfkc,profile),roots,F.list(bytes))
 
+def system(value: Legacy.R(Tr.System)) -> Legacy.R(Tr.Policy):
+  match value:
+    case Done{Tr.System{_,policy}}: Done{policy}
+    case Fail{error}: Fail{error}
+
+# With a fifth argument (any word; "system" by convention) the bundle is
+# loaded as a system bundle (Bundle.decode.system): TRUSTED blocks' trust
+# settings apply.
 def command(args: List<String>) -> IO(Unit):
   match args:
     case [nfkc,profile,bundle,fixture]:
@@ -48,7 +56,13 @@ def command(args: List<String>) -> IO(Unit):
         b : List<&2,U32> <- Io.read_bytes(profile)
         policy : Legacy.R(Tr.Policy) <- Tr.from_bundle_file(a,b,bundle,Tr.Clock{0n,0n})
         loaded(policy,fixture)
-    case _: IO.die(Unit,2,"nfkc profile explicit-bundle.pem fixture")
+    case [nfkc,profile,_,bundle,fixture]:
+      do IO<Unit>:
+        a : List<&2,U32> <- Io.read_bytes(nfkc)
+        b : List<&2,U32> <- Io.read_bytes(profile)
+        found : Legacy.R(Tr.System) <- Tr.from_system_bundle_paths(a,b,[bundle],Tr.Clock{0n,0n})
+        loaded(system(found),fixture)
+    case _: IO.die(Unit,2,"nfkc profile [system] bundle.pem fixture")
 
 def main() -> IO(Unit):
   IO.bind(List<String>,Unit,Io.args(),command)

@@ -102,6 +102,10 @@
       "optional": false
     },
     {
+      "name": "http_client/bend_system_bundle_chain",
+      "optional": false
+    },
+    {
       "name": "http_client/bend_public_chain_0",
       "optional": false
     },

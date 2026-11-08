@@ -12,8 +12,9 @@ import ../utf8/utf8.bend as Utf
 # RFC 7468 explanatory text is allowed outside blocks. Every delimiter line
 # must be exact; malformed/duplicate/overflow entries fail the whole bundle.
 # No filtering, partial trust result or ambient trust. `decode.system` (system
-# bundles only) drops byte-identical duplicates and skips exactly framed
-# OpenSSL TRUSTED CERTIFICATE blocks, which never become anchors.
+# bundles only) drops byte-identical duplicates and reads OpenSSL TRUSTED
+# CERTIFICATE blocks, which never become anchors but whose trust settings
+# can withdraw one (see `distrust`).
 type Error is Data:
   Empty{}
   Malformed{}
@@ -61,25 +62,34 @@ def body.more(bad: Bool, rest: List<&2,U32>, collected: List<&2,U32>,
 # Delimiters are compared with String.eq, not string-literal match patterns:
 # under Bend 2.0.38 those two literal matches cost ~1.2 GiB of checker memory
 # in every program importing this module (see http/client/BUILD_MEMORY.md).
+# The collected block always ends in a plain CERTIFICATE footer, so a
+# TRUSTED block's text decodes with P.decode like any other.
 def body.end(ended: Bool, +text: String, rest: List<&2,U32>, collected: List<&2,U32>,
   more: List<&2,U32> -> List<&2,U32> -> Result<&2,&2,Error,Parsed>) -> Result<&2,&2,Error,Parsed>:
   match ended:
     case True{}:
-      Done{Parsed{List.reverse(&2,U32,List.reverse.go(&2,U32,Utf.encode(text),collected)),rest}}
+      Done{Parsed{List.reverse(&2,U32,List.reverse.go(&2,U32,Utf.encode("-----END CERTIFICATE-----"),collected)),rest}}
     case False{}:
       body.more(delimiter(text),rest,Con{10,List.reverse.go(&2,U32,Utf.encode(text),collected)},more)
 
-def body.line(pair: String & List<&2,U32>, collected: List<&2,U32>,
+def body.footer(trusted: Bool) -> String:
+  match trusted:
+    case True{}: "-----END TRUSTED CERTIFICATE-----"
+    case False{}: "-----END CERTIFICATE-----"
+
+def body.line(pair: String & List<&2,U32>, trusted: Bool, collected: List<&2,U32>,
   more: List<&2,U32> -> List<&2,U32> -> Result<&2,&2,Error,Parsed>) -> Result<&2,&2,Error,Parsed>:
   (+text,+rest) = pair
-  body.end(String.eq(text,"-----END CERTIFICATE-----"),text,rest,collected,more)
+  body.end(String.eq(text,body.footer(trusted)),text,rest,collected,more)
 
-def body(left: Nat, bytes: List<&2,U32>, collected: List<&2,U32>) -> Result<&2,&2,Error,Parsed>:
+# Lines up to the block's exact END line. Any other delimiter inside the
+# block, or a missing END line, fails the whole load.
+def body(left: Nat, +trusted: Bool, bytes: List<&2,U32>, collected: List<&2,U32>) -> Result<&2,&2,Error,Parsed>:
   match left bytes:
     case _ Nil{}: Fail{Malformed{}}
     case 0n _: Fail{Limit{}}
     case 1n+p bytes:
-      body.line(P.line(bytes,""),collected,r => acc => body(p,r,acc))
+      body.line(P.line(bytes,""),trusted,collected,r => acc => body(p,trusted,r,acc))
 
 # A system bundle keeps the first of byte-identical DER entries.
 def unique(duplicate: Bool, system: Bool, raw: List<&2,U32>, roots: List<&2,List<&2,U32>>,
@@ -240,43 +250,19 @@ def parsed(value: Result<&2,&2,Error,Parsed>, system: Bool, roots: List<&2,List<
     case Done{Parsed{pem,rest}}: block(P.decode(pem),system,roots,r => next(rest,r))
     case Fail{error}: Fail{error}
 
-# A system bundle's OpenSSL TRUSTED CERTIFICATE block (certificate plus trust
-# settings) is skipped up to its exact END line and never becomes an anchor.
-# Its contents are not decoded; any other delimiter inside it, or a missing
-# END line, fails the whole load.
-def skip.more(bad: Bool, rest: List<&2,U32>,
-  more: List<&2,U32> -> Result<&2,&2,Error,List<&2,U32>>) -> Result<&2,&2,Error,List<&2,U32>>:
-  match bad:
-    case True{}: Fail{Malformed{}}
-    case False{}: more(rest)
-
-def skip.end(ended: Bool, text: String, rest: List<&2,U32>,
-  more: List<&2,U32> -> Result<&2,&2,Error,List<&2,U32>>) -> Result<&2,&2,Error,List<&2,U32>>:
-  match ended:
-    case True{}: Done{rest}
-    case False{}: skip.more(delimiter(text),rest,more)
-
-def skip.line(pair: String & List<&2,U32>,
-  more: List<&2,U32> -> Result<&2,&2,Error,List<&2,U32>>) -> Result<&2,&2,Error,List<&2,U32>>:
-  (+text,+rest) = pair
-  skip.end(String.eq(text,"-----END TRUSTED CERTIFICATE-----"),text,rest,more)
-
-def skip(fuel: Nat, bytes: List<&2,U32>) -> Result<&2,&2,Error,List<&2,U32>>:
-  match fuel bytes:
-    case _ Nil{}: Fail{Malformed{}}
-    case 0n _: Fail{Limit{}}
-    case 1n+p bytes: skip.line(P.line(bytes,""),r => skip(p,r))
-
-def skipped(value: Result<&2,&2,Error,List<&2,U32>>, roots: List<&2,List<&2,U32>>,
+# A system bundle's OpenSSL TRUSTED CERTIFICATE block is framed here like a
+# CERTIFICATE block and never becomes an anchor. Its contents are decoded
+# in a second pass (`distrust`), once every block is framed.
+def skipped(value: Result<&2,&2,Error,Parsed>, roots: List<&2,List<&2,U32>>,
   next: List<&2,U32> -> List<&2,List<&2,U32>> -> Result<&2,&2,Error,List<&2,List<&2,U32>>>) -> Result<&2,&2,Error,List<&2,List<&2,U32>>>:
   match value:
-    case Done{rest}: next(rest,roots)
+    case Done{Parsed{_,rest}}: next(rest,roots)
     case Fail{error}: Fail{error}
 
 def start.more(trusted: Bool, bad: Bool, +rest: List<&2,U32>, roots: List<&2,List<&2,U32>>,
   next: List<&2,U32> -> List<&2,List<&2,U32>> -> Result<&2,&2,Error,List<&2,List<&2,U32>>>) -> Result<&2,&2,Error,List<&2,List<&2,U32>>>:
   match trusted bad:
-    case True{} _: skipped(skip(Nat.add(B.length(rest),1n),rest),roots,next)
+    case True{} _: skipped(body(Nat.add(B.length(rest),1n),True{},rest,[]),roots,next)
     case False{} True{}: Fail{Malformed{}}
     case False{} False{}: next(rest,roots)
 
@@ -290,7 +276,7 @@ def start.begin(begun: Bool, +system: Bool, +text: String, +rest: List<&2,U32>, 
   match begun left:
     case True{} 0: Fail{Limit{}}
     case True{} left:
-      parsed(body(Nat.add(B.length(rest),1n),rest,Con{10,List.reverse(&2,U32,Utf.encode(text))}),system,roots,r => acc => next(U32.sub(left,1),r,acc))
+      parsed(body(Nat.add(B.length(rest),1n),False{},rest,Con{10,List.reverse(&2,U32,Utf.encode(text))}),system,roots,r => acc => next(U32.sub(left,1),r,acc))
     case False{} _:
       start.more(start.trusted(system,text),delimiter(text),rest,roots,r => acc => next(left,r,acc))
 
@@ -315,9 +301,180 @@ def decode.checked(valid: Bool, system: Bool, +bytes: List<&2,U32>) -> Result<&2
 def decode(+bytes: List<&2,U32>) -> Result<&2,&2,Error,List<&2,List<&2,U32>>>:
   decode.checked(within(bytes,2097152),False{},bytes)
 
+# OpenSSL trust settings
+# ----------------------
+# A TRUSTED CERTIFICATE block is a certificate followed by an optional
+# X509_CERT_AUX trailer (OpenSSL's d2i_X509_AUX):
+#   SEQUENCE { trust   SEQUENCE OF OBJECT IDENTIFIER OPTIONAL,
+#              reject  [0] IMPLICIT SEQUENCE OF OBJECT IDENTIFIER OPTIONAL,
+#              alias   UTF8String OPTIONAL,
+#              keyid   OCTET STRING OPTIONAL,
+#              other   [1] IMPLICIT SEQUENCE OF AlgorithmIdentifier OPTIONAL }
+# The block withholds TLS server trust from its certificate when reject
+# names serverAuth or anyExtendedKeyUsage, or when a trust list names
+# neither (OpenSSL's X509_TRUST_REJECTED and X509_TRUST_UNTRUSTED). Every
+# plain anchor with the same DER bytes is then dropped, whatever the order
+# of the blocks. A trailer that does not parse fails the whole load.
+type Oids is Data:
+  Oids{valid: Bool, server: Bool}
+
+type Aux is Data:
+  Aux{valid: Bool, stage: U32, restricted: Bool, rejected: Bool}
+
+# serverAuth (1.3.6.1.5.5.7.3.1) or anyExtendedKeyUsage (2.5.29.37.0)
+def server(+oid: List<&2,U32>) -> Bool:
+  Bool.or(C.anchor.equal(oid,[43,6,1,5,5,7,3,1]),C.anchor.equal(oid,[85,29,37,0]))
+
+def oids.next(valid: Bool, rest: List<&2,U32>, found: Bool,
+  next: List<&2,U32> -> Bool -> Oids) -> Oids:
+  match valid:
+    case True{}: next(rest,found)
+    case False{}: Oids{False{},False{}}
+
+def oids.element(value: Maybe<&1,D.Element>, found: Bool,
+  next: List<&2,U32> -> Bool -> Oids) -> Oids:
+  match value:
+    case Some{D.Element{+tag,+body,rest,_}}:
+      oids.next(Bool.and(U32.is_eq(tag,6),O.contents(body)),rest,Bool.or(found,server(body)),next)
+    case None{}: Oids{False{},False{}}
+
+def oids(fuel: Nat, bytes: List<&2,U32>, found: Bool) -> Oids:
+  match fuel bytes:
+    case _ Nil{}: Oids{True{},found}
+    case 0n _: Oids{False{},False{}}
+    case 1n+p bytes: oids.element(D.read(bytes),found,r => f => oids(p,r,f))
+
+def oids.of(+bytes: List<&2,U32>) -> Oids:
+  oids(Nat.add(B.length(bytes),1n),bytes,False{})
+
+def aux.trust(value: Oids, valid: Bool, rejected: Bool) -> Aux:
+  match value:
+    case Oids{ok,found}: Aux{Bool.and(valid,ok),1,Bool.not(found),rejected}
+
+def aux.reject(value: Oids, valid: Bool, restricted: Bool) -> Aux:
+  match value:
+    case Oids{ok,found}: Aux{Bool.and(valid,ok),2,restricted,found}
+
+# Fields in order, each at most once: trust 1, reject 2, alias 3, keyid 4,
+# other 5; any other tag is stage 0 and fails.
+def aux.stage(+tag: U32) -> U32:
+  Bool.pick(U32,U32.is_eq(tag,48),1,Bool.pick(U32,U32.is_eq(tag,160),2,
+    Bool.pick(U32,U32.is_eq(tag,12),3,Bool.pick(U32,U32.is_eq(tag,4),4,
+      Bool.pick(U32,U32.is_eq(tag,161),5,0)))))
+
+def aux.kind(trust: Bool, reject: Bool, other: Bool, +stage: U32, +body: List<&2,U32>,
+  valid: Bool, restricted: Bool, rejected: Bool) -> Aux:
+  match trust reject other:
+    case True{} _ _: aux.trust(oids.of(body),valid,rejected)
+    case False{} True{} _: aux.reject(oids.of(body),valid,restricted)
+    case False{} False{} True{}:
+      Aux{Bool.and(valid,deep(Nat.add(Nat.add(B.length(body),B.length(body)),2n),body,[])),stage,restricted,rejected}
+    case False{} False{} False{}: Aux{valid,stage,restricted,rejected}
+
+def aux.field(+stage: U32, body: List<&2,U32>, value: Aux) -> Aux:
+  match value:
+    case Aux{valid,+before,restricted,rejected}:
+      aux.kind(U32.is_eq(stage,1),U32.is_eq(stage,2),U32.is_eq(stage,5),stage,body,
+        Bool.and(valid,U32.is_gt(stage,before)),restricted,rejected)
+
+def aux.step(value: Maybe<&1,D.Element>, state: Aux, next: List<&2,U32> -> Aux -> Aux) -> Aux:
+  match value:
+    case Some{D.Element{+tag,body,rest,_}}: next(rest,aux.field(aux.stage(tag),body,state))
+    case None{}: Aux{False{},0,False{},False{}}
+
+def aux.go(fuel: Nat, bytes: List<&2,U32>, state: Aux) -> Aux:
+  match fuel bytes:
+    case _ Nil{}: state
+    case 0n _: Aux{False{},0,False{},False{}}
+    case 1n+p bytes: aux.step(D.read(bytes),state,r => a => aux.go(p,r,a))
+
+def aux.outer(value: Maybe<&1,D.Element>) -> Aux:
+  match value:
+    case Some{D.Element{48,+body,Nil{},_}}: aux.go(Nat.add(B.length(body),1n),body,Aux{True{},0,False{},False{}})
+    case _: Aux{False{},0,False{},False{}}
+
+# No trailer: no trust settings.
+def aux(trailer: List<&2,U32>) -> Aux:
+  match trailer:
+    case Nil{}: Aux{True{},0,False{},False{}}
+    case bytes: aux.outer(D.read(bytes))
+
+def distrust.aux(value: Aux, cert: List<&2,U32>, rest: List<&2,U32>, out: List<&2,List<&2,U32>>,
+  next: List<&2,U32> -> List<&2,List<&2,U32>> -> Result<&2,&2,Error,List<&2,List<&2,U32>>>) -> Result<&2,&2,Error,List<&2,List<&2,U32>>>:
+  match value:
+    case Aux{True{},_,False{},False{}}: next(rest,out)
+    case Aux{True{},_,_,_}: next(rest,Con{cert,out})
+    case Aux{False{},_,_,_}: Fail{Malformed{}}
+
+def distrust.certificate(value: Maybe<&1,D.Element>, rest: List<&2,U32>, out: List<&2,List<&2,U32>>,
+  next: List<&2,U32> -> List<&2,List<&2,U32>> -> Result<&2,&2,Error,List<&2,List<&2,U32>>>) -> Result<&2,&2,Error,List<&2,List<&2,U32>>>:
+  match value:
+    case Some{D.Element{48,_,trailer,cert}}: distrust.aux(aux(trailer),cert,rest,out,next)
+    case _: Fail{Malformed{}}
+
+def distrust.decoded(value: Result<&2,&1,P.Error,P.Block>, rest: List<&2,U32>, out: List<&2,List<&2,U32>>,
+  next: List<&2,U32> -> List<&2,List<&2,U32>> -> Result<&2,&2,Error,List<&2,List<&2,U32>>>) -> Result<&2,&2,Error,List<&2,List<&2,U32>>>:
+  match value:
+    case Done{P.Block{P.Certificate{},bytes}}: distrust.certificate(D.read(bytes),rest,out,next)
+    case _: Fail{Malformed{}}
+
+def distrust.block(value: Result<&2,&2,Error,Parsed>, out: List<&2,List<&2,U32>>,
+  next: List<&2,U32> -> List<&2,List<&2,U32>> -> Result<&2,&2,Error,List<&2,List<&2,U32>>>) -> Result<&2,&2,Error,List<&2,List<&2,U32>>>:
+  match value:
+    case Done{Parsed{pem,rest}}: distrust.decoded(P.decode(pem),rest,out,next)
+    case Fail{error}: Fail{error}
+
+def distrust.begin(begun: Bool, +rest: List<&2,U32>, out: List<&2,List<&2,U32>>,
+  next: List<&2,U32> -> List<&2,List<&2,U32>> -> Result<&2,&2,Error,List<&2,List<&2,U32>>>) -> Result<&2,&2,Error,List<&2,List<&2,U32>>>:
+  match begun:
+    case True{}:
+      distrust.block(body(Nat.add(B.length(rest),1n),True{},rest,
+        Con{10,List.reverse(&2,U32,Utf.encode("-----BEGIN CERTIFICATE-----"))}),out,next)
+    case False{}: next(rest,out)
+
+def distrust.line(pair: String & List<&2,U32>, out: List<&2,List<&2,U32>>,
+  next: List<&2,U32> -> List<&2,List<&2,U32>> -> Result<&2,&2,Error,List<&2,List<&2,U32>>>) -> Result<&2,&2,Error,List<&2,List<&2,U32>>>:
+  (+text,+rest) = pair
+  distrust.begin(String.eq(text,"-----BEGIN TRUSTED CERTIFICATE-----"),rest,out,next)
+
+# The certificates that TRUSTED blocks withdraw. Runs after the first pass
+# has framed every block, so only TRUSTED BEGIN lines start a block here.
+def distrust(fuel: Nat, bytes: List<&2,U32>, out: List<&2,List<&2,U32>>) -> Result<&2,&2,Error,List<&2,List<&2,U32>>>:
+  match fuel bytes:
+    case _ Nil{}: Done{out}
+    case 0n _: Fail{Limit{}}
+    case 1n+p bytes: distrust.line(P.line(bytes,""),out,r => o => distrust(p,r,o))
+
+def withdrawn.one(drop: Bool, raw: List<&2,U32>, rest: List<&2,List<&2,U32>>) -> List<&2,List<&2,U32>>:
+  match drop:
+    case True{}: rest
+    case False{}: Con{raw,rest}
+
+def withdrawn(roots: List<&2,List<&2,U32>>, +out: List<&2,List<&2,U32>>) -> List<&2,List<&2,U32>>:
+  match roots:
+    case Nil{}: []
+    case Con{+raw,rest}: withdrawn.one(seen(raw,out),raw,withdrawn(rest,out))
+
+def system.kept(roots: List<&2,List<&2,U32>>) -> Result<&2,&2,Error,List<&2,List<&2,U32>>>:
+  match roots:
+    case Nil{}: Fail{Empty{}}
+    case roots: Done{roots}
+
+def system.distrusted(value: Result<&2,&2,Error,List<&2,List<&2,U32>>>, roots: List<&2,List<&2,U32>>) -> Result<&2,&2,Error,List<&2,List<&2,U32>>>:
+  match value:
+    case Done{out}: system.kept(withdrawn(roots,out))
+    case Fail{error}: Fail{error}
+
+def system.roots(value: Result<&2,&2,Error,List<&2,List<&2,U32>>>, +bytes: List<&2,U32>) -> Result<&2,&2,Error,List<&2,List<&2,U32>>>:
+  match value:
+    case Done{roots}: system.distrusted(distrust(Nat.add(B.length(bytes),1n),bytes,[]),roots)
+    case Fail{error}: Fail{error}
+
 # Same limits and whole-load rejection of malformed entries, for a host's
 # system bundle only: byte-identical duplicate certificates are dropped (each
-# still counts toward the 256 blocks) and OpenSSL TRUSTED CERTIFICATE blocks
-# are skipped. A distinct certificate always needs its own CERTIFICATE block.
+# still counts toward the 256 blocks); OpenSSL TRUSTED CERTIFICATE blocks are
+# not anchors and do not count, but their trust settings can withdraw an
+# anchor (above). A distinct certificate always needs its own CERTIFICATE
+# block.
 def decode.system(+bytes: List<&2,U32>) -> Result<&2,&2,Error,List<&2,List<&2,U32>>>:
-  decode.checked(within(bytes,2097152),True{},bytes)
+  system.roots(decode.checked(within(bytes,2097152),True{},bytes),bytes)
