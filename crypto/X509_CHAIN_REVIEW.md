@@ -121,3 +121,17 @@ resource results and report paths are in the dated STACK_PROGRESS ledger.
 M1's exit criteria are met. This does not close the TLS handshake,
 private-key/runtime review, HTTPS/WSS or broader RTC gates; M2 has not been
 started here.
+
+M6 Name profile addendum (2026-11-08). Issuer linkage still uses
+`x509_name_match.compare` unchanged in structure. The shared schema now admits the EV/OV
+types listed in TLS_PROFILE.md version 5 (jurisdiction L/ST/C, street,
+businessCategory, postalCode, organizationIdentifier), all with
+caseIgnoreMatch preparation. PKCS #9 emailAddress uses the ASCII-case-only
+IA5 comparison already used for domainComponent. These types can occur in
+issuer DNs: organizationIdentifier is in three Mozilla root subjects and
+emailAddress in one. Both equality rules are therefore RFC 5280 7.1 / RFC 2985 rules,
+not leaf-only parsing. With every pinned root Name comparable, root removal
+now ends in `WrongIssuer`/`Untrusted`; `UnsupportedName` remains for unknown
+types, nonempty Teletex and the synthetic 1.2.3.4 vectors. Seven recorded EV
+chains (fixed 2026-11-08 12:00 UTC) extend the offline public corpus to
+twenty, each with the five M5 cases and OpenSSL 3 agreement.

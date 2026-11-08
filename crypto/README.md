@@ -716,7 +716,12 @@ uses the existing single-octet-tag / 65,535-octet DER envelope boundary.
 Known attribute rules cover RFC 5280's common name, country, organization,
 organizational unit, locality, state, title, serial number, DN qualifier, name,
 surname, given name, initials, generation qualifier and pseudonym, plus
-domainComponent and legacy emailAddress. Selected DirectoryString tags support
+domainComponent and legacy emailAddress. M6 (2026-11-08, TLS_PROFILE.md
+version 5) adds the EV/OV subject types street (128), businessCategory (128),
+postalCode (40), organizationIdentifier (unbounded) and the CA/B EV
+jurisdictionOfIncorporation locality/state (DirectoryString 128) and country
+(PrintableString SIZE 2) under 1.3.6.1.4.1.311.60.2.1.1-3; other arcs there
+stay unknown. Selected DirectoryString tags support
 strict UTF-8, PrintableString, UCS-2 BMPString and four-octet UniversalString;
 surrogates, overlong/cut UTF-8 and out-of-range scalars fail. SIZE bounds count
 characters rather than UTF-8 octets. PrintableString and IA5-only attributes
@@ -809,8 +814,10 @@ prepared scalars; each RDN is sorted while retaining duplicate multiplicity,
 and RDN sequence/partition remains significant. DirectoryString and supported
 PrintableString use the stored Unicode 3.2 owner. DomainComponent IA5 octets
 compare exactly apart from ASCII case; whitespace and controls are retained.
-DNS/IDNA label validation has a separate owner. Unknown matching rules, legacy
-mailbox profiles and unconfigured Teletex return `None`, as do malformed or
+Since M6, PKCS #9 emailAddress IA5 values compare the same way (RFC 2985
+pkcs9CaseIgnoreMatch); the new EV/OV types use stored preparation.
+DNS/IDNA label validation has a separate owner. Unknown matching rules and
+unconfigured Teletex return `None`, as do malformed or
 failed preparations. Fully supported Names return `Some{True}` or `Some{False}`
 and the affine table owner. Empty structural Names are comparable; callers must
 separately require a nonempty issuer. Original signed DER is retained intact.
