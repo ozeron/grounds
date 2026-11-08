@@ -19,6 +19,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / 'crypto'))
@@ -137,6 +138,22 @@ def admission_cases():
         ('trusted-not-counted', b''.join(trusted(r) for r in roots) * 3 + good, 'ok:1'),
         ('text-overflow', good + b' ' * (2097153 - len(good)), 'bundle-limit'),
     ]
+
+
+def feed(path, chunks, pause=0.3):
+    """Write chunks to a FIFO with pauses, so each read(2) sees only part."""
+    def go():
+        try:
+            with open(path, 'wb', buffering=0) as f:
+                for i, chunk in enumerate(chunks):
+                    if i:
+                        time.sleep(pause)
+                    f.write(chunk)
+        except BrokenPipeError:
+            pass  # the reader stopped at the cap
+    thread = threading.Thread(target=go, daemon=True)
+    thread.start()
+    return thread
 
 
 def run(binary, args, env=None):
@@ -296,6 +313,34 @@ def main():
             if chosen:
                 assert answer.split(':', 3)[3] == str(chosen), (name, answer)
             record(name, 'system-env', actual, expected, seconds)
+
+        # A bundle that arrives in pieces (a FIFO named by SSL_CERT_FILE or
+        # passed explicitly) is read to end of file under the 2 MiB cap:
+        # a short read is never taken for the whole bundle.
+        roots = certificates(BUNDLE.read_bytes())
+        garbage = b'-----BEGIN CERTIFICATE-----\n!!\n-----END CERTIFICATE-----\n'
+        fifo_cases = [
+            ('fifo-chunks', [pem(roots[0]), pem(roots[1]), pem(roots[2])], 'ok:3'),
+            ('fifo-trailing-garbage', [pem(roots[0]), garbage], 'malformed-bundle'),
+            ('fifo-trailing-text', [pem(roots[0]), b'# trailing note\n'], 'ok:1'),
+            ('fifo-over-cap', [pem(roots[0])] + [b' ' * 1048576] * 2, 'bundle-limit'),
+        ]
+        for name, chunks, expected in fifo_cases:
+            for mode in ('system', 'system-env', 'file'):
+                fifo = d / f'{name}-{mode}.fifo'
+                os.mkfifo(fifo)
+                writer = feed(fifo, chunks)
+                if mode == 'system':
+                    r, seconds = run(a.binary, ['system', '', str(fifo)])
+                elif mode == 'system-env':
+                    r, seconds = run(a.binary, ['system-env'], dict(base, SSL_CERT_FILE=str(fifo)))
+                else:
+                    r, seconds = run(a.binary, ['file', str(fifo)])
+                writer.join(5)
+                answer = r.stdout.strip()
+                actual = ':'.join(answer.split(':')[:2]) if answer.startswith('ok:') else answer
+                assert r.returncode == 0 and actual == expected, (name, mode, answer, expected, r.stderr[-1000:])
+                record(name, mode, actual, expected, seconds)
 
         # Unset or empty SSL_CERT_FILE: the fixed list. The host's own bundle
         # is not a gate; only the chosen path's membership is checked.

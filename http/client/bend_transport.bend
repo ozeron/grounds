@@ -69,13 +69,59 @@ def bundle_decode(system: Bool, +bytes: List<&2,U32>) -> Result<&2,&2,Bundle.Err
     case True{}: Bundle.decode.system(bytes)
     case False{}: Bundle.decode(bytes)
 
-def bundle_read(system: Bool, normalization: List<&2,U32>, profile: List<&2,U32>, clock: Clock,
-  pair: File & Result<&1,&1,U32 & String,List<&2,U32>>) -> IO(Legacy.R(Policy)):
+def bundle_done(system: Bool, normalization: List<&2,U32>, profile: List<&2,U32>, clock: Clock,
+  file: File, value: Legacy.R(List<&2,U32>)) -> IO(Legacy.R(Policy)):
+  match value:
+    case Done{bytes}:
+      do IO<Legacy.R(Policy)>:
+        File.close(file)
+        IO.pure(Legacy.R(Policy),bundle_prepared(normalization,profile,clock,bundle_decode(system,bytes)))
+    case Fail{error}:
+      do IO<Legacy.R(Policy)>:
+        File.close(file)
+        IO.pure(Legacy.R(Policy),Fail{error})
+
+def bundle_count(bytes: List<&2,U32>, +n: U32) -> U32:
+  match bytes:
+    case Nil{}: n
+    case Con{_,rest}: bundle_count(rest,U32.inc(n))
+
+# One read(2) may return less than asked: a FIFO or pipe named by
+# SSL_CERT_FILE, or a file that grows. Reads go on to end of file (an empty
+# read), each asking for one byte more than the cap leaves, so the bytes
+# are the whole file or the load fails as bundle-limit. `acc` is reversed.
+def bundle_step(eof: Bool, over: Bool, file: File, +n: U32, bytes: List<&2,U32>, +left: U32,
+  acc: List<&2,U32>, more: File -> U32 -> List<&2,U32> -> IO(File & Legacy.R(List<&2,U32>))) -> IO(File & Legacy.R(List<&2,U32>)):
+  match eof over:
+    case True{} _: IO.pure(File & Legacy.R(List<&2,U32>),(file,Done{List.reverse(&2,U32,acc)}))
+    case False{} True{}: IO.pure(File & Legacy.R(List<&2,U32>),(file,Fail{Legacy.Tls{"bundle-limit"}}))
+    case False{} False{}: more(file,U32.sub(left,n),List.reverse.go(&2,U32,bytes,acc))
+
+def bundle_counted(file: File, +n: U32, bytes: List<&2,U32>, +left: U32, acc: List<&2,U32>,
+  more: File -> U32 -> List<&2,U32> -> IO(File & Legacy.R(List<&2,U32>))) -> IO(File & Legacy.R(List<&2,U32>)):
+  bundle_step(U32.is_eq(n,0),U32.is_gt(n,left),file,n,bytes,left,acc,more)
+
+def bundle_got(pair: File & Result<&1,&1,U32 & String,List<&2,U32>>, +left: U32, acc: List<&2,U32>,
+  more: File -> U32 -> List<&2,U32> -> IO(File & Legacy.R(List<&2,U32>))) -> IO(File & Legacy.R(List<&2,U32>)):
   (file,result) = pair
-  do IO<Legacy.R(Policy)>:
-    bytes : List<&2,U32> <- IO.pass(List<&2,U32>,result)
-    File.close(file)
-    IO.pure(Legacy.R(Policy),bundle_prepared(normalization,profile,clock,bundle_decode(system,bytes)))
+  do IO<File & Legacy.R(List<&2,U32>)>:
+    +bytes : List<&2,U32> <- IO.pass(List<&2,U32>,result)
+    bundle_counted(file,bundle_count(bytes,0),bytes,left,acc,more)
+
+# Every read but the last returns at least one byte, so 2 MiB + 2 reads
+# reach end of file or pass the cap.
+def bundle_all(fuel: Nat, file: File, +left: U32, acc: List<&2,U32>) -> IO(File & Legacy.R(List<&2,U32>)):
+  match fuel:
+    case 0n: IO.pure(File & Legacy.R(List<&2,U32>),(file,Fail{Legacy.Tls{"bundle-limit"}}))
+    case 1n+p:
+      do IO<File & Legacy.R(List<&2,U32>)>:
+        pair : File & Result<&1,&1,U32 & String,List<&2,U32>> <- File.read_bytes(file,U32.inc(left))
+        bundle_got(pair,left,acc,f => l => a => bundle_all(p,f,l,a))
+
+def bundle_read(system: Bool, normalization: List<&2,U32>, profile: List<&2,U32>, clock: Clock,
+  pair: File & Legacy.R(List<&2,U32>)) -> IO(Legacy.R(Policy)):
+  (file,value) = pair
+  bundle_done(system,normalization,profile,clock,file,value)
 
 def bundle_bounded(large: Bool, system: Bool, file: File, normalization: List<&2,U32>, profile: List<&2,U32>, clock: Clock) -> IO(Legacy.R(Policy)):
   match large:
@@ -85,7 +131,7 @@ def bundle_bounded(large: Bool, system: Bool, file: File, normalization: List<&2
         IO.pure(Legacy.R(Policy),Fail{Legacy.Tls{"bundle-limit"}})
     case False{}:
       do IO<Legacy.R(Policy)>:
-        pair : File & Result<&1,&1,U32 & String,List<&2,U32>> <- File.read_bytes(file,2097153)
+        pair : File & Legacy.R(List<&2,U32>) <- bundle_all(2097154n,file,2097152,[])
         bundle_read(system,normalization,profile,clock,pair)
 
 def bundle_size(system: Bool, normalization: List<&2,U32>, profile: List<&2,U32>, clock: Clock,
@@ -97,7 +143,8 @@ def bundle_size(system: Bool, normalization: List<&2,U32>, profile: List<&2,U32>
 
 # A caller can pass /etc/ssl/cert.pem or certifi's cacert.pem here. No path is
 # chosen implicitly; open/read failures follow the ordinary File IO effects.
-# Size and read are both bounded, including growth between size and read.
+# The size is checked first, then the file is read to end of file under the
+# same 2 MiB cap (a pipe or FIFO, short reads, growth after the size check).
 def from_bundle_file(normalization: List<&2,U32>, profile: List<&2,U32>, path: String, clock: Clock) -> IO(Legacy.R(Policy)):
   do IO<Legacy.R(Policy)>:
     file : File <- IO.try(File,File.open(path,"r"))
