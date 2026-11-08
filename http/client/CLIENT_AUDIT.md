@@ -83,7 +83,7 @@ that name at the end.
 | Area | Baseline | Where (45b1014) | M6 |
 | --- | --- | --- | --- |
 | Pool per origin (scheme, host, port), size bound, eviction | present | `bend_pool.bend:85`, `:137`; `bend_client.bend:1505` | — |
-| Waiting for a connection of a full pool | **partial** | `bend_pool.bend:166`: `Chan.recv` with no deadline | review fix: `Chan.try_recv` until the request's deadline, then `Timeout`; review fix 2: a waiter that gives up leaves the waiting count (1,025 expired waits used to deadlock later returns) |
+| Waiting for a connection of a full pool | **partial** | `bend_pool.bend:166`: `Chan.recv` with no deadline | review fix: `Chan.try_recv` until the request's deadline, then `Timeout`; review fix 2: a waiter that gives up leaves the waiting count (1,025 expired waits used to deadlock later returns); review fix 3: each waiter has its own box and ticket, returns hand off to the oldest waiter, so no shared wake can be taken by the wrong waiter |
 | Idle timeout (`idle_ms`, 4 s) | present | `bend_pool.bend:68` | live test |
 | `Connection: close`, HTTP/1.0, close-delimited → not reused | present | H1 `http1.bend:1268` | live test |
 | Stale kept connection retried once, idempotent only | present | `bend_pool.bend:266`; `bend_transport.bend:165` | live POST test |
@@ -210,6 +210,45 @@ explicit rows (1 red; the signature form was already refused by
 (1,200 expired waiters, then 1,100 returns and two GETs; red: deadlock),
 and the new phase `bend_system_bundle_chain` (6 github.com cases beside
 OpenSSL; 4 red). Live pool total 7 (was 6).
+
+## Review fix 3 (2026-11-08)
+
+An independent review of the review fix 2 code found two P2 issues; both
+were reproduced red on macwork before the fix.
+
+- P2, pool (`bend_pool.bend`): review fix 2's give-up path released the
+  lock and then waited, without a deadline, for a wake on the shared
+  channel when the count said one was owed. A return publishes its room
+  and decrements the count before it sends the wake; if another request
+  takes that room and a newcomer registers in the meantime, the newcomer
+  can take the wake, or the expired waiter blocks until some later return.
+  Red (old internals driven by hand, wake held 400 ms): a waiter with a
+  100 ms deadline returned `Late` about 490 ms late, 3 of 3 runs. Now each
+  waiter has its own one-slot box and a numbered ticket in a FIFO queue
+  under the pool's lock. While anyone waits there is no idle connection and
+  no room, so a return hands what it brings to the oldest waiter (a kept
+  connection for its origin; another origin's connection, which the waiter
+  closes before opening its own; or room), putting the grant in the box
+  before it puts the state back. A waiter past its deadline takes the lock
+  and removes its ticket; if the ticket is gone, its grant is already in
+  its box, and it gives it back like any return, so it reaches the next
+  waiter. A close answers queued waiters with `Shut` at once and then waits
+  in the queue itself. No count is shared, so none can drift.
+  `Pool.counts` reads waiting/free/idle under the lock.
+- P2, system trust (`crypto/pem_bundle.bend`): a TRUSTED block's
+  certificate was any leading SEQUENCE (even `30 00`), and AUX `other`
+  admitted any TLVs (`30 04 a1 02 05 00`, a NULL). Beside a valid plain root
+  such bundles loaded. The certificate now gets the nested checks a plain
+  anchor gets and each `other` element must be an AlgorithmIdentifier
+  (TLS_PROFILE.md, system bundle section).
+
+Tests: live `pool-handoff` (four hand-driven interleavings through
+`enter`/`wait`/`leave`, with counts) and `pool-race` (2,000 tasks on a pool
+of 2 for two origins, deadlines 0-7 ms; measured max overshoot 2-3 ms,
+about 710 give-ups, waiting 0 and all room back); `pool-waiters`
+unchanged. Live pool total 9 (was 7). System bundle admission: 113 rows
+(was 60), 32 red before the fix, with OpenSSL 3.6.4 `d2i_X509_AUX`
+agreeing on all but four DER-strictness rows.
 
 ## IPv6 (M6 item 3, 2026-11-07)
 

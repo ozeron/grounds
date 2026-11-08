@@ -330,6 +330,8 @@ real-world HTTPS use without widening the frozen exclusions.
   root removal now reports `wrong-issuer`/`untrusted`. Teletex, unknown
   types and name constraints stay unsupported. See TLS_PROFILE.md version 5.
 - [ ] Optional X25519MLKEM768 hybrid key share.
+- [ ] Buffered response throughput: 4 MiB chunked body takes ~3 s (~1.3 MB/s);
+  profile and improve.
 
 Exclusions stay: HTTP/2 and HTTP/3, OCSP/CRL revocation, and key and
 certificate generation. Live-secret use stays blocked by `crypto/ERASURE.md`.

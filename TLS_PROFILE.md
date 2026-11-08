@@ -99,13 +99,22 @@ and no program reads a host CA file unless it calls
   toward the 256 blocks), and OpenSSL `TRUSTED CERTIFICATE` blocks are
   read for their trust settings but never become anchors, so a root must
   also appear as a plain `CERTIFICATE`.
-- Trust settings (review fix 2, 2026-11-08): each `TRUSTED CERTIFICATE`
-  block is decoded (strict base64, 65,535-byte DER limit), its certificate
-  is the leading DER SEQUENCE, and the rest must be absent or exactly one
-  OpenSSL `X509_CERT_AUX`: `trust` (SEQUENCE OF OID), `reject` ([0]
-  SEQUENCE OF OID), `alias` (UTF8String), `keyid` (OCTET STRING) and
-  `other` ([1], walked like AlgorithmIdentifier parameters), in that order,
-  each at most once, every OID canonical. A block withholds TLS server
+- Trust settings (review fix 2, 2026-11-08; tightened in review fix 3):
+  each `TRUSTED CERTIFICATE` block is decoded (strict base64, 65,535-byte
+  DER limit). Its certificate is the leading DER SEQUENCE and must pass the
+  same nested checks as a plain anchor (outer framing and signature
+  algorithm binding, Names, SPKI, extensions). The rest must be absent or
+  exactly one OpenSSL `X509_CERT_AUX`: `trust` (SEQUENCE OF OID), `reject`
+  ([0] IMPLICIT SEQUENCE OF OID), `alias` (UTF8String), `keyid` (OCTET
+  STRING) and `other` ([1] IMPLICIT SEQUENCE OF AlgorithmIdentifier, each
+  a canonical OID and at most one parameter, walked to the leaves), in that
+  order, each optional and at most once, constructed where the schema is a
+  SEQUENCE OF, every OID canonical. OpenSSL 3.6.4 `d2i_X509_AUX` rejects
+  every such block that Bend rejects, except four DER-strictness cases
+  that Bend also refuses: a primitive `[0]`/`[1]`, and malformed contents
+  inside an `other` parameter (OpenSSL keeps the parameter as an opaque
+  ANY). Trailing bytes after the AUX, which OpenSSL's PEM reader ignores,
+  also fail. A block withholds TLS server
   trust from its certificate when `reject` names serverAuth
   (1.3.6.1.5.5.7.3.1) or anyExtendedKeyUsage (2.5.29.37.0), or when a
   `trust` list (even an empty one) names neither; these are OpenSSL's
