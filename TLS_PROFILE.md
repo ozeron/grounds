@@ -212,10 +212,45 @@ caller-supplied credential behaves as before (its connection's
   (P-256 only; an RSA host fails before listen); the multi-credential path
   is gated on native only.
 
+### Version 5 EV Name attributes (M6, 2026-11-08)
+
+Version 5 widens only the finite X.509 Name profile; the wire profile,
+trust loading and identity rules stay as in version 4. Admitted attribute
+types, all compared with caseIgnoreMatch (Unicode 3.2 stored preparation):
+
+| Attribute | OID | Syntax |
+| --- | --- | --- |
+| jurisdictionLocalityName | 1.3.6.1.4.1.311.60.2.1.1 | DirectoryString 1..128 |
+| jurisdictionStateOrProvinceName | 1.3.6.1.4.1.311.60.2.1.2 | DirectoryString 1..128 |
+| jurisdictionCountryName | 1.3.6.1.4.1.311.60.2.1.3 | PrintableString SIZE(2) |
+| street | 2.5.4.9 | DirectoryString 1..128 |
+| businessCategory | 2.5.4.15 | DirectoryString 1..128 |
+| postalCode | 2.5.4.17 | DirectoryString 1..40 |
+| organizationIdentifier | 2.5.4.97 | DirectoryString, unbounded (DER input limit) |
+
+DirectoryString means UTF8String, PrintableString, BMPString or
+UniversalString, exactly as for the existing types. The bounds are the
+X.520 (1993) and CA/B Baseline Requirements maxima. Wrong string types, SIZE
+violations and non-minimal OID encodings are malformed. Sibling or child
+arcs of 1.3.6.1.4.1.311.60.2.1 stay unknown (unsupported). PKCS #9
+emailAddress (IA5String 1..255) now also compares: exact octets except
+ASCII case (RFC 2985 pkcs9CaseIgnoreMatch), like domainComponent.
+
+Still unsupported: nonempty TeletexString values (any attribute), every
+other attribute type, and name constraints (`unsupported-name-constraints`).
+Identity remains SAN-only, with no CN fallback. The 50 sampled EV/OV hosts used only
+UTF8String and PrintableString. organizationIdentifier was not seen in a
+leaf, but three Mozilla roots (e-Szigno 2017, e-Szigno TLS 2023, FNMT)
+carry it in their subject. emailAddress appears in one root (e-Szigno
+2009). With these admitted, every Name in the pinned 118-root bundle can be
+compared, so removing a chain's root reports `wrong-issuer` (or `untrusted`
+when the root was presented) instead of `unsupported-name`.
+
 Offline checks use fixed times, SAN-only hostname verification and recorded
 roots. Unknown certificate signatures return `unsupported-algorithm`.
-The finite Name profile remains: some EV Names are unsupported, and removed
-trust roots can report `unsupported-name` after scanning unrelated anchors.
+The offline corpus has twenty chains: the thirteen from M5 plus seven EV
+chains from M6 (DigiCert, GlobalSign, Entrust, Deutsche Bank, PostFinance,
+Apple, PKO BP). A Name outside version 5 still returns `unsupported-name`.
 No network issuer fetching, CN fallback, OCSP/CRL, Ed25519, PQ shares or
 key/certificate generation is added. Public-certificate verification is not
 approval for secret erasure or production private credentials.

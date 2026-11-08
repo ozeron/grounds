@@ -4,6 +4,62 @@ Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and 
 
 The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
 
+- 2026-11-08 (M6 item 5: EV Name profile): commits `a9005a0` (schema,
+  emailAddress equality, unit tests, oracles), `4bb8cdb` (seven EV chains,
+  phases, live hosts) and `420db82` (Bun batch phases), on `8efff93`.
+  - Diagnosis: 50 public hosts were sampled with OpenSSL 4.1 `s_client
+    -showcerts`. Every EV leaf failed with `unsupported-name`, because
+    `x509_name_schema.rule` had no rule for jurisdiction L/ST/C
+    (1.3.6.1.4.1.311.60.2.1.1-3), businessCategory (2.5.4.15), street
+    (2.5.4.9) or postalCode (2.5.4.17). The leaf's issuer/subject self-issued
+    comparison then could not prepare the subject. Removed-root scans failed
+    for a second reason: three Mozilla roots carry organizationIdentifier
+    (2.5.4.97: e-Szigno 2017, e-Szigno TLS 2023, FNMT) and one carries
+    emailAddress (e-Szigno 2009). Their subjects could not be compared, so every
+    exhausted search ended in `unsupported-name`. Only UTF8String and
+    PrintableString were seen, with single-valued RDNs and no Teletex/BMP.
+  - Admitted (TLS_PROFILE.md version 5): jurisdiction L/ST as
+    DirectoryString 1..128, jurisdiction C as PrintableString SIZE(2), street
+    and businessCategory 1..128, postalCode 1..40, organizationIdentifier
+    unbounded; all use caseIgnoreMatch preparation. emailAddress now compares
+    as exact IA5 except ASCII case (RFC 2985), like domainComponent. Still
+    unsupported: nonempty Teletex, other attribute types (including other
+    arcs under 1.3.6.1.4.1.311.60.2.1) and name constraints. Identity is
+    SAN-only (no CN fallback).
+  - Tests: 28 new frontend proofs (25 admission, 3 DER Name). Independent
+    oracles: x509_name_check has 12,631 cases (was 11,195), including size
+    endpoints 39/40/41 and EV arc siblings, children and non-minimal OIDs.
+    x509_name_match has 34,745 (was 33,037), including all-octet emailAddress
+    and EV case/space/OID-binding literals. x509_name_prepare covers
+    type/SIZE for the new types.
+    The offline public corpus grows from 13 to 20 chains: www.digicert.com,
+    www.globalsign.com, www.entrust.com, www.db.com, www.postfinance.ch,
+    www.apple.com and www.pkobp.pl, fixed at 2026-11-08 12:00 UTC. Each has
+    the five M5 cases and OpenSSL 3 agreement recorded in the manifest. All 20
+    removed-root cases now report `wrong-issuer`, or `untrusted` where the
+    root was presented (Sectigo, DigiCert, Entrust), instead of
+    `unsupported-name`. The opt-in live diagnostic adds www.digicert.com,
+    www.globalsign.com and www.bankofamerica.com. One run on macwork verified
+    all nine targets (EV: 200, 302 and 200; RSA-PSS CertificateVerify).
+  - Memory: the Name changes did not change compile peaks. Standalone
+    `bend_frontend_native` measured 1655/1685 MiB at `420db82` and
+    1686/1701 MiB at `8efff93`.
+
+  Fresh macwork gates at `420db82`, `--force`, clean tree, unchanged
+  4096 MiB / 120 s guard:
+  - `crypto:check`: **1,807/1,807** (14 new Bun name-match batches), peak
+    967.6 MiB (`native/build/credential_cli`), 1702.8 s. The first attempt
+    at `4bb8cdb` failed in the guard on undeclared batch-258; fixed by `420db82`.
+  - `http_client:check`: **50/50** (7 new public-chain phases). Run 1 peaked
+    at 2510.3 MiB in `bend_frontend_native`, a one-off. A fresh rerun peaked at
+    1828.7 MiB (`bend_server_frontend`; `bend_frontend_native` 1823.9).
+  - `http_server:check`: **53/53**, peak 1876.1 MiB.
+  - `wire:check` not run: no wire change.
+  Docs-only commits follow. Artifacts:
+  `~/.codex/artifacts/grounds/2026-11-08/m6/names/` (`gates/` reports and
+  logs, `scan*/` recorded hosts, `live/public-live.json`, `meas/`,
+  diagnostic scripts).
+
 - 2026-11-08 (M6 item 4: server SNI multi-certificate selection): commits
   `657e513` (names, proofs), `257532f` (wire `accept_select`), `0c3f012`
   (HTTP API, headers), `02ef39e` (live check) on `69a8267`.

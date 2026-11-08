@@ -323,8 +323,12 @@ real-world HTTPS use without widening the frozen exclusions.
   `with_bend_tls_hosts`; exact > single-label wildcard > default, P-256
   preferred over RSA for one name, otherwise unrecognized_name (112). Native
   only; IO selection callbacks deferred. See TLS_PROFILE.md version 4.
-- [ ] Broaden the finite Name profile for common EV certificates (for example
-  www.digicert.com).
+- [x] Broaden the finite Name profile for common EV certificates (for example
+  www.digicert.com). Done 2026-11-08 (`a9005a0`..`420db82`): EV jurisdiction
+  L/ST/C, street, businessCategory, postalCode and organizationIdentifier,
+  plus emailAddress equality. There are seven new EV corpus chains, and
+  root removal now reports `wrong-issuer`/`untrusted`. Teletex, unknown
+  types and name constraints stay unsupported. See TLS_PROFILE.md version 5.
 - [ ] Optional X25519MLKEM768 hybrid key share.
 
 Exclusions stay: HTTP/2 and HTTP/3, OCSP/CRL revocation, and key and
