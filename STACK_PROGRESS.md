@@ -4,6 +4,85 @@ Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and 
 
 The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
 
+- 2026-11-09 (M7 TLS 1.2 client; **badssl.com blocked on an EMS
+  decision**): the Bend HTTPS client now offers TLS 1.3 and TLS 1.2 in one
+  ClientHello. The server stays TLS 1.3-only. Profile: `TLS_PROFILE.md`
+  version 6; plan: `STACK_PLAN.md` M7.
+  - Commits on `d372c0a`: `b348f06` (crypto: PRF, EMS, AEAD record owners),
+    `42887f1` (wire: handshake and record dispatch), `5d1ed8f` (transition
+    oracle and live peers), `cb291eb` (public diagnostic targets),
+    `76d0aaf` (docs) and `4ad03fe` (fix: accept a TLS 1.2 ServerHello
+    coalesced with later messages in one record).
+  - Implemented: `crypto/tls12_prf.bend` (P_SHA256/384 PRF, RFC 7627
+    master secret, key block, Finished verify_data, constant-time
+    compare); TLS 1.2 epochs in `crypto/traffic.bend` (GCM explicit nonce
+    = sequence, ChaCha XOR nonce, seq‖type‖version‖length AAD, AES usage
+    cap); `wire/tls12_signature.bend` (ECDSA P-256/P-384, RSAE-PSS, PKCS#1
+    v1.5, bound to the verified leaf); `wire/tls12_client.bend` (DOWNGRD
+    sentinel refusal, required EMS, ECDHE x25519/secp256r1 SKE, empty
+    Certificate for CertificateRequest, CCS/Finished ordering); dispatch in
+    `tls_client.bend` / `bend_tls_client.bend`. Certificate verification,
+    ALPN, SNI and deadlines reuse the TLS 1.3 code.
+  - Decisions: EMS required (not relaxed); renegotiation refused (a
+    HelloRequest gets warning no_renegotiation, then close as
+    `renegotiation-refused`; empty renegotiation_info is sent);
+    client certificates never sent (empty Certificate on request);
+    no resumption, tickets, compression, RSA/DHE key exchange or CBC.
+    Bun: TLS 1.2 is native-only; Bun builds are unchanged.
+  - Fix found in review before the gates: a TLS 1.2 ServerHello coalesced
+    with Certificate..ServerHelloDone in one record failed the TLS 1.3
+    epoch-boundary rule. `HS.feed_hello` now applies only the TLS 1.3
+    boundary kinds while the client waits for ServerHello; TLS 1.3 still
+    refuses a ServerHello that does not end its record (new negative).
+  - Tests: crypto `tls12_check` 213 cases (published PRF vectors,
+    `cryptography` AESGCM/ChaCha oracles); wire `tls12_client` 105
+    transition cases against an independent Python oracle; wire
+    `interop/tls12` 53 live cases against OpenSSL `-tls1_2`, Python `ssl`
+    (max 1.2) and Go (MaxVersion 1.2): all six suites, both groups, every
+    SKE scheme, and proxy negatives (tampered SKE, DOWNGRD sentinel,
+    stripped EMS, RSA-kx/CBC suites, altered/garbled Finished, garbled
+    application data, truncated record, HelloRequest, coalesced flight,
+    TLS 1.3 coalesced ServerHello). A TLS 1.3-capable OpenSSL peer still
+    negotiates TLS 1.3. Existing TLS 1.3 tests pass unchanged.
+
+  Fresh macwork gates at `4ad03fe`, clean tree, unchanged
+  4096 MiB / 120 s guard:
+  - `crypto:check --force`: **1809/1809**, peak 943.7 MiB
+    (`rsa_private_cli`), 1635 s. `tls12_cli` build 360.8 MiB.
+  - `wire:check --force`: **246/246**, peak 1123.7 MiB, 671 s.
+    `m7-native/build/tls12_client` 673.5 MiB.
+  - `http_client:check --force`: **50/50**, peak 1878.2 MiB
+    (`bend_frontend_native`), 422 s. `bend_public_frontend` 1622.0 MiB
+    (1569 at M6).
+  - `http_server:check --force`: **53/53**, peak 1956.9 MiB
+    (`bend_browser_frontend_native`), 424 s.
+
+  Opt-in public diagnostic (`GROUNDS_PUBLIC_HTTPS_LIVE=1`, non-gating,
+  pinned Mozilla 2026-10-20 bundle, gate-built `public-http`):
+  - TLS 1.3 rows: 9/9 verified. Eight negotiated TLS 1.3 as before.
+    www.globalsign.com (Cloudflare) now negotiated
+    TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 (HTTP 302) with no downgrade
+    sentinel. This is a server-side change: the unchanged M6 binary
+    (TLS 1.3-only) gets alert 70 there today, and replaying our hello with
+    only TLS 1.3 offered also gets alert 70 (`globalsign-bisect.txt`).
+    OpenSSL's hello still gets TLS 1.3. ipv6.google.com: no global IPv6
+    route (unavailable, not a failure).
+  - TLS 1.2: registry.npmjs.org verified, HTTP 200,
+    TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256/x25519/ecdsa_secp256r1_sha256.
+    rc4, dh1024, cbc, 3des, static-rsa and tls-v1-0.badssl.com are refused
+    by peer alert, as expected (6/6). The other 11 badssl.com rows
+    (positives and certificate negatives) stop at
+    `extended-master-secret-required`: badssl.com does not negotiate EMS.
+
+  Artifacts: `~/.codex/artifacts/grounds/2026-11-08/m7/` (`final/`:
+  `<gate>-01.json/.log/.inputs.txt/-artifacts`, `gates.out`, `gates.sh`,
+  `public-live.json`, `tls12-interop-dev.json`, `globalsign-bisect.txt`,
+  `ch_bisect.py`; `early/`: wire gate at `42887f1`, 242/242, peak
+  1172 MiB; `pre-gate-stale/`: aborted run at `cb291eb`).
+
+  Next: user decision on EMS for badssl.com (keep required, or allow a
+  non-EMS fallback); the remaining M6 items.
+
 - 2026-11-08 (M6 review fix 4: one P2 finding): an independent
   GPT-6.1-Sol re-check of review fix 3 found that the shared
   AlgorithmIdentifier parameter walker (`crypto/pem_bundle.bend`) checked

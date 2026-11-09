@@ -362,8 +362,13 @@ the server stays TLS 1.3-only. Profile: TLS_PROFILE.md version 6.
   tickets, compression, client certificates or non-AEAD/non-ECDHE suites.
 - [x] Tests: published PRF and record oracles (crypto), transitions against
   an independent Python TLS 1.2 oracle, live TLS 1.2-only OpenSSL, Python
-  ssl and Go servers with record-proxy negatives; a TLS 1.3-capable peer
+  ssl and Go servers with record-proxy negatives; a TLS 1.2 ServerHello
+  coalesced with Certificate..ServerHelloDone in one record is accepted
+  (TLS 1.3 still requires it to end its record); a TLS 1.3-capable peer
   still negotiates TLS 1.3.
+- [x] Fresh macwork gates at `4ad03fe` (crypto, wire, http_client,
+  http_server `--force`, unchanged 4096 MiB / 120 s guard); STACK_PROGRESS
+  2026-11-09.
 - [x] Public opt-in diagnostic: TLS 1.2 targets added with expected
   answers; registry.npmjs.org verified over TLS 1.2.
 - [ ] badssl.com: no host there negotiates EMS, so all of it (positives and
