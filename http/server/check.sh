@@ -211,7 +211,7 @@ echo "curl localhost:8080/?name=x: $got"
 
 curl -s -v "localhost:8080/?name=a" "localhost:8080/?name=b" > "$tmp/out" 2> "$tmp/err"
 [ "$(cat "$tmp/out")" = "$(printf 'hello, a\nhello, b')" ] || { echo "keep-alive: bad output"; exit 1; }
-grep -q "Re-using existing connection" "$tmp/err" || { echo "keep-alive: connection not reused"; exit 1; }
+grep -E -q "Re-?using existing (\w+: )?connection" "$tmp/err" || { echo "keep-alive: connection not reused"; grep "^\*" "$tmp/err"; exit 1; }
 echo "keep-alive: two requests on one connection"
 
 python3 examples/probe.py 8080
