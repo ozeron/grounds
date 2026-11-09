@@ -346,6 +346,24 @@ def counted(left: Nat, +kind: U32, +cls: U32, +seed: U32, +count: Nat, +keys: Li
 def show(+x: Nat) -> String:
   String.append(" ", Nat.show(x))
 
+# Copy every input list just before measuring, so both classes measure
+# freshly allocated cells in the same order. Without this, constant class-0
+# inputs (zeros, the generator, pool key 0) can live in hoisted or long-lived
+# cells while class-1 inputs are new, and the class then also selects a
+# memory placement.
+def fresh(xs: List<&2, U32>) -> List<&2, U32>:
+  List.reverse(&2, U32, List.reverse(&2, U32, xs))
+
+def fresh_key(key: RKey) -> RKey:
+  match key:
+    case RKey{n, e, d, p, q, dp, dq, qi}:
+      RKey{fresh(n), fresh(e), fresh(d), fresh(p), fresh(q), fresh(dp), fresh(dq), fresh(qi)}
+
+def fresh_in(input: In) -> In:
+  match input:
+    case In{a, b, c, d, key}:
+      In{fresh(a), fresh(b), fresh(c), fresh(d), fresh_key(key)}
+
 def line(+cls: U32, +i0: Nat, +c0: Nat, +c1: Nat, +i1: Nat, +result: U32) -> String:
   String.append(U32.show(cls), String.append(show(Nat.sub(c1, c0)),
     String.append(show(Nat.sub(i1, i0)), show(U32.to_nat(result)))))
@@ -374,7 +392,7 @@ def loop(left: Nat, +kind: U32, +seed: U32, +count: Nat, +keys: List<&2, RKey>) 
     case 1n+p:
       +s = xorshift(seed)
       +cls = U32.and(U32.shrn(s, 7n), 1)
-      timed(kind, cls, prepare(kind, cls, s, count, keys), _ => loop(p, kind, s, count, keys))
+      timed(kind, cls, fresh_in(prepare(kind, cls, s, count, keys)), _ => loop(p, kind, s, count, keys))
 
 # Key pool file: repeated n,e,d,p,q,dp,dq,qi fields, each a 2-byte big-endian
 # length followed by the canonical big-endian integer.
