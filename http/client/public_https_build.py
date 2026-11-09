@@ -59,6 +59,26 @@ def main():
         IO.pure(HandshakeWork,Shook{Done{Connection{Pipe{socket,Some{read},Some{write},HS.start(),deadline},suite,group,alpn,False{}}}})'''
             assert source.count(before) == 1
             source = source.replace(before, after).replace('def ready_sent(read: T.ReadKey, write: T.WriteKey, suite: U32, group: U32,', 'def ready_sent(read: T.ReadKey, write: T.WriteKey, +suite: U32, +group: U32,')
+            # M7 TLS 1.2: the ServerKeyExchange scheme stands in for the
+            # CertificateVerify scheme; Ready12 reports the suite and group.
+            before = '        public_trace(C.parse(message))\n'
+            after = '        public_trace(C.parse(message))\n        public_trace12(L.exchange(message))\n'
+            assert source.count(before) == 1
+            source = source.replace(before, after)
+            marker = 'def public_trace(value:'
+            at = source.index(marker)
+            source = source[:at] + '''def public_trace12(value: Maybe<&2,L.Params>) -> IO(Unit):
+  match value:
+    case Some{L.Params{_,_,_,scheme,_}}: IO.print("m5-cv:" ++ U32.show(scheme))
+    case None{}: IO.pure(Unit,Unit{})
+
+''' + source[at:]
+            before = '      IO.pure(HandshakeWork,Shook{Done{Connection{Pipe{socket,read,write,HS.start(),deadline},suite,group,alpn,False{}}}})'
+            after = '''      do IO<HandshakeWork>:
+        IO.print("m5-negotiated:" ++ U32.show(suite) ++ ":" ++ U32.show(group))
+        IO.pure(HandshakeWork,Shook{Done{Connection{Pipe{socket,read,write,HS.start(),deadline},suite,group,alpn,False{}}}})'''
+            assert source.count(before) == 1
+            source = source.replace(before, after).replace('def ready12_action(value: Boundary, rest: List<&2,List<&2,U32>>, suite: U32, group: U32,', 'def ready12_action(value: Boundary, rest: List<&2,List<&2,U32>>, +suite: U32, +group: U32,')
             path.write_text(source)
         program = destination / 'http/client/examples/public_https.bend'
         r = subprocess.run(['bend', str(program), '-o', str(a.output.resolve())], capture_output=True, text=True)

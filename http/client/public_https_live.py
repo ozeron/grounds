@@ -20,9 +20,35 @@ REDIRECTS = ['http://github.com/']
 # an IPv6-only origin (AAAA, no A): fetched only when the host has a global
 # IPv6 route, else recorded as unavailable (never counted as a failure)
 IPV6_ONLY = ['ipv6.google.com']
-SUITES = {4865: 'TLS_AES_128_GCM_SHA256', 4866: 'TLS_AES_256_GCM_SHA384', 4867: 'TLS_CHACHA20_POLY1305_SHA256'}
+SUITES = {4865: 'TLS_AES_128_GCM_SHA256', 4866: 'TLS_AES_256_GCM_SHA384', 4867: 'TLS_CHACHA20_POLY1305_SHA256',
+          49195: 'TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256', 49196: 'TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384',
+          49199: 'TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256', 49200: 'TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384',
+          52392: 'TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256', 52393: 'TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256'}
+# M7 TLS 1.2 targets (refuse TLS 1.3 as of 2026-11-08). `expect` is the
+# answer prefix a correct client gives: ok (verified fetch), a certificate
+# reason, or a negotiation failure (server alert or refused parameters).
+# Observations only: a mismatch is reported, never gating.
+TLS12_TARGETS = [
+    ('https://registry.npmjs.org/', 'ok:'),
+    ('https://badssl.com/', 'ok:'), ('https://sha256.badssl.com/', 'ok:'), ('https://ecc256.badssl.com/', 'ok:'),
+    ('https://rsa2048.badssl.com/', 'ok:'), ('https://mozilla-modern.badssl.com/', 'ok:'),
+    ('https://tls-v1-2.badssl.com:1012/', 'ok:'),
+    ('https://expired.badssl.com/', 'error:tls:certificate:expired'),
+    ('https://wrong.host.badssl.com/', 'error:tls:certificate:identity-mismatch'),
+    ('https://self-signed.badssl.com/', 'error:tls:certificate:'),
+    ('https://untrusted-root.badssl.com/', 'error:tls:certificate:'),
+    ('https://incomplete-chain.badssl.com/', 'error:tls:certificate:'),
+    ('https://rc4.badssl.com/', 'error:tls:peer-alert'), ('https://dh1024.badssl.com/', 'error:tls:peer-alert'),
+    ('https://cbc.badssl.com/', 'error:tls:peer-alert'), ('https://3des.badssl.com/', 'error:tls:peer-alert'),
+    ('https://static-rsa.badssl.com/', 'error:tls:peer-alert'), ('https://tls-v1-0.badssl.com:1010/', 'error:tls:peer-alert'),
+]
 GROUPS = {29: 'x25519', 23: 'secp256r1'}
-SIGNATURES = {1027: 'ecdsa_secp256r1_sha256', 1283: 'ecdsa_secp384r1_sha384', 2052: 'rsa_pss_rsae_sha256', 2053: 'rsa_pss_rsae_sha384', 2054: 'rsa_pss_rsae_sha512'}
+SIGNATURES = {1027: 'ecdsa_secp256r1_sha256', 1283: 'ecdsa_secp384r1_sha384', 2052: 'rsa_pss_rsae_sha256', 2053: 'rsa_pss_rsae_sha384', 2054: 'rsa_pss_rsae_sha512',
+              1025: 'rsa_pkcs1_sha256', 1281: 'rsa_pkcs1_sha384', 1537: 'rsa_pkcs1_sha512'}
+
+
+def version(suite):
+    return None if suite is None else ('TLSv1.3' if 4865 <= suite <= 4867 else 'TLSv1.2')
 
 
 def global_ipv6():
@@ -58,12 +84,14 @@ def main():
             report.update(bundle=str(a.bundle.resolve()), bundle_sha256=hashlib.sha256(a.bundle.read_bytes()).hexdigest())
         argument = '@system' if a.system else str(a.bundle.resolve())
         targets = [(host, 'https://' + host + '/', []) for host in HOSTS] + [(url, url, ['follow']) for url in REDIRECTS]
+        if os.environ.get('GROUNDS_PUBLIC_TLS12', '1') == '1':
+            targets += [(url.split('/')[2], url, [], expect) for url, expect in TLS12_TARGETS]
         report['global_ipv6'] = global_ipv6()
         if report['global_ipv6']:
             targets += [(host, 'https://' + host + '/', ['follow']) for host in IPV6_ONLY]
         else:
             report['ipv6_only'] = [dict(host=host, unavailable='no global IPv6 route on this host') for host in IPV6_ONLY]
-        for host, url, extra in targets:
+        for host, url, extra, *expected in targets:
             civil = int(time.time()) + 62135596800
             cmd = [str(a.binary.resolve()), str(ROOT / 'crypto/unicode32_nfkc.bin'), str(ROOT / 'crypto/unicode32_prepare.bin'), argument, str(civil), url] + extra
             start = time.monotonic()
@@ -78,21 +106,27 @@ def main():
                 verified = r.returncode == 0 and answer.startswith('ok:') and len(negotiated) == len(signatures) == 1
                 pair = negotiated[0] if negotiated else [None, None]
                 row = dict(host=host, url=url, followed_redirects=bool(extra), verified=verified, http_status=int(answer.split(':')[1]) if answer.startswith('ok:') else None,
-                           suite=SUITES.get(pair[0], pair[0]), group=GROUPS.get(pair[1], pair[1]),
+                           version=version(pair[0]), suite=SUITES.get(pair[0], pair[0]), group=GROUPS.get(pair[1], pair[1]),
                            signature=SIGNATURES.get(signatures[0], signatures[0]) if signatures else None,
                            output=r.stdout, stderr=r.stderr, exit=r.returncode)
                 if a.system:
                     row['system_bundle'] = loaded
                     if loaded and Path(loaded).is_file():
                         row['system_bundle_sha256'] = hashlib.sha256(Path(loaded).read_bytes()).hexdigest()
+                if expected:
+                    row.update(expect=expected[0], answer=answer, matched=answer.startswith(expected[0]))
             except (OSError, subprocess.TimeoutExpired) as e:
                 row = dict(host=host, verified=False, error=repr(e))
+                if expected:
+                    row.update(expect=expected[0], matched=False)
             row['elapsed_seconds'] = time.monotonic() - start
             report['results'].append(row)
             a.report.parent.mkdir(parents=True, exist_ok=True)
             a.report.write_text(json.dumps(report, indent=2) + '\n')
             print(json.dumps(row), flush=True)
-        report['all_verified'] = all(r['verified'] for r in report['results'])
+        report['all_verified'] = all(r['verified'] for r in report['results'] if 'expect' not in r)
+        report['tls12_matched'] = [r['host'] for r in report['results'] if r.get('matched')]
+        report['tls12_unmatched'] = [r['host'] for r in report['results'] if 'expect' in r and not r.get('matched')]
     a.report.parent.mkdir(parents=True, exist_ok=True)
     a.report.write_text(json.dumps(report, indent=2) + '\n')
     # This diagnostic is deliberately never an internet availability CI gate.
