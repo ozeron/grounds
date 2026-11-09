@@ -72,12 +72,24 @@ def byte_bits.go(left: Nat, value: U32, used: Nat) -> Nat:
     case 1n+p value:
       byte_bits.go(p, U32.shrn(value, 1n), Nat.add(used, 1n))
 
+# 1 when x != 0, without a branch: x | -x has its top bit set exactly then.
+def nonzero(+x: U32) -> U32:
+  U32.shrn(U32.or(x, U32.sub(0, x)), 31n)
+
+# Bit length of the leading byte (8 for any value >= 128) as a fixed sum, so
+# private factors/exponents do not set a loop count through their top byte.
+def byte_width(+byte: U32) -> U32:
+  U32.add(U32.add(U32.add(nonzero(byte), nonzero(U32.shrn(byte, 1n))),
+      U32.add(nonzero(U32.shrn(byte, 2n)), nonzero(U32.shrn(byte, 3n)))),
+    U32.add(U32.add(nonzero(U32.shrn(byte, 4n)), nonzero(U32.shrn(byte, 5n))),
+      U32.add(nonzero(U32.shrn(byte, 6n)), nonzero(U32.shrn(byte, 7n)))))
+
 def bit_length(bytes: List<&2, U32>) -> Nat:
   match bytes:
     case Nil{}:
       0n
     case Con{first, tail}:
-      Nat.add(Nat.mul(B.length(tail), 8n), byte_bits.go(8n, first, 0n))
+      Nat.add(Nat.mul(B.length(tail), 8n), U32.to_nat(byte_width(first)))
 
 def inverse.step(+low: U32, +value: U32) -> U32:
   U32.and(U32.mul(value, U32.sub(2, U32.mul(low, value))), 32767)
@@ -362,26 +374,25 @@ def last_byte(bytes: List<&2, U32>, previous: U32) -> U32:
     case Con{first, tail}:
       last_byte(tail, first)
 
-def compare.step(equal: Bool, less: Bool, next: Unit -> Bool) -> Bool:
-  match equal:
-    case False{}:
-      less
-    case True{}:
-      next(Unit{})
-
-def compare.go(first: List<&2, U32>, second: List<&2, U32>) -> Bool:
+# Equal-width comparison visits every byte: below/above are arithmetic 0/1
+# flags for byte values, and the first difference is latched by mask, with
+# no early exit (blinder admission and private-key ranges use this).
+def compare.go(first: List<&2, U32>, second: List<&2, U32>, +lt: U32, +decided: U32) -> Bool:
   match first second:
     case Con{+a, first} Con{+b, second}:
-      compare.step(U32.is_eq(a, b), U32.is_lt(a, b), _ => compare.go(first, second))
+      +below = U32.shrn(U32.sub(a, b), 31n)
+      +above = U32.shrn(U32.sub(b, a), 31n)
+      compare.go(first, second, U32.or(lt, U32.and(below, U32.xor(decided, 1))),
+        U32.or(decided, U32.or(below, above)))
     case _ _:
-      False{}
+      U32.is_eq(lt, 1)
 
 def less.checked(equal_length: Bool, shorter: Bool, first: List<&2, U32>, second: List<&2, U32>) -> Bool:
   match equal_length:
     case False{}:
       shorter
     case True{}:
-      compare.go(first, second)
+      compare.go(first, second, 0, 0)
 
 # Big-endian, unsigned byte strings; operands may have equal-width leading zeros.
 def less(+first: List<&2, U32>, +second: List<&2, U32>) -> Bool:

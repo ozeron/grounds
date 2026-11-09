@@ -88,8 +88,14 @@ def product.go(+left: Nat, +i: U32, +count: Nat, state: Product) -> Array<U32>:
       product.finish(product.a(i, count, b, out, Array.get(U32, a, i)),
         s => product.go(p, U32.inc(i), count, s))
 
+# Row and column counts come from the operands' byte widths, never from their
+# values: CRT passes h = ((m1-m2)*qi mod p) at |p| bytes with leading zeros,
+# and h = floor(s/q) would otherwise leak q through its bit length.
+def width_limbs(+bytes: List<&2, U32>) -> Nat:
+  Nat.div(Nat.add(Nat.mul(B.length(bytes), 8n), 14n), 15n)
+
 def product(+a: List<&2, U32>, +b: List<&2, U32>) -> Array<U32>:
-  product.go(limbs(a), 0, limbs(b), Product{R.decode(a), R.decode(b), R.zero()})
+  product.go(width_limbs(a), 0, width_limbs(b), Product{R.decode(a), R.decode(b), R.zero()})
 
 # Bitwise reduction also works for even p-1/q-1, unlike Montgomery reduction.
 def reduce.increment(+count: Nat, +bit: U32, state: R.ModResult) -> R.ModResult:
@@ -340,8 +346,10 @@ def component.valid(+valid: Bool, +modulus: List<&2, U32>, +exponent: List<&2, U
 def component.inverse(+modulus: List<&2, U32>, +exponent: List<&2, U32>, +e: List<&2, U32>, +encoded: List<&2, U32>, +blind: List<&2, U32>, +inverse: List<&2, U32>) -> Maybe<&1, List<&2, U32>>:
   component.valid(fixed_equal(B.length(modulus), multiply(modulus, blind, inverse), [1]), modulus, exponent, e, encoded, blind, inverse)
 
+# The CRT exponent is widened to |factor| bytes so the window count does not
+# depend on its leading zero bytes; extra zero nibbles multiply by table[0]=1.
 def component(+modulus: List<&2, U32>, +exponent: List<&2, U32>, +e: List<&2, U32>, +encoded: List<&2, U32>, +blind: List<&2, U32>) -> Maybe<&1, List<&2, U32>>:
-  component.inverse(modulus, exponent, e, reduce(modulus, encoded), reduce(modulus, blind),
+  component.inverse(modulus, R.encode(B.length(modulus), R.decode(exponent)), e, reduce(modulus, encoded), reduce(modulus, blind),
     power(modulus, minus_small(modulus, 2), reduce(modulus, blind)))
 
 # CRT recombination m2 + q * (((m1 - m2) mod p) * q^-1 mod p).
