@@ -337,6 +337,43 @@ Exclusions stay: HTTP/2 and HTTP/3, OCSP/CRL revocation, and key and
 certificate generation. Live-secret use stays blocked by `crypto/ERASURE.md`.
 That secret-erasure work is out of scope for M6.
 
+### M7 — TLS 1.2 client
+
+Added 2026-11-08 at the user's request. Goal: the Bend HTTPS client reaches
+servers that refuse TLS 1.3 (registry.npmjs.org and all of badssl.com on
+2026-11-08 answer alert 70/40 to a TLS 1.3-only offer). Client role only;
+the server stays TLS 1.3-only. Profile: TLS_PROFILE.md version 6.
+
+- [x] Offer TLS 1.3 and 1.2 in one ClientHello (1.3 preferred, legacy 0x0303,
+  1.3 suites then ECDHE+AEAD 1.2 suites, EMS, ec_point_formats, empty
+  renegotiation_info) and keep TLS 1.3 behaviour byte-identical apart from
+  the larger hello.
+- [x] TLS 1.2 PRF (SHA-256/384), RFC 7627 extended master secret, key block
+  and Finished verify_data in `crypto/tls12_prf.bend`, against the
+  published PRF vectors.
+- [x] TLS 1.2 AEAD records: AES-GCM explicit nonce (RFC 5288) and
+  ChaCha20-Poly1305 (RFC 7905), seq‖type‖version‖length AAD, per-direction
+  sequence reset, existing AES usage cap.
+- [x] Handshake: ServerHello negotiation with DOWNGRD sentinel refusal and
+  required EMS; M1/M5 certificate verification; ServerKeyExchange
+  (x25519/secp256r1, ECDSA/RSAE-PSS/PKCS#1 v1.5 bound to the leaf); empty
+  Certificate for CertificateRequest; constant-time Finished.
+- [x] No renegotiation (warning no_renegotiation, then close), resumption,
+  tickets, compression, client certificates or non-AEAD/non-ECDHE suites.
+- [x] Tests: published PRF and record oracles (crypto), transitions against
+  an independent Python TLS 1.2 oracle, live TLS 1.2-only OpenSSL, Python
+  ssl and Go servers with record-proxy negatives; a TLS 1.3-capable peer
+  still negotiates TLS 1.3.
+- [x] Public opt-in diagnostic: TLS 1.2 targets added with expected
+  answers; registry.npmjs.org verified over TLS 1.2.
+- [ ] badssl.com: no host there negotiates EMS, so all of it (positives and
+  certificate negatives) stops at `extended-master-secret-required`.
+  Waiting for a user decision on EMS; not relaxed.
+
+Exclusions: TLS 1.2 server, resumption, renegotiation, client
+authentication, RSA/DHE key exchange, CBC/RC4/3DES, compression, other
+groups. Live-secret use stays blocked by `crypto/ERASURE.md`.
+
 ## Execution order and continuation
 
 1. Establish M0 acceptance and preserve the current dirty work.

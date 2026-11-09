@@ -279,3 +279,42 @@ public-server observations do not authorize production secret use.
 
 Guarded counts, measurements, source/binary bindings and final root disposition
 are recorded in STACK_PROGRESS.md and the M5 round2 artifact directory.
+
+## M7 TLS 1.2 client secrets (2026-11-08)
+
+New secret-bearing paths, all client side and all built from primitives
+already reviewed above (HMAC-SHA256/384, AES-128/256-GCM, ChaCha20-Poly1305,
+X25519/P-256 ECDH):
+
+- Premaster secret: the ECDH output from `tls_key_share.shared`, consumed
+  once by `tls12_prf.master_secret` inside the client flight
+  (`wire/tls12_client.bend` `flight_snapshot`); never stored in a state.
+- Master secret (48 bytes): `PRF(pms, "extended master secret",
+  session_hash)` (RFC 7627). It lives only for the client-flight
+  computation: key block, client verify_data and the expected server
+  verify_data are all derived there, and the master secret is dropped
+  before `Flight` is returned. No session cache keeps it (no resumption).
+- Key block: split into the four direction keys/IVs and handed straight to
+  `traffic.new12_write` / `new12_read`; the read owner waits in the `Ccs`
+  state until the server ChangeCipherSpec. The expected server verify_data
+  (12 bytes) is the only other derived value retained, until Finished.
+- TLS 1.2 epochs (`Aes12Ready{key, salt, sequence}`,
+  `Chacha12Ready{key, iv, sequence}`) are affine owners like the TLS 1.3
+  epochs: they have no traffic secret and no update successor; a failed
+  open or seal retires the epoch (`Gone`). The TLS 1.3 seal/open/update
+  entry points refuse them, and `seal12`/`open12` refuse TLS 1.3 epochs.
+
+Control flow on secrets: the PRF loops on the public output length; AEAD
+nonces are built from the public sequence number (and the peer's public
+explicit nonce on receive); tags are checked over all 16 bytes before any
+plaintext is released (existing `gcm`/`aead` owners); Finished compares all
+12 bytes with XOR/OR (`tls12_prf.same`) before one decision. Lengths,
+content types, versions and the ServerKeyExchange signature input are
+public. Branches on public values only were added.
+
+Same limits as the earlier sections: logical one-use ownership, not physical
+erasure (`crypto/ERASURE.md` still blocks live secrets); copies made by the
+runtime or allocator are not scrubbed; generated native/JIT timing is not
+proven. Signature verification of ServerKeyExchange is public-key only.
+Synthetic peers and opt-in public servers were used for evidence; this does
+not approve production secret use.

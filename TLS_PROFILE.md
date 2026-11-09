@@ -7,6 +7,7 @@ Only synthetic server credentials may be used: see crypto/RUNTIME_REVIEW.md.
 
 ## Profile versions
 
+Version 6 (M7, 2026-11-08) adds a TLS 1.2 client role; see its section below.
 Version 1 is the accepted M2–M4 TLS wire profile below. Version 2 (M5,
 2026-10-24) adds the native public-internet client profile described here. SHA-384,
 SHA-512, HMAC-SHA384, HKDF-SHA384 and verification-only P-384 ECDSA
@@ -275,6 +276,54 @@ No network issuer fetching, CN fallback, OCSP/CRL, Ed25519, PQ shares or
 key/certificate generation is added. Public-certificate verification is not
 approval for secret erasure or production private credentials.
 
+### Version 6 TLS 1.2 client (M7, 2026-11-08)
+
+Version 6 adds TLS 1.2 to the **client role only**, so that servers which
+refuse TLS 1.3 (registry.npmjs.org, all of badssl.com on 2026-11-08) can be
+reached. The server stays TLS 1.3-only and every version 1–5 rule stands.
+Sources: RFC 5246, RFC 8446 §4.1.3, RFC 7627, RFC 8422, RFC 5288/5289,
+RFC 7905, RFC 5746. Code: `wire/tls12_client.bend` (handshake),
+`wire/tls12_signature.bend` (ServerKeyExchange), `crypto/tls12_prf.bend`
+(PRF, EMS, key block, verify_data), TLS 1.2 epochs in `crypto/traffic.bend`
+and record framing in `wire/tls_record.bend`.
+
+| Surface | Binding decision |
+|---|---|
+| Offer | One ClientHello: legacy_version 0x0303; supported_versions `0304, 0303` (1.3 preferred); suites 1301, 1303, 1302, then C02B, C02F, CCA9, CCA8, C02C, C030; key_share X25519 only; groups x25519, secp256r1; ec_point_formats `uncompressed`; empty extended_master_secret; empty renegotiation_info (RFC 5746). No session ticket, status_request, SCSV or compression offer. |
+| Version selection | A ServerHello with supported_versions keeps the unchanged TLS 1.3 path (a selected 0x0303 there is still `illegal_parameter`). Without it, legacy_version must be 0x0303 (`protocol_version` 70 otherwise); a TLS 1.3 suite there, or a ServerHello after a HelloRetryRequest, is 70 `missing-supported-versions`. |
+| Downgrade | Server random ending `44 4F 57 4E 47 52 44 01` or `…00` is refused with `illegal_parameter` (47); so is the HelloRetryRequest random. |
+| Suites | ECDHE_ECDSA/ECDHE_RSA with AES_128_GCM_SHA256 (C02B/C02F), AES_256_GCM_SHA384 (C02C/C030), CHACHA20_POLY1305_SHA256 (CCA9/CCA8). Any other selection (RSA key exchange, DHE, CBC, RC4, 3DES, NULL, CCM) is 47. Compression must be null (47). |
+| Server extensions | Only offered ones: server_name (empty, DNS identity only), ec_point_formats (must list uncompressed, 47; malformed 50), ALPN (exactly http/1.1, 120 otherwise), extended_master_secret (empty), renegotiation_info (exactly `00`, else `handshake_failure` 40). Anything else is `unsupported_extension` (110); duplicates are 50. |
+| Extended master secret | **Required.** A ServerHello without it is `handshake_failure` (40, `extended-master-secret-required`). master_secret = PRF(pms, "extended master secret", session_hash) with session_hash over CH…ClientKeyExchange. No fallback to the RFC 5246 master secret. |
+| Certificate | RFC 5246 list, 1–16 entries of 1–65,535 bytes, 512 KiB; empty is 50. Same M1/M5/M6 verification as TLS 1.3 (explicit, bundle or system anchors, SAN identity, trusted clock, Name profile) with the same alerts (42/43/45/48). ECDHE_ECDSA needs a P-256/P-384 leaf, ECDHE_RSA an rsaEncryption leaf (`unsupported_certificate` 43). |
+| ServerKeyExchange | named_curve only; group must be x25519 (32-byte point) or secp256r1 (65-byte uncompressed point), else 47. The signature covers client_random ‖ server_random ‖ ServerECDHParams exactly as received, with the leaf key. Schemes offered: ecdsa_secp256r1_sha256, ecdsa_secp384r1_sha384, rsa_pss_rsae_sha256/384/512, rsa_pkcs1_sha256/384/512; an unoffered scheme or one of the wrong family for the suite is 47; a bad signature is `decrypt_error` (51). TLS 1.2 ECDSA schemes name the hash only: the curve is the leaf's, with FIPS 186 leftmost-bit truncation (P-256 with SHA-384) or zero extension (P-384 with SHA-256). PKCS#1 v1.5 is accepted only here, never for TLS 1.3 CertificateVerify. |
+| Key exchange | X25519 reuses the ClientHello share; secp256r1 draws a fresh P-256 share (16-attempt rejection sampling) when the server picks it. Points are validated by the existing share owner (all-zero X25519 result, P-256 curve membership); failure is 47. |
+| CertificateRequest | Parsed for framing (50) and answered with an empty Certificate; no client authentication or CertificateVerify. A server that requires a certificate then aborts. |
+| Finished | verify_data is 12 bytes of PRF(master, "client/server finished", Hash(messages)); the server's is compared over all 12 bytes before deciding (51 on mismatch, 50 on a wrong length). |
+| Records | AES-GCM nonce = 4-byte salt ‖ 8-byte explicit nonce, sent as the sequence number, received as sent; ChaCha20-Poly1305 nonce = IV XOR sequence (RFC 7905). AAD = seq ‖ type ‖ 0303 ‖ plaintext length. Sequence numbers start at zero per direction at each ChangeCipherSpec. Protected records up to 2^14+24 bytes, plaintext up to 2^14 (`record_overflow` 22); handshake/alert/application grammar as TLS 1.3. AES-GCM writes stop at the TLS 1.3 per-key record cap (2^24 records, then `internal_error`); ChaCha stops at 2^64. |
+| ChangeCipherSpec | Only `01`, only after the client Finished was sent and at a handshake-message boundary; otherwise 10. |
+| After the handshake | No renegotiation: a HelloRequest gets a **warning** no_renegotiation (1, 100) and the connection closes (`renegotiation-refused`); any other handshake message (tickets were not offered) is 10. KeyUpdate is refused locally (`key-update-tls12`). close_notify as TLS 1.3. |
+| Excluded | Resumption (session IDs are ignored, no tickets), renegotiation, client certificates, RSA/DHE key exchange, CBC/RC4/3DES/NULL, SHA-1 MACs, compression, explicit curves, P-384/other ECDHE groups, Heartbeat, Encrypt-then-MAC (no CBC), TLS 1.1 and below, and the server role. Warning alerts during the handshake are fatal (stricter than RFC 5246 permits). |
+
+The `Connection.suite` value tells the versions apart (0x13xx is TLS 1.3).
+ALPN, SNI, deadlines, the fatal-alert policy and the trust inputs are shared
+with TLS 1.3. TLS 1.3 behaviour is byte-identical apart from the larger
+ClientHello: the TLS 1.3 tests pass unchanged.
+
+Evidence (details in STACK_PROGRESS.md 2026-11-08, M7): published TLS 1.2
+PRF vectors and AEAD record oracles (`crypto/tls12_check.py`), 105
+production-transition cases against an independent Python TLS 1.2 oracle
+(`wire/tls12_client_check.py`) and 50 live cases against TLS 1.2-only
+OpenSSL, Python ssl and Go servers with record-proxy negatives
+(`wire/tls12_interop_check.py`).
+
+**Open user decision (EMS).** On 2026-11-08 registry.npmjs.org negotiates
+EMS and now works over TLS 1.2, but no badssl.com host sends
+extended_master_secret, so every badssl.com fetch, including the certificate
+negatives, stops at `extended-master-secret-required` before certificates
+are seen. Per the M7 brief EMS stays required; relaxing it (for example an
+explicit per-call opt-out) needs a user decision.
+
 ## Standards baseline
 
 [RFC 9846](https://www.rfc-editor.org/rfc/rfc9846.txt), published July 2026,
@@ -314,7 +363,7 @@ All 16 Verified RFC 8446 entries were checked against this profile:
 
 | Surface | Binding decision |
 |---|---|
-| Version | TLS 1.3 (0x0304) only. Standard legacy fields and compatibility-CCS windows still apply. |
+| Version | TLS 1.3 (0x0304) only. Standard legacy fields and compatibility-CCS windows still apply. (Version 6: the client also offers TLS 1.2.) |
 | Suites | TLS_AES_128_GCM_SHA256 (0x1301), TLS_CHACHA20_POLY1305_SHA256 (0x1303). |
 | Groups | x25519 (0x001d), secp256r1 (0x0017), fresh connection/replacement shares. Uncompressed SEC1 P-256 only. |
 | CertificateVerify | ecdsa_secp256r1_sha256 (0x0403), rsa_pss_rsae_sha256 (0x0804), advertised in signature_algorithms. PSS hash/MGF SHA-256, salt exactly 32 bytes. |

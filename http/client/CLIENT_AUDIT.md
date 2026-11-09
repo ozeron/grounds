@@ -332,3 +332,27 @@ Limits: no Happy Eyeballs racing; no zone IDs; IPv4-embedded IPv6 text is
 refused (the bytes are fine when written in hex); the Bun lookup blocks;
 UDP stays IPv4; the legacy client (`client.bend`) still resolves IPv4 only,
 so an IPv6 URL there fails `NoHost`.
+
+## TLS 1.2 (M7, 2026-11-08)
+
+The native Bend HTTPS path now negotiates TLS 1.2 when a server refuses
+TLS 1.3 (TLS_PROFILE.md version 6). Nothing changes at the HTTP layer:
+`bend_transport.bend` calls the same `connect`/`send`/`recv`/`close`, trust
+inputs (explicit PEM, bundle, system bundle), SNI, ALPN http/1.1,
+deadlines and the close_notify-or-truncation rule apply to both versions.
+
+| Area | Before | M7 |
+| --- | --- | --- |
+| Servers that refuse TLS 1.3 (alert 70/40) | failed | ECDHE + AES-GCM/ChaCha20 TLS 1.2 with required EMS; registry.npmjs.org verified (200) |
+| Version downgrade by a 1.3-capable server | n/a | DOWNGRD sentinel refused (47) |
+| Server without extended master secret | n/a | refused (40, `extended-master-secret-required`); all badssl.com hosts on 2026-11-08 — open user decision |
+| Renegotiation request on a pooled connection | n/a | warning no_renegotiation, connection closed (error, not reused) |
+| Version reporting | suite only | unchanged; a suite outside 0x1301–0x1303 means TLS 1.2 |
+
+Limits: TLS 1.2 warning alerts during the handshake are fatal; no session
+resumption, so each pooled connection does a full handshake; no client
+certificates (an empty Certificate answers a request). The public
+diagnostic (`public_https_live.py`) records version, suite and the
+ServerKeyExchange scheme for the TLS 1.2 targets. Tests are in wire
+(`tls12_client_check.py`, `tls12_interop_check.py`); the HTTP suites run
+unchanged over TLS 1.3 peers.
