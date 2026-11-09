@@ -6,12 +6,16 @@ import ./tls_handshake_codec.bend as C
 import ./tls_handshake_stream.bend as HS
 import ./tls_key_share.bend as K
 import ./tls_record.bend as R
+import ./tls_hello.bend as H
+import ./tls12_client.bend as L
 import ../crypto/traffic.bend as T
 import ../crypto/bytes.bend as B
 import ../crypto/x509_chain.bend as A
 import ../crypto/unicode32_prepare.bend as U
 
 # OS byte TCP/RNG only; all TLS protocol/cryptography is Bend. Synthetic keys.
+# TLS 1.3, and TLS 1.2 in the client role only (M7: tls12_client, TLS 1.2
+# epochs in the shared record owners; Connection.suite tells them apart).
 # now is caller-provided wall-clock IO in civil UTC seconds since 0001-01-01;
 # deadline is absolute IO.now milliseconds. A connected socket is consumed on
 # EVERY result. Failed operations close it and return no connection successor.
@@ -106,7 +110,7 @@ def encode(pipe: Pipe, kind: U32, bytes: List<&2,U32>) -> Pipe & Result<&2,&2,Er
   match pipe:
     case Pipe{socket,read,None{},decoder,deadline}: (Pipe{socket,read,None{},decoder,deadline},Done{plain(kind,bytes)})
     case Pipe{socket,read,Some{write},decoder,deadline}:
-      seal_pair(socket,read,decoder,deadline,R.seal(write,kind,0n,bytes))
+      seal_pair(socket,read,decoder,deadline,R.protect(write,kind,bytes))
 
 def sent(pipe: Pipe, result: Result<&1,&1,U32 & String,Unit>) -> Pipe & Result<&2,&2,Error,Unit>:
   match result:
@@ -233,9 +237,10 @@ def abort_sent(pair: Pipe & Result<&2,&2,Error,Unit>) -> IO(Unit):
 
 def abort(pipe: Pipe, error: Error) -> IO(Unit):
   match error:
-    case Error{code,_,True{}}:
+    case Error{+code,_,True{}}:
       # A fatal alert is best effort, bounded by the caller's same deadline.
-      IO.bind(Pipe & Result<&2,&2,Error,Unit>,Unit,transmit(pipe,21,[2,code]),abort_sent)
+      # no_renegotiation (100, TLS 1.2 client only) is always warning level.
+      IO.bind(Pipe & Result<&2,&2,Error,Unit>,Unit,transmit(pipe,21,[Bool.pick(U32,U32.is_eq(code,100),1,2),code]),abort_sent)
     case _: shutdown(pipe)
 
 def failed(pipe: Pipe, +error: Error) -> IO(Result<&2,&1,Error,Connection>):
@@ -252,6 +257,14 @@ def open_pair(socket: Socket, write: Maybe<&1,T.WriteKey>, decoder: HS.Decoder, 
   (read,result) = pair
   opened(Pipe{socket,Some{read},write,decoder,deadline},result)
 
+# TLS 1.2 protects handshake and alert records under their own outer type;
+# for TLS 1.3 any non-application record after ServerHello is plaintext.
+def keyed_other(socket: Socket, write: Maybe<&1,T.WriteKey>, decoder: HS.Decoder, deadline: Nat, header: List<&2,U32>, bytes: List<&2,U32>, pair: T.ReadKey & Bool) -> Pipe & Result<&2,&2,Error,R.Record>:
+  (read,legacy) = pair
+  match legacy:
+    case True{}: open_pair(socket,write,decoder,deadline,R.open12(read,header,bytes))
+    case False{}: (Pipe{socket,Some{read},write,decoder,deadline},Fail{Error{10,"plaintext-after-server-hello",True{}}})
+
 def body(pipe: Pipe, kind: U32, header: List<&2,U32>, bytes: List<&2,U32>) -> Pipe & Result<&2,&2,Error,R.Record>:
   match pipe kind:
     case Pipe{socket,read,write,decoder,deadline} 20:
@@ -259,10 +272,11 @@ def body(pipe: Pipe, kind: U32, header: List<&2,U32>, bytes: List<&2,U32>) -> Pi
     case Pipe{socket,None{},write,decoder,deadline} 23:
       (Pipe{socket,None{},write,decoder,deadline},Fail{Error{10,"early-application-record",True{}}})
     case Pipe{socket,Some{read},write,decoder,deadline} 23:
-      open_pair(socket,write,decoder,deadline,R.open(read,B.append(header,bytes)))
+      open_pair(socket,write,decoder,deadline,R.unprotect(read,header,bytes))
     case Pipe{socket,None{},write,decoder,deadline} _:
       (Pipe{socket,None{},write,decoder,deadline},Done{R.Record{kind,bytes,0n}})
-    case pipe _: (pipe,Fail{Error{10,"plaintext-after-server-hello",True{}}})
+    case Pipe{socket,Some{read},write,decoder,deadline} _:
+      keyed_other(socket,write,decoder,deadline,header,bytes,T.is12_read(read))
 
 def body_got(pipe: Pipe, kind: U32, header: List<&2,U32>, result: Result<&2,&2,Error,List<&2,U32>>) -> Pipe & Result<&2,&2,Error,R.Record>:
   match result:
@@ -282,14 +296,29 @@ def record_length(valid: Bool, bounded: Bool, pipe: Pipe, kind: U32, header: Lis
         pair : Socket & Result<&2,&2,Error,List<&2,U32>> <- read_exact(socket,size,[],deadline)
         body_pair(pair,read,write,decoder,deadline,kind,header)
 
+def legacy_pair(socket: Socket, write: Maybe<&1,T.WriteKey>, decoder: HS.Decoder, deadline: Nat, pair: T.ReadKey & Bool) -> Pipe & Bool:
+  (read,legacy) = pair
+  (Pipe{socket,Some{read},write,decoder,deadline},legacy)
+
+def legacy_read(pipe: Pipe) -> Pipe & Bool:
+  match pipe:
+    case Pipe{socket,Some{read},write,decoder,deadline}: legacy_pair(socket,write,decoder,deadline,T.is12_read(read))
+    case pipe: (pipe,False{})
+
+# TLS 1.2 AEAD records: 2^14 plaintext plus at most 24 bytes of explicit
+# nonce and tag (RFC 5246 6.2.3 permits more; these suites never need it).
+def record_bounded(pair: Pipe & Bool, valid: Bool, +kind: U32, header: List<&2,U32>, +size: Nat) -> IO(Pipe & Result<&2,&2,Error,R.Record>):
+  (pipe,legacy) = pair
+  bound = Bool.pick(Nat,legacy,16408n,Bool.pick(Nat,U32.is_eq(kind,23),16401n,16384n))
+  record_length(valid,Nat.is_le(size,bound),pipe,kind,header,size)
+
 def record_header(pipe: Pipe, result: Result<&2,&2,Error,List<&2,U32>>) -> IO(Pipe & Result<&2,&2,Error,R.Record>):
   match result:
     case Fail{error}: IO.pure(Pipe & Result<&2,&2,Error,R.Record>,(pipe,Fail{error}))
     case Done{[+kind,+major,+minor,+high,+low]}:
       +size = U32.to_nat(U32.add(U32.mul(high,256),low))
       valid = Bool.or(U32.is_eq(kind,20),Bool.or(U32.is_eq(kind,21),Bool.or(U32.is_eq(kind,22),U32.is_eq(kind,23))))
-      bound = Bool.pick(Nat,U32.is_eq(kind,23),16401n,16384n)
-      record_length(valid,Nat.is_le(size,bound),pipe,kind,[kind,major,minor,high,low],size)
+      record_bounded(legacy_read(pipe),valid,kind,[kind,major,minor,high,low],size)
     case _: IO.pure(Pipe & Result<&2,&2,Error,R.Record>,(pipe,Fail{Error{50,"record-header",True{}}}))
 
 def header_pair(pair: Socket & Result<&2,&2,Error,List<&2,U32>>, read: Maybe<&1,T.ReadKey>, write: Maybe<&1,T.WriteKey>, decoder: HS.Decoder, deadline: Nat) -> IO(Pipe & Result<&2,&2,Error,R.Record>):
@@ -357,6 +386,42 @@ def complete_action(value: Boundary, rest: List<&2,List<&2,U32>>, read: T.ReadKe
     case Boundary{pipe,True{}} Nil{}: IO.bind(Pipe & Result<&2,&2,Error,Unit>,HandshakeWork,write_records(pipe,22,last_flight),pair => ready_sent(read,write,suite,group,alpn,pair))
     case Boundary{pipe,_} _: handshake_fail(pipe,Error{10,"finished-record-boundary",True{}})
 
+def keygen_action(pipe: Pipe, state: M.State, rest: List<&2,List<&2,U32>>) -> IO(HandshakeWork):
+  do IO<HandshakeWork>:
+    offer : Maybe<&1,K.Offer> <- K.generate(K.P256{})
+    IO.pure(HandshakeWork,Act{pipe,M.keyed(state,offer),rest})
+
+def flight12_finished(state: M.State, finished: List<&2,U32>, write: T.WriteKey, pair: Pipe & Result<&2,&2,Error,Unit>) -> IO(HandshakeWork):
+  (pipe,result) = pair
+  match pipe result:
+    case pipe Fail{error}: handshake_fail(pipe,error)
+    case Pipe{socket,read,_,decoder,deadline} Done{Unit{}}:
+      IO.bind(Pipe & Result<&2,&2,Error,Unit>,HandshakeWork,write_records(Pipe{socket,read,Some{write},decoder,deadline},22,finished),pair => handshake_sent(state,pair))
+
+def flight12_ccs(state: M.State, finished: List<&2,U32>, write: T.WriteKey, pair: Pipe & Result<&2,&2,Error,Unit>) -> IO(HandshakeWork):
+  (pipe,result) = pair
+  match result:
+    case Fail{error}: handshake_fail(pipe,error)
+    case Done{Unit{}}: IO.bind(Pipe & Result<&2,&2,Error,Unit>,HandshakeWork,transmit(pipe,20,[1]),pair => flight12_finished(state,finished,write,pair))
+
+# TLS 1.2 client flight after ServerHelloDone: [Certificate] ClientKeyExchange
+# in plaintext, ChangeCipherSpec, then Finished under the new write epoch.
+def flight12_action(value: Boundary, rest: List<&2,List<&2,U32>>, state: M.State, plain: List<&2,U32>, finished: List<&2,U32>, write: T.WriteKey) -> IO(HandshakeWork):
+  match value rest:
+    case Boundary{pipe,True{}} Nil{}: IO.bind(Pipe & Result<&2,&2,Error,Unit>,HandshakeWork,write_records(pipe,22,plain),pair => flight12_ccs(state,finished,write,pair))
+    case Boundary{pipe,_} _: handshake_fail(pipe,Error{10,"server-hello-done-boundary",True{}})
+
+def read12_action(value: Boundary, rest: List<&2,List<&2,U32>>, state: M.State, read: T.ReadKey) -> IO(HandshakeWork):
+  match value rest:
+    case Boundary{Pipe{socket,_,write,decoder,deadline},True{}} Nil{}: IO.pure(HandshakeWork,Expect{Pipe{socket,Some{read},write,decoder,deadline},state})
+    case Boundary{pipe,_} _: handshake_fail(pipe,Error{10,"change-cipher-spec-boundary",True{}})
+
+def ready12_action(value: Boundary, rest: List<&2,List<&2,U32>>, suite: U32, group: U32, alpn: Bool) -> IO(HandshakeWork):
+  match value rest:
+    case Boundary{Pipe{socket,read,write,_,deadline},True{}} Nil{}:
+      IO.pure(HandshakeWork,Shook{Done{Connection{Pipe{socket,read,write,HS.start(),deadline},suite,group,alpn,False{}}}})
+    case Boundary{pipe,_} _: handshake_fail(pipe,Error{10,"finished-record-boundary",True{}})
+
 def action(pipe: Pipe, value: M.Action, rest: List<&2,List<&2,U32>>) -> IO(HandshakeWork):
   match value:
     case M.Failed{code,reason}: handshake_fail(pipe,Error{code,reason,True{}})
@@ -368,6 +433,10 @@ def action(pipe: Pipe, value: M.Action, rest: List<&2,List<&2,U32>>) -> IO(Hands
     case M.Retry{auth,transcript,private,public,random,group,suite,cookie}: retry_action(aligned(pipe),rest,auth,transcript,private,public,random,group,suite,cookie)
     case M.Install{state,read,write}: install_action(aligned(pipe),rest,state,read,write)
     case M.Complete{read,write,last_flight,suite,group,alpn}: complete_action(aligned(pipe),rest,read,write,last_flight,suite,group,alpn)
+    case M.Keygen12{state}: keygen_action(pipe,state,rest)
+    case M.Flight12{state,plain,finished,write}: flight12_action(aligned(pipe),rest,state,plain,finished,write)
+    case M.Read12{state,read}: read12_action(aligned(pipe),rest,state,read)
+    case M.Ready12{suite,group,alpn}: ready12_action(aligned(pipe),rest,suite,group,alpn)
 
 def messages(pipe: Pipe, state: M.State, values: List<&2,List<&2,U32>>) -> IO(HandshakeWork):
   match values:
@@ -398,7 +467,7 @@ def handshake_record(pipe: Pipe, state: M.State, result: Result<&2,&2,Error,R.Re
     case Fail{error}: handshake_fail(pipe,error)
     case Done{R.Record{22,Nil{},_}}: handshake_fail(pipe,Error{10,"empty-handshake-record",True{}})
     case Done{R.Record{22,bytes,_}}: feed_handshake(pipe,state,bytes)
-    case Done{R.Record{20,[1],_}}: IO.pure(HandshakeWork,Expect{pipe,state})
+    case Done{R.Record{20,[1],_}}: IO.pure(HandshakeWork,Act{pipe,M.change_cipher_spec(state),[]})
     case Done{R.Record{21,bytes,_}}:
       handshake_alert(aligned(pipe),bytes)
     case Done{_}: handshake_fail(pipe,Error{10,"unexpected-handshake-record",True{}})
@@ -495,10 +564,15 @@ def update_sent(suite: U32, group: U32, alpn: Bool, pair: Pipe & Result<&2,&2,Er
       rekey_write_pair(socket,read,decoder,deadline,suite,group,alpn,T.rekey_write(write))
     case pipe _: failed(pipe,Error{80,"missing-application-write-key",True{}})
 
+def key_update_version(legacy: Bool, pipe: Pipe, suite: U32, group: U32, alpn: Bool, request: Bool) -> IO(Result<&2,&1,Error,Connection>):
+  match legacy:
+    case True{}: failed(pipe,Error{80,"key-update-tls12",False{}})
+    case False{}:
+      IO.bind(Pipe & Result<&2,&2,Error,Unit>,Result<&2,&1,Error,Connection>,transmit(pipe,22,[24,0,0,1,Bool.pick(U32,request,1,0)]),pair => update_sent(suite,group,alpn,pair))
+
 def key_update(connection: Connection, request: Bool) -> IO(Result<&2,&1,Error,Connection>):
   match connection:
-    case Connection{pipe,suite,group,alpn,False{}}:
-      IO.bind(Pipe & Result<&2,&2,Error,Unit>,Result<&2,&1,Error,Connection>,transmit(pipe,22,[24,0,0,1,Bool.pick(U32,request,1,0)]),pair => update_sent(suite,group,alpn,pair))
+    case Connection{pipe,+suite,group,alpn,False{}}: key_update_version(L.is_suite(suite),pipe,suite,group,alpn,request)
     case Connection{pipe,_,_,_,True{}}: failed(pipe,Error{80,"update-on-closed",False{}})
 
 type ReceiveWork is Type:
@@ -554,10 +628,18 @@ def receive_post(pipe: Pipe, suite: U32, group: U32, alpn: Bool) -> IO(ReceiveWo
   match pipe:
     case Pipe{socket,read,write,decoder,deadline}: receive_post_decoder(socket,read,write,deadline,suite,group,alpn,decoder)
 
-def post_messages(server: Bool, pipe: Pipe, suite: U32, group: U32, alpn: Bool, values: List<&2,List<&2,U32>>) -> IO(ReceiveWork):
+# TLS 1.2 has no post-handshake messages in this profile: a HelloRequest is
+# refused with a warning no_renegotiation and the connection closes; any
+# other handshake message (no tickets were offered) is unexpected.
+def post_legacy(legacy: Bool, server: Bool, pipe: Pipe, suite: U32, group: U32, alpn: Bool, +message: List<&2,U32>, rest: List<&2,List<&2,U32>>) -> IO(ReceiveWork):
+  match legacy:
+    case True{}: recv_failed(pipe,Bool.pick(Error,H.same(message,[0,0,0,0],True{}),Error{100,"renegotiation-refused",True{}},Error{10,"post-handshake-message",True{}}))
+    case False{}: post_message(server,pipe,suite,group,alpn,C.parse(message),rest)
+
+def post_messages(server: Bool, pipe: Pipe, +suite: U32, group: U32, alpn: Bool, values: List<&2,List<&2,U32>>) -> IO(ReceiveWork):
   match values:
     case Nil{}: receive_post(pipe,suite,group,alpn)
-    case Con{message,rest}: post_message(server,pipe,suite,group,alpn,C.parse(message),rest)
+    case Con{message,rest}: post_legacy(L.is_suite(suite),server,pipe,suite,group,alpn,message,rest)
 
 def post_batch(socket: Socket, read: Maybe<&1,T.ReadKey>, write: Maybe<&1,T.WriteKey>, deadline: Nat, suite: U32, group: U32, alpn: Bool, value: Result<&2,&1,HS.Error,HS.Batch>) -> IO(ReceiveWork):
   match value:

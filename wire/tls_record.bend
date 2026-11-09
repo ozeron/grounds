@@ -189,3 +189,77 @@ def open.frame(owner: T.ReadKey, framed: Frame) -> T.ReadKey & Result<&2, &2, Er
 # pass the framed header/body without the retained suffix to this interface.
 def open(owner: T.ReadKey, bytes: List<&2, U32>) -> T.ReadKey & Result<&2, &2, Error, Record>:
   open.frame(owner, frame(bytes))
+
+# ---- TLS 1.2 protected records (M7 client) ----
+# The outer content type is the real type (no inner plaintext type or
+# padding). The traffic owner builds the additional data from its own
+# sequence number; this layer adds/removes the 5-byte header and applies the
+# 2^14 plaintext limit and the per-type length grammar shared with TLS 1.3.
+def seal12.result(+kind: U32, pair: T.WriteKey & Result<&2, &2, T.Error, List<&2, U32>>) -> T.WriteKey & Result<&2, &2, Error, List<&2, U32>>:
+  (owner, result) = pair
+  match result:
+    case Fail{why}:
+      (owner, Fail{Crypto{why}})
+    case Done{+fragment}:
+      +length = B.length(fragment)
+      (owner, Done{B.append([kind, 3, 3, U32.from_nat(Nat.div(length, 256n)), U32.from_nat(Nat.mod(length, 256n))], fragment)})
+
+def seal12.checked(valid: Bool, bounded: Bool, owner: T.WriteKey, +kind: U32, content: List<&2, U32>) -> T.WriteKey & Result<&2, &2, Error, List<&2, U32>>:
+  match valid bounded:
+    case False{} _:
+      (T.close_write(owner), Fail{Invalid{}})
+    case True{} False{}:
+      (T.close_write(owner), Fail{Overflow{}})
+    case True{} True{}:
+      seal12.result(kind, T.seal12(owner, kind, content))
+
+def seal12(owner: T.WriteKey, +kind: U32, +content: List<&2, U32>) -> T.WriteKey & Result<&2, &2, Error, List<&2, U32>>:
+  seal12.checked(Bool.and(B.valid(content), content_valid(kind, B.length(content))), Nat.is_le(B.length(content), 16384n), owner, kind, content)
+
+def open12.content(bounded: Bool, owner: T.ReadKey, +kind: U32, +plaintext: List<&2, U32>) -> T.ReadKey & Result<&2, &2, Error, Record>:
+  match bounded:
+    case False{}:
+      (T.close_read(owner), Fail{Overflow{}})
+    case True{}:
+      inner.checked(content_valid(kind, B.length(plaintext)), owner, kind, plaintext, 0n)
+
+def open12.result(+kind: U32, pair: T.ReadKey & Result<&2, &2, T.Error, List<&2, U32>>) -> T.ReadKey & Result<&2, &2, Error, Record>:
+  (owner, result) = pair
+  match result:
+    case Fail{why}:
+      (owner, Fail{Crypto{why}})
+    case Done{+plaintext}:
+      open12.content(Nat.is_le(B.length(plaintext), 16384n), owner, kind, plaintext)
+
+# One complete record: the received 5-byte header and its fragment.
+def open12(owner: T.ReadKey, header: List<&2, U32>, fragment: List<&2, U32>) -> T.ReadKey & Result<&2, &2, Error, Record>:
+  match header:
+    case [+kind, _, _, _, _]:
+      open12.result(kind, T.open12(owner, kind, fragment))
+    case _:
+      (T.close_read(owner), Fail{Invalid{}})
+
+def protect.version(pair: T.WriteKey & Bool, +kind: U32, content: List<&2, U32>) -> T.WriteKey & Result<&2, &2, Error, List<&2, U32>>:
+  (owner, legacy) = pair
+  match legacy:
+    case True{}:
+      seal12(owner, kind, content)
+    case False{}:
+      seal(owner, kind, 0n, content)
+
+# Version-dispatched sealing: TLS 1.2 epochs use seal12; TLS 1.3 epochs use
+# the unchanged seal with zero padding.
+def protect(owner: T.WriteKey, kind: U32, content: List<&2, U32>) -> T.WriteKey & Result<&2, &2, Error, List<&2, U32>>:
+  protect.version(T.is12_write(owner), kind, content)
+
+def unprotect.version(pair: T.ReadKey & Bool, header: List<&2, U32>, fragment: List<&2, U32>) -> T.ReadKey & Result<&2, &2, Error, Record>:
+  (owner, legacy) = pair
+  match legacy:
+    case True{}:
+      open12(owner, header, fragment)
+    case False{}:
+      open(owner, B.append(header, fragment))
+
+# Version-dispatched opening of one received record (header and fragment).
+def unprotect(owner: T.ReadKey, header: List<&2, U32>, fragment: List<&2, U32>) -> T.ReadKey & Result<&2, &2, Error, Record>:
+  unprotect.version(T.is12_read(owner), header, fragment)

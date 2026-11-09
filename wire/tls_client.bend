@@ -6,6 +6,7 @@ import ./tls_key_share.bend as K
 import ./tls_transcript.bend as X
 import ./tls_schedule.bend as S
 import ./tls_certificate_verify.bend as V
+import ./tls12_client.bend as L
 import ../crypto/traffic.bend as T
 import ../crypto/bytes.bend as B
 import ../crypto/x509_chain.bend as A
@@ -13,7 +14,8 @@ import ../crypto/x509_certificate.bend as Cert
 import ../crypto/x509_public_key.bend as Pub
 import ../crypto/unicode32_prepare.bend as U
 
-# Certificate/ECDHE client, TLS 1.3 only. Every transition consumes its state.
+# Certificate/ECDHE client, TLS 1.3 (TLS 1.2 fallback: tls12_client, M7).
+# Every transition consumes its state.
 # Exact encoded messages, never records/CCS, enter the transcript. Socket and
 # record-boundary enforcement belong to bend_tls_client. Synthetic keys only.
 type Auth is Type:
@@ -25,6 +27,7 @@ type Keys is Type:
 type State is Type:
   Hello{auth: Auth, transcript: X.Transcript, private: K.Ephemeral, public: List<&2,U32>, random: List<&2,U32>, group: U32, retry_suite: U32}
   Flight{auth: Auth, transcript: X.Transcript, keys: Keys, phase: U32, requested: Bool, leaf: List<&2,U32>, suite: U32, group: U32, alpn: Bool}
+  Legacy{state: L.State}
 
 type Action is Type:
   Failed{alert: U32, reason: String}
@@ -33,6 +36,13 @@ type Action is Type:
   SendHello{state: State, bytes: List<&2,U32>}
   Install{state: State, read: T.ReadKey, write: T.WriteKey}
   Complete{read: T.ReadKey, write: T.WriteKey, last_flight: List<&2,U32>, suite: U32, group: U32, alpn: Bool}
+  # TLS 1.2 (tls12_client.Action): generate a P-256 share and call keyed;
+  # send plain/CCS/finished installing write; install read at the server
+  # CCS; both keys are already installed at Ready12.
+  Keygen12{state: State}
+  Flight12{state: State, plain: List<&2,U32>, finished: List<&2,U32>, write: T.WriteKey}
+  Read12{state: State, read: T.ReadKey}
+  Ready12{suite: U32, group: U32, alpn: Bool}
 
 def find_selected(equal: Bool, bytes: List<&2,U32>, next: Maybe<&2,List<&2,U32>>) -> Maybe<&2,List<&2,U32>>:
   match equal:
@@ -73,9 +83,15 @@ def extensions_sni(identity: A.Identity, alpn: Bool, base: List<&2,U32>, cookie:
     case A.Ip{_}: extensions_alpn(alpn,base,cookie)
 
 def extensions(identity: A.Identity, alpn: Bool, +group: U32, public: List<&2,U32>, cookie: List<&2,U32>) -> List<&2,U32>:
-  base = B.append(C.extension(43,[2,3,4]), B.append(C.extension(10,[0,4,0,29,0,23]),
-    B.append(C.extension(13,[0,10,4,3,8,4,5,3,8,5,8,6]), B.append(C.extension(50,[0,22,4,3,5,3,8,4,8,5,8,6,8,9,8,10,8,11,4,1,5,1,6,1]),
-      C.extension(51,C.vector16(B.append([U32.shrn(group,8n),U32.and(group,255)],C.vector16(public))))))))
+  # M7: supported_versions offers TLS 1.3 then 1.2; signature_algorithms adds
+  # rsa_pkcs1_sha256/384/512 for TLS 1.2 ServerKeyExchange only (TLS 1.3
+  # CertificateVerify still admits only the five schemes below); TLS 1.2
+  # also needs ec_point_formats, extended_master_secret and an empty
+  # renegotiation_info. TLS 1.3 peers ignore the TLS 1.2-only extensions.
+  base = B.append(C.extension(43,[4,3,4,3,3]), B.append(C.extension(10,[0,4,0,29,0,23]),
+    B.append(C.extension(13,[0,16,4,3,8,4,5,3,8,5,8,6,4,1,5,1,6,1]), B.append(C.extension(50,[0,22,4,3,5,3,8,4,8,5,8,6,8,9,8,10,8,11,4,1,5,1,6,1]),
+      B.append(C.extension(51,C.vector16(B.append([U32.shrn(group,8n),U32.and(group,255)],C.vector16(public)))),
+        B.append(C.extension(11,[1,0]),B.append(C.extension(23,[]),C.extension(65281,[0]))))))))
   extensions_sni(identity,alpn,base,cookie)
 
 def hello_encoded(auth: Auth, transcript: Maybe<&1,X.Transcript>, private: K.Ephemeral,
@@ -93,7 +109,7 @@ def hello(auth: Auth, transcript: X.Transcript, private: K.Ephemeral, +public: L
   match auth:
     case Auth{tables,+anchors,+identity,+now,+alpn}:
       hello_bytes(Auth{tables,anchors,identity,now,alpn},transcript,private,public,random,group,retry_suite,
-        C.hello_client_suites(random,[],[19,1,19,3,19,2],extensions(identity,alpn,group,public,cookie)))
+        C.hello_client_suites(random,[],B.append([19,1,19,3,19,2],L.suites()),extensions(identity,alpn,group,public,cookie)))
 
 def start(auth: Auth, random: List<&2,U32>, offer: K.Offer) -> Action:
   match offer:
@@ -386,6 +402,42 @@ def parsed(state: State, value: Result<&2,&2,U32,C.Message>, message: List<&2,U3
     case Hello{_,_,_,_,_,_,_} Done{_}: Failed{10,"expected-server-hello"}
     case Flight{auth,transcript,keys,phase,requested,leaf,suite,group,alpn} Done{value}:
       flight(auth,transcript,keys,phase,requested,leaf,suite,group,alpn,value,message)
+    case Legacy{_} Done{_}: Failed{10,"handshake-order"}
+
+def legacy(action: L.Action) -> Action:
+  match action:
+    case L.Failed{alert,reason}: Failed{alert,reason}
+    case L.Continue{state}: Continue{Legacy{state}}
+    case L.Keygen{state}: Keygen12{Legacy{state}}
+    case L.Flight{state,plain,finished,write}: Flight12{Legacy{state},plain,finished,write}
+    case L.Read{state,read}: Read12{Legacy{state},read}
+    case L.Established{suite,group,alpn}: Ready12{suite,group,alpn}
+
+def legacy_auth(auth: Auth) -> L.Auth:
+  match auth:
+    case Auth{tables,anchors,identity,now,alpn}: L.Auth{tables,anchors,identity,now,alpn}
+
+# A ServerHello without supported_versions selects TLS 1.2 (tls12_client);
+# every other first message keeps the TLS 1.3 path below unchanged.
+def hello_step(value: Maybe<&2,L.Hello>, auth: Auth, transcript: X.Transcript, private: K.Ephemeral, public: List<&2,U32>, random: List<&2,U32>, group: U32, retry_suite: U32, +message: List<&2,U32>) -> Action:
+  match value:
+    case Some{hello}: legacy(L.server_hello(legacy_auth(auth),transcript,private,public,random,retry_suite,hello,message))
+    case None{}: parsed(Hello{auth,transcript,private,public,random,group,retry_suite},C.parse(message),message)
 
 def step(state: State, +message: List<&2,U32>) -> Action:
-  parsed(state,C.parse(message),message)
+  match state:
+    case Legacy{state}: legacy(L.step(state,message))
+    case Hello{auth,transcript,private,public,random,group,retry_suite}: hello_step(L.hello(message),auth,transcript,private,public,random,group,retry_suite,message)
+    case state: parsed(state,C.parse(message),message)
+
+# A received ChangeCipherSpec [1]: TLS 1.3 ignores it (compatibility mode),
+# TLS 1.2 installs the read epoch only after the client Finished was sent.
+def change_cipher_spec(state: State) -> Action:
+  match state:
+    case Legacy{state}: legacy(L.change_cipher_spec(state))
+    case state: Continue{state}
+
+def keyed(state: State, offer: Maybe<&1,K.Offer>) -> Action:
+  match state:
+    case Legacy{state}: legacy(L.keyed(state,offer))
+    case _: Failed{80,"unexpected-key-generation"}
