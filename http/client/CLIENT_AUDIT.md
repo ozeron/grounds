@@ -348,6 +348,7 @@ deadlines and the close_notify-or-truncation rule apply to both versions.
 | Server without extended master secret | n/a | refused (40, `extended-master-secret-required`); all badssl.com hosts on 2026-11-08 — open user decision |
 | Renegotiation request on a pooled connection | n/a | warning no_renegotiation, connection closed (error, not reused) |
 | Version reporting | suite only | unchanged; a suite outside 0x1301–0x1303 means TLS 1.2 |
+| On-path edit of a TLS 1.2 record header version (review fix 2026-11-09) | accepted: `ok:200` with Finished, data and close_notify headers rewritten to 0x0000 | refused with `protocol_version` (70, `record-version`): 0x0303 required after ServerHello, 0x0301–0x0303 on the ServerHello record; the received version is also authenticated in the AEAD data |
 
 Limits: TLS 1.2 warning alerts during the handshake are fatal; no session
 resumption, so each pooled connection does a full handshake; no client

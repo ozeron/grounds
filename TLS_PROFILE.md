@@ -300,8 +300,9 @@ and record framing in `wire/tls_record.bend`.
 | Key exchange | X25519 reuses the ClientHello share; secp256r1 draws a fresh P-256 share (16-attempt rejection sampling) when the server picks it. Points are validated by the existing share owner (all-zero X25519 result, P-256 curve membership); failure is 47. |
 | CertificateRequest | Parsed for framing (50) and answered with an empty Certificate; no client authentication or CertificateVerify. A server that requires a certificate then aborts. |
 | Finished | verify_data is 12 bytes of PRF(master, "client/server finished", Hash(messages)); the server's is compared over all 12 bytes before deciding (51 on mismatch, 50 on a wrong length). |
-| Records | AES-GCM nonce = 4-byte salt ‖ 8-byte explicit nonce, sent as the sequence number, received as sent; ChaCha20-Poly1305 nonce = IV XOR sequence (RFC 7905). AAD = seq ‖ type ‖ 0303 ‖ plaintext length. Sequence numbers start at zero per direction at each ChangeCipherSpec. Protected records up to 2^14+24 bytes, plaintext up to 2^14 (`record_overflow` 22); handshake/alert/application grammar as TLS 1.3. AES-GCM writes stop at the TLS 1.3 per-key record cap (2^24 records, then `internal_error`); ChaCha stops at 2^64. |
-| ChangeCipherSpec | Only `01`, only after the client Finished was sent and at a handshake-message boundary; otherwise 10. |
+| Records | AES-GCM nonce = 4-byte salt ‖ 8-byte explicit nonce, sent as the sequence number, received as sent; ChaCha20-Poly1305 nonce = IV XOR sequence (RFC 7905). AAD = seq ‖ type ‖ version ‖ plaintext length, with 0303 when sealing and the received (necessarily 0303) header version when opening. Sequence numbers start at zero per direction at each ChangeCipherSpec. Protected records up to 2^14+24 bytes, plaintext up to 2^14 (`record_overflow` 22); handshake/alert/application grammar as TLS 1.3. AES-GCM writes stop at the TLS 1.3 per-key record cap (2^24 records, then `internal_error`); ChaCha stops at 2^64. |
+| Record version (2026-11-09) | After a TLS 1.2 ServerHello every received record header must carry 0x0303: the plaintext Certificate…ServerHelloDone records, ChangeCipherSpec, and every protected handshake, alert and application record. The record(s) carrying the ServerHello itself may carry 0x0301…0x0303 (RFC 5246 Appendix E, and common server practice of 0x0301 there); 0x0300, 0x0304, 0x0000 or any other value is refused once the ServerHello turns out to be TLS 1.2. Either violation is a fatal `protocol_version` (70, `record-version`) — RFC 5246 names no alert for this; 70 matches Appendix E.1 and the alert OpenSSL and Go send for a wrong record version (`decode_error` is for malformed syntax). The check runs on the 5-byte header before the body is read, the record layer refuses non-0303 again before opening, and the AEAD additional data uses the **received** version bytes, so an edited version also fails authentication. TLS 1.3 is unchanged: a plaintext legacy_record_version is ignored (RFC 8446 §5.1) and a protected header is the AEAD additional data, so an edit there fails as `bad_record_mac` (20). Sending always uses 0x0303. |
+| ChangeCipherSpec | Only `01`, only after the client Finished was sent and at a handshake-message boundary; otherwise 10 (`change-cipher-spec-boundary`, including a handshake message started before the CCS and continued after it). |
 | After the handshake | No renegotiation: a HelloRequest gets a **warning** no_renegotiation (1, 100) and the connection closes (`renegotiation-refused`); any other handshake message (tickets were not offered) is 10. KeyUpdate is refused locally (`key-update-tls12`). close_notify as TLS 1.3. |
 | Excluded | Resumption (session IDs are ignored, no tickets), renegotiation, client certificates, RSA/DHE key exchange, CBC/RC4/3DES/NULL, SHA-1 MACs, compression, explicit curves, P-384/other ECDHE groups, Heartbeat, Encrypt-then-MAC (no CBC), TLS 1.1 and below, and the server role. Warning alerts during the handshake are fatal (stricter than RFC 5246 permits). |
 
@@ -313,9 +314,13 @@ ClientHello: the TLS 1.3 tests pass unchanged.
 Evidence (details in STACK_PROGRESS.md 2026-11-08, M7): published TLS 1.2
 PRF vectors and AEAD record oracles (`crypto/tls12_check.py`), 105
 production-transition cases against an independent Python TLS 1.2 oracle
-(`wire/tls12_client_check.py`) and 50 live cases against TLS 1.2-only
-OpenSSL, Python ssl and Go servers with record-proxy negatives
-(`wire/tls12_interop_check.py`).
+(`wire/tls12_client_check.py`) and 87 live cases (53 at M7, plus 34 from
+the 2026-11-09 record-version review fix) against TLS 1.2-only OpenSSL,
+Python ssl and Go servers with record-proxy negatives
+(`wire/tls12_interop_check.py`). The record-version rule has its own crypto
+cases (received version in the additional data), record-layer unit proofs
+(`wire/tls_record_test.bend`) and live header-version mutations for
+AES-GCM and ChaCha20-Poly1305 suites; see STACK_PROGRESS.md 2026-11-09.
 
 **Open user decision (EMS).** On 2026-11-08 registry.npmjs.org negotiates
 EMS and now works over TLS 1.2, but no badssl.com host sends
