@@ -11,12 +11,13 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--report',type=Path,required=True)
+    parser.add_argument('--source',default='tls_go_peer.go',help='peer source next to this script')
     args=parser.parse_args()
     go=os.environ.get('GROUNDS_GO')
     if not go:
         installed=subprocess.check_output(['mise','where','go@1.26.9'],text=True).strip()
         go=str(Path(installed)/'bin/go')
-    source=Path(__file__).with_name('tls_go_peer.go')
+    source=Path(__file__).with_name(args.source)
     command=[go,'build','-o',str(args.output.resolve()),str(source.resolve())]
     result=subprocess.run(command,text=True,capture_output=True)
     report=dict(command=command,exit=result.returncode,stdout=result.stdout,stderr=result.stderr,

@@ -924,3 +924,19 @@ announce end wire/m5-native/interop/bend 0
 announce start wire/m5-native/interop/updates
 python3 tls_aes256_interop_check.py --client "$tmp/bend_tls_client" --server "$tmp/bend_tls_server" --go-peer "$tmp/tls_go_aes256" --peer updates --report "$m3_reports/aes256-updates.json"
 announce end wire/m5-native/interop/updates 0
+
+# M7 TLS 1.2 client (native only): production transitions against an
+# independent Python TLS 1.2 oracle, then live TLS 1.2-only OpenSSL, Python
+# ssl and Go servers with record-proxy negative cases.
+announce start wire/m7-native/build/tls12_client
+../tools/bend_native.sh tls12_client_cli.bend "$tmp/tls12_client" > /dev/null
+announce end wire/m7-native/build/tls12_client 0
+announce start wire/m7-native/check/tls12_client
+python3 tls12_client_check.py --report "$m3_reports/tls12-client.json" "$tmp/tls12_client"
+announce end wire/m7-native/check/tls12_client 0
+announce start wire/m7-native/build/go-tls12
+python3 tls_go_peer_build.py --source tls12_go_peer.go --output "$tmp/tls12_go_peer" --report "$m3_reports/go-tls12-build.json"
+announce end wire/m7-native/build/go-tls12 0
+announce start wire/m7-native/interop/tls12
+python3 tls12_interop_check.py --go-peer "$tmp/tls12_go_peer" --report "$m3_reports/tls12-interop.json" "$tmp/bend_tls_client"
+announce end wire/m7-native/interop/tls12 0

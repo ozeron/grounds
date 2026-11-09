@@ -968,6 +968,22 @@
     {
       "name": "wire/m5-native/interop/updates",
       "optional": false
+    },
+    {
+      "name": "wire/m7-native/build/tls12_client",
+      "optional": false
+    },
+    {
+      "name": "wire/m7-native/check/tls12_client",
+      "optional": false
+    },
+    {
+      "name": "wire/m7-native/build/go-tls12",
+      "optional": false
+    },
+    {
+      "name": "wire/m7-native/interop/tls12",
+      "optional": false
     }
   ]
 }
