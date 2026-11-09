@@ -31,6 +31,10 @@ def epoch_state(epoch: T.Epoch) -> T.Epoch & String:
       (T.ChachaReady{secret, key, iv, counter}, sequence(counter))
     case T.AesReady{secret, key, iv, +counter}:
       (T.AesReady{secret, key, iv, counter}, sequence(counter))
+    case T.Aes12Ready{key, salt, +counter}:
+      (T.Aes12Ready{key, salt, counter}, sequence(counter))
+    case T.Chacha12Ready{key, iv, +counter}:
+      (T.Chacha12Ready{key, iv, counter}, sequence(counter))
 
 def write_state.got(+high: U32, +low: U32, pair: T.Epoch & String) -> T.WriteKey & String:
   (next, state) = pair
@@ -82,6 +86,10 @@ def seed_epoch(epoch: T.Epoch, high: U32, low: U32) -> T.Epoch:
       T.ChachaReady{secret, key, iv, T.Counter{high, low}}
     case T.AesReady{secret, key, iv, _}:
       T.AesReady{secret, key, iv, T.Counter{high, low}}
+    case T.Aes12Ready{key, salt, _}:
+      T.Aes12Ready{key, salt, T.Counter{high, low}}
+    case T.Chacha12Ready{key, iv, _}:
+      T.Chacha12Ready{key, iv, T.Counter{high, low}}
 
 def seed_write(owner: T.WriteKey, high: U32, low: U32) -> T.WriteKey:
   match owner:
