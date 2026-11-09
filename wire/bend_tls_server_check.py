@@ -186,11 +186,20 @@ def lifecycle_case(binary,directory,case):
                     and (alert==[2,expected] if expected!=80 else response is None))
 
 
+def fd_target(path):
+    """A descriptor can close between listing /proc/<pid>/fd and reading its
+    link (Linux); count it as gone rather than failing the check."""
+    try:
+        return path.readlink().as_posix()
+    except (FileNotFoundError, ProcessLookupError):
+        return ""
+
+
 def descriptor_count(pid, sockets=False):
     proc=Path(f"/proc/{pid}/fd")
     if proc.is_dir():
         paths=list(proc.iterdir())
-        return sum(p.readlink().as_posix().startswith("socket:") for p in paths) if sockets else len(paths)
+        return sum(fd_target(p).startswith("socket:") for p in paths) if sockets else len(paths)
     lsof=shutil.which("lsof") or "/usr/sbin/lsof"
     command=[lsof,"-a","-p",str(pid)] + (["-iTCP"] if sockets else []) + ["-F","f"]
     output=subprocess.check_output(command,text=True)

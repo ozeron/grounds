@@ -64,10 +64,19 @@ def second_local_ipv4():
     raise RuntimeError("UDP address proof requires a second locally reachable IPv4 address")
 
 
+def fd_target(path):
+    """A descriptor can close between listing /proc/<pid>/fd and reading its
+    link; treat it as gone."""
+    try:
+        return path.readlink().as_posix()
+    except (FileNotFoundError, ProcessLookupError):
+        return ""
+
+
 def udp_fd_count(pid):
     if sys.platform == "linux":
         inodes = {s[8:-1] for p in Path(f"/proc/{pid}/fd").iterdir()
-                  if (s := p.readlink().as_posix()).startswith("socket:[")}
+                  if (s := fd_target(p)).startswith("socket:[")}
         tables = (Path(f"/proc/{pid}/net/udp"), Path(f"/proc/{pid}/net/udp6"))
         return sum(line.split()[9] in inodes for p in tables for line in p.read_text().splitlines()[1:])
     result = subprocess.run(["lsof", "-a", "-p", str(pid), "-iUDP", "-Ff"],
