@@ -4,6 +4,74 @@ Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and 
 
 The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
 
+- 2026-11-09 (M7 review fix: one P2 finding): an independent GPT-6.1-Sol
+  review of `d372c0a..b1d8901` found that TLS 1.2 record versions were
+  neither validated nor authenticated: the record layer dropped the
+  received version, the AEAD additional data used a constant 0x0303 and the
+  socket reader never checked it. Rewriting only 0303 → 0000 in the
+  protected Finished, application-data and close_notify headers still gave
+  `ok:200:2`.
+  - Red first (`f61a5a0`, harness only, run against the unchanged client):
+    all 23 new header-version negatives returned `ok` (46 failures counting
+    the missing alerts; `red/`).
+  - Fix: `0ec751a` (crypto/record layer: `T.open12` takes the received
+    major/minor and builds the additional data from them; `R.open12`
+    refuses a non-0303 header with the new `R.Version` before opening) and
+    `51c9850` (client: `M.record_version` is checked on every header before
+    the body is read; under a TLS 1.2 read epoch the socket reader also
+    requires 0303). Docs: `5bc589d` (TLS_PROFILE.md record-version row,
+    CLIENT_AUDIT.md).
+  - Decisions: after a TLS 1.2 ServerHello every record (plaintext flight,
+    ChangeCipherSpec, protected) must be 0x0303; the record(s) carrying the
+    ServerHello may be 0x0301–0x0303 (RFC 5246 Appendix E, servers that
+    send 0x0301 there), anything else is refused once the ServerHello is
+    TLS 1.2. Alert: `protocol_version` 70, `record-version` (RFC 5246
+    names none; 70 follows Appendix E.1 and OpenSSL/Go, `decode_error` is
+    for malformed syntax). TLS 1.3 unchanged: plaintext
+    legacy_record_version ignored (RFC 8446 §5.1), protected headers are
+    the AEAD data (edits fail as `bad_record_mac` 20).
+  - Tests: crypto `tls12_check` 213 → 270 (received version in the
+    additional data: 0303 records opened as six other versions fail,
+    oracle records sealed under them open only as that version, a
+    non-byte version is invalid); 7 new `tls_record_test.bend` proofs
+    (open12 rejects 0000/0301/0302/0304/0203, admits 0303; TLS 1.3 framing
+    keeps any version); wire `interop/tls12` 53 → 87 live cases:
+    Finished/application/close_notify header edits for C02B, CCA9, C030
+    and CCA8, plus CCS, the plaintext flight after ServerHello, and
+    ServerHello records at 0300/0000/0304 for C02B and CCA9 (all
+    `error:70:record-version` with a fatal 70 alert seen by the proxy);
+    accepted controls (ServerHello at 0301/0302, a proxy-sealed 0303
+    close_notify per suite); the requested regression (a server Finished
+    split across ChangeCipherSpec, C02B and CCA9:
+    `error:10:change-cipher-spec-boundary`, already enforced); TLS 1.3
+    controls (ServerHello record 0000 accepted; protected header 0000/0301
+    → `bad-record-mac`).
+
+  Fresh macwork gates at `5bc589d`, clean tree, unchanged
+  4096 MiB / 120 s guard:
+  - `crypto:check --force`: **1809/1809**, peak 902.2 MiB
+    (`rsa_private_cli`), 1718 s. `tls12_cli` build 349.2 MiB.
+  - `wire:check --force`: **246/246**, peak 1161.9 MiB
+    (`m3b-bun/build/server`), 707 s. `m7-native/build/tls12_client`
+    693.5 MiB; `interop/tls12` 87 cases, 0 failures.
+  - `http_client:check --force`: **50/50**, peak 1876.1 MiB
+    (`bend_frontend_native`), 429 s. `bend_public_frontend` 1622.7 MiB.
+  - `http_server:check --force`: **53/53**, peak 1900.3 MiB
+    (`bend_browser_frontend_native`), 430 s.
+
+  Public diagnostic (non-gating, once, gate-built `public-http`, pinned
+  Mozilla 2026-10-20 bundle): 9/9 standard rows verified, all TLS 1.3
+  (www.globalsign.com is back on TLS 1.3 today); registry.npmjs.org HTTP
+  200 over TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256; the six badssl.com
+  refusal rows match; the other 11 still stop at
+  `extended-master-secret-required` (unchanged, EMS decision open);
+  ipv6.google.com unavailable (no global IPv6 route).
+
+  Artifacts: `~/.codex/artifacts/grounds/2026-11-09/m7/review-fix/`
+  (`final/`: `<gate>-01.json/.log/.inputs.txt/-artifacts`, `gates.out`,
+  `gates.sh`, `public-live.json/.out`; `red/`: interop report against the
+  unchanged client; `green/`: targeted pre-gate run).
+
 - 2026-11-09 (M7 TLS 1.2 client; **badssl.com blocked on an EMS
   decision**): the Bend HTTPS client now offers TLS 1.3 and TLS 1.2 in one
   ClientHello. The server stays TLS 1.3-only. Profile: `TLS_PROFILE.md`
