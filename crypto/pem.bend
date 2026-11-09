@@ -18,11 +18,23 @@ type Error is Data:
 type Block is Type:
   Block{label: Label, der: List<&2, U32>}
 
+# Branch-free base64 digit (64 = invalid): private-key characters select their
+# value by masks rather than by a branch per character class.
+def in_range(+c: U32, +low: U32, +high: U32) -> U32:
+  U32.sub(0, U32.and(U32.sub(1, U32.shrn(U32.sub(c, low), 31n)),
+    U32.sub(1, U32.shrn(U32.sub(high, c), 31n))))
+
+def digit.put(+mask: U32, +value: U32, +acc: U32) -> U32:
+  U32.or(U32.and(acc, U32.not(mask)), U32.and(value, mask))
+
 def digit(+c: U32) -> U32:
-  Bool.pick(U32, Bool.and(U32.is_ge(c, 65), U32.is_le(c, 90)), U32.sub(c, 65),
-    Bool.pick(U32, Bool.and(U32.is_ge(c, 97), U32.is_le(c, 122)), U32.sub(c, 71),
-      Bool.pick(U32, Bool.and(U32.is_ge(c, 48), U32.is_le(c, 57)), U32.add(c, 4),
-        Bool.pick(U32, U32.is_eq(c, 43), 62, Bool.pick(U32, U32.is_eq(c, 47), 63, 64)))))
+  +small = U32.and(c, 255)
+  +wide = U32.sub(0, U32.shrn(U32.or(U32.shrn(c, 8n), U32.sub(0, U32.shrn(c, 8n))), 31n))
+  +value = digit.put(in_range(small, 65, 90), U32.sub(small, 65),
+    digit.put(in_range(small, 97, 122), U32.sub(small, 71),
+      digit.put(in_range(small, 48, 57), U32.add(small, 4),
+        digit.put(in_range(small, 43, 43), 62, digit.put(in_range(small, 47, 47), 63, 64)))))
+  digit.put(wide, 64, value)
 
 def two(a: U32, b: U32) -> U32:
   U32.or(U32.shln(a, 2n), U32.shrn(b, 4n))
