@@ -7,7 +7,10 @@ with its certificate type (synthetic P-256 and RSA-2048 chains). A
 the peers directly (wrong host, expiry, untrust, no EMS, non-ECDHE suites)
 or a record proxy in front of OpenSSL (tampered ServerKeyExchange, injected
 DOWNGRD sentinel, stripped EMS, unoffered RSA/CBC suite, altered or garbled
-Finished, garbled/truncated application records, HelloRequest). The proxy
+Finished, garbled/truncated application records, HelloRequest, record
+header versions other than 0x0303 after ServerHello and outside
+0x0301..0x0303 on the ServerHello record, a handshake message split across
+the ChangeCipherSpec key change). The proxy
 uses OpenSSL's test-only key log to re-encrypt its edits; the Bend client is
 never given OpenSSL or any host TLS effect.
 """
@@ -216,8 +219,26 @@ def read_record(sock):
     return header + body
 
 
-def record(kind, body):
-    return bytes([kind, 3, 3]) + len(body).to_bytes(2, 'big') + body
+def record(kind, body, version=0x0303):
+    return bytes([kind]) + version.to_bytes(2, 'big') + len(body).to_bytes(2, 'big') + body
+
+
+def reversion(encoded, version):
+    """Only the header version changes; type, length and fragment stay."""
+    return encoded[:1] + version.to_bytes(2, 'big') + encoded[3:]
+
+
+# Header-version mutations (M7 review fix): case -> (where, version).
+VERSION_CASES = {
+    'version-finished': ('finished', 0x0000), 'version-application': ('application', 0x0000),
+    'version-application-0301': ('application', 0x0301), 'version-close-notify': ('close', 0x0000),
+    'version-ccs': ('ccs', 0x0000), 'version-certificate-0301': ('certificate', 0x0301),
+    'hello-version-0300': ('hello', 0x0300), 'hello-version-0000': ('hello', 0x0000),
+    'hello-version-0304': ('hello', 0x0304), 'hello-version-0301': ('hello', 0x0301),
+    'hello-version-0302': ('hello', 0x0302), 'close-notify': ('close', 0x0303),
+    'tls13-hello-version-0000': ('hello', 0x0000), 'tls13-protected-version': ('tls13', 0x0000),
+    'tls13-protected-version-0301': ('tls13', 0x0301),
+}
 
 
 def split_handshake(data):
@@ -332,6 +353,8 @@ class Proxy:
                 break
             if encoded[0] == 22 and encoded[5] == 1 and self.client_random is None:
                 self.client_random = encoded[11:43]
+            if self.client_sequence is None and encoded[0] == 21:
+                self.events.append(dict(client_alert=list(encoded[5:])))
             if self.client_sequence is not None and encoded[0] == 21:
                 try:
                     alert = self.open(self.keys(), 'client', self.client_sequence, encoded)
@@ -352,12 +375,48 @@ class Proxy:
 
     def server_to_client(self):
         case = self.case
+        where, version = VERSION_CASES.get(case, (None, None))
         while True:
             encoded = read_record(self.upstream)
             if encoded is None:
                 break
             kind = encoded[0]
-            if kind == 22 and self.server_sequence is None:
+            if where == 'tls13' and kind == 23 and not self.applied:
+                # TLS 1.3: the header is the AEAD additional data.
+                encoded, self.applied = reversion(encoded, version), True
+            elif where == 'hello' and kind == 22 and self.server_sequence is None and not self.applied:
+                messages = split_handshake(encoded[5:])
+                if messages[0][0] == 2:
+                    self.server_random, self.suite = messages[0][6:38], int.from_bytes(messages[0][39 + messages[0][38]:41 + messages[0][38]], 'big')
+                    encoded, self.applied = reversion(encoded, version), True
+            elif where == 'certificate' and kind == 22 and self.server_sequence is None:
+                # ServerHello keeps 0x0303 in its own record; the rest of the
+                # plaintext flight (from Certificate on) carries the version.
+                messages = split_handshake(encoded[5:])
+                head = [m for m in messages if m[0] == 2]
+                rest = [m for m in messages if m[0] != 2]
+                if head:
+                    self.server_random, self.suite = head[0][6:38], int.from_bytes(head[0][39 + head[0][38]:41 + head[0][38]], 'big')
+                    self.emit(record(22, head[0]))
+                if not rest:
+                    continue
+                encoded = record(22, b''.join(rest), version if not self.applied else 0x0303)
+                self.applied = True
+            elif where == 'ccs' and kind == 20:
+                self.server_sequence = 0
+                encoded, self.applied = reversion(encoded, version), True
+            elif case == 'span-ccs' and kind == 20:
+                # The server Finished starts before ChangeCipherSpec and ends
+                # after it: 2 plaintext bytes, CCS, then the remaining 14
+                # bytes protected under the new epoch (sequence 0).
+                finished_record = read_record(self.upstream)
+                keys = self.keys()
+                finished = self.open(keys, 'server', 0, finished_record)
+                self.emit(record(22, finished[:2]))
+                self.emit(encoded)
+                self.server_sequence = 1
+                encoded, self.applied = self.seal(keys, 'server', 0, 22, finished[2:]), True
+            elif kind == 22 and self.server_sequence is None:
                 messages = split_handshake(encoded[5:])
                 edited = []
                 for message in messages:
@@ -382,7 +441,20 @@ class Proxy:
             elif self.server_sequence is not None:
                 sequence = self.server_sequence
                 self.server_sequence += 1
-                if sequence == 0 and case in ('altered-finished', 'garbled-finished'):
+                if (sequence == 0 and where == 'finished') or (kind == 23 and where == 'application' and not self.applied):
+                    encoded, self.applied = reversion(encoded, version), True
+                elif kind == 23 and where == 'close' and not self.applied:
+                    # A valid close_notify sealed after the server's data;
+                    # only its header version may differ (ciphertext/tag
+                    # are those of a 0x0303 record).
+                    keys = self.keys()
+                    self.emit(encoded)
+                    alert = self.seal(keys, 'server', sequence + 1, 21, b'\x01\x00')
+                    self.emit(reversion(alert, version))
+                    self.applied = True
+                    time.sleep(1)
+                    return
+                elif sequence == 0 and case in ('altered-finished', 'garbled-finished'):
                     if case == 'garbled-finished':
                         encoded = encoded[:-1] + bytes([encoded[-1] ^ 1])
                     else:
@@ -407,10 +479,10 @@ class Proxy:
             self.emit(encoded)
 
 
-def client(binary, directory, port, identity='localhost', anchor='ca.der', now=None):
+def client(binary, directory, port, identity='localhost', anchor='ca.der', now=None, mode='plain'):
     civil = int(time.time()) + CIVIL_OFFSET if now is None else now
     command = binary + ['run', str(ROOT.parent / 'crypto/unicode32_nfkc.bin'), str(ROOT.parent / 'crypto/unicode32_prepare.bin'),
-                        str(directory / anchor), identity, str(port), str(civil), 'plain']
+                        str(directory / anchor), identity, str(port), str(civil), mode]
     env = dict(os.environ, BEND_LIBSSL='/nonexistent/m7-host-tls', GROUNDS_TLS_CA='/nonexistent/m7-host-ca')
     result = subprocess.run(command, capture_output=True, text=True, timeout=40, env=env)
     lines = [line for line in result.stdout.splitlines() if line.startswith(('ok:', 'error:', 'connect-error:'))]
@@ -512,13 +584,27 @@ def main():
             ('hello-request', 0xC02B, 'error:100:renegotiation-refused'),
             ('coalesced-flight', 0xC02B, f'ok:{0xC02B}:29:true:{PONG}'),
             ('coalesced-flight', 0xCCA8, f'ok:{0xCCA8}:29:true:{PONG}'),
+            ('span-ccs', 0xC02B, 'error:10:change-cipher-spec-boundary'),
+            ('span-ccs', 0xCCA9, 'error:10:change-cipher-spec-boundary'),
         ]
+        # Record header versions: AES-GCM and ChaCha20-Poly1305 suites.
+        for suite in (0xC02B, 0xCCA9, 0xC030, 0xCCA8):
+            for case in ('version-finished', 'version-application', 'version-close-notify', 'version-ccs',
+                         'version-certificate-0301', 'hello-version-0300', 'hello-version-0000', 'hello-version-0304'):
+                if suite in (0xC030, 0xCCA8) and case not in ('version-finished', 'version-application', 'version-close-notify'):
+                    continue
+                mutations.append((case, suite, 'error:70:record-version'))
+            mutations.append(('close-notify', suite, f'ok:{suite}:29:true:{PONG}'))
+        mutations += [('version-application-0301', 0xC02B, 'error:70:record-version'),
+                      ('hello-version-0301', 0xC02B, f'ok:{0xC02B}:29:true:{PONG}'),
+                      ('hello-version-0302', 0xCCA9, f'ok:{0xCCA9}:29:true:{PONG}')]
         for case, suite, expected in mutations:
             cipher, cert = SUITES[suite]
             keylog = directory / f'{case}-{suite}.keylog'
             with openssl_peer(directory, a.openssl, cert, ['-tls1_2', '-cipher', cipher], keylog) as (port, command):
                 proxy = Proxy(port, case, keylog)
-                line, result = client(a.command, directory, proxy.port)
+                mode = 'close' if VERSION_CASES.get(case, ('',))[0] == 'close' else 'plain'
+                line, result = client(a.command, directory, proxy.port, mode=mode)
                 proxy.thread.join(5)
             extra = dict(mutation_applied=proxy.applied, proxy_events=proxy.events, proxy_errors=proxy.errors)
             record_case('openssl-proxy', f'{case}-{cipher}', expected, line, result, extra)
@@ -526,6 +612,8 @@ def main():
                 failures.append(dict(name=case, reason='mutation not applied'))
             if case == 'hello-request' and dict(client_alert=[1, 100]) not in proxy.events:
                 failures.append(dict(name=case, reason='no warning no_renegotiation alert observed', events=proxy.events))
+            if expected.startswith('error:70:') and dict(client_alert=[2, 70]) not in proxy.events:
+                failures.append(dict(name=case, suite=suite, reason='no fatal protocol_version alert observed', events=proxy.events))
         # TLS 1.3 still requires the ServerHello to end its record.
         keylog = directory / 'tls13-hello-coalesced.keylog'
         with openssl_peer(directory, a.openssl, 'ecdsa', [], keylog) as (port, command):
@@ -535,6 +623,20 @@ def main():
         record_case('openssl-proxy', 'tls13-hello-coalesced', 'error:10:epoch-boundary', line, result, dict(mutation_applied=proxy.applied))
         if not proxy.applied:
             failures.append(dict(name='tls13-hello-coalesced', reason='mutation not applied'))
+        # TLS 1.3 is unchanged: the plaintext ServerHello record version is
+        # ignored (RFC 8446 5.1) and a protected record's header is its AEAD
+        # additional data, so an edited version fails authentication.
+        for case, expected in (('tls13-hello-version-0000', f'ok:4865:29:true:{PONG}'),
+                               ('tls13-protected-version', 'error:20:bad-record-mac'),
+                               ('tls13-protected-version-0301', 'error:20:bad-record-mac')):
+            keylog = directory / f'{case}.keylog'
+            with openssl_peer(directory, a.openssl, 'ecdsa', [], keylog) as (port, command):
+                proxy = Proxy(port, case, keylog)
+                line, result = client(a.command, directory, proxy.port)
+                proxy.thread.join(5)
+            record_case('openssl-proxy', case, expected, line, result, dict(mutation_applied=proxy.applied, proxy_events=proxy.events))
+            if not proxy.applied:
+                failures.append(dict(name=case, reason='mutation not applied'))
     report = dict(cases=len(rows), failures=len(failures), elapsed_seconds=round(time.monotonic() - started, 1),
                   openssl=subprocess.run([a.openssl, 'version'], capture_output=True, text=True).stdout.strip(),
                   python_ssl=ssl.OPENSSL_VERSION, fixtures_sha256=hashes, rows=rows, failure_rows=failures)
