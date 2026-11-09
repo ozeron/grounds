@@ -78,7 +78,7 @@ def seeded(tables: U.Tables, private: List<&2,U32>, public: List<&2,U32>, random
     case Some{transcript}:
       # 2018-01-01, within the published synthetic certificate's validity.
       feed(messages,C.Hello{C.Auth{tables,[],A.Dns{[115,101,114,118,101,114]},Nat.add(Nat.mul(63650n,1000000n),361600n),False{}},
-        transcript,K.XPrivate{private},public,random,29,0})
+        transcript,K.XPrivate{private},public,random,29,0,True{}})
 
 def seed(tables: U.Tables, values: List<&2,List<&2,U32>>) -> IO(Unit):
   match values:

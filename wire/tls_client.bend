@@ -25,7 +25,9 @@ type Keys is Type:
   Keys{next: S.ToApplication, client: S.FinishedKey, server: S.FinishedKey}
 
 type State is Type:
-  Hello{auth: Auth, transcript: X.Transcript, private: K.Ephemeral, public: List<&2,U32>, random: List<&2,U32>, group: U32, retry_suite: U32}
+  # record: every record carrying this ServerHello had a version in
+  # 0x0301..0x0303 (consulted only if the ServerHello selects TLS 1.2).
+  Hello{auth: Auth, transcript: X.Transcript, private: K.Ephemeral, public: List<&2,U32>, random: List<&2,U32>, group: U32, retry_suite: U32, record: Bool}
   Flight{auth: Auth, transcript: X.Transcript, keys: Keys, phase: U32, requested: Bool, leaf: List<&2,U32>, suite: U32, group: U32, alpn: Bool}
   Legacy{state: L.State}
 
@@ -97,7 +99,7 @@ def extensions(identity: A.Identity, alpn: Bool, +group: U32, public: List<&2,U3
 def hello_encoded(auth: Auth, transcript: Maybe<&1,X.Transcript>, private: K.Ephemeral,
   public: List<&2,U32>, random: List<&2,U32>, group: U32, retry_suite: U32, bytes: Maybe<&2,List<&2,U32>>) -> Action:
   match transcript bytes:
-    case Some{transcript} Some{bytes}: SendHello{Hello{auth,transcript,private,public,random,group,retry_suite},bytes}
+    case Some{transcript} Some{bytes}: SendHello{Hello{auth,transcript,private,public,random,group,retry_suite,True{}},bytes}
     case _ _: Failed{80,"hello-encoding"}
 
 def hello_bytes(auth: Auth, transcript: X.Transcript, private: K.Ephemeral, public: List<&2,U32>, random: List<&2,U32>, group: U32, retry_suite: U32, bytes: Maybe<&2,List<&2,U32>>) -> Action:
@@ -397,9 +399,9 @@ def flight(auth: Auth, transcript: X.Transcript, keys: Keys, phase: U32, request
 def parsed(state: State, value: Result<&2,&2,U32,C.Message>, message: List<&2,U32>) -> Action:
   match state value:
     case _ Fail{alert}: Failed{alert,"handshake-codec"}
-    case Hello{auth,transcript,private,public,random,group,retry_suite} Done{C.ServerHello{hello}}:
+    case Hello{auth,transcript,private,public,random,group,retry_suite,_} Done{C.ServerHello{hello}}:
       server_hello(auth,transcript,private,public,random,group,retry_suite,hello,message)
-    case Hello{_,_,_,_,_,_,_} Done{_}: Failed{10,"expected-server-hello"}
+    case Hello{_,_,_,_,_,_,_,_} Done{_}: Failed{10,"expected-server-hello"}
     case Flight{auth,transcript,keys,phase,requested,leaf,suite,group,alpn} Done{value}:
       flight(auth,transcript,keys,phase,requested,leaf,suite,group,alpn,value,message)
     case Legacy{_} Done{_}: Failed{10,"handshake-order"}
@@ -417,24 +419,45 @@ def legacy_auth(auth: Auth) -> L.Auth:
   match auth:
     case Auth{tables,anchors,identity,now,alpn}: L.Auth{tables,anchors,identity,now,alpn}
 
+def hello12(record: Bool, auth: Auth, transcript: X.Transcript, private: K.Ephemeral, public: List<&2,U32>, random: List<&2,U32>, retry_suite: U32, hello: L.Hello, message: List<&2,U32>) -> Action:
+  match record:
+    case False{}: Failed{70,"record-version"}
+    case True{}: legacy(L.server_hello(legacy_auth(auth),transcript,private,public,random,retry_suite,hello,message))
+
 # A ServerHello without supported_versions selects TLS 1.2 (tls12_client);
-# every other first message keeps the TLS 1.3 path below unchanged.
-def hello_step(value: Maybe<&2,L.Hello>, auth: Auth, transcript: X.Transcript, private: K.Ephemeral, public: List<&2,U32>, random: List<&2,U32>, group: U32, retry_suite: U32, +message: List<&2,U32>) -> Action:
+# its records must have carried a version in 0x0301..0x0303. Every other
+# first message keeps the TLS 1.3 path below unchanged (RFC 8446 5.1: the
+# plaintext legacy_record_version is ignored).
+def hello_step(value: Maybe<&2,L.Hello>, auth: Auth, transcript: X.Transcript, private: K.Ephemeral, public: List<&2,U32>, random: List<&2,U32>, group: U32, retry_suite: U32, record: Bool, +message: List<&2,U32>) -> Action:
   match value:
-    case Some{hello}: legacy(L.server_hello(legacy_auth(auth),transcript,private,public,random,retry_suite,hello,message))
-    case None{}: parsed(Hello{auth,transcript,private,public,random,group,retry_suite},C.parse(message),message)
+    case Some{hello}: hello12(record,auth,transcript,private,public,random,retry_suite,hello,message)
+    case None{}: parsed(Hello{auth,transcript,private,public,random,group,retry_suite,record},C.parse(message),message)
 
 def step(state: State, +message: List<&2,U32>) -> Action:
   match state:
     case Legacy{state}: legacy(L.step(state,message))
-    case Hello{auth,transcript,private,public,random,group,retry_suite}: hello_step(L.hello(message),auth,transcript,private,public,random,group,retry_suite,message)
+    case Hello{auth,transcript,private,public,random,group,retry_suite,record}: hello_step(L.hello(message),auth,transcript,private,public,random,group,retry_suite,record,message)
     case state: parsed(state,C.parse(message),message)
 
 # True while the first ServerHello (or the one after a retry) is awaited.
 def awaiting_hello(state: State) -> State & Bool:
   match state:
-    case Hello{auth,transcript,private,public,random,group,retry_suite}: (Hello{auth,transcript,private,public,random,group,retry_suite},True{})
+    case Hello{auth,transcript,private,public,random,group,retry_suite,record}: (Hello{auth,transcript,private,public,random,group,retry_suite,record},True{})
     case state: (state,False{})
+
+# Record version rule (M7 review fix), applied by bend_tls_client to each
+# received record header before its body is read. Returns False to refuse
+# the record with protocol_version:
+# - after a TLS 1.2 ServerHello (Legacy), every record must be 0x0303;
+# - while a ServerHello is awaited, any version is admitted but one outside
+#   0x0301..0x0303 is remembered and refused if the ServerHello is TLS 1.2;
+# - TLS 1.3 states ignore it (protected records authenticate the header).
+def record_version(state: State, +major: U32, +minor: U32) -> State & Bool:
+  match state:
+    case Legacy{state}: (Legacy{state},Bool.and(U32.is_eq(major,3),U32.is_eq(minor,3)))
+    case Hello{auth,transcript,private,public,random,group,retry_suite,record}:
+      (Hello{auth,transcript,private,public,random,group,retry_suite,Bool.and(record,Bool.and(U32.is_eq(major,3),Bool.and(U32.is_ge(minor,1),U32.is_le(minor,3))))},True{})
+    case state: (state,True{})
 
 # A received ChangeCipherSpec [1]: TLS 1.3 ignores it (compatibility mode),
 # TLS 1.2 installs the read epoch only after the client Finished was sent.

@@ -95,6 +95,7 @@ def protected(error: R.Error) -> Error:
     case R.Crypto{T.Authentication{}}: Error{20,"bad-record-mac",True{}}
     case R.Crypto{_}: Error{80,"record-key",True{}}
     case R.Unexpected{}: Error{10,"record-type",True{}}
+    case R.Version{}: Error{70,"record-version",True{}}
     case _: Error{50,"record-encoding",True{}}
 
 def sealed(pipe: Pipe, result: Result<&2,&2,R.Error,List<&2,U32>>) -> Pipe & Result<&2,&2,Error,List<&2,U32>>:
@@ -305,12 +306,18 @@ def legacy_read(pipe: Pipe) -> Pipe & Bool:
     case Pipe{socket,Some{read},write,decoder,deadline}: legacy_pair(socket,write,decoder,deadline,T.is12_read(read))
     case pipe: (pipe,False{})
 
+def record_versioned(ok: Bool, valid: Bool, bounded: Bool, pipe: Pipe, kind: U32, header: List<&2,U32>, size: Nat) -> IO(Pipe & Result<&2,&2,Error,R.Record>):
+  match ok:
+    case False{}: IO.pure(Pipe & Result<&2,&2,Error,R.Record>,(pipe,Fail{Error{70,"record-version",True{}}}))
+    case True{}: record_length(valid,bounded,pipe,kind,header,size)
+
 # TLS 1.2 AEAD records: 2^14 plaintext plus at most 24 bytes of explicit
 # nonce and tag (RFC 5246 6.2.3 permits more; these suites never need it).
-def record_bounded(pair: Pipe & Bool, valid: Bool, +kind: U32, header: List<&2,U32>, +size: Nat) -> IO(Pipe & Result<&2,&2,Error,R.Record>):
-  (pipe,legacy) = pair
+# Under a TLS 1.2 read epoch every record header must carry 0x0303 (exact).
+def record_bounded(pair: Pipe & Bool, valid: Bool, exact: Bool, +kind: U32, header: List<&2,U32>, +size: Nat) -> IO(Pipe & Result<&2,&2,Error,R.Record>):
+  (pipe,+legacy) = pair
   bound = Bool.pick(Nat,legacy,16408n,Bool.pick(Nat,U32.is_eq(kind,23),16401n,16384n))
-  record_length(valid,Nat.is_le(size,bound),pipe,kind,header,size)
+  record_versioned(Bool.pick(Bool,legacy,exact,True{}),valid,Nat.is_le(size,bound),pipe,kind,header,size)
 
 def record_header(pipe: Pipe, result: Result<&2,&2,Error,List<&2,U32>>) -> IO(Pipe & Result<&2,&2,Error,R.Record>):
   match result:
@@ -318,7 +325,7 @@ def record_header(pipe: Pipe, result: Result<&2,&2,Error,List<&2,U32>>) -> IO(Pi
     case Done{[+kind,+major,+minor,+high,+low]}:
       +size = U32.to_nat(U32.add(U32.mul(high,256),low))
       valid = Bool.or(U32.is_eq(kind,20),Bool.or(U32.is_eq(kind,21),Bool.or(U32.is_eq(kind,22),U32.is_eq(kind,23))))
-      record_bounded(legacy_read(pipe),valid,kind,[kind,major,minor,high,low],size)
+      record_bounded(legacy_read(pipe),valid,Bool.and(U32.is_eq(major,3),U32.is_eq(minor,3)),kind,[kind,major,minor,high,low],size)
     case _: IO.pure(Pipe & Result<&2,&2,Error,R.Record>,(pipe,Fail{Error{50,"record-header",True{}}}))
 
 def header_pair(pair: Socket & Result<&2,&2,Error,List<&2,U32>>, read: Maybe<&1,T.ReadKey>, write: Maybe<&1,T.WriteKey>, decoder: HS.Decoder, deadline: Nat) -> IO(Pipe & Result<&2,&2,Error,R.Record>):
@@ -483,10 +490,35 @@ def handshake_pair(pair: Pipe & Result<&2,&2,Error,R.Record>, state: M.State) ->
   (pipe,result) = pair
   handshake_record(pipe,state,result)
 
+def header_piped(pair: Socket & Result<&2,&2,Error,List<&2,U32>>, read: Maybe<&1,T.ReadKey>, write: Maybe<&1,T.WriteKey>, decoder: HS.Decoder, deadline: Nat) -> Pipe & Result<&2,&2,Error,List<&2,U32>>:
+  (socket,result) = pair
+  (Pipe{socket,read,write,decoder,deadline},result)
+
+def read_header(pipe: Pipe) -> IO(Pipe & Result<&2,&2,Error,List<&2,U32>>):
+  match pipe:
+    case Pipe{socket,read,write,decoder,+deadline}:
+      do IO<Pipe & Result<&2,&2,Error,List<&2,U32>>>:
+        pair : Socket & Result<&2,&2,Error,List<&2,U32>> <- read_exact(socket,5n,[],deadline)
+        IO.pure(Pipe & Result<&2,&2,Error,List<&2,U32>>,header_piped(pair,read,write,decoder,deadline))
+
+def handshake_versioned(pipe: Pipe, header: List<&2,U32>, pair: M.State & Bool) -> IO(HandshakeWork):
+  (state,ok) = pair
+  match ok:
+    case False{}: handshake_fail(pipe,Error{70,"record-version",True{}})
+    case True{}: IO.bind(Pipe & Result<&2,&2,Error,R.Record>,HandshakeWork,record_header(pipe,Done{header}),next => handshake_pair(next,state))
+
+# The handshake state owns the record version rule (M.record_version): after
+# a TLS 1.2 ServerHello every record header must be 0x0303, including the
+# plaintext Certificate..ServerHelloDone and ChangeCipherSpec records.
+def handshake_header(pair: Pipe & Result<&2,&2,Error,List<&2,U32>>, state: M.State) -> IO(HandshakeWork):
+  (pipe,result) = pair
+  match result:
+    case Fail{error}: handshake_fail(pipe,error)
+    case Done{[+kind,+major,+minor,+high,+low]}: handshake_versioned(pipe,[kind,major,minor,high,low],M.record_version(state,major,minor))
+    case _: handshake_fail(pipe,Error{50,"record-header",True{}})
+
 def handshake_read(pipe: Pipe, state: M.State) -> IO(HandshakeWork):
-  do IO<HandshakeWork>:
-    pair : Pipe & Result<&2,&2,Error,R.Record> <- receive(pipe)
-    handshake_pair(pair,state)
+  IO.bind(Pipe & Result<&2,&2,Error,List<&2,U32>>,HandshakeWork,read_header(pipe),pair => handshake_header(pair,state))
 
 def handshake_budget(work: HandshakeWork) -> IO(Result<&2,&1,Error,Connection>):
   match work:
