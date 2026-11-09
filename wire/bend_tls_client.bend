@@ -458,9 +458,16 @@ def handshake_alert(boundary: Boundary, bytes: List<&2,U32>) -> IO(HandshakeWork
     case Boundary{pipe,True{}}: handshake_fail(pipe,peer_alert(bytes))
     case Boundary{pipe,False{}}: handshake_fail(pipe,Error{10,"interleaved-alert",True{}})
 
+def feed_state(socket: Socket, read: Maybe<&1,T.ReadKey>, write: Maybe<&1,T.WriteKey>, deadline: Nat, pair: M.State & Bool, decoder: HS.Decoder, bytes: List<&2,U32>) -> IO(HandshakeWork):
+  (state,hello) = pair
+  match hello:
+    case True{}: handshake_batch(socket,read,write,deadline,state,HS.feed_hello(decoder,bytes))
+    case False{}: handshake_batch(socket,read,write,deadline,state,HS.feed(decoder,bytes))
+
+# A ServerHello may share its record with later TLS 1.2 messages (feed_hello).
 def feed_handshake(pipe: Pipe, state: M.State, bytes: List<&2,U32>) -> IO(HandshakeWork):
   match pipe:
-    case Pipe{socket,read,write,decoder,deadline}: handshake_batch(socket,read,write,deadline,state,HS.feed(decoder,bytes))
+    case Pipe{socket,read,write,decoder,deadline}: feed_state(socket,read,write,deadline,M.awaiting_hello(state),decoder,bytes)
 
 def handshake_record(pipe: Pipe, state: M.State, result: Result<&2,&2,Error,R.Record>) -> IO(HandshakeWork):
   match result:

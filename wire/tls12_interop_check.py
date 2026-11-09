@@ -262,6 +262,7 @@ class Proxy:
         self.client_random = self.server_random = self.suite = None
         self.server_sequence = None
         self.client_sequence = None
+        self.pending = b''
         self.thread = threading.Thread(target=self.serve, daemon=True)
         self.thread.start()
 
@@ -366,8 +367,16 @@ class Proxy:
                             message, self.applied = edit_hello(message, case), True
                     if message[0] == 12 and case == 'tamper-ske':
                         message, self.applied = message[:-1] + bytes([message[-1] ^ 1]), True
+                    if message[0] == 2 and case == 'tls13-hello-coalesced':
+                        message, self.applied = message + b'\x08\x00\x00\x02\x00\x00', True
                     edited.append(message)
                 encoded = record(22, b''.join(edited))
+                if case == 'coalesced-flight':
+                    # ServerHello..ServerHelloDone in one record (RFC 5246 allows it).
+                    self.pending += b''.join(edited)
+                    if not any(message[0] == 14 for message in edited):
+                        continue
+                    encoded, self.pending, self.applied = record(22, self.pending), b'', True
             elif kind == 20:
                 self.server_sequence = 0
             elif self.server_sequence is not None:
@@ -501,6 +510,8 @@ def main():
             ('garbled-application', 0xCCA8, 'error:20:bad-record-mac'),
             ('truncated-record', 0xC02B, 'error:50:truncated'),
             ('hello-request', 0xC02B, 'error:100:renegotiation-refused'),
+            ('coalesced-flight', 0xC02B, f'ok:{0xC02B}:29:true:{PONG}'),
+            ('coalesced-flight', 0xCCA8, f'ok:{0xCCA8}:29:true:{PONG}'),
         ]
         for case, suite, expected in mutations:
             cipher, cert = SUITES[suite]
@@ -515,6 +526,15 @@ def main():
                 failures.append(dict(name=case, reason='mutation not applied'))
             if case == 'hello-request' and dict(client_alert=[1, 100]) not in proxy.events:
                 failures.append(dict(name=case, reason='no warning no_renegotiation alert observed', events=proxy.events))
+        # TLS 1.3 still requires the ServerHello to end its record.
+        keylog = directory / 'tls13-hello-coalesced.keylog'
+        with openssl_peer(directory, a.openssl, 'ecdsa', [], keylog) as (port, command):
+            proxy = Proxy(port, 'tls13-hello-coalesced', keylog)
+            line, result = client(a.command, directory, proxy.port)
+            proxy.thread.join(5)
+        record_case('openssl-proxy', 'tls13-hello-coalesced', 'error:10:epoch-boundary', line, result, dict(mutation_applied=proxy.applied))
+        if not proxy.applied:
+            failures.append(dict(name='tls13-hello-coalesced', reason='mutation not applied'))
     report = dict(cases=len(rows), failures=len(failures), elapsed_seconds=round(time.monotonic() - started, 1),
                   openssl=subprocess.run([a.openssl, 'version'], capture_output=True, text=True).stdout.strip(),
                   python_ssl=ssl.OPENSSL_VERSION, fixtures_sha256=hashes, rows=rows, failure_rows=failures)

@@ -430,6 +430,12 @@ def step(state: State, +message: List<&2,U32>) -> Action:
     case Hello{auth,transcript,private,public,random,group,retry_suite}: hello_step(L.hello(message),auth,transcript,private,public,random,group,retry_suite,message)
     case state: parsed(state,C.parse(message),message)
 
+# True while the first ServerHello (or the one after a retry) is awaited.
+def awaiting_hello(state: State) -> State & Bool:
+  match state:
+    case Hello{auth,transcript,private,public,random,group,retry_suite}: (Hello{auth,transcript,private,public,random,group,retry_suite},True{})
+    case state: (state,False{})
+
 # A received ChangeCipherSpec [1]: TLS 1.3 ignores it (compatibility mode),
 # TLS 1.2 installs the read epoch only after the client Finished was sent.
 def change_cipher_spec(state: State) -> Action:

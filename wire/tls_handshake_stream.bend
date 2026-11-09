@@ -94,6 +94,40 @@ def feed(owner: Decoder, +fragment: List<&2, U32>) -> Result<&2, &1, Error, Batc
         Bool.and(Nat.is_le(size, 16384n), Bool.and(Nat.is_le(admitted, limit()),
           Nat.is_le(size, Nat.sub(limit(), admitted)))), partial, Nat.add(admitted, size), fragment)
 
+# M7 client, while waiting for a ServerHello only: a TLS 1.2 server may put
+# its ServerHello in the same record as Certificate..ServerHelloDone (RFC 5246
+# has no key change there). The TLS 1.3 client still requires the record to
+# end after a ServerHello/HelloRetryRequest (its Install/Retry boundary
+# check); every other kind keeps the alignment rule of feed.
+def aligned_hello_kind(+kind: U32) -> Bool:
+  Bool.or(U32.is_eq(kind, 1), Bool.or(U32.is_eq(kind, 5), Bool.or(U32.is_eq(kind, 20), U32.is_eq(kind, 24))))
+
+def consume_hello(bytes: List<&2, U32>, state: Result<&2, &1, Error, Step>, reversed: List<&2, List<&2, U32>>, total: Nat) -> Result<&2, &1, Error, Batch>:
+  match bytes state:
+    case _ Fail{error}: Fail{error}
+    case Nil{} Done{Pending{partial}}:
+      Done{Batch{Decoder{partial, total}, List.reverse(&2, List<&2, U32>, reversed)}}
+    case Nil{} Done{Complete{_, message}}:
+      Done{Batch{Decoder{Header{[], 0n}, total}, List.reverse(&2, List<&2, U32>, Con{message, reversed})}}
+    case Con{byte, tail} Done{Pending{partial}}:
+      consume_hello(tail, step(byte, partial), reversed, total)
+    case Con{byte, tail} Done{Complete{kind, message}}:
+      consume_hello(tail, after_completed(aligned_hello_kind(kind), byte), Con{message, reversed}, total)
+
+def feed_hello_valid(valid: Bool, bounded: Bool, partial: Partial, total: Nat, fragment: List<&2, U32>) -> Result<&2, &1, Error, Batch>:
+  match valid bounded:
+    case False{} _: Fail{Invalid{}}
+    case True{} False{}: Fail{Overflow{}}
+    case True{} True{}: consume_hello(fragment, Done{Pending{partial}}, [], total)
+
+def feed_hello(owner: Decoder, +fragment: List<&2, U32>) -> Result<&2, &1, Error, Batch>:
+  match owner:
+    case Decoder{partial, +admitted}:
+      +size = B.length(fragment)
+      feed_hello_valid(Bool.and(B.valid(fragment), Nat.is_gt(size, 0n)),
+        Bool.and(Nat.is_le(size, 16384n), Bool.and(Nat.is_le(admitted, limit()),
+          Nat.is_le(size, Nat.sub(limit(), admitted)))), partial, Nat.add(admitted, size), fragment)
+
 # Before changing record type or keys, the handshake owner must require a
 # complete-message boundary. Failure consumes all pending state.
 def boundary(owner: Decoder) -> Maybe<&1, Decoder>:
