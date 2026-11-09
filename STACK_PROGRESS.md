@@ -4,6 +4,75 @@ Target: a native, browser-interoperable network stack with crypto, TLS/DTLS and 
 
 The full completion checklist and continuation order are in [STACK_PLAN.md](STACK_PLAN.md). Completed RTC milestones do not complete the five-layer stack.
 
+- 2026-11-09 (server timing review, STACK_PLAN Crypto timing item): this
+  review covers every secret operation of the native HTTPS server
+  (crypto/TIMING_REVIEW.md). It combines a source review, an assembly scan
+  that maps emitted C to arm64 (`crypto/timing/asm_lines.py`), and an
+  in-process dudect harness (`crypto/timing/`). The harness reads the
+  per-thread cycle and instruction counters via `thread_selfcounts` with
+  BENDRTS=`--threads 1`, and applies a Welch t-test (leak if |t| > 4.5).
+  - Leaks found and fixed:
+    - **RSA CRT product.** `product(q, h)` ran `bit_length(h)` limbs.
+      Since h = ⌊s/q⌋, this leaked q. Before the fix the component showed
+      t = 73.9 on cycles and −694 on instructions; after, 2.7 / −0.7.
+    - **Blinder admission `r < n`.** The comparison exited at the first
+      differing byte: t = 731 / −22,510 before, 1.4 / −1.2 after.
+    - **`bit_length` and the CRT exponent width** were also tied to secret
+      values.
+    - These fixes are in `3740ffc`. Outputs are bit-identical.
+    - **PEM import.** Each base64 digit branched on its character class.
+      Fixed in `5a14aa7`, where the digit is chosen by masks.
+  - Harness: `7b72bd7` and `b84bdc2`. The second copies inputs fresh so
+    that the class does not also choose a memory placement. Without it, the
+    first run produced spurious t of 5–16 for RSA, AES-256 and HMAC.
+    Review documentation: `0e72831` (TIMING_REVIEW.md, RUNTIME_REVIEW.md,
+    STACK_PLAN note).
+  - Results after the fixes, written as cycle |t| / instruction t:
+    - With DIT off:
+      - RSA-PSS-2048 sign: 1.7 / 0.9.
+      - ECDSA sign: 2.0 / 1.5.
+      - X25519: 0.2 / −0.5.
+      - AES-128/256-GCM seal: 2.0 / 3.6 (cycles only).
+      - ChaCha20-Poly1305 seal: 1.2.
+      - GCM and ChaCha open, tag compare: 2.2 and 2.6.
+      - HMAC: 3.9.
+      - Finished verify: 2.1.
+    - **P-256 d·G and ECDH, d=1 against random d:** 31.3 and 16.1 in run2,
+      and 19.2 and 9.0 in run1, with **identical instruction counts**.
+      With PSTATE.DIT set (`GROUNDS_TIMING_DIT=1`) the same tests gave 1.0
+      and 2.4. With DIT on, every kind stays below 4.5 except the positive
+      control.
+    - Controls: the empty operation gave ≤ 3.1. The positive control (a
+      loop of up to 15 iterations depending on a secret) gave 632 / −242.
+  - Inspecting the emitted code found no branch on a mask in any of the 56
+    masked-select lines. The only `b.eq` instructions come from the
+    array-handle caches and the yield poll. Instruction streams were the
+    same for both classes in every operation.
+  - **The STACK_PLAN timing box is not ticked.** What remains:
+    - (1) The Bend runtime runs without Arm DIT. New threads do not inherit
+      it on macOS, so it is an upstream runtime ask.
+    - Static RSA key widths: byte lengths of d, dp, dq and qi, and bit
+      lengths of p and q, through per-signature `validate`, plus the
+      startup DER checks.
+    - The RFC 6979 retry (about 2⁻³²).
+    - The TLS 1.3 padding scan.
+    - Not measured: RSA-3072/4096, the multi-threaded scheduler, and
+      Linux/x86.
+    - There is no formal machine-code constant-time verification.
+    - Erasure is a separate blocker.
+  - Fresh macwork gates at `0e72831`, on a clean tree with the unchanged
+    4096 MiB / 120 s guard:
+    - `crypto:check --force`: **1809/1809**, peak 919.6 MiB
+      (`credential_cli`), 1779 s.
+    - `wire:check --force`: **246/246**, peak 1202.1 MiB
+      (`m3b-bun/build/server`), 723 s.
+    - `http_server:check --force`: **53/53**, peak 1914.8 MiB
+      (`bend_browser_frontend_native`), 433 s.
+    - `http_client:check --force`: **50/50**, peak 1874.6 MiB
+      (`bend_frontend_native`), 435 s.
+  - Evidence is on macwork under `~/grounds-artifacts/2026-11-09/timing/`
+    (`run1/`, `run2/`, `run1/dit/`, `run1/prefix/`, `run1/asm/`, `gates/`).
+
 - 2026-11-09 (M7 review fix: one P2 finding): an independent GPT-6.1-Sol
   review of `d372c0a..b1d8901` found that TLS 1.2 record versions were
   neither validated nor authenticated: the record layer dropped the
