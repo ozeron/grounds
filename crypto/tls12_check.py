@@ -38,18 +38,18 @@ def prf(hash_name, secret, label, seed, length):
     return out[:length]
 
 
-def aad(sequence, kind, length):
-    return sequence.to_bytes(8, 'big') + bytes([kind, 3, 3]) + length.to_bytes(2, 'big')
+def aad(sequence, kind, length, version=0x0303):
+    return sequence.to_bytes(8, 'big') + bytes([kind]) + version.to_bytes(2, 'big') + length.to_bytes(2, 'big')
 
 
-def gcm(key, salt, sequence, kind, plaintext, explicit=None):
+def gcm(key, salt, sequence, kind, plaintext, explicit=None, version=0x0303):
     explicit = sequence.to_bytes(8, 'big') if explicit is None else explicit
-    return explicit + AESGCM(key).encrypt(salt + explicit, plaintext, aad(sequence, kind, len(plaintext)))
+    return explicit + AESGCM(key).encrypt(salt + explicit, plaintext, aad(sequence, kind, len(plaintext), version))
 
 
-def chacha(key, iv, sequence, kind, plaintext):
+def chacha(key, iv, sequence, kind, plaintext, version=0x0303):
     nonce = bytes(a ^ b for a, b in zip(iv, sequence.to_bytes(12, 'big')))
-    return ChaCha20Poly1305(key).encrypt(nonce, plaintext, aad(sequence, kind, len(plaintext)))
+    return ChaCha20Poly1305(key).encrypt(nonce, plaintext, aad(sequence, kind, len(plaintext), version))
 
 
 def main():
@@ -121,7 +121,7 @@ def main():
                             break
                         expected_seal.append(f'fragment:{f.hex()}')
                     run(f'{name}-seal-{kind}-{start}', ['seal', flag, str(start[0]), str(start[1]), str(kind), put(key), put(iv)] + [put(m) for m in messages], expected_seal)
-                    run(f'{name}-open-{kind}-{start}', ['open', flag, str(start[0]), str(start[1]), str(kind), put(key), put(iv)] + [put(f) for f in fragments],
+                    run(f'{name}-open-{kind}-{start}', ['open', flag, str(start[0]), str(start[1]), str(kind), '771', put(key), put(iv)] + [put(f) for f in fragments],
                         [f'plaintext:{m.hex()}' for m in messages])
             # Usage limits: AES-GCM shares the TLS 1.3 per-key record cap;
             # ChaCha20 stops at the 64-bit sequence boundary.
@@ -131,8 +131,8 @@ def main():
                 # Receivers apply no sending cap; the peer's explicit nonce is used as sent.
                 explicit = rng.randbytes(8)
                 foreign = gcm(key, iv, 5, 23, b'peer', explicit)
-                run(f'{name}-open-peer-explicit-nonce', ['open', flag, '0', '5', '23', put(key), put(iv), put(foreign)], ['plaintext:' + b'peer'.hex()])
-                run(f'{name}-open-past-cap', ['open', flag, '1', '0', '23', put(key), put(iv), put(gcm(key, iv, 1 << 32, 23, b'z'))], ['plaintext:' + b'z'.hex()])
+                run(f'{name}-open-peer-explicit-nonce', ['open', flag, '0', '5', '23', '771', put(key), put(iv), put(foreign)], ['plaintext:' + b'peer'.hex()])
+                run(f'{name}-open-past-cap', ['open', flag, '1', '0', '23', '771', put(key), put(iv), put(gcm(key, iv, 1 << 32, 23, b'z'))], ['plaintext:' + b'z'.hex()])
             else:
                 last = oracle(2**64 - 1, 23, b'x')
                 run(f'{name}-exhausted', ['seal', flag, '4294967295', '4294967295', '23', put(key), put(iv), put(b'x'), put(b'y')], [f'fragment:{last.hex()}', 'seal-error:exhausted'])
@@ -146,17 +146,27 @@ def main():
                 'short': good[:(23 if flag == '0' else 15)], 'empty': b'',
             }
             for reject, fragment in rejects.items():
-                run(f'{name}-open-reject-{reject}', ['open', flag, '0', '0', '23', put(key), put(iv), put(fragment)], ['open-error:authentication'])
-            run(f'{name}-open-wrong-type', ['open', flag, '0', '0', '22', put(key), put(iv), put(good)], ['open-error:authentication'])
-            run(f'{name}-open-wrong-sequence', ['open', flag, '0', '1', '23', put(key), put(iv), put(good)], ['open-error:authentication'])
-            run(f'{name}-open-after-failure', ['open', flag, '0', '0', '23', put(key), put(iv), put(bytes(tampered)), put(good)], ['open-error:authentication'])
-            run(f'{name}-open-oversized', ['open', flag, '0', '0', '23', put(key), put(iv), put(oracle(0, 23, bytes(16385)))], ['open-error:authentication'])
+                run(f'{name}-open-reject-{reject}', ['open', flag, '0', '0', '23', '771', put(key), put(iv), put(fragment)], ['open-error:authentication'])
+            # The received header version enters the additional data: a 0x0303
+            # record opened as another version fails, and a record sealed
+            # (by the oracle) under another version opens only as that version.
+            # The record layer refuses non-0x0303 before opening (wire checks).
+            for version in (0x0000, 0x0301, 0x0302, 0x0304, 0x0203, 0x0103):
+                run(f'{name}-open-version-{version:04x}', ['open', flag, '0', '0', '23', str(version), put(key), put(iv), put(good)], ['open-error:authentication'])
+                other = (chacha(key, iv, 0, 23, b'hello', version) if flag == '1' else gcm(key, iv, 0, 23, b'hello', version=version))
+                run(f'{name}-open-sealed-{version:04x}', ['open', flag, '0', '0', '23', str(version), put(key), put(iv), put(other)], ['plaintext:' + b'hello'.hex()])
+                run(f'{name}-open-sealed-{version:04x}-as-0303', ['open', flag, '0', '0', '23', '771', put(key), put(iv), put(other)], ['open-error:authentication'])
+            run(f'{name}-open-version-not-byte', ['open', flag, '0', '0', '23', str(0x10303), put(key), put(iv), put(good)], ['open-error:invalid'])
+            run(f'{name}-open-wrong-type', ['open', flag, '0', '0', '22', '771', put(key), put(iv), put(good)], ['open-error:authentication'])
+            run(f'{name}-open-wrong-sequence', ['open', flag, '0', '1', '23', '771', put(key), put(iv), put(good)], ['open-error:authentication'])
+            run(f'{name}-open-after-failure', ['open', flag, '0', '0', '23', '771', put(key), put(iv), put(bytes(tampered)), put(good)], ['open-error:authentication'])
+            run(f'{name}-open-oversized', ['open', flag, '0', '0', '23', '771', put(key), put(iv), put(oracle(0, 23, bytes(16385)))], ['open-error:authentication'])
             run(f'{name}-seal-oversized', ['seal', flag, '0', '0', '23', put(key), put(iv), put(bytes(16385))], ['seal-error:invalid'])
             run(f'{name}-seal-ccs-type', ['seal', flag, '0', '0', '20', put(key), put(iv), put(b'\x01')], ['seal-error:invalid'])
             run(f'{name}-key-valid', ['seal', flag, '0', '0', '23', put(key), put(iv)], ['key:valid'])
         for flag, key_size, iv_size in (('0', 24, 4), ('0', 16, 12), ('0', 32, 3), ('1', 16, 12), ('1', 32, 4), ('1', 33, 12)):
             run(f'key-invalid-{flag}-{key_size}-{iv_size}', ['seal', flag, '0', '0', '23', put(bytes(key_size)), put(bytes(iv_size))], ['key:invalid'])
-            run(f'read-key-invalid-{flag}-{key_size}-{iv_size}', ['open', flag, '0', '0', '23', put(bytes(key_size)), put(bytes(iv_size))], ['key:invalid'])
+            run(f'read-key-invalid-{flag}-{key_size}-{iv_size}', ['open', flag, '0', '0', '23', '771', put(bytes(key_size)), put(bytes(iv_size))], ['key:invalid'])
     report = dict(cases=len(rows), published_vectors=len(VECTORS), rows=rows)
     if a.report:
         a.report.parent.mkdir(parents=True, exist_ok=True)

@@ -68,7 +68,7 @@ def open_last(pair: T.ReadKey & Result<&2,&2,T.Error,List<&2,U32>>) -> IO(Unit):
     case Fail{why}: IO.print("open-error:" ++ error(why))
     case Done{plaintext}: IO.print("plaintext:" ++ B.hex(plaintext))
 
-def open_loop(values: List<&2,List<&2,U32>>, +kind: U32, pair: T.ReadKey & Result<&2,&2,T.Error,List<&2,U32>>) -> IO(Unit):
+def open_loop(values: List<&2,List<&2,U32>>, +kind: U32, +version: U32, pair: T.ReadKey & Result<&2,&2,T.Error,List<&2,U32>>) -> IO(Unit):
   match values:
     case Nil{}: open_last(pair)
     case Con{value,rest}:
@@ -78,7 +78,7 @@ def open_loop(values: List<&2,List<&2,U32>>, +kind: U32, pair: T.ReadKey & Resul
         case Done{plaintext}:
           do IO<Unit>:
             IO.print("plaintext:" ++ B.hex(plaintext))
-            open_loop(rest,kind,T.open12(owner,kind,value))
+            open_loop(rest,kind,version,T.open12(owner,kind,U32.shrn(version,8n),U32.and(version,255),value))
 
 def seal_owner(owner: Maybe<&1,T.WriteKey>, +kind: U32, values: List<&2,List<&2,U32>>) -> IO(Unit):
   match owner values:
@@ -86,11 +86,11 @@ def seal_owner(owner: Maybe<&1,T.WriteKey>, +kind: U32, values: List<&2,List<&2,
     case Some{_} Nil{}: IO.print("key:valid")
     case Some{owner} Con{value,rest}: seal_loop(rest,kind,T.seal12(owner,kind,value))
 
-def open_owner(owner: Maybe<&1,T.ReadKey>, +kind: U32, values: List<&2,List<&2,U32>>) -> IO(Unit):
+def open_owner(owner: Maybe<&1,T.ReadKey>, +kind: U32, +version: U32, values: List<&2,List<&2,U32>>) -> IO(Unit):
   match owner values:
     case None{} _: IO.print("key:invalid")
     case Some{_} Nil{}: IO.print("key:valid")
-    case Some{owner} Con{value,rest}: open_loop(rest,kind,T.open12(owner,kind,value))
+    case Some{owner} Con{value,rest}: open_loop(rest,kind,version,T.open12(owner,kind,U32.shrn(version,8n),U32.and(version,255),value))
 
 def read_files(paths: List<String>) -> IO(List<&2,List<&2,U32>>):
   match paths:
@@ -123,9 +123,9 @@ def protect_seal(chacha: String, high: String, low: String, kind: String, values
     case Con{key,Con{iv,records}}: seal_owner(seed_write(T.new12_write(String.eq(chacha,"1"),key,iv),number(high),number(low)),number(kind),records)
     case _: IO.print("usage")
 
-def protect_open(chacha: String, high: String, low: String, kind: String, values: List<&2,List<&2,U32>>) -> IO(Unit):
+def protect_open(chacha: String, high: String, low: String, kind: String, version: String, values: List<&2,List<&2,U32>>) -> IO(Unit):
   match values:
-    case Con{key,Con{iv,records}}: open_owner(seed_read(T.new12_read(String.eq(chacha,"1"),key,iv),number(high),number(low)),number(kind),records)
+    case Con{key,Con{iv,records}}: open_owner(seed_read(T.new12_read(String.eq(chacha,"1"),key,iv),number(high),number(low)),number(kind),number(version),records)
     case _: IO.print("usage")
 
 def derive.go(three: Bool, values: List<&2,List<&2,U32>>, hash: String, length: String, mode: String) -> IO(Unit):
@@ -138,16 +138,18 @@ def derive(values: List<&2,List<&2,U32>>, hash: String, length: String, +mode: S
 
 # derive prf|keys hash length secret|master label|server seed|client
 # derive master|client|server hash _ pms|master hash
-# seal|open chacha(0|1) high low kind key iv records...
+# seal chacha(0|1) high low kind key iv records...
+# open chacha(0|1) high low kind version key iv records... (version: the
+# received header version as one decimal 16-bit value, e.g. 771 = 0x0303)
 def dispatch(args: List<String>) -> IO(Unit):
   match args:
     case Con{"derive",Con{mode,Con{hash,Con{length,paths}}}}:
       IO.bind(List<&2,List<&2,U32>>,Unit,read_files(paths),values => derive(values,hash,length,mode))
     case Con{"seal",Con{chacha,Con{high,Con{low,Con{kind,paths}}}}}:
       IO.bind(List<&2,List<&2,U32>>,Unit,read_files(paths),values => protect_seal(chacha,high,low,kind,values))
-    case Con{"open",Con{chacha,Con{high,Con{low,Con{kind,paths}}}}}:
-      IO.bind(List<&2,List<&2,U32>>,Unit,read_files(paths),values => protect_open(chacha,high,low,kind,values))
-    case _: IO.die(Unit,2,"usage: derive MODE 256|384 LENGTH FILES... | seal|open 0|1 HIGH LOW KIND KEY IV RECORDS...")
+    case Con{"open",Con{chacha,Con{high,Con{low,Con{kind,Con{version,paths}}}}}}:
+      IO.bind(List<&2,List<&2,U32>>,Unit,read_files(paths),values => protect_open(chacha,high,low,kind,version,values))
+    case _: IO.die(Unit,2,"usage: derive MODE 256|384 LENGTH FILES... | seal 0|1 HIGH LOW KIND KEY IV RECORDS... | open 0|1 HIGH LOW KIND VERSION KEY IV RECORDS...")
 
 def main() -> IO(Unit):
   do IO<Unit>:

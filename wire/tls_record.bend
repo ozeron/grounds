@@ -13,6 +13,8 @@ type Error is Data:
   Incomplete{}
   Unexpected{}
   Crypto{error: T.Error}
+  # TLS 1.2 only: a protected record whose header version is not 0x0303.
+  Version{}
 
 type Record is Data:
   Record{kind: U32, content: List<&2, U32>, padding: Nat}
@@ -231,11 +233,21 @@ def open12.result(+kind: U32, pair: T.ReadKey & Result<&2, &2, T.Error, List<&2,
     case Done{+plaintext}:
       open12.content(Nat.is_le(B.length(plaintext), 16384n), owner, kind, plaintext)
 
-# One complete record: the received 5-byte header and its fragment.
+def open12.version(ok: Bool, owner: T.ReadKey, +kind: U32, +major: U32, +minor: U32, fragment: List<&2, U32>) -> T.ReadKey & Result<&2, &2, Error, Record>:
+  match ok:
+    case False{}:
+      (T.close_read(owner), Fail{Version{}})
+    case True{}:
+      open12.result(kind, T.open12(owner, kind, major, minor, fragment))
+
+# One complete record: the received 5-byte header and its fragment. TLS 1.2
+# fixes the record version at 0x0303 after ServerHello (TLS_PROFILE.md); any
+# other value is refused before opening. The received version bytes are
+# also the ones authenticated in the additional data (crypto/traffic open12).
 def open12(owner: T.ReadKey, header: List<&2, U32>, fragment: List<&2, U32>) -> T.ReadKey & Result<&2, &2, Error, Record>:
   match header:
-    case [+kind, _, _, _, _]:
-      open12.result(kind, T.open12(owner, kind, fragment))
+    case [+kind, +major, +minor, _, _]:
+      open12.version(Bool.and(U32.is_eq(major, 3), U32.is_eq(minor, 3)), owner, kind, major, minor, fragment)
     case _:
       (T.close_read(owner), Fail{Invalid{}})
 

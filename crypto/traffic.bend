@@ -379,7 +379,10 @@ def close_read(owner: ReadKey) -> ReadKey:
 
 # ---- TLS 1.2 AEAD record protection (M7 client) ----
 # RFC 5246 6.2.3.3: additional_data = seq_num || type || version || length,
-# with version 0x0303 and length of the plaintext. AES-GCM (RFC 5288 3):
+# with the length of the plaintext. Senders write version 0x0303; receivers
+# authenticate the version bytes of the received header (open12), so an
+# on-path edit of the header version fails the tag. The record layer also
+# requires 0x0303 before opening (wire/tls_record open12). AES-GCM (RFC 5288 3):
 # nonce = salt(4) || nonce_explicit(8); the sender's explicit nonce is the
 # 64-bit sequence number and travels in front of the ciphertext; a receiver
 # uses the explicit nonce it received. ChaCha20-Poly1305 (RFC 7905 2):
@@ -403,6 +406,10 @@ def sequence12(+high: U32, +low: U32) -> List<&2, U32>:
 
 def aad12(+high: U32, +low: U32, +kind: U32, +length: Nat) -> List<&2, U32>:
   B.append(sequence12(high, low), [kind, 3, 3, U32.from_nat(Nat.div(length, 256n)), U32.from_nat(Nat.mod(length, 256n))])
+
+# prefix is the received type || version (3 bytes of the record header).
+def aad12.received(+high: U32, +low: U32, prefix: List<&2, U32>, +length: Nat) -> List<&2, U32>:
+  B.append(sequence12(high, low), B.append(prefix, [U32.from_nat(Nat.div(length, 256n)), U32.from_nat(Nat.mod(length, 256n))]))
 
 def kind12(+kind: U32) -> Bool:
   Bool.or(U32.is_eq(kind, 21), Bool.or(U32.is_eq(kind, 22), U32.is_eq(kind, 23)))
@@ -524,61 +531,62 @@ def open12.result(epoch: Epoch, result: Maybe<&2, List<&2, U32>>) -> Epoch & Res
     case None{}:
       (Gone{}, Fail{Authentication{}})
 
-def open12.gcm_tag(+key: List<&2, U32>, +salt: List<&2, U32>, +high: U32, +low: U32, +kind: U32, explicit: List<&2, U32>, parts: Halves) -> Epoch & Result<&2, &2, Error, List<&2, U32>>:
+def open12.gcm_tag(+key: List<&2, U32>, +salt: List<&2, U32>, +high: U32, +low: U32, prefix: List<&2, U32>, explicit: List<&2, U32>, parts: Halves) -> Epoch & Result<&2, &2, Error, List<&2, U32>>:
   match parts:
     case Halves{+ciphertext, tag}:
       open12.result(Aes12Ready{key, salt, next(Counter{high, low})},
-        G.open(key, B.append(salt, explicit), aad12(high, low, kind, B.length(ciphertext)), ciphertext, tag))
+        G.open(key, B.append(salt, explicit), aad12.received(high, low, prefix, B.length(ciphertext)), ciphertext, tag))
 
-def open12.gcm(+key: List<&2, U32>, +salt: List<&2, U32>, +high: U32, +low: U32, +kind: U32, +length: Nat, parts: Halves) -> Epoch & Result<&2, &2, Error, List<&2, U32>>:
+def open12.gcm(+key: List<&2, U32>, +salt: List<&2, U32>, +high: U32, +low: U32, prefix: List<&2, U32>, +length: Nat, parts: Halves) -> Epoch & Result<&2, &2, Error, List<&2, U32>>:
   match parts:
     case Halves{explicit, body}:
-      open12.gcm_tag(key, salt, high, low, kind, explicit, halves(Nat.sub(length, 24n), body, []))
+      open12.gcm_tag(key, salt, high, low, prefix, explicit, halves(Nat.sub(length, 24n), body, []))
 
-def open12.chacha(+key: List<&2, U32>, +iv: List<&2, U32>, +high: U32, +low: U32, +kind: U32, parts: Halves) -> Epoch & Result<&2, &2, Error, List<&2, U32>>:
+def open12.chacha(+key: List<&2, U32>, +iv: List<&2, U32>, +high: U32, +low: U32, prefix: List<&2, U32>, parts: Halves) -> Epoch & Result<&2, &2, Error, List<&2, U32>>:
   match parts:
     case Halves{+ciphertext, tag}:
       open12.result(Chacha12Ready{key, iv, next(Counter{high, low})},
-        A.open(key, nonce(iv, high, low), aad12(high, low, kind, B.length(ciphertext)), ciphertext, tag))
+        A.open(key, nonce(iv, high, low), aad12.received(high, low, prefix, B.length(ciphertext)), ciphertext, tag))
 
-def open12.gcm_sized(valid: Bool, key: List<&2, U32>, salt: List<&2, U32>, high: U32, low: U32, kind: U32, +length: Nat, fragment: List<&2, U32>) -> Epoch & Result<&2, &2, Error, List<&2, U32>>:
+def open12.gcm_sized(valid: Bool, key: List<&2, U32>, salt: List<&2, U32>, high: U32, low: U32, prefix: List<&2, U32>, +length: Nat, fragment: List<&2, U32>) -> Epoch & Result<&2, &2, Error, List<&2, U32>>:
   match valid:
     case False{}:
       (Gone{}, Fail{Authentication{}})
     case True{}:
-      open12.gcm(key, salt, high, low, kind, length, halves(8n, fragment, []))
+      open12.gcm(key, salt, high, low, prefix, length, halves(8n, fragment, []))
 
-def open12.chacha_sized(valid: Bool, key: List<&2, U32>, iv: List<&2, U32>, high: U32, low: U32, kind: U32, +length: Nat, fragment: List<&2, U32>) -> Epoch & Result<&2, &2, Error, List<&2, U32>>:
+def open12.chacha_sized(valid: Bool, key: List<&2, U32>, iv: List<&2, U32>, high: U32, low: U32, prefix: List<&2, U32>, +length: Nat, fragment: List<&2, U32>) -> Epoch & Result<&2, &2, Error, List<&2, U32>>:
   match valid:
     case False{}:
       (Gone{}, Fail{Authentication{}})
     case True{}:
-      open12.chacha(key, iv, high, low, kind, halves(Nat.sub(length, 16n), fragment, []))
+      open12.chacha(key, iv, high, low, prefix, halves(Nat.sub(length, 16n), fragment, []))
 
 # Fragments are bounded by the plaintext limit plus the suite expansion
 # (24 bytes for GCM, 16 for ChaCha20-Poly1305).
-def open12.epoch(epoch: Epoch, kind: U32, +fragment: List<&2, U32>) -> Epoch & Result<&2, &2, Error, List<&2, U32>>:
+def open12.epoch(epoch: Epoch, prefix: List<&2, U32>, +fragment: List<&2, U32>) -> Epoch & Result<&2, &2, Error, List<&2, U32>>:
   match epoch:
     case Aes12Ready{_, _, Spent{}}:
       (Gone{}, Fail{Exhausted{}})
     case Aes12Ready{key, salt, Counter{high, low}}:
-      open12.gcm_sized(Bool.and(Nat.is_ge(B.length(fragment), 24n), Nat.is_le(B.length(fragment), 16408n)), key, salt, high, low, kind, B.length(fragment), fragment)
+      open12.gcm_sized(Bool.and(Nat.is_ge(B.length(fragment), 24n), Nat.is_le(B.length(fragment), 16408n)), key, salt, high, low, prefix, B.length(fragment), fragment)
     case Chacha12Ready{_, _, Spent{}}:
       (Gone{}, Fail{Exhausted{}})
     case Chacha12Ready{key, iv, Counter{high, low}}:
-      open12.chacha_sized(Bool.and(Nat.is_ge(B.length(fragment), 16n), Nat.is_le(B.length(fragment), 16400n)), key, iv, high, low, kind, B.length(fragment), fragment)
+      open12.chacha_sized(Bool.and(Nat.is_ge(B.length(fragment), 16n), Nat.is_le(B.length(fragment), 16400n)), key, iv, high, low, prefix, B.length(fragment), fragment)
     case _:
       (Gone{}, Fail{Invalid{}})
 
-def open12.checked(valid: Bool, owner: ReadKey, kind: U32, fragment: List<&2, U32>) -> ReadKey & Result<&2, &2, Error, List<&2, U32>>:
+def open12.checked(valid: Bool, owner: ReadKey, prefix: List<&2, U32>, fragment: List<&2, U32>) -> ReadKey & Result<&2, &2, Error, List<&2, U32>>:
   match valid owner:
     case False{} ReadKey{_}:
       (ReadKey{Gone{}}, Fail{Invalid{}})
     case True{} ReadKey{epoch}:
-      open.owner(open12.epoch(epoch, kind, fragment))
+      open.owner(open12.epoch(epoch, prefix, fragment))
 
-# Opens one TLSCiphertext fragment of the given outer content type. The
-# whole tag is checked before any plaintext is released; the record layer
-# owns the plaintext length limit and content-type grammar.
-def open12(owner: ReadKey, +kind: U32, +fragment: List<&2, U32>) -> ReadKey & Result<&2, &2, Error, List<&2, U32>>:
-  open12.checked(Bool.and(kind12(kind), B.valid(fragment)), owner, kind, fragment)
+# Opens one TLSCiphertext fragment of the given outer content type and the
+# received header version (major, minor), which enters the additional data.
+# The whole tag is checked before any plaintext is released; the record layer
+# owns the version rule, plaintext length limit and content-type grammar.
+def open12(owner: ReadKey, +kind: U32, +major: U32, +minor: U32, +fragment: List<&2, U32>) -> ReadKey & Result<&2, &2, Error, List<&2, U32>>:
+  open12.checked(Bool.and(kind12(kind), Bool.and(B.valid([major, minor]), B.valid(fragment))), owner, [kind, major, minor], fragment)

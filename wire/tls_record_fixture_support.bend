@@ -12,6 +12,7 @@ def error(error: R.Error) -> String:
     case R.Overflow{}: "overflow"
     case R.Incomplete{}: "incomplete"
     case R.Unexpected{}: "unexpected"
+    case R.Version{}: "version"
     case R.Crypto{why}: String.append("crypto-", D.error(why))
 
 def emitted(result: Result<&2, &2, R.Error, List<&2, U32>>) -> IO(Unit):
