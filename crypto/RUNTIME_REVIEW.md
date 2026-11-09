@@ -318,3 +318,39 @@ runtime or allocator are not scrubbed; generated native/JIT timing is not
 proven. Signature verification of ServerKeyExchange is public-key only.
 Synthetic peers and opt-in public servers were used for evidence; this does
 not approve production secret use.
+
+## Server timing review (2026-11-09)
+
+[TIMING_REVIEW.md](TIMING_REVIEW.md) supersedes this file's timing
+dispositions for the native server. It is based on per-thread
+cycle/instruction dudect runs, a scan of the arm64 code generated from the
+emitted C, and a source review.
+
+New findings:
+
+- **RSA CRT product leaked q.** The signer's CRT product `product(q, h)`
+  took its loop count from `bit_length(h)`, and h = ⌊s/q⌋, so it leaked q.
+  Fixed in 3740ffc.
+- **`less` exited early.** The equal-width `less` (blinder admission, key
+  ranges) stopped at the first differing byte. Fixed in 3740ffc.
+- **PEM base64 digits branched** on the character class. Fixed in 5a14aa7.
+- **Validation runs on every signature, not once.** `rsa_private.sign_digest`
+  re-runs `validate` on each signature, even though `tls_config`'s Prepared
+  owner validates once before listen. With the fixes, that per-signature
+  validation exposes only byte widths and the bit lengths of the factors.
+
+The RSA rows above now read:
+
+- **Private exponent bit:** "fixed", with no residual value-dependent loop
+  counts.
+- **Private arithmetic/admission:** now limited to factor and exponent
+  widths.
+
+The rows still restricted to synthetic keys keep that status because the
+Bend runtime does not set Arm DIT. With DIT off, the M4 Pro showed
+data-dependent cycle differences in P-256 scalar multiplication on identical
+instruction streams (d=1 vs random, t=16–31 over two fresh-input runs).
+With DIT set on the measuring thread, the difference disappeared. The "Native optimization, allocator and
+Bun JIT" row therefore names its native remedy: the runtime must set DIT on
+every thread (upstream ask 1 in TIMING_REVIEW.md). The physical-erasure
+blocker is unchanged.

@@ -52,6 +52,12 @@ All boxes require current, inspectable implementation and verification evidence.
 - [ ] Review generated-code timing behavior and secret-dependent control/memory
   operations. Record evidence and resolve findings before live-secret use;
   passing vectors or timing samples alone do not prove constant-time execution.
+  2026-11-09: server review done (crypto/TIMING_REVIEW.md). The RSA
+  source/emitted-code findings are fixed. Still open: the Bend runtime runs
+  without Arm DIT. With DIT off, P-256 scalar multiplication showed
+  data-dependent cycle timing on M4 Pro, and with DIT on it did not
+  (upstream ask). The RSA static key widths, the RFC 6979 retry and the
+  padding scan are dispositioned in that file.
 - [ ] Integrate Bend cryptography into cookie signing and the new secure stack;
   verify these paths do not silently invoke OpenSSL cryptography.
 

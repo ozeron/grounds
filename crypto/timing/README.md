@@ -6,8 +6,9 @@ measured (it is synthetic-only). Every key here is synthetic.
 `timing_cli.bend` runs one server secret operation in a loop, in-process. Each
 iteration picks class 0 or class 1 at random. Class 0 is a fixed or special
 secret; class 1 is a random secret. The public inputs are the same for both.
-The harness prepares the input first, then reads the per-thread instruction
-and cycle counters (`effs/clock.c`). The operation runs inside the
+The harness prepares the input and copies every list fresh, so the class
+does not also pick a memory placement. Only then does it read the per-thread
+instruction and cycle counters (`effs/clock.c`). The operation runs inside the
 continuation of the first read, and its result feeds the second read. Each
 iteration prints one line, `class cycles instructions result`.
 
