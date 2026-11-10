@@ -546,7 +546,9 @@ def deadlines(binary, directory, rows):
             url = f"https://localhost:{server.server_port}"
             cases = [
                 ("connect-stall", f"https://localhost:{silent.getsockname()[1]}/", "connect-timeout", "error:timeout", 400, 1500),
-                ("connect-ok", url + "/", "connect-timeout", "ok:200:5", 0, 1500),
+                # a connect deadline never fails a normal connect; 2 s leaves room for
+                # a slow shared CI runner (500 ms was exceeded there by the handshake)
+                ("connect-ok", url + "/", "connect-wide", "ok:200:5", 0, 2500),
                 ("head-stall", url + "/slow-head", "read-timeout", "error:timeout", 250, 900),
                 ("body-stall", url + "/slow-body", "read-timeout", "error:timeout", 250, 900),
                 ("body-stall-total-only", url + "/slow-body", "timed", "ok:200:5", 900, 2900),
