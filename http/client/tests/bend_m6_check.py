@@ -622,9 +622,10 @@ def stream(binary, directory, rows):
                 assert n > 0 and adler(BODY[offset:offset + n]) == (int(x), int(y)), (path, offset, line)
                 offset += n
             assert offset == len(BODY), (path, offset)
-            # streamed, never held: the client grows by less than the body
-            # itself over a 5-byte GET (held, it takes about 100 MiB)
-            assert rss - base_rss < len(BODY), (path, rss, base_rss)
+            # streamed, never held: held, the 4 MiB body takes about 100 MiB
+            # over a 5-byte GET; streamed it grows by a few MiB (about 4.4 MB on
+            # Linux CI, allocator and page granularity), so bound at 4x the body
+            assert rss - base_rss < 4 * len(BODY), (path, rss, base_rss)
             rows.append(dict(name=path + ":stream", pieces=len(output) - 1, bytes=offset, max_rss_bytes=rss,
                              baseline_rss_bytes=base_rss, elapsed_seconds=elapsed))
             print(path, "stream passed", len(output) - 1, "pieces", rss // 1048576, "MiB", flush=True)
