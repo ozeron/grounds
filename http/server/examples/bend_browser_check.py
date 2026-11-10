@@ -14,6 +14,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import signal
 import socket
 import sqlite3
 import ssl
@@ -110,6 +111,22 @@ def chrome_binary():
     return value
 
 
+def stop_group(pgid):
+    """Kill any Chrome helpers left in the browser's process group and wait
+    until none remain, so the profile directory can be removed."""
+    try:
+        os.killpg(pgid, signal.SIGKILL)
+    except (ProcessLookupError, PermissionError):
+        return
+    deadline = time.monotonic() + 5
+    while time.monotonic() < deadline:
+        try:
+            os.killpg(pgid, 0)
+        except (ProcessLookupError, PermissionError):
+            return
+        time.sleep(.05)
+
+
 @contextmanager
 def chrome(binary, der, report, rules='MAP mismatch.test 127.0.0.1'):
     with tempfile.TemporaryDirectory(prefix='grounds-chrome-verified-') as td:
@@ -121,7 +138,10 @@ def chrome(binary, der, report, rules='MAP mismatch.test 127.0.0.1'):
                  '--host-resolver-rules=' + rules, 'about:blank']
         report['chrome_flags'].append(flags)
         with (directory / 'stderr').open('w+') as log:
-            process = subprocess.Popen([binary, *flags], stdout=subprocess.DEVNULL, stderr=log)
+            # own process group: Chrome's helpers outlive the browser process and
+            # keep writing to the profile, so the whole group is stopped below
+            process = subprocess.Popen([binary, *flags], stdout=subprocess.DEVNULL, stderr=log,
+                                       start_new_session=True)
             cdp = None
             try:
                 active = directory / 'DevToolsActivePort'
@@ -148,6 +168,7 @@ def chrome(binary, der, report, rules='MAP mismatch.test 127.0.0.1'):
                 except subprocess.TimeoutExpired:
                     process.kill()
                     process.wait(3)
+                stop_group(process.pid)
                 report.setdefault('chrome_cleanup', []).append(dict(pid=process.pid, reaped=process.poll() is not None,
                     profile_removed_on_exit=True))
 
