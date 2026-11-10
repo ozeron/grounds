@@ -475,6 +475,12 @@ class Proxy:
                 elif kind == 23 and case == 'truncated-record':
                     self.emit(encoded[:7])
                     self.applied = True
+                    # EOF now: serve() would otherwise wait up to 5 s for the
+                    # other direction before closing, past the client deadline
+                    try:
+                        self.client.shutdown(socket.SHUT_WR)
+                    except OSError:
+                        pass
                     return
             self.emit(encoded)
 
