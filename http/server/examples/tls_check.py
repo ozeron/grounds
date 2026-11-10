@@ -1,5 +1,6 @@
 """End-to-end checks for the TLS and redirect examples."""
 
+import re
 import contextlib
 import os
 from pathlib import Path
@@ -128,7 +129,8 @@ def main():
             assert forged.returncode == 0 and forged.stdout == "secure\n", forged
             reused = curl("--cacert", str(cert), "-v", url, url)
             assert reused.returncode == 0 and reused.stdout == "secure\nsecure\n", reused
-            assert "Re-using existing connection" in reused.stderr, reused.stderr
+            # curl 8.x prints "Reusing existing https: connection", older "Re-using existing connection"
+            assert re.search(r"Re-?using existing (\w+: )?connection", reused.stderr), reused.stderr
             assert curl("https://localhost:8088/").returncode != 0
             assert curl("--cacert", str(cert), "https://127.0.0.1:8088/").returncode != 0
             assert curl("http://localhost:8088/").returncode != 0
